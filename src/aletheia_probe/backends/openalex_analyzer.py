@@ -1,0 +1,453 @@
+"""OpenAlex backend with pattern analysis for predatory journal detection."""
+
+import time
+from datetime import datetime
+from typing import Any
+
+from ..constants import (
+    CITATION_RATIO_SUSPICIOUS,
+    GROWTH_RATE_THRESHOLD,
+    MAX_AUTHOR_DIVERSITY,
+    MIN_PUBLICATION_VOLUME,
+)
+from ..logging_config import get_detail_logger
+from ..models import BackendResult, BackendStatus, QueryInput
+from ..openalex import OpenAlexClient
+from .base import HybridBackend, get_backend_registry
+
+
+class OpenAlexAnalyzerBackend(HybridBackend):
+    """Backend that analyzes OpenAlex data patterns to assess journal legitimacy."""
+
+    def __init__(
+        self, email: str = "noreply.aletheia-probe.org", cache_ttl_hours: int = 24
+    ):
+        """Initialize OpenAlex analyzer backend.
+
+        Args:
+            email: Email for OpenAlex polite pool access
+            cache_ttl_hours: Cache TTL in hours
+        """
+        super().__init__(cache_ttl_hours)
+        self.email = email
+        self.detail_logger = get_detail_logger()
+
+    def get_name(self) -> str:
+        """Return backend name."""
+        return "OpenAlex Analyzer"
+
+    def get_description(self) -> str:
+        """Return backend description."""
+        return "Analyzes publication patterns and citation metrics from OpenAlex to detect predatory journals"
+
+    async def _query_api(self, query_input: QueryInput) -> BackendResult:
+        """Query OpenAlex API and analyze patterns."""
+        start_time = time.time()
+        self.detail_logger.info(
+            f"OpenAlex: Starting query for '{query_input.raw_input}'"
+        )
+
+        try:
+            async with OpenAlexClient(email=self.email) as client:
+                # Get journal data from OpenAlex
+                issn = query_input.identifiers.get("issn")
+                eissn = query_input.identifiers.get("eissn")
+                journal_name = query_input.normalized_name or query_input.raw_input
+
+                openalex_data = await client.enrich_journal_data(
+                    journal_name=journal_name, issn=issn, eissn=eissn
+                )
+
+                response_time = time.time() - start_time
+
+                if not openalex_data:
+                    # Not found in OpenAlex
+                    return BackendResult(
+                        backend_name=self.get_name(),
+                        status=BackendStatus.NOT_FOUND,
+                        confidence=0.0,
+                        assessment=None,
+                        data={
+                            "searched_for": journal_name,
+                            "issn": issn,
+                            "eissn": eissn,
+                        },
+                        sources=["https://api.openalex.org"],
+                        error_message=None,
+                        response_time=response_time,
+                    )
+
+                # Analyze patterns in the data
+                analysis = self._analyze_journal_patterns(openalex_data)
+
+                return BackendResult(
+                    backend_name=self.get_name(),
+                    status=BackendStatus.FOUND,
+                    confidence=analysis["confidence"],
+                    assessment=analysis["assessment"],
+                    data={
+                        "openalex_data": openalex_data,
+                        "analysis": analysis,
+                        "metrics": analysis["metrics"],
+                        "red_flags": analysis["red_flags"],
+                        "green_flags": analysis["green_flags"],
+                    },
+                    sources=[
+                        "https://api.openalex.org",
+                        openalex_data.get("openalex_url", ""),
+                    ],
+                    error_message=None,
+                    response_time=response_time,
+                )
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            return BackendResult(
+                backend_name=self.get_name(),
+                status=BackendStatus.ERROR,
+                confidence=0.0,
+                assessment=None,
+                error_message=str(e),
+                response_time=response_time,
+            )
+
+    def _analyze_journal_patterns(
+        self, openalex_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Analyze publication patterns to detect predatory characteristics.
+
+        Args:
+            openalex_data: Raw data from OpenAlex
+
+        Returns:
+            Analysis dictionary with assessment, confidence, and flags
+        """
+        # Calculate metrics from raw data
+        metrics = self._calculate_journal_metrics(openalex_data)
+
+        # Check for green flags (legitimacy indicators)
+        green_flags = self._check_green_flags(metrics)
+
+        # Check for red flags (predatory indicators)
+        red_flags = self._check_red_flags(metrics)
+
+        # Determine final assessment and confidence
+        assessment, confidence = self._determine_assessment(
+            red_flags, green_flags, metrics
+        )
+
+        return {
+            "assessment": assessment,
+            "confidence": confidence,
+            "metrics": metrics,
+            "red_flags": red_flags,
+            "green_flags": green_flags,
+            "reasoning": self._generate_reasoning(red_flags, green_flags, metrics),
+        }
+
+    def _calculate_journal_metrics(
+        self, openalex_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Calculate derived metrics from OpenAlex data.
+
+        Args:
+            openalex_data: Raw data from OpenAlex
+
+        Returns:
+            Dictionary of calculated metrics
+        """
+        # Extract key metrics
+        total_publications = openalex_data.get("total_publications", 0)
+        total_citations = openalex_data.get("cited_by_count", 0)
+        first_year = openalex_data.get("first_publication_year")
+        last_year = openalex_data.get("last_publication_year")
+        recent_publications = openalex_data.get("recent_publications", 0)
+        is_in_doaj = openalex_data.get("is_in_doaj", False)
+
+        current_year = datetime.now().year
+
+        # Calculate derived metrics
+        years_active = (
+            max(1, (last_year or current_year) - (first_year or current_year) + 1)
+            if first_year
+            else 1
+        )
+        publication_rate_per_year = (
+            total_publications / years_active if years_active > 0 else 0
+        )
+        citation_ratio = (
+            total_citations / total_publications if total_publications > 0 else 0
+        )
+
+        # Recent activity assessment (last 5 years)
+        recent_years = 5
+        recent_rate_per_year = (
+            recent_publications / recent_years if recent_years > 0 else 0
+        )
+
+        return {
+            "total_publications": total_publications,
+            "total_citations": total_citations,
+            "years_active": years_active,
+            "publication_rate_per_year": publication_rate_per_year,
+            "citation_ratio": citation_ratio,
+            "recent_publications": recent_publications,
+            "recent_rate_per_year": recent_rate_per_year,
+            "first_year": first_year,
+            "last_year": last_year,
+            "is_in_doaj": is_in_doaj,
+            "current_year": current_year,
+        }
+
+    def _check_green_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for green flags (indicators of journal legitimacy).
+
+        Args:
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            List of green flag descriptions
+        """
+        green_flags = []
+
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        publication_rate_per_year = metrics["publication_rate_per_year"]
+        is_in_doaj = metrics["is_in_doaj"]
+        recent_publications = metrics["recent_publications"]
+        last_year = metrics["last_year"]
+        current_year = metrics["current_year"]
+
+        # Strong citation ratio suggests quality content
+        if citation_ratio >= CITATION_RATIO_SUSPICIOUS:
+            green_flags.append(
+                f"High citation ratio: {citation_ratio:.1f} citations per paper"
+            )
+        elif citation_ratio >= 3:
+            green_flags.append(
+                f"Good citation ratio: {citation_ratio:.1f} citations per paper"
+            )
+
+        # Established journal with long publication history
+        if years_active >= 20 and total_publications >= 1000:
+            green_flags.append(
+                f"Well-established journal: {years_active} years active with {total_publications} papers"
+            )
+        elif years_active >= 10 and total_publications >= 500:
+            green_flags.append(
+                f"Established journal: {years_active} years active with {total_publications} papers"
+            )
+
+        # Realistic publication rate for established journals
+        if 20 <= publication_rate_per_year <= 500:
+            green_flags.append(
+                f"Realistic publication rate: {publication_rate_per_year:.0f} papers/year"
+            )
+
+        # Listed in DOAJ (already verified elsewhere, but supports legitimacy)
+        if is_in_doaj:
+            green_flags.append("Listed in Directory of Open Access Journals (DOAJ)")
+
+        # Consistent recent activity
+        if recent_publications > 0 and last_year and last_year >= current_year - 2:
+            green_flags.append(
+                f"Recently active: {recent_publications} papers in last 5 years"
+            )
+
+        return green_flags
+
+    def _check_red_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for red flags (indicators of predatory behavior).
+
+        Args:
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            List of red flag descriptions
+        """
+        red_flags = []
+
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        publication_rate_per_year = metrics["publication_rate_per_year"]
+        recent_publications = metrics["recent_publications"]
+        recent_rate_per_year = metrics["recent_rate_per_year"]
+        last_year = metrics["last_year"]
+        current_year = metrics["current_year"]
+
+        # Publication mill pattern - extremely high volume
+        if publication_rate_per_year > 1000:
+            red_flags.append(
+                f"Publication mill pattern: {publication_rate_per_year:.0f} papers/year (suspicious volume)"
+            )
+        elif publication_rate_per_year > 500:
+            red_flags.append(
+                f"Very high publication rate: {publication_rate_per_year:.0f} papers/year"
+            )
+
+        # Very low citation ratio suggests poor quality
+        if citation_ratio < GROWTH_RATE_THRESHOLD and total_publications >= 50:
+            red_flags.append(
+                f"Very low citation ratio: {citation_ratio:.2f} citations per paper"
+            )
+        elif citation_ratio < 1.0 and total_publications >= MIN_PUBLICATION_VOLUME:
+            red_flags.append(
+                f"Low citation ratio: {citation_ratio:.2f} citations per paper"
+            )
+
+        # New journal with suspiciously high output
+        if years_active <= 3 and publication_rate_per_year > 200:
+            red_flags.append(
+                f"New journal with high output: {publication_rate_per_year:.0f} papers/year in only {years_active} years"
+            )
+
+        # Recent explosion in publication volume (possible takeover or transformation)
+        if recent_publications > 0 and years_active > 5:
+            historical_rate = (total_publications - recent_publications) / max(
+                1, years_active - 5
+            )
+            if (
+                recent_rate_per_year > historical_rate * 3
+                and recent_rate_per_year > 100
+            ):
+                red_flags.append(
+                    f"Recent publication explosion: {recent_rate_per_year:.0f} recent vs {historical_rate:.0f} historical papers/year"
+                )
+
+        # Inactive journal (may be legitimate but worth noting)
+        if last_year and last_year < current_year - 3:
+            red_flags.append(
+                f"Journal appears inactive: last publication in {last_year}"
+            )
+
+        # Very new journal with minimal track record
+        if years_active <= 2 and total_publications < 20:
+            red_flags.append(
+                f"Very new journal: only {years_active} years active with {total_publications} papers"
+            )
+
+        return red_flags
+
+    def _determine_assessment(
+        self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
+    ) -> tuple[str | None, float]:
+        """Determine final assessment and confidence based on flags.
+
+        Args:
+            red_flags: List of red flag descriptions
+            green_flags: List of green flag descriptions
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            Tuple of (assessment, confidence)
+        """
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        publication_rate_per_year = metrics["publication_rate_per_year"]
+
+        # Assessment logic
+        red_flag_weight = len(red_flags)
+        green_flag_weight = len(green_flags)
+
+        # Debug output to see actual values
+        self.detail_logger.info(
+            f"OpenAlex: citation_ratio={citation_ratio}, years_active={years_active}, total_publications={total_publications}, red_flags={red_flag_weight}, green_flags={green_flag_weight}"
+        )
+
+        # Declare assessment type
+        assessment: str | None
+
+        # Special case: very strong indicators override everything else first
+        # Strong legitimacy signals
+        if citation_ratio >= 10 and years_active >= 20 and total_publications >= 1000:
+            # Well-established journal with strong citations should be legitimate
+            # even if it has high publication rates (e.g., conference proceedings)
+            self.detail_logger.info(
+                "OpenAlex: LEGITIMATE override triggered! Metrics passed hierarchical thresholds"
+            )
+            assessment = "legitimate"
+            confidence = min(0.85, 0.75 + (green_flag_weight * 0.03))
+            return assessment, confidence
+        elif citation_ratio >= 20 and years_active >= 10:
+            # Exceptionally high citation ratio with decent history
+            assessment = "legitimate"
+            confidence = max(0.85, MAX_AUTHOR_DIVERSITY)
+            return assessment, confidence
+
+        # Strong predatory signals
+        if publication_rate_per_year > 2000 or (
+            citation_ratio < 0.2 and total_publications >= MIN_PUBLICATION_VOLUME
+        ):
+            assessment = "predatory"
+            confidence = max(0.90, min(0.95, 0.85 + (red_flag_weight * 0.02)))
+            return assessment, confidence
+
+        # Calculate confidence and assessment based on flag counts
+        if red_flag_weight >= 2 and green_flag_weight >= 3:
+            # Mixed signals but strong green flags should win
+            assessment = "legitimate"
+            confidence = 0.65
+        elif red_flag_weight >= 2:
+            # Multiple red flags suggest predatory
+            if red_flag_weight >= 3:
+                assessment = "predatory"
+                confidence = min(0.85, 0.60 + (red_flag_weight - 2) * 0.05)
+            else:
+                assessment = "predatory"
+                confidence = 0.65
+        elif green_flag_weight >= 2:
+            # Multiple green flags suggest legitimate
+            if green_flag_weight >= 3:
+                assessment = "legitimate"
+                confidence = min(0.90, 0.70 + (green_flag_weight - 2) * 0.05)
+            else:
+                assessment = "legitimate"
+                confidence = 0.75
+        elif red_flag_weight == 1 and green_flag_weight == 0:
+            # Single red flag, no green flags
+            assessment = "predatory"
+            confidence = 0.55
+        elif green_flag_weight == 1 and red_flag_weight == 0:
+            # Single green flag, no red flags
+            assessment = "legitimate"
+            confidence = 0.60
+        else:
+            # Mixed signals or insufficient data
+            assessment = None
+            confidence = 0.3
+
+        return assessment, confidence
+
+    def _generate_reasoning(
+        self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
+    ) -> list[str]:
+        """Generate human-readable reasoning for the assessment."""
+        reasoning = []
+
+        if green_flags:
+            reasoning.append("Positive indicators:")
+            reasoning.extend([f"  • {flag}" for flag in green_flags])
+
+        if red_flags:
+            reasoning.append("Warning signs:")
+            reasoning.extend([f"  • {flag}" for flag in red_flags])
+
+        # Add summary statistics
+        reasoning.append(
+            f"Journal statistics: {metrics['total_publications']} papers over {metrics['years_active']} years"
+        )
+        reasoning.append(
+            f"Citation metrics: {metrics['citation_ratio']:.2f} citations per paper on average"
+        )
+
+        if not green_flags and not red_flags:
+            reasoning.append("Mixed or insufficient signals for clear assessment")
+
+        return reasoning
+
+
+# Register the backend
+get_backend_registry().register(OpenAlexAnalyzerBackend())

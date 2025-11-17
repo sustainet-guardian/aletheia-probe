@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.env
+.venv
+venv/
+
+# Unit test / coverage reports
+.coverage
+.pytest_cache/
+htmlcov/
+coverage.xml
+.coverage.*
+coverage_analysis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Type checking
+.mypy_cache/
+.pytype/
+.pyre/
+.dmypy.json
+
+# Linting
+.ruff_cache/
+
+# Local data and caches
+data/
+.aletheia-probe/
+
+# OS files
+.DS_Store
+Thumbs.db

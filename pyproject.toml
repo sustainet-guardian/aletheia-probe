@@ -1,0 +1,143 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aletheia-probe"
+version = "0.1.0"
+description = "Automated tool for assessing predatory journals using multiple backend sources"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Aletheia Probe Project"},
+]
+maintainers = [
+    {name = "Andreas.Florath@telekom.de"},
+]
+requires-python = ">=3.10"
+keywords = [
+    "journal", "predatory", "assessment", "research", "academia",
+    "retraction", "doaj", "openalex", "scholarly"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Education",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+
+dependencies = [
+    "pydantic>=2.0.0",
+    "aiohttp>=3.8.0",
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "rarfile>=4.1",
+    "PyPDF2>=3.0.0",
+    "pybtex>=0.24.0",
+    "openpyxl>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/sustainet-guardian/aletheia-probe"
+Repository = "https://github.com/sustainet-guardian/aletheia-probe.git"
+Issues = "https://github.com/sustainet-guardian/aletheia-probe/issues"
+Documentation = "https://github.com/sustainet-guardian/aletheia-probe#readme"
+Changelog = "https://github.com/sustainet-guardian/aletheia-probe/blob/main/docs/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
+    "types-PyYAML>=6.0.0",
+    "types-openpyxl>=3.0.0",
+    "bandit>=1.7.0",
+    "safety>=3.0.0",
+]
+
+[project.scripts]
+aletheia-probe = "aletheia_probe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = ["-v", "--cov=src", "--cov-report=term-missing", "--cov-report=html"]
+asyncio_mode = "auto"
+minversion = "6.0"
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+]
+ignore = [
+    "E501",  # line too long, handled by black
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["N", "B", "F"]  # More relaxed rules for tests
