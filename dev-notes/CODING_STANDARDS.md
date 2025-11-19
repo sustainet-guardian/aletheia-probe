@@ -23,12 +23,37 @@ This project adheres to the following Python Enhancement Proposals (PEPs) and co
 
 ## Table of Contents
 
+0. [Core Principle: Simplicity First](#core-principle-simplicity-first)
 1. [Python Version and Tools](#python-version-and-tools)
 2. [Project-Specific Conventions](#project-specific-conventions)
 3. [Domain-Specific Patterns](#domain-specific-patterns)
 4. [Security Practices](#security-practices)
 5. [Database Operations](#database-operations)
 6. [Testing Standards](#testing-standards)
+
+---
+
+## Core Principle: Simplicity First
+
+**MANDATORY**: Simple solutions are ALWAYS preferred over complex ones.
+
+- Choose the most straightforward implementation that solves the problem
+- Avoid over-engineering or premature optimization
+- Only add complexity when absolutely necessary and well-justified
+- Refactor complex code to be simpler when possible
+- If a simple solution works, use it
+
+**Example:**
+```python
+# GOOD - Simple and clear
+def is_empty(text: str) -> bool:
+    return not text.strip()
+
+# BAD - Unnecessarily complex (unless you need regex for specific validation)
+def is_empty(text: str) -> bool:
+    import re
+    return bool(re.match(r"^\s*$", text))
+```
 
 ---
 
@@ -354,10 +379,37 @@ class TestJournalAssessment:
 
 ---
 
+## Code Smells and Anti-Patterns to Avoid
+
+### Common Code Smells
+
+Do NOT introduce these code quality issues:
+
+- **Code Duplication** - Extract common code into reusable functions or classes
+- **Magic Numbers/Strings** - Use named constants or enums (see Project-Specific Conventions above)
+- **Long Functions** - Break down functions longer than 50 lines into smaller, focused functions
+- **Deep Nesting** - Use guard clauses and early returns to flatten conditionals
+- **Mutable Default Arguments** - Use `None` as default and initialize inside the function
+- **Bare Exceptions** - Catch specific exception types instead of generic `except:`
+- **God Objects** - Keep classes focused and cohesive with single responsibility
+
+### Development Practices to Avoid
+
+- **Skipping Quality Checks** - Always run quality checks before committing (see `scripts/run-quality-checks.sh`)
+- **Modifying Unknown Code** - Don't make changes in areas you don't fully understand
+- **Adding Unnecessary Dependencies** - Use standard library when possible; justify new dependencies
+- **Backwards-Compatibility Hacks** - Delete unused code cleanly; avoid underscore prefixes or commented-out code
+- **Using `type: ignore` Without Justification** - Fix type issues properly or provide clear reasoning
+
+**When uncertain about any change, ask for clarification before proceeding.**
+
+---
+
 ## Summary
 
 This coding standards document references established Python best practices (PEPs and community guidelines) and defines project-specific conventions for:
 
+- **Simplicity First**: Prefer simple solutions over complex ones
 - **String Formatting**: Exclusive use of f-strings
 - **Type Safety**: Comprehensive type hints with modern syntax
 - **Domain Patterns**: Custom exceptions, retry decorators, async patterns
@@ -365,5 +417,6 @@ This coding standards document references established Python best practices (PEP
 - **Database**: Parameterized queries and batch operations
 - **Testing**: Descriptive naming and fixture organization
 - **Quality**: Automated tooling (Black, isort, mypy, ruff, pytest)
+- **Code Quality**: Avoid code smells and anti-patterns
 
 All new code must follow these guidelines. When modifying existing code, bring it up to these standards where practical.
