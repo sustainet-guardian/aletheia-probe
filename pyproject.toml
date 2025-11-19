@@ -69,6 +69,13 @@ dev = [
     "safety>=3.0.0",
 ]
 
+release = [
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "packaging>=23.0",
+    "requests>=2.28.0",
+]
+
 [project.scripts]
 aletheia-probe = "aletheia_probe.cli:main"
 
