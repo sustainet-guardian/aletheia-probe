@@ -191,7 +191,9 @@ jobs:
     name: Cross-Platform Integration Tests
     runs-on: ${{ matrix.os }}
     needs: [lint-and-type-check, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
