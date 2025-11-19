@@ -144,8 +144,11 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install --upgrade build twine
-        python -m pip list | grep -E "(build|twine)"
+        python -m pip install --upgrade build twine
+        echo "Verifying installations:"
+        python -m pip show build
+        python -m pip show twine
+        python -c "import build; print(f'build version: {build.__version__}')"
 
     - name: Build package
       run: |
