@@ -21,22 +21,27 @@ git commit -m "Update CHANGELOG for $(grep version pyproject.toml | cut -d'"' -f
 git push origin main
 ```
 
-### 2. Create GitHub Release (2 minutes)
+### 2. Create and Push Tag (1 minute)
 
 ```bash
-# After CI passes, create tag
+# After CI passes, create and push tag
 VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2)
 git tag -a v$VERSION -m "Release version $VERSION"
 git push origin v$VERSION
 ```
 
-Then create GitHub Release at: https://github.com/sustainet-guardian/aletheia-probe/releases/new
+This automatically triggers the release pipeline which will:
+- Run all tests and validations
+- Publish to PyPI (after manual approval)
+- Create GitHub Release with packages attached
 
-### 3. Approve & Verify (5 minutes)
+### 3. Approve & Verify (10 minutes)
 
 - Wait for CI checks (~10 min)
-- Approve deployment when notified
+- Approve deployment when notified (production environment)
+- CI automatically creates GitHub Release
 - Verify: `pip install aletheia-probe==$VERSION`
+- Check release: https://github.com/sustainet-guardian/aletheia-probe/releases
 
 ---
 
