@@ -7,6 +7,7 @@ on:
     branches: [ main ]
   release:
     types: [ published ]
+  workflow_dispatch:
 
 jobs:
   lint-and-type-check:
@@ -482,15 +483,17 @@ jobs:
   #     id: deployment
   #     uses: actions/deploy-pages@v4
 
-  publish:
-    name: Publish to PyPI
+  test-pypi-publish:
+    name: Test PyPI Publishing (TestPyPI)
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
-    needs: [lint-and-type-check, test, build, integration-tests, cross-platform-integration]
-    environment: production
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    needs: [lint-and-type-check, test, build, integration-tests]
+    environment: test-pypi
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for version validation
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
@@ -500,18 +503,273 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine
+        pip install build twine packaging
+
+    - name: Validate version format
+      run: |
+        python -c "
+        import re
+        import sys
+        from pathlib import Path
+
+        # Read version from pyproject.toml
+        content = Path('pyproject.toml').read_text()
+        match = re.search(r'version = \"(.+?)\"', content)
+        if not match:
+            print('ERROR: Could not find version in pyproject.toml')
+            sys.exit(1)
+
+        version = match.group(1)
+        print(f'Found version: {version}')
+
+        # Validate version format (PEP 440)
+        if not re.match(r'^\d+\.\d+\.\d+(?:\.(?:dev|alpha|beta|rc)\d+)?$', version):
+            print(f'ERROR: Version {version} does not match PEP 440 format')
+            print('Expected format: X.Y.Z or X.Y.Z.devN or X.Y.Z.alphaN, etc.')
+            sys.exit(1)
+
+        print(f'✓ Version {version} is valid')
+        "
 
     - name: Build package
       run: |
         python -m build
+
+    - name: Check package
+      run: |
+        twine check dist/*
+
+    - name: Test installation from built package
+      run: |
+        # Create a temporary virtual environment
+        python -m venv test_env
+        source test_env/bin/activate
+
+        # Install the built wheel
+        pip install dist/*.whl
+
+        # Test that the CLI is available
+        aletheia-probe --help
+
+        # Cleanup
+        deactivate
+        rm -rf test_env
+
+    - name: Publish to TestPyPI
+      if: success()
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
+      run: |
+        echo "Publishing to TestPyPI..."
+        twine upload --repository testpypi dist/* --verbose || echo "Note: Upload may fail if version already exists on TestPyPI"
+
+    - name: Test installation from TestPyPI
+      if: success()
+      run: |
+        echo "Waiting 30 seconds for TestPyPI to process the upload..."
+        sleep 30
+
+        # Create a fresh virtual environment
+        python -m venv testpypi_env
+        source testpypi_env/bin/activate
+
+        # Try to install from TestPyPI
+        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aletheia-probe || echo "Installation from TestPyPI may fail if package was just uploaded"
+
+        # Cleanup
+        deactivate
+        rm -rf testpypi_env
+
+    - name: Archive test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: testpypi-artifacts
+        path: dist/
+
+  publish:
+    name: Publish to PyPI (Production)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [lint-and-type-check, test, build, integration-tests, cross-platform-integration]
+    environment: production
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for version validation
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine packaging requests
+
+    - name: Validate version matches git tag
+      run: |
+        python -c "
+        import re
+        import sys
+        import os
+        from pathlib import Path
+
+        # Read version from pyproject.toml
+        content = Path('pyproject.toml').read_text()
+        match = re.search(r'version = \"(.+?)\"', content)
+        if not match:
+            print('ERROR: Could not find version in pyproject.toml')
+            sys.exit(1)
+
+        pyproject_version = match.group(1)
+        print(f'Version in pyproject.toml: {pyproject_version}')
+
+        # Get git tag
+        git_ref = os.environ.get('GITHUB_REF', '')
+        if git_ref.startswith('refs/tags/'):
+            git_tag = git_ref.replace('refs/tags/', '')
+            # Remove 'v' prefix if present
+            git_version = git_tag.lstrip('v')
+            print(f'Git tag version: {git_version}')
+
+            if pyproject_version != git_version:
+                print(f'ERROR: Version mismatch!')
+                print(f'  pyproject.toml: {pyproject_version}')
+                print(f'  git tag: {git_version}')
+                sys.exit(1)
+
+            print(f'✓ Versions match: {pyproject_version}')
+        else:
+            print('WARNING: Not running from a tag, skipping tag validation')
+        "
+
+    - name: Check if version exists on PyPI
+      run: |
+        python -c "
+        import sys
+        import re
+        import requests
+        from pathlib import Path
+
+        # Read version from pyproject.toml
+        content = Path('pyproject.toml').read_text()
+        match = re.search(r'version = \"(.+?)\"', content)
+        version = match.group(1)
+
+        # Check PyPI
+        response = requests.get(f'https://pypi.org/pypi/aletheia-probe/{version}/json')
+        if response.status_code == 200:
+            print(f'ERROR: Version {version} already exists on PyPI!')
+            print(f'Please bump the version in pyproject.toml before releasing.')
+            sys.exit(1)
+        elif response.status_code == 404:
+            print(f'✓ Version {version} does not exist on PyPI - safe to publish')
+        else:
+            print(f'WARNING: Could not verify version on PyPI (status {response.status_code})')
+            print('Proceeding with caution...')
+        "
+
+    - name: Validate package metadata
+      run: |
+        python -c "
+        import sys
+        from pathlib import Path
+        import re
+
+        content = Path('pyproject.toml').read_text()
+
+        # Check required fields
+        required = ['name', 'version', 'description', 'readme', 'license', 'authors']
+        missing = []
+
+        for field in required:
+            if field not in content:
+                missing.append(field)
+
+        if missing:
+            print(f'ERROR: Missing required fields in pyproject.toml: {missing}')
+            sys.exit(1)
+
+        print('✓ All required metadata fields present')
+
+        # Validate URLs
+        if 'Homepage' not in content:
+            print('WARNING: Homepage URL not set')
+        if 'Repository' not in content:
+            print('WARNING: Repository URL not set')
+
+        print('✓ Package metadata validation passed')
+        "
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Check package with twine
+      run: |
+        twine check dist/* --strict
+
+    - name: Display package contents
+      run: |
+        echo "📦 Package contents:"
+        tar -tzf dist/*.tar.gz | head -30
+        echo ""
+        echo "📊 Package size:"
+        du -h dist/*
 
     - name: Publish to PyPI
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        twine upload dist/*
+        echo "🚀 Publishing to PyPI..."
+        twine upload dist/* --verbose
+
+    - name: Verify published package
+      run: |
+        python -c "
+        import sys
+        import time
+        import requests
+        from pathlib import Path
+        import re
+
+        # Read version from pyproject.toml
+        content = Path('pyproject.toml').read_text()
+        match = re.search(r'version = \"(.+?)\"', content)
+        version = match.group(1)
+
+        print(f'Waiting for PyPI to index version {version}...')
+
+        # Wait up to 2 minutes for the package to appear
+        for i in range(24):
+            response = requests.get(f'https://pypi.org/pypi/aletheia-probe/{version}/json')
+            if response.status_code == 200:
+                print(f'✓ Package successfully published to PyPI!')
+                print(f'🔗 https://pypi.org/project/aletheia-probe/{version}/')
+                sys.exit(0)
+            time.sleep(5)
+
+        print('WARNING: Package not yet visible on PyPI after 2 minutes')
+        print('This may be normal - check manually at: https://pypi.org/project/aletheia-probe/')
+        "
+
+    - name: Upload packages to GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Archive release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-packages
+        path: dist/
 
   notify:
     name: Notify
