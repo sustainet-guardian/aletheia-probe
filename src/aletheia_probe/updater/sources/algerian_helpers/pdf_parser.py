@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import PyPDF2
+import pypdf
 
 from aletheia_probe.normalizer import input_normalizer
 
@@ -32,7 +32,7 @@ class PDFTextExtractor:
 
         try:
             with open(pdf_path, "rb") as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_reader = pypdf.PdfReader(file)
 
                 # Extract text from all pages
                 text_parts = []
