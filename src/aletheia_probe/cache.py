@@ -464,6 +464,7 @@ class CacheManager:
             if rows:
                 journal_ids = [dict(row)["id"] for row in rows]
                 placeholders = ",".join("?" * len(journal_ids))
+                # nosec B608 - SQL uses parameterized placeholders, not string interpolation
                 url_cursor = conn.execute(
                     f"""
                     SELECT journal_id, url FROM journal_urls

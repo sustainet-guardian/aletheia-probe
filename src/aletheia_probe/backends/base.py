@@ -269,7 +269,7 @@ class HybridBackend(Backend):
             query_input.identifiers.get("doi", ""),
         ]
         key_string = "|".join(key_parts)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()  # nosec B324 - MD5 used for cache key, not security
 
     async def query_with_timeout(
         self, query_input: QueryInput, timeout: int = 10

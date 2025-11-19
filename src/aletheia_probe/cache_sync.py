@@ -182,6 +182,7 @@ class AsyncDBWriter:
                 existing_journals = {}
                 if normalized_names:
                     placeholders = ",".join("?" * len(normalized_names))
+                    # nosec B608 - SQL uses parameterized placeholders, not string interpolation
                     cursor.execute(
                         f"SELECT id, normalized_name FROM journals WHERE normalized_name IN ({placeholders})",
                         normalized_names,
