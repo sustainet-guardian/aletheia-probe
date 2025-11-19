@@ -3,6 +3,8 @@
 **Project:** Aletheia-Probe - Journal Assessment Tool
 **Purpose:** Explicit instructions for AI coding assistants
 
+**Note:** This project actively encourages the use of AI coding agents in development. Your contributions are valued as tools to aid problem-solving, code generation, review, and learning.
+
 ---
 
 ## 1. Before Making ANY Changes (MANDATORY)
