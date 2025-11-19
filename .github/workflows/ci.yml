@@ -593,7 +593,7 @@ jobs:
   publish:
     name: Publish to PyPI (Production)
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [lint-and-type-check, test, build, integration-tests, cross-platform-integration]
     environment: production
 
@@ -760,10 +760,19 @@ jobs:
         print('This may be normal - check manually at: https://pypi.org/project/aletheia-probe/')
         "
 
-    - name: Upload packages to GitHub Release
+    - name: Create GitHub Release and upload packages
       uses: softprops/action-gh-release@v1
       with:
         files: dist/*
+        generate_release_notes: true
+        body: |
+          ## Installation
+
+          ```bash
+          pip install aletheia-probe
+          ```
+
+          See [CHANGELOG](https://github.com/sustainet-guardian/aletheia-probe/blob/main/docs/CHANGELOG.md) for full release notes.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
