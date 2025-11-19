@@ -7,6 +7,7 @@ on:
     branches: [ main ]
   release:
     types: [ published ]
+  workflow_dispatch:
 
 jobs:
   lint-and-type-check:
@@ -483,7 +484,7 @@ jobs:
   test-pypi-publish:
     name: Test PyPI Publishing (TestPyPI)
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     needs: [lint-and-type-check, test, build, integration-tests]
     environment: test-pypi
 
