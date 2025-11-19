@@ -19,7 +19,6 @@ This is a **pre-release version** intended for testing and feedback. The core fu
 - ✅ All 179 unit and integration tests passing
 
 ### Known Limitations
-- ⚠️ **Not yet on PyPI**: Must install from source (see Installation below)
 - ⚠️ **First sync takes time**: Initial data download can take 5-10 minutes depending on your connection
 - ⚠️ **Coverage gaps**: Some edge cases in batch processing and OpenAlex integration may not be fully tested
 - ⚠️ **Regional journals**: Journals from non-Western regions may have limited coverage in data sources
@@ -38,10 +37,29 @@ This is a **pre-release version** intended for testing and feedback. The core fu
 
 ### Prerequisites
 - Python 3.10 or higher
-- Git
 - Internet connection (for data source access)
 
-### Installation Steps
+### Installation Methods
+
+#### Option 1: Install from PyPI (Recommended)
+
+```bash
+# 1. Create a virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 2. Install from PyPI
+pip install aletheia-probe
+
+# 3. Verify installation
+aletheia-probe --version
+# Should output: aletheia-probe version 0.1.0
+
+# 4. Initial data synchronization (takes 3-5 minutes)
+aletheia-probe sync
+```
+
+#### Option 2: Install from Source (For Development)
 
 ```bash
 # 1. Clone the repository
@@ -57,7 +75,6 @@ pip install -e .
 
 # 4. Verify installation
 aletheia-probe --version
-# Should output: Journal Assessment Tool version 0.1.0
 
 # 5. Initial data synchronization (takes 3-5 minutes)
 aletheia-probe sync
@@ -259,8 +276,8 @@ Please share feedback by:
 Use this checklist to guide your testing:
 
 **Installation & Setup**
-- [ ] Successfully installed from source
-- [ ] `aletheia-probe --version` shows correct version
+- [ ] Successfully installed from PyPI OR from source
+- [ ] `aletheia-probe --version` shows correct version (0.1.0)
 - [ ] First `sync` completed without errors
 - [ ] `aletheia-probe status` shows data synced
 

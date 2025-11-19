@@ -15,21 +15,24 @@ The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where
 ## TL;DR
 
 ```bash
-# Beta release - Install from source
-# (PyPI package coming with v1.0 stable release)
+# Beta release - Install from PyPI or source
 
-# First, install unrar/unar if not already available
-# (required for one data source - which is skipped if unrar is not found)
+# Option 1: Install from PyPI (recommended for beta testing)
+pip install aletheia-probe
+
+# Option 2: Install from source (for development)
+git clone https://github.com/sustainet-guardian/aletheia-probe.git
+cd aletheia-probe
+pip install -e .
+
+# Optional: Install unrar/unar if you want to use all data sources
+# (required for Algerian Ministry source - skipped if not available)
 # Debian/Ubuntu:
 sudo apt-get install unrar
 # macOS:
 brew install unar
 # Windows (via chocolatey):
 choco install unrar
-
-git clone https://github.com/sustainet-guardian/aletheia-probe.git
-cd aletheia-probe
-pip install -e .
 
 # First time: Sync data sources (takes a few minutes)
 aletheia-probe sync
