@@ -35,7 +35,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
     def get_name(self) -> str:
         """Return backend name."""
-        return "OpenAlex Analyzer"
+        return "openalex_analyzer"
 
     def get_description(self) -> str:
         """Return backend description."""
@@ -452,7 +452,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
-    "OpenAlex Analyzer",
+    "openalex_analyzer",
     lambda email="noreply.aletheia-probe.org",
     cache_ttl_hours=24: OpenAlexAnalyzerBackend(
         email=email, cache_ttl_hours=cache_ttl_hours

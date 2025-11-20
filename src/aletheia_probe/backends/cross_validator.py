@@ -29,7 +29,7 @@ class CrossValidatorBackend(Backend):
 
     def get_name(self) -> str:
         """Return backend name."""
-        return "Cross-Validator"
+        return "cross_validator"
 
     def get_description(self) -> str:
         """Return backend description."""
@@ -52,7 +52,7 @@ class CrossValidatorBackend(Backend):
             # Handle exceptions
             if isinstance(openalex_result, Exception):
                 openalex_result = BackendResult(
-                    backend_name="OpenAlex Analyzer",
+                    backend_name=self.openalex_backend.get_name(),
                     status=BackendStatus.ERROR,
                     confidence=0.0,
                     assessment=None,
@@ -62,7 +62,7 @@ class CrossValidatorBackend(Backend):
 
             if isinstance(crossref_result, Exception):
                 crossref_result = BackendResult(
-                    backend_name="Crossref Analyzer",
+                    backend_name=self.crossref_backend.get_name(),
                     status=BackendStatus.ERROR,
                     confidence=0.0,
                     assessment=None,
@@ -448,7 +448,7 @@ class CrossValidatorBackend(Backend):
 
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
-    "Cross-Validator",
+    "cross_validator",
     lambda email="noreply.aletheia-probe.org",
     cache_ttl_hours=24: CrossValidatorBackend(
         email=email, cache_ttl_hours=cache_ttl_hours

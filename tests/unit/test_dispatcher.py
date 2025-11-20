@@ -404,7 +404,7 @@ class TestQueryDispatcher:
             patch.object(
                 dispatcher.config_manager,
                 "get_enabled_backends",
-                return_value=["Crossref Analyzer"],
+                return_value=["crossref_analyzer"],
             ),
             patch.object(
                 dispatcher.config_manager, "get_backend_config"
@@ -421,7 +421,7 @@ class TestQueryDispatcher:
 
             # Configure mock registry to support factory creation
             mock_backend = Mock()
-            mock_backend.get_name.return_value = "Crossref Analyzer"
+            mock_backend.get_name.return_value = "crossref_analyzer"
             mock_registry = Mock()
             mock_registry.create_backend.return_value = mock_backend
             mock_get_registry.return_value = mock_registry
@@ -432,7 +432,7 @@ class TestQueryDispatcher:
             assert mock_backend in backends
             # Verify that create_backend was called with email config
             mock_registry.create_backend.assert_called_once_with(
-                "Crossref Analyzer", email="test@example.com"
+                "crossref_analyzer", email="test@example.com"
             )
 
     def test_get_enabled_backends_without_email_config(self, dispatcher):
