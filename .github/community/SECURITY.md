@@ -65,7 +65,13 @@ This tool handles academic journal data which may include:
 - Rate limiting to prevent abuse
 - Timeout handling to prevent hanging requests
 - Input validation to prevent injection attacks
-- Following the API guidelines (e.g. OpenAlex, Crossref), you might choose that your email address is used in API calls
+
+**Email Address Usage:**
+- Email addresses are configurable for Crossref, OpenAlex, and Cross-Validator APIs
+- Email is sent only in HTTP User-Agent headers for API identification
+- No emails are sent to the configured address - it's purely for API provider identification
+- Email addresses are validated for format before use
+- Consider using institutional/service emails rather than personal addresses for shared deployments
 
 ### Local Security
 
@@ -78,8 +84,14 @@ This tool handles academic journal data which may include:
 **Configuration:**
 - YAML configuration files with standard permissions
 - No passwords or secrets in configuration
-- Optional email addresses to follow API guidelines of external services
 - Environment variable support for sensitive settings
+
+**Email Configuration Security:**
+- Email addresses are stored in plaintext YAML configuration files
+- Email validation prevents malformed addresses that could cause errors
+- Default fallback email used if none configured (no personal data exposed)
+- Recommended: Use dedicated service emails for institutional deployments
+- Consider file permissions (600) for configuration files containing personal email addresses
 
 ### Common Vulnerabilities
 
@@ -114,6 +126,13 @@ pip install --trusted-host pypi.org aletheia-probe
 - Use environment variables for any sensitive settings
 - Regularly review and update backend configurations
 
+**Email Configuration Best Practices:**
+- Use institutional or service email addresses rather than personal emails for shared deployments
+- Consider creating dedicated service emails (e.g., `journal-assessment@institution.org`)
+- Set restrictive file permissions (600) on configuration files containing email addresses
+- Avoid using personal email addresses in CI/CD environments or shared systems
+- Review configured email addresses before sharing configuration files
+
 ### Usage
 - Don't run with elevated privileges unless necessary
 - Keep the tool updated to latest version
@@ -133,6 +152,7 @@ pip install --trusted-host pypi.org aletheia-probe
 - Local file access issues
 - Network request vulnerabilities
 - Configuration security issues
+- Email address privacy and exposure risks
 
 ### Out of Scope
 - Issues in third-party APIs we query

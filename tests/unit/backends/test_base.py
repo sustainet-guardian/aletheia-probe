@@ -356,14 +356,14 @@ class TestBackendRegistry:
 
     def test_register_and_get_backend(self):
         """Test registering and retrieving backends."""
-        backend = MockBackend()
-
-        # Register backend
-        get_backend_registry().register(backend)
+        # Register backend factory
+        get_backend_registry().register_factory(
+            "mock_backend", lambda: MockBackend(), default_config={}
+        )
 
         # Should be able to retrieve it
         retrieved = get_backend_registry().get_backend("mock_backend")
-        assert retrieved is backend
+        assert retrieved.get_name() == "mock_backend"
 
     def test_get_nonexistent_backend(self):
         """Test retrieving non-existent backend."""
@@ -373,13 +373,15 @@ class TestBackendRegistry:
     def test_get_backend_names(self):
         """Test getting list of registered backend names."""
         # Clear registry first
-        get_backend_registry()._backends.clear()
+        get_backend_registry()._factories.clear()
+        get_backend_registry()._default_configs.clear()
 
-        backend1 = MockBackend()
-        backend2 = MockCachedBackend()
-
-        get_backend_registry().register(backend1)
-        get_backend_registry().register(backend2)
+        get_backend_registry().register_factory(
+            "mock_backend", lambda: MockBackend(), {}
+        )
+        get_backend_registry().register_factory(
+            "mock_cache", lambda: MockCachedBackend(), {}
+        )
 
         names = get_backend_registry().get_backend_names()
         assert "mock_backend" in names
@@ -387,25 +389,50 @@ class TestBackendRegistry:
 
     def test_register_duplicate_backend(self):
         """Test that registering duplicate backend replaces the old one."""
-        backend1 = MockBackend()
-        backend2 = MockBackend()
+        # Register first factory
+        get_backend_registry().register_factory(
+            "mock_backend", lambda: MockBackend(), {}
+        )
 
-        get_backend_registry().register(backend1)
-        get_backend_registry().register(backend2)
+        # Register second factory with same name
+        class NewMockBackend(Backend):
+            def get_name(self) -> str:
+                return "mock_backend"
+
+            def get_description(self) -> str:
+                return "New mock backend"
+
+            async def query(self, query_input):
+                return BackendResult(
+                    backend_name="mock_backend",
+                    status=BackendStatus.FOUND,
+                    confidence=1.0,
+                    assessment="new",
+                    data={},
+                    sources=[],
+                    response_time=0.1,
+                )
+
+        get_backend_registry().register_factory(
+            "mock_backend", lambda: NewMockBackend(), {}
+        )
 
         # Should get the second one
         retrieved = get_backend_registry().get_backend("mock_backend")
-        assert retrieved is backend2
+        assert retrieved.get_description() == "New mock backend"
 
     def test_list_all_backends(self):
         """Test listing all registered backends."""
-        get_backend_registry()._backends.clear()
+        # Clear factory registrations for isolated testing
+        get_backend_registry()._factories.clear()
+        get_backend_registry()._default_configs.clear()
 
-        backend1 = MockBackend()
-        backend2 = MockCachedBackend()
-
-        get_backend_registry().register(backend1)
-        get_backend_registry().register(backend2)
+        get_backend_registry().register_factory(
+            "mock_backend", lambda: MockBackend(), {}
+        )
+        get_backend_registry().register_factory(
+            "mock_cache", lambda: MockCachedBackend(), {}
+        )
 
         all_backends = get_backend_registry().list_all()
         assert len(all_backends) == 2

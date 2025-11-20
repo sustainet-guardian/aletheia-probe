@@ -26,5 +26,9 @@ class KscienStandaloneJournalsBackend(CachedBackend):
         return "Checks against Kscien's list of standalone predatory journals (1476+ entries)"
 
 
-# Register the backend
-get_backend_registry().register(KscienStandaloneJournalsBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "kscien_standalone_journals",
+    lambda: KscienStandaloneJournalsBackend(),
+    default_config={},
+)

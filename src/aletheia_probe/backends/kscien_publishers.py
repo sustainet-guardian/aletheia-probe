@@ -26,5 +26,7 @@ class KscienPublishersBackend(CachedBackend):
         return "Checks against Kscien's list of predatory publishers (1271+ entries)"
 
 
-# Register the backend
-get_backend_registry().register(KscienPublishersBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "kscien_publishers", lambda: KscienPublishersBackend(), default_config={}
+)

@@ -39,5 +39,7 @@ class ScopusBackend(CachedBackend):
         return "Checks against Scopus indexed journals for legitimate journals"
 
 
-# Register the backend
-get_backend_registry().register(ScopusBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "scopus", lambda: ScopusBackend(), default_config={}
+)

@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from ..cache import get_cache_manager
@@ -313,28 +314,68 @@ class HybridBackend(Backend):
 
 
 class BackendRegistry:
-    """Registry for managing available backends."""
+    """Registry for managing available backends with factory-based creation."""
 
     def __init__(self) -> None:
-        self._backends: dict[str, Backend] = {}
+        self._factories: dict[str, Callable[..., Backend]] = {}
+        self._default_configs: dict[str, dict[str, Any]] = {}
 
-    def register(self, backend: Backend) -> None:
-        """Register a backend instance."""
-        self._backends[backend.get_name()] = backend
+    def register_factory(
+        self,
+        name: str,
+        factory: Callable[..., Backend],
+        default_config: dict[str, Any] | None = None,
+    ) -> None:
+        """Register a backend factory function.
+
+        Args:
+            name: Backend name (must match backend.get_name())
+            factory: Factory function that creates backend instances
+            default_config: Default configuration values
+        """
+        self._factories[name] = factory
+        self._default_configs[name] = default_config or {}
+
+    def create_backend(self, name: str, **config: Any) -> Backend:
+        """Create a backend instance with configuration.
+
+        Args:
+            name: Backend name
+            **config: Configuration parameters to override defaults
+
+        Returns:
+            Backend instance configured with the provided parameters
+        """
+        if name not in self._factories:
+            raise ValueError(f"Backend '{name}' not found")
+
+        # Merge provided config with defaults
+        merged_config = {**self._default_configs[name], **config}
+
+        # Create backend instance using factory
+        return self._factories[name](**merged_config)
 
     def get_backend(self, name: str) -> Backend:
-        """Get a backend by name."""
-        if name not in self._backends:
-            raise ValueError(f"Backend '{name}' not found")
-        return self._backends[name]
+        """Get a backend by name with default configuration."""
+        return self.create_backend(name)
 
     def get_all_backends(self) -> list[Backend]:
-        """Get all registered backends."""
-        return list(self._backends.values())
+        """Get all registered backends with default configuration."""
+        backends: list[Backend] = []
+
+        # Create default instances from factories
+        for name in self._factories:
+            try:
+                backends.append(self.create_backend(name))
+            except Exception:
+                # Skip backends that fail to create with default config
+                pass
+
+        return backends
 
     def get_backend_names(self) -> list[str]:
         """Get names of all registered backends."""
-        return list(self._backends.keys())
+        return list(self._factories.keys())
 
     def list_all(self) -> list[Backend]:
         """List all registered backends (alias for get_all_backends)."""

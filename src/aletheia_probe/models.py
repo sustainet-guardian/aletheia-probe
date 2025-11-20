@@ -1,10 +1,11 @@
 """Core data models for the journal assessment tool."""
 
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BackendStatus(Enum):
@@ -103,9 +104,26 @@ class ConfigBackend(BaseModel):
     weight: float = Field(1.0, ge=0.0, description="Weight in final assessment")
     timeout: int = Field(10, gt=0, description="Timeout in seconds")
     rate_limit: int | None = Field(None, description="Rate limit requests per minute")
+    email: str | None = Field(
+        None, description="Email address for API identification (Crossref, OpenAlex)"
+    )
     config: dict[str, Any] = Field(
         default_factory=dict, description="Backend-specific settings"
     )
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str | None) -> str | None:
+        """Validate email format."""
+        if v is None:
+            return v
+
+        # Basic email validation regex
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(email_pattern, v):
+            raise ValueError("Invalid email format")
+
+        return v
 
 
 class BibtexEntry(BaseModel):
