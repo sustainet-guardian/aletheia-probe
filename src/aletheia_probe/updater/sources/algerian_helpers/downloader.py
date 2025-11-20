@@ -1,7 +1,6 @@
 """RAR file downloading for Algerian Ministry data."""
 
 import asyncio
-import logging
 import ssl
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +10,6 @@ from aiohttp import ClientError, ClientResponse, ClientSession, ServerTimeoutErr
 from aletheia_probe.logging_config import get_detail_logger, get_status_logger
 from aletheia_probe.retry_utils import async_retry_with_backoff
 
-logger = logging.getLogger(__name__)
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
@@ -28,10 +26,10 @@ class RARDownloader:
         try:
             # Create SSL context with proper certificate validation
             ssl_context = ssl.create_default_context()
-            logger.debug("Using SSL context with certificate validation")
+            detail_logger.debug("Using SSL context with certificate validation")
             return ssl_context
         except Exception as e:
-            logger.warning(f"Failed to create SSL context: {e}")
+            status_logger.warning(f"Failed to create SSL context: {e}")
             return False
 
     @async_retry_with_backoff(

@@ -1,7 +1,6 @@
 """Article-level retraction checking using multiple data sources."""
 
 import asyncio
-import logging
 from typing import Any
 
 import aiohttp
@@ -9,7 +8,6 @@ import aiohttp
 from .cache import get_cache_manager
 from .logging_config import get_detail_logger, get_status_logger
 
-logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
 detail_logger = get_detail_logger()
 

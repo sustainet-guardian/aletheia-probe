@@ -1,6 +1,5 @@
 """BibTeX parsing utilities for journal assessment."""
 
-import logging
 from pathlib import Path
 
 from pybtex.database import (  # type: ignore
@@ -11,9 +10,11 @@ from pybtex.database import (  # type: ignore
 )
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
+from .logging_config import get_detail_logger, get_status_logger
 from .models import BibtexEntry
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class BibtexParser:
@@ -56,7 +57,9 @@ class BibtexParser:
 
         for encoding, description in encoding_strategies:
             try:
-                logger.debug(f"Attempting to parse {file_path.name} with {description}")
+                detail_logger.debug(
+                    f"Attempting to parse {file_path.name} with {description}"
+                )
 
                 if description.endswith("with errors='replace'"):
                     # For the final attempt, use error handling to replace problematic characters
@@ -81,19 +84,19 @@ class BibtexParser:
                         else:
                             skipped_entries += 1
                     except Exception as e:
-                        logger.warning(
+                        status_logger.warning(
                             f"Skipping entry '{entry_key}' due to processing error: {e}"
                         )
                         skipped_entries += 1
                         continue
 
                 if skipped_entries > 0:
-                    logger.info(
+                    status_logger.info(
                         f"Successfully parsed {len(entries)} entries from {file_path.name} "
                         f"with {description}, skipped {skipped_entries} problematic entries"
                     )
                 else:
-                    logger.debug(
+                    detail_logger.debug(
                         f"Successfully parsed {len(entries)} entries from {file_path.name} "
                         f"with {description}"
                     )
@@ -102,7 +105,9 @@ class BibtexParser:
 
             except UnicodeDecodeError as e:
                 last_error = e
-                logger.debug(f"{description} decoding failed for {file_path.name}: {e}")
+                detail_logger.debug(
+                    f"{description} decoding failed for {file_path.name}: {e}"
+                )
                 continue
 
             except PybtexSyntaxError as e:
@@ -116,7 +121,7 @@ class BibtexParser:
 
             except PybtexError as e:
                 last_error = e
-                logger.debug(
+                detail_logger.debug(
                     f"PyBTeX error with {description} for {file_path.name}: {e}"
                 )
                 continue
@@ -182,7 +187,7 @@ class BibtexParser:
                 raw_entry=entry,
             )
         except Exception as e:
-            logger.warning(f"Error processing entry {entry_key}: {e}")
+            detail_logger.debug(f"Error processing entry {entry_key}: {e}")
             return None
 
     @staticmethod
@@ -275,7 +280,9 @@ class BibtexParser:
                                 author_str = str(person)
                                 authors.append(author_str)
                             except (UnicodeDecodeError, UnicodeEncodeError) as e:
-                                logger.debug(f"Encoding error in author field: {e}")
+                                detail_logger.debug(
+                                    f"Encoding error in author field: {e}"
+                                )
                                 # Try to get a safe representation
                                 author_str = repr(person)
                                 authors.append(author_str)
@@ -286,7 +293,7 @@ class BibtexParser:
             # Fallback to raw field value
             return BibtexParser._get_field_safely(entry, "author")
         except Exception as e:
-            logger.debug(f"Error extracting authors: {e}")
+            detail_logger.debug(f"Error extracting authors: {e}")
             return None
 
     @staticmethod
@@ -319,7 +326,9 @@ class BibtexParser:
                         cleaned = value.strip("{}").strip()
                         return cleaned if cleaned else None
                     except (UnicodeDecodeError, UnicodeEncodeError) as e:
-                        logger.debug(f"Encoding error in field '{field_name}': {e}")
+                        detail_logger.debug(
+                            f"Encoding error in field '{field_name}': {e}"
+                        )
                         # Try to get a safe representation
                         try:
                             # Attempt to encode/decode safely
@@ -333,7 +342,7 @@ class BibtexParser:
                             return repr(value).strip("'\"")
             return None
         except Exception as e:
-            logger.debug(f"Error getting field '{field_name}': {e}")
+            detail_logger.debug(f"Error getting field '{field_name}': {e}")
             return None
 
     @staticmethod

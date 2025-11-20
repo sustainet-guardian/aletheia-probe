@@ -49,6 +49,9 @@ run_check "Mypy type checking" mypy src/ --strict || true
 # 4. Pytest with coverage
 run_check "Pytest with coverage" pytest --cov=src --cov-report=term-missing tests/ || true
 
+# 5. Logging consistency check
+run_check "Logging consistency" python scripts/check-logging.py || true
+
 # Final summary
 echo -e "${BLUE}========================================${NC}"
 if [ $FAILED -eq 0 ]; then

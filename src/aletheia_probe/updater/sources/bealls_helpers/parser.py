@@ -1,15 +1,16 @@
 """HTML parsing utilities for Beall's List."""
 
-import logging
 import re
 from typing import Any
 
 from aletheia_probe.normalizer import input_normalizer
 
+from ....logging_config import get_detail_logger, get_status_logger
 from .cleaner import JournalNameCleaner
 from .validator import JournalEntryValidator
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class BeallsHTMLParser:
@@ -83,7 +84,9 @@ class BeallsHTMLParser:
                         }
                     )
                 except Exception as e:
-                    logger.debug(f"Failed to normalize publisher '{clean_name}': {e}")
+                    detail_logger.debug(
+                        f"Failed to normalize publisher '{clean_name}': {e}"
+                    )
 
         return journals
 
@@ -136,7 +139,7 @@ class BeallsHTMLParser:
                             }
                         )
                     except Exception as e:
-                        logger.debug(
+                        detail_logger.debug(
                             f"Failed to normalize table journal '{journal_name}': {e}"
                         )
 

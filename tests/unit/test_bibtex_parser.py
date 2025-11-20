@@ -519,7 +519,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_order.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        with patch("aletheia_probe.bibtex_parser.logger") as mock_logger:
+        with patch("aletheia_probe.bibtex_parser.detail_logger") as mock_logger:
             entries = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1

@@ -1,7 +1,6 @@
 """Query dispatcher for orchestrating backend assessment requests."""
 
 import asyncio
-import logging
 import time
 from typing import Any
 
@@ -12,10 +11,8 @@ from .constants import (
     CONFIDENCE_THRESHOLD_HIGH,
 )
 from .enums import AssessmentType
-from .logging_config import get_detail_logger
+from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
-
-logger = logging.getLogger(__name__)
 
 
 class QueryDispatcher:
@@ -58,6 +55,7 @@ class QueryDispatcher:
         self.config_manager = get_config_manager()
         self.config = self.config_manager.load_config()
         self.detail_logger = get_detail_logger()
+        self.status_logger = get_status_logger()
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -79,7 +77,7 @@ class QueryDispatcher:
         self.detail_logger.info(f"Dispatcher: Assessing query: {query_input.raw_input}")
 
         if not enabled_backends:
-            logger.warning("No enabled backends found")
+            self.status_logger.warning("No enabled backends found")
             return AssessmentResult(
                 input_query=query_input.raw_input,
                 assessment=AssessmentType.UNKNOWN,
@@ -91,7 +89,7 @@ class QueryDispatcher:
                 processing_time=time.time() - start_time,
             )
 
-        logger.info(
+        self.status_logger.info(
             f"Querying {len(enabled_backends)} backends for: {query_input.raw_input}"
         )
 
@@ -114,7 +112,9 @@ class QueryDispatcher:
         # If no backends configured, use all available
         if not enabled_names:
             enabled_names = backend_registry.get_backend_names()
-            logger.info(f"No backends configured, using all available: {enabled_names}")
+            self.status_logger.info(
+                f"No backends configured, using all available: {enabled_names}"
+            )
 
         for backend_name in enabled_names:
             try:
@@ -138,19 +138,21 @@ class QueryDispatcher:
                     backend = backend_registry.create_backend(
                         backend_name, **config_params
                     )
-                    logger.debug(
+                    self.detail_logger.debug(
                         f"Loaded backend: {backend_name} with configuration: {config_params}"
                     )
                 else:
                     backend = backend_registry.get_backend(backend_name)
-                    logger.debug(
+                    self.detail_logger.debug(
                         f"Loaded backend: {backend_name} (default configuration)"
                     )
 
                 enabled_backends.append(backend)
 
             except ValueError as e:
-                logger.warning(f"Failed to load backend '{backend_name}': {e}")
+                self.status_logger.warning(
+                    f"Failed to load backend '{backend_name}': {e}"
+                )
 
         return enabled_backends
 
@@ -188,7 +190,9 @@ class QueryDispatcher:
             backend_name = tasks[i][0]
 
             if isinstance(result, Exception):
-                logger.error(f"Backend {backend_name} failed with exception: {result}")
+                self.status_logger.error(
+                    f"Backend {backend_name} failed with exception: {result}"
+                )
                 self.detail_logger.error(
                     f"Dispatcher: Backend {backend_name} failed: {result}"
                 )
@@ -203,7 +207,7 @@ class QueryDispatcher:
                 )
                 backend_results.append(error_result)
             elif isinstance(result, BackendResult):
-                logger.debug(
+                self.detail_logger.debug(
                     f"Backend {backend_name}: {result.status} (confidence: {result.confidence})"
                 )
                 self.detail_logger.info(
@@ -212,7 +216,7 @@ class QueryDispatcher:
                 backend_results.append(result)
             else:
                 # Handle unexpected result type
-                logger.error(
+                self.status_logger.error(
                     f"Backend {backend_name} returned unexpected result type: {type(result)}"
                 )
                 error_result = BackendResult(

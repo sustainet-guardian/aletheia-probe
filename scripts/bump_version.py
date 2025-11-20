@@ -23,7 +23,9 @@ def get_current_version() -> str:
     """Read current version from pyproject.toml."""
     pyproject_path = Path("pyproject.toml")
     if not pyproject_path.exists():
-        print("ERROR: pyproject.toml not found. Run this script from the repository root.")
+        print(
+            "ERROR: pyproject.toml not found. Run this script from the repository root."
+        )
         sys.exit(1)
 
     content = pyproject_path.read_text()
@@ -113,7 +115,7 @@ def create_git_commit(version: str, tag: bool = False) -> None:
             )
             print(f"✓ Created git tag v{version}")
             print("\nTo push the changes:")
-            print(f"  git push origin main")
+            print("  git push origin main")
             print(f"  git push origin v{version}")
 
     except subprocess.CalledProcessError as e:
@@ -173,9 +175,7 @@ Examples:
 
     # Check git status if we're going to commit
     if not args.no_git and not args.force and not check_git_clean():
-        print(
-            "\nWARNING: Git working directory is not clean."
-        )
+        print("\nWARNING: Git working directory is not clean.")
         print("Please commit or stash your changes before bumping version.")
         print("Or use --force to proceed anyway, or --no-git to skip git operations.")
         sys.exit(1)
@@ -188,7 +188,7 @@ Examples:
         create_git_commit(new_version, tag=args.tag)
     else:
         print("\nTo commit this change manually:")
-        print(f"  git add pyproject.toml")
+        print("  git add pyproject.toml")
         print(f"  git commit -m 'Bump version to {new_version}'")
         if args.tag:
             print(f"  git tag -a v{new_version} -m 'Release version {new_version}'")
