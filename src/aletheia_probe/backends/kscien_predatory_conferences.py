@@ -34,5 +34,9 @@ class KscienPredatoryConferencesBackend(CachedBackend):
         return "Checks against Kscien predatory conference lists"
 
 
-# Register the backend
-get_backend_registry().register(KscienPredatoryConferencesBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "kscien_predatory_conferences",
+    lambda: KscienPredatoryConferencesBackend(),
+    default_config={},
+)

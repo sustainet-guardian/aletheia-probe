@@ -415,13 +415,13 @@ backends:
     enabled: true
     weight: 1.0
     timeout: 15
-    email: "your.email@institution.org"  # Required for API access
+    email: "your.email@institution.org"  # Optional for API identification
 
   "OpenAlex Analyzer":
     enabled: true
     weight: 1.0
     timeout: 15
-    email: "your.email@institution.org"  # Same email can be used
+    email: "your.email@institution.org"  # Optional for API identification
 
   retraction_watch:
     enabled: true
@@ -451,7 +451,7 @@ cache:
 
 Some backends (Crossref Analyzer, OpenAlex Analyzer, Cross-Validator) require email addresses for API identification. This follows "polite pool" access patterns to get better rate limits and support.
 
-**Important**: Use a valid email address that you monitor. The email is sent in the User-Agent header for identification - no emails are sent to this address.
+**Important**: Use a valid email address. The email is sent only in the User-Agent header for API identification - no emails are sent to this address.
 
 ### Backend-Specific Settings
 
@@ -463,14 +463,12 @@ backends:
     enabled: true
     weight: 1.0
     timeout: 10
-    config:
-      cache_ttl_hours: 48  # Custom cache duration
 
   "Crossref Analyzer":
     enabled: true
     weight: 1.0
     timeout: 15
-    email: "research.team@university.edu"  # Required for API identification
+    email: "research.team@university.edu"  # Optional for API identification
     config:
       cache_ttl_hours: 72  # Extended cache for institutional use
 
@@ -478,7 +476,7 @@ backends:
     enabled: true
     weight: 1.0
     timeout: 15
-    email: "research.team@university.edu"  # Same email for consistency
+    email: "research.team@university.edu"  # Optional for API identification
 
   retraction_watch:
     enabled: true

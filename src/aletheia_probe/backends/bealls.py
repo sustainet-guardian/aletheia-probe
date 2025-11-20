@@ -36,5 +36,7 @@ class BeallsListBackend(CachedBackend):
         )
 
 
-# Register the backend
-get_backend_registry().register(BeallsListBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "bealls", lambda: BeallsListBackend(), default_config={}
+)

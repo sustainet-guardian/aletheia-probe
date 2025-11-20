@@ -15,9 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Affects Crossref Analyzer, OpenAlex Analyzer, and Cross-Validator backends
 - **Factory-Based Backend Registry**: Refactored backend registration system to support dynamic configuration
   - Enables runtime backend creation with custom parameters
-  - Maintains backward compatibility with existing configurations
   - Foundation for future configurable backend parameters
-- **Enhanced Cache Configuration**: Added support for configurable cache TTL via config.cache_ttl_hours parameter
 
 ### Changed
 - **Backend Architecture**: Moved from singleton backend instances to factory-based creation for configurable backends

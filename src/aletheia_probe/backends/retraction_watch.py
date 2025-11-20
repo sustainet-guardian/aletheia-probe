@@ -252,5 +252,7 @@ class RetractionWatchBackend(CachedBackend):
         )
 
 
-# Register the backend
-get_backend_registry().register(RetractionWatchBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "retraction_watch", lambda: RetractionWatchBackend(), default_config={}
+)

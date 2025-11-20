@@ -41,5 +41,7 @@ class PredatoryJournalsBackend(CachedBackend):
         )
 
 
-# Register the backend
-get_backend_registry().register(PredatoryJournalsBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "predatoryjournals", lambda: PredatoryJournalsBackend(), default_config={}
+)

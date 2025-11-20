@@ -26,5 +26,9 @@ class KscienHijackedJournalsBackend(CachedBackend):
         return "Checks against Kscien's list of hijacked journals (234+ entries)"
 
 
-# Register the backend
-get_backend_registry().register(KscienHijackedJournalsBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "kscien_hijacked_journals",
+    lambda: KscienHijackedJournalsBackend(),
+    default_config={},
+)

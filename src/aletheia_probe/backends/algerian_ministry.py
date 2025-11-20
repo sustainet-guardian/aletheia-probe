@@ -34,5 +34,7 @@ class AlgerianMinistryBackend(CachedBackend):
         return "Checks Algerian Ministry of Higher Education predatory journals list"
 
 
-# Register the backend
-get_backend_registry().register(AlgerianMinistryBackend())
+# Register the backend factory
+get_backend_registry().register_factory(
+    "algerian_ministry", lambda: AlgerianMinistryBackend(), default_config={}
+)

@@ -317,29 +317,8 @@ class BackendRegistry:
     """Registry for managing available backends with factory-based creation."""
 
     def __init__(self) -> None:
-        # Legacy support - will be deprecated
-        self._backends: dict[str, Backend] = {}
-        # New factory-based registration
         self._factories: dict[str, Callable[..., Backend]] = {}
         self._default_configs: dict[str, dict[str, Any]] = {}
-
-    def register(self, backend: Backend) -> None:
-        """Register a backend instance (legacy support).
-
-        DEPRECATED: Use register_factory() instead for configurable backends.
-        """
-        name = backend.get_name()
-        self._backends[name] = backend
-
-        # Auto-create a factory for legacy backends to maintain compatibility
-        default_config: dict[str, Any] = {}
-
-        def legacy_factory(**config: Any) -> Backend:
-            # For legacy backends, ignore config and return the singleton
-            return backend
-
-        self._factories[name] = legacy_factory
-        self._default_configs[name] = default_config
 
     def register_factory(
         self,
@@ -347,7 +326,7 @@ class BackendRegistry:
         factory: Callable[..., Backend],
         default_config: dict[str, Any] | None = None,
     ) -> None:
-        """Register a backend factory function for configurable backends.
+        """Register a backend factory function.
 
         Args:
             name: Backend name (must match backend.get_name())
@@ -377,39 +356,26 @@ class BackendRegistry:
         return self._factories[name](**merged_config)
 
     def get_backend(self, name: str) -> Backend:
-        """Get a backend by name (legacy compatibility).
-
-        Returns the default instance for legacy registered backends,
-        or creates a new instance with default config for factory backends.
-        """
-        if name in self._backends:
-            # Legacy backend - return singleton instance
-            return self._backends[name]
-        elif name in self._factories:
-            # Factory backend - create with default config
-            return self.create_backend(name)
-        else:
-            raise ValueError(f"Backend '{name}' not found")
+        """Get a backend by name with default configuration."""
+        return self.create_backend(name)
 
     def get_all_backends(self) -> list[Backend]:
-        """Get all registered backends (legacy compatibility)."""
+        """Get all registered backends with default configuration."""
         backends: list[Backend] = []
 
-        # Add legacy backends
-        backends.extend(self._backends.values())
-
-        # Add default instances from factories (excluding duplicates)
+        # Create default instances from factories
         for name in self._factories:
-            if name not in self._backends:
+            try:
                 backends.append(self.create_backend(name))
+            except Exception:
+                # Skip backends that fail to create with default config
+                pass
 
         return backends
 
     def get_backend_names(self) -> list[str]:
         """Get names of all registered backends."""
-        # Combine legacy and factory names
-        all_names = set(self._backends.keys()) | set(self._factories.keys())
-        return list(all_names)
+        return list(self._factories.keys())
 
     def list_all(self) -> list[Backend]:
         """List all registered backends (alias for get_all_backends)."""
