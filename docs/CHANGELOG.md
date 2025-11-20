@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-20
+
 ### Added
 - **Configurable API Email Addresses**: Email addresses for Crossref and OpenAlex APIs are now configurable through YAML configuration
   - Supports proper "polite pool" access patterns for better rate limits
@@ -16,15 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Factory-Based Backend Registry**: Refactored backend registration system to support dynamic configuration
   - Enables runtime backend creation with custom parameters
   - Foundation for future configurable backend parameters
+- **Centralized Logging System**: Implemented project-wide standardized logging architecture
+  - Automated logging consistency checker (scripts/check-logging.py)
+  - Clear separation between technical details and user-facing messages
+  - Integrated into quality assurance pipeline
 
 ### Changed
 - **Backend Architecture**: Moved from singleton backend instances to factory-based creation for configurable backends
+- **Logging Infrastructure**: Replaced direct logging.getLogger() calls with centralized project loggers across 12 modules
+  - detail_logger: Technical details, debug info, internal processing (file only)
+  - status_logger: User-facing progress, status, errors (console + file)
 - **Documentation**: Updated configuration examples and user guide to include email configuration
 - **API Integration**: Crossref and OpenAlex backends now use configured email addresses in User-Agent headers
+- **Security Documentation**: Enhanced security policy with email address privacy considerations
 
 ### Fixed
+- **Code Quality**: Resolved linting and formatting issues with ruff
 - **Type Safety**: Added comprehensive type annotations for new factory methods
 - **Email Validation**: Proper validation prevents invalid email formats in configuration
+- **Import Sorting**: Fixed import organization across codebase
+- **Test Compatibility**: Updated bibtex parser test mocks for new logging system
+
+### Removed
+- **Legacy Backend Support**: Cleaned up deprecated singleton backend registration patterns
+- **Temporary Test Files**: Removed bot attribution test artifacts
 
 ## [0.1.0] - 2025-11-19
 
