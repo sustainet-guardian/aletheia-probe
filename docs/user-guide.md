@@ -411,6 +411,18 @@ backends:
     weight: 0.8
     timeout: 5
 
+  "Crossref Analyzer":
+    enabled: true
+    weight: 1.0
+    timeout: 15
+    email: "your.email@institution.org"  # Required for API access
+
+  "OpenAlex Analyzer":
+    enabled: true
+    weight: 1.0
+    timeout: 15
+    email: "your.email@institution.org"  # Same email can be used
+
   retraction_watch:
     enabled: true
     weight: 0.7
@@ -435,6 +447,12 @@ cache:
   update_threshold_days: 7
 ```
 
+### API Email Configuration
+
+Some backends (Crossref Analyzer, OpenAlex Analyzer, Cross-Validator) require email addresses for API identification. This follows "polite pool" access patterns to get better rate limits and support.
+
+**Important**: Use a valid email address that you monitor. The email is sent in the User-Agent header for identification - no emails are sent to this address.
+
 ### Backend-Specific Settings
 
 Each backend can be configured individually:
@@ -446,8 +464,21 @@ backends:
     weight: 1.0
     timeout: 10
     config:
-      api_base_url: "https://doaj.org/api/v1"
-      rate_limit: 60  # requests per minute
+      cache_ttl_hours: 48  # Custom cache duration
+
+  "Crossref Analyzer":
+    enabled: true
+    weight: 1.0
+    timeout: 15
+    email: "research.team@university.edu"  # Required for API identification
+    config:
+      cache_ttl_hours: 72  # Extended cache for institutional use
+
+  "OpenAlex Analyzer":
+    enabled: true
+    weight: 1.0
+    timeout: 15
+    email: "research.team@university.edu"  # Same email for consistency
 
   retraction_watch:
     enabled: true

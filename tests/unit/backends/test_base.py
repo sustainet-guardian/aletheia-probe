@@ -399,7 +399,10 @@ class TestBackendRegistry:
 
     def test_list_all_backends(self):
         """Test listing all registered backends."""
+        # Clear both legacy and factory registrations for isolated testing
         get_backend_registry()._backends.clear()
+        get_backend_registry()._factories.clear()
+        get_backend_registry()._default_configs.clear()
 
         backend1 = MockBackend()
         backend2 = MockCachedBackend()

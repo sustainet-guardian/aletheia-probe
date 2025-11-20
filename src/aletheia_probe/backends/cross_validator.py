@@ -445,5 +445,12 @@ class CrossValidatorBackend(Backend):
         }
 
 
-# Register the backend
-get_backend_registry().register(CrossValidatorBackend())
+# Register the backend with factory for configuration support
+get_backend_registry().register_factory(
+    "Cross-Validator",
+    lambda email="noreply.aletheia-probe.org",
+    cache_ttl_hours=24: CrossValidatorBackend(
+        email=email, cache_ttl_hours=cache_ttl_hours
+    ),
+    default_config={"email": "noreply.aletheia-probe.org", "cache_ttl_hours": 24},
+)

@@ -27,8 +27,8 @@ class RateLimitError(Exception):
 class DOAJBackend(HybridBackend):
     """Backend that checks DOAJ for legitimate open access journals."""
 
-    def __init__(self) -> None:
-        super().__init__(cache_ttl_hours=24)  # Cache for 24 hours
+    def __init__(self, cache_ttl_hours: int = 24) -> None:
+        super().__init__(cache_ttl_hours=cache_ttl_hours)
         self.base_url = "https://doaj.org/api/search/journals"
 
     def get_name(self) -> str:
@@ -263,5 +263,9 @@ class DOAJBackend(HybridBackend):
         return min(confidence, 1.0)
 
 
-# Register the backend
-get_backend_registry().register(DOAJBackend())
+# Register the backend with factory for configuration support
+get_backend_registry().register_factory(
+    "doaj",
+    lambda cache_ttl_hours=24: DOAJBackend(cache_ttl_hours=cache_ttl_hours),
+    default_config={"cache_ttl_hours": 24},
+)

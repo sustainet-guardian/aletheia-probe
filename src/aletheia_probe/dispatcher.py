@@ -118,13 +118,39 @@ class QueryDispatcher:
 
         for backend_name in enabled_names:
             try:
-                backend = backend_registry.get_backend(backend_name)
+                # Get backend configuration
+                backend_config = self.config_manager.get_backend_config(backend_name)
+
+                # Build configuration parameters for backend creation
+                config_params = {}
+                if backend_config:
+                    if backend_config.email:
+                        config_params["email"] = backend_config.email
+
+                    # Add cache_ttl_hours if specified in config dict
+                    if "cache_ttl_hours" in backend_config.config:
+                        config_params["cache_ttl_hours"] = backend_config.config[
+                            "cache_ttl_hours"
+                        ]
+
+                # Create backend with configuration (uses factory or legacy)
+                if config_params:
+                    backend = backend_registry.create_backend(
+                        backend_name, **config_params
+                    )
+                    logger.debug(
+                        f"Loaded backend: {backend_name} with configuration: {config_params}"
+                    )
+                else:
+                    backend = backend_registry.get_backend(backend_name)
+                    logger.debug(
+                        f"Loaded backend: {backend_name} (default configuration)"
+                    )
+
                 enabled_backends.append(backend)
-                logger.debug(f"Loaded backend: {backend_name}")
-            except ValueError:
-                logger.warning(
-                    f"Backend '{backend_name}' is enabled in config but not registered"
-                )
+
+            except ValueError as e:
+                logger.warning(f"Failed to load backend '{backend_name}': {e}")
 
         return enabled_backends
 

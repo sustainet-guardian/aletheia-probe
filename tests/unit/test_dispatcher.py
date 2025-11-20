@@ -29,6 +29,8 @@ def dispatcher():
         mock_backend_config = Mock()
         mock_backend_config.weight = 1.0
         mock_backend_config.timeout = 10
+        mock_backend_config.email = None
+        mock_backend_config.config = {}
         mock_config_manager = Mock()
         mock_config_manager.get_backend_config.return_value = mock_backend_config
         mock_get_config_manager.return_value = mock_config_manager
@@ -394,3 +396,76 @@ class TestQueryDispatcher:
 
             assert isinstance(result, AssessmentResult)
             assert len(result.backend_results) == 1
+
+    def test_get_enabled_backends_with_email_config(self, dispatcher):
+        """Test getting enabled backends with email configuration."""
+        with (
+            patch.object(
+                dispatcher.config_manager,
+                "get_enabled_backends",
+                return_value=["Crossref Analyzer"],
+            ),
+            patch.object(
+                dispatcher.config_manager, "get_backend_config"
+            ) as mock_get_backend_config,
+            patch(
+                "aletheia_probe.dispatcher.get_backend_registry"
+            ) as mock_get_registry,
+        ):
+            # Configure mock backend config with email
+            mock_backend_config = Mock()
+            mock_backend_config.email = "test@example.com"
+            mock_backend_config.config = {}
+            mock_get_backend_config.return_value = mock_backend_config
+
+            # Configure mock registry to support factory creation
+            mock_backend = Mock()
+            mock_backend.get_name.return_value = "Crossref Analyzer"
+            mock_registry = Mock()
+            mock_registry.create_backend.return_value = mock_backend
+            mock_get_registry.return_value = mock_registry
+
+            backends = dispatcher._get_enabled_backends()
+
+            assert len(backends) == 1
+            assert mock_backend in backends
+            # Verify that create_backend was called with email config
+            mock_registry.create_backend.assert_called_once_with(
+                "Crossref Analyzer", email="test@example.com"
+            )
+
+    def test_get_enabled_backends_without_email_config(self, dispatcher):
+        """Test getting enabled backends without email configuration."""
+        with (
+            patch.object(
+                dispatcher.config_manager,
+                "get_enabled_backends",
+                return_value=["doaj"],
+            ),
+            patch.object(
+                dispatcher.config_manager, "get_backend_config"
+            ) as mock_get_backend_config,
+            patch(
+                "aletheia_probe.dispatcher.get_backend_registry"
+            ) as mock_get_registry,
+        ):
+            # Configure mock backend config without email
+            mock_backend_config = Mock()
+            mock_backend_config.email = None
+            mock_backend_config.config = {}
+            mock_get_backend_config.return_value = mock_backend_config
+
+            # Configure mock registry
+            mock_backend = Mock()
+            mock_backend.get_name.return_value = "doaj"
+            mock_registry = Mock()
+            mock_registry.get_backend.return_value = mock_backend
+            mock_get_registry.return_value = mock_registry
+
+            backends = dispatcher._get_enabled_backends()
+
+            assert len(backends) == 1
+            assert mock_backend in backends
+            # Verify that get_backend was called (not create_backend)
+            mock_registry.get_backend.assert_called_once_with("doaj")
+            mock_registry.create_backend.assert_not_called()

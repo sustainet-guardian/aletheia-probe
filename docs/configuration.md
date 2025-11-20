@@ -61,8 +61,49 @@ backends:
     weight: 1.0            # Weight in final assessment (0.0-2.0)
     timeout: 10            # Timeout in seconds
     rate_limit: 60         # Requests per minute (null for unlimited)
+    email: null            # Email for API identification (Crossref, OpenAlex)
     config: {}             # Backend-specific settings
 ```
+
+### API Email Configuration
+
+Several backends (Crossref Analyzer, OpenAlex Analyzer, Cross Validator) use the `email` parameter for API identification and rate limiting. These APIs follow "polite pool" access patterns and require contact information for higher rate limits.
+
+**Default Behavior**: If no email is configured, backends use `noreply.aletheia-probe.org` as a default contact address.
+
+**Recommended Configuration**: Configure your own email address to:
+- Comply with API provider policies
+- Get better rate limits and support
+- Identify your requests in API logs
+
+```yaml
+backends:
+  "Crossref Analyzer":
+    enabled: true
+    email: "your.email@institution.org"  # Your contact email
+
+  "OpenAlex Analyzer":
+    enabled: true
+    email: "your.email@institution.org"  # Your contact email
+
+  "Cross-Validator":
+    enabled: true
+    email: "your.email@institution.org"  # Your contact email
+
+  doaj:
+    enabled: true
+    config:
+      cache_ttl_hours: 48  # Cache results for 48 hours instead of default 24
+```
+
+**Important Notes**:
+- Use a valid email address that you monitor
+- The same email can be used for all backends
+- Email is sent in the User-Agent header as `AletheiaProbe/1.0 (mailto:your.email@institution.org)`
+- No emails are sent to this address - it's purely for identification
+- In shared or public setups, consider using a dedicated service email rather than personal addresses
+- Additional parameters like `cache_ttl_hours` can be configured in the `config` section
+- Email format is validated - invalid emails will cause configuration errors
 
 ### DOAJ Backend
 
@@ -275,6 +316,9 @@ backends:
     enabled: true
   bealls:
     enabled: true
+  "Crossref Analyzer":
+    enabled: true
+    email: "researcher@university.edu"  # Your contact email for API access
 
 heuristics:
   confidence_threshold: 0.6

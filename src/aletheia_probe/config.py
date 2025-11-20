@@ -277,6 +277,7 @@ class ConfigManager:
                 "enabled": True,
                 "weight": DEFAULT_BACKEND_WEIGHT,
                 "timeout": DEFAULT_BACKEND_TIMEOUT,
+                "email": None,  # Use backend default unless configured
                 "config": {},
             }
 

@@ -449,5 +449,12 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         return reasoning
 
 
-# Register the backend
-get_backend_registry().register(OpenAlexAnalyzerBackend())
+# Register the backend with factory for configuration support
+get_backend_registry().register_factory(
+    "OpenAlex Analyzer",
+    lambda email="noreply.aletheia-probe.org",
+    cache_ttl_hours=24: OpenAlexAnalyzerBackend(
+        email=email, cache_ttl_hours=cache_ttl_hours
+    ),
+    default_config={"email": "noreply.aletheia-probe.org", "cache_ttl_hours": 24},
+)

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Configurable API Email Addresses**: Email addresses for Crossref and OpenAlex APIs are now configurable through YAML configuration
+  - Supports proper "polite pool" access patterns for better rate limits
+  - Email validation with clear error messages
+  - Configuration via `email` parameter in backend settings
+  - Affects Crossref Analyzer, OpenAlex Analyzer, and Cross-Validator backends
+- **Factory-Based Backend Registry**: Refactored backend registration system to support dynamic configuration
+  - Enables runtime backend creation with custom parameters
+  - Maintains backward compatibility with existing configurations
+  - Foundation for future configurable backend parameters
+- **Enhanced Cache Configuration**: Added support for configurable cache TTL via config.cache_ttl_hours parameter
+
+### Changed
+- **Backend Architecture**: Moved from singleton backend instances to factory-based creation for configurable backends
+- **Documentation**: Updated configuration examples and user guide to include email configuration
+- **API Integration**: Crossref and OpenAlex backends now use configured email addresses in User-Agent headers
+
+### Fixed
+- **Type Safety**: Added comprehensive type annotations for new factory methods
+- **Email Validation**: Proper validation prevents invalid email formats in configuration
+
 ## [0.1.0] - 2025-11-19
 
 Initial release of Aletheia Probe - an automated tool for assessing predatory journals using multiple data sources.

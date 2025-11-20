@@ -147,3 +147,32 @@ class TestConfigBackend:
         assert config.weight == 0.8
         assert config.timeout == 15
         assert config.rate_limit is None
+
+    def test_backend_config_with_valid_email(self):
+        """Test creating backend configuration with valid email."""
+        config = ConfigBackend(
+            name="test_backend",
+            enabled=True,
+            weight=1.0,
+            timeout=10,
+            email="user@example.com",
+        )
+        assert config.email == "user@example.com"
+
+    def test_backend_config_with_invalid_email(self):
+        """Test creating backend configuration with invalid email."""
+        with pytest.raises(ValueError, match="Invalid email format"):
+            ConfigBackend(
+                name="test_backend",
+                enabled=True,
+                weight=1.0,
+                timeout=10,
+                email="invalid-email",
+            )
+
+    def test_backend_config_with_none_email(self):
+        """Test creating backend configuration with None email."""
+        config = ConfigBackend(
+            name="test_backend", enabled=True, weight=1.0, timeout=10, email=None
+        )
+        assert config.email is None
