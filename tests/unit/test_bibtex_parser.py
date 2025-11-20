@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for BibTeX parser functionality."""
 
 import logging

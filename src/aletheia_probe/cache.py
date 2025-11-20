@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Normalized caching system for journal data and assessment results."""
 
 import json

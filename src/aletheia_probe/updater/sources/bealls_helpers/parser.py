@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """HTML parsing utilities for Beall's List."""
 
 import re

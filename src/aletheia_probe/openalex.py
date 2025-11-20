@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """OpenAlex API client for fetching publication volume data."""
 
 import asyncio

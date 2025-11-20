@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the cache management module."""
 
 import sqlite3

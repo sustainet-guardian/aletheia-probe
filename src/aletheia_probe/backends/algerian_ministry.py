@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Algerian Ministry backend for predatory journal verification."""
 
 from .base import CachedBackend, get_backend_registry

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Crossref backend with metadata quality analysis for predatory journal detection."""
 
 import asyncio

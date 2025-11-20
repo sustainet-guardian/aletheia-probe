@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """OpenAlex backend with pattern analysis for predatory journal detection."""
 
 import time

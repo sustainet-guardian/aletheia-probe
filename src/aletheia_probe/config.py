@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Configuration management for the journal assessment tool."""
 
 import copy

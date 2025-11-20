@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Generic Kscien data source for multiple publication types."""
 
 import asyncio

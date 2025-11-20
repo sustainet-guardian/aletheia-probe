@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Pytest configuration and shared fixtures."""
 
 from pathlib import Path

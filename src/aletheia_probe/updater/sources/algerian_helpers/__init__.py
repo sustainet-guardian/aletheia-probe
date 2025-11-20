@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Algerian Ministry data processing utilities."""
 
 from .downloader import RARDownloader

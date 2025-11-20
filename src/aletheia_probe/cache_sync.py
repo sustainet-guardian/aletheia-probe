@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Cache synchronization manager for automatic backend data management."""
 
 import asyncio

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """RAR file downloading for Algerian Ministry data."""
 
 import asyncio

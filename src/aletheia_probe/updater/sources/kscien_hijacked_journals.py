@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Kscien hijacked journals data source."""
 
 from .kscien_generic import KscienGenericSource

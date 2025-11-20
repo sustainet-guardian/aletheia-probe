@@ -77,6 +77,35 @@ Then create a Pull Request on GitHub.
 - Maximum line length: 88 characters (Black default)
 - Use descriptive variable names
 - Add docstrings for classes and functions
+- **REQUIRED**: Include SPDX license identifier at the top of every Python file
+
+### SPDX License Requirements
+
+All Python source files must include an SPDX license identifier for licensing clarity and compliance:
+
+**For files without shebang lines:**
+```python
+# SPDX-License-Identifier: MIT
+"""Module docstring here."""
+```
+
+**For script files with shebang:**
+```python
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Script docstring here."""
+```
+
+**Why SPDX identifiers are required:**
+- Provides machine-readable licensing information
+- Aligns with Python packaging standards (PEP 639)
+- Enables automated license compliance checking
+- Improves clarity for contributors and users
+
+The SPDX check runs automatically in CI/CD and can be tested locally:
+```bash
+python scripts/check-spdx.py
+```
 
 ### Commit Messages
 Use conventional commit format:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Logging configuration for aletheia probe tool.
 
 This module provides a dual-logger system:

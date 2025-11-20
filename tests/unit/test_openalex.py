@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the OpenAlex integration module."""
 
 import asyncio

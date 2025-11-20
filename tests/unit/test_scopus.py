@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for Scopus source and backend."""
 
 import tempfile

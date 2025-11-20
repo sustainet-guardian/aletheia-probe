@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Predatory Journals database data source."""
 
 import asyncio

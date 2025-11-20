@@ -47,6 +47,14 @@ jobs:
       run: |
         mypy src/ --strict
 
+    - name: Check SPDX license identifiers
+      run: |
+        python scripts/check-spdx.py
+
+    - name: Check logging consistency
+      run: |
+        python scripts/check-logging.py
+
   test:
     name: Tests
     runs-on: ubuntu-latest

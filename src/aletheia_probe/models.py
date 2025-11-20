@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Core data models for the journal assessment tool."""
 
 import re

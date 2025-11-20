@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Validation utilities for journal identifiers."""
 
 import re

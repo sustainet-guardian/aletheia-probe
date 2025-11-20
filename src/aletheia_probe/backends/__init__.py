@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Backend modules for journal assessment."""
 
 # Import backends to register them

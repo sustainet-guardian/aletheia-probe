@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the base backend functionality."""
 
 import asyncio

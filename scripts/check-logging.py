@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Script to enforce consistent logging practices in the codebase.
 
 This script checks that no files use direct logging.getLogger() and instead

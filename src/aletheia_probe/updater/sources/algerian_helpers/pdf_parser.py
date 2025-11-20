@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """PDF parsing utilities for Algerian Ministry data."""
 
 import re

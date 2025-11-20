@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Predatory Journals database backend for journal assessment."""
 
 from .base import CachedBackend, get_backend_registry

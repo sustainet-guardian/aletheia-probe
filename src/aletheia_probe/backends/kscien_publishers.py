@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Kscien publishers backend for predatory journal assessment."""
 
 from .base import CachedBackend, get_backend_registry

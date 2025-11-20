@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Basic integration tests for the journal assessment tool."""
 
 import tempfile

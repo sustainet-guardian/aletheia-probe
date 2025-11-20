@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data source implementations for journal list updates."""
 
 from .algerian import AlgerianMinistrySource

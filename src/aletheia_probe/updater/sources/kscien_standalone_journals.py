@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Kscien standalone journals data source."""
 
 from .kscien_generic import KscienGenericSource

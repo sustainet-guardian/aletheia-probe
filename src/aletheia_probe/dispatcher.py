@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Query dispatcher for orchestrating backend assessment requests."""
 
 import asyncio

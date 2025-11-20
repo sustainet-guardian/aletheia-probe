@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """RAR file extraction utilities."""
 
 import subprocess
