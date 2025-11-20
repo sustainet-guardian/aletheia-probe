@@ -447,54 +447,6 @@ jobs:
         name: benchmark-results
         path: benchmark.json
 
-  # Disabled until GitHub Pages is configured
-  # To enable: Go to repository Settings → Pages → Source → GitHub Actions
-  # deploy-docs:
-  #   name: Deploy Documentation
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  #   needs: [lint-and-type-check, test, build]
-  #
-  #   permissions:
-  #     contents: read
-  #     pages: write
-  #     id-token: write
-  #
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #
-  #   - name: Set up Python 3.11
-  #     uses: actions/setup-python@v5
-  #     with:
-  #       python-version: "3.11"
-  #
-  #   - name: Install dependencies
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       pip install -e .[docs] || pip install -e .[dev]
-  #
-  #   - name: Build documentation
-  #     run: |
-  #       # Generate coverage reports for docs
-  #       pytest --cov=src --cov-report=html tests/ || true
-  #       mkdir -p docs/coverage
-  #       cp -r htmlcov/* docs/coverage/ || true
-  #
-  #       # Generate API documentation
-  #       mkdir -p docs/api
-  #       # Add sphinx-apidoc or similar here if available
-  #
-  #   - name: Setup Pages
-  #     uses: actions/configure-pages@v5
-  #
-  #   - name: Upload documentation
-  #     uses: actions/upload-pages-artifact@v3
-  #     with:
-  #       path: 'docs/'
-  #
-  #   - name: Deploy to GitHub Pages
-  #     id: deployment
-  #     uses: actions/deploy-pages@v4
 
   test-pypi-publish:
     name: Test PyPI Publishing (TestPyPI)
