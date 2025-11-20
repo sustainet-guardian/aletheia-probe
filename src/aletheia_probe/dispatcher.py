@@ -112,7 +112,9 @@ class QueryDispatcher:
         # If no backends configured, use all available
         if not enabled_names:
             enabled_names = backend_registry.get_backend_names()
-            self.status_logger.info(f"No backends configured, using all available: {enabled_names}")
+            self.status_logger.info(
+                f"No backends configured, using all available: {enabled_names}"
+            )
 
         for backend_name in enabled_names:
             try:
@@ -148,7 +150,9 @@ class QueryDispatcher:
                 enabled_backends.append(backend)
 
             except ValueError as e:
-                self.status_logger.warning(f"Failed to load backend '{backend_name}': {e}")
+                self.status_logger.warning(
+                    f"Failed to load backend '{backend_name}': {e}"
+                )
 
         return enabled_backends
 
@@ -186,7 +190,9 @@ class QueryDispatcher:
             backend_name = tasks[i][0]
 
             if isinstance(result, Exception):
-                self.status_logger.error(f"Backend {backend_name} failed with exception: {result}")
+                self.status_logger.error(
+                    f"Backend {backend_name} failed with exception: {result}"
+                )
                 self.detail_logger.error(
                     f"Dispatcher: Backend {backend_name} failed: {result}"
                 )

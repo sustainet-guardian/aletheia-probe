@@ -32,11 +32,11 @@ def check_direct_logger_usage():
         result = subprocess.run(
             ["grep", "-r", "-n", "logging\\.getLogger(__name__)", str(src_dir)],
             capture_output=True,
-            text=True
+            text=True,
         )
 
         if result.returncode == 0:
-            violations = result.stdout.strip().split('\n')
+            violations = result.stdout.strip().split("\n")
 
     except FileNotFoundError:
         print("ERROR: grep command not found. Install grep to run this check.")
@@ -45,7 +45,9 @@ def check_direct_logger_usage():
     if violations:
         print("❌ LOGGING VIOLATIONS FOUND:")
         print()
-        print("The following files use direct logging.getLogger() instead of project loggers:")
+        print(
+            "The following files use direct logging.getLogger() instead of project loggers:"
+        )
         print()
 
         for violation in violations:
@@ -54,9 +56,15 @@ def check_direct_logger_usage():
         print()
         print("Fix these by:")
         print("1. Remove 'import logging' and 'logger = logging.getLogger(__name__)'")
-        print("2. Add: from .logging_config import get_detail_logger, get_status_logger")
-        print("3. Add: detail_logger = get_detail_logger(); status_logger = get_status_logger()")
-        print("4. Use detail_logger for technical details, status_logger for user messages")
+        print(
+            "2. Add: from .logging_config import get_detail_logger, get_status_logger"
+        )
+        print(
+            "3. Add: detail_logger = get_detail_logger(); status_logger = get_status_logger()"
+        )
+        print(
+            "4. Use detail_logger for technical details, status_logger for user messages"
+        )
         print()
         return False
 
@@ -69,15 +77,22 @@ def check_logger_imports():
     try:
         # Find files that use detail_logger or status_logger but don't import them
         result = subprocess.run(
-            ["grep", "-r", "-l", "--include=*.py", "detail_logger\\|status_logger", "src"],
+            [
+                "grep",
+                "-r",
+                "-l",
+                "--include=*.py",
+                "detail_logger\\|status_logger",
+                "src",
+            ],
             capture_output=True,
-            text=True
+            text=True,
         )
 
         if result.returncode != 0:
             return True  # No files use loggers, that's fine
 
-        files_using_loggers = result.stdout.strip().split('\n')
+        files_using_loggers = result.stdout.strip().split("\n")
         violations = []
 
         for file_path in files_using_loggers:
@@ -88,7 +103,7 @@ def check_logger_imports():
             # Check if file imports from logging_config
             import_result = subprocess.run(
                 ["grep", "-q", "from.*logging_config import", file_path],
-                capture_output=True
+                capture_output=True,
             )
 
             if import_result.returncode != 0:

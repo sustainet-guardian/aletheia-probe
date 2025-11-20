@@ -7,6 +7,7 @@ from typing import Any
 import pypdf
 
 from aletheia_probe.normalizer import input_normalizer
+
 from ....logging_config import get_detail_logger, get_status_logger
 
 detail_logger = get_detail_logger()

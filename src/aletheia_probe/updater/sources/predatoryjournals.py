@@ -94,7 +94,9 @@ class PredatoryJournalsSource(DataSource):
                     session, "journals", journals_url
                 )
                 all_entries.extend(journals)
-                status_logger.info(f"Successfully fetched {len(journals)} journal entries")
+                status_logger.info(
+                    f"Successfully fetched {len(journals)} journal entries"
+                )
                 status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(journals)} journal entries"
                 )
@@ -114,7 +116,9 @@ class PredatoryJournalsSource(DataSource):
                     session, "publishers", publishers_url
                 )
                 all_entries.extend(publishers)
-                status_logger.info(f"Successfully fetched {len(publishers)} publisher entries")
+                status_logger.info(
+                    f"Successfully fetched {len(publishers)} publisher entries"
+                )
                 status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(publishers)} publisher entries"
                 )
@@ -126,7 +130,9 @@ class PredatoryJournalsSource(DataSource):
 
         # Remove duplicates based on normalized name
         unique_entries = self._deduplicate_entries(all_entries)
-        status_logger.info(f"Total unique entries after deduplication: {len(unique_entries)}")
+        status_logger.info(
+            f"Total unique entries after deduplication: {len(unique_entries)}"
+        )
         status_logger.info(
             f"    {self.get_name()}: Processed {len(unique_entries)} unique entries"
         )
@@ -166,7 +172,9 @@ class PredatoryJournalsSource(DataSource):
                             f"    {self.get_name()}: HTTP {response.status} from CSV URL"
                         )
             else:
-                status_logger.warning(f"Could not discover Google Sheet URL from {page_url}")
+                status_logger.warning(
+                    f"Could not discover Google Sheet URL from {page_url}"
+                )
                 status_logger.warning(
                     f"    {self.get_name()}: Could not discover sheet URL from page"
                 )

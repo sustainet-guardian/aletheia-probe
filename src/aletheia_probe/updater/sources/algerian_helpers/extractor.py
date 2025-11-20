@@ -54,7 +54,9 @@ class RARExtractor:
         try:
             extract_dir.resolve().relative_to(temp_directory.resolve())
         except ValueError:
-            detail_logger.error(f"Extract directory is outside temp directory: {extract_dir}")
+            detail_logger.error(
+                f"Extract directory is outside temp directory: {extract_dir}"
+            )
             return None
 
         try:

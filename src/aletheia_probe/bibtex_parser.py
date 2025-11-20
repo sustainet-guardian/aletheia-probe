@@ -57,7 +57,9 @@ class BibtexParser:
 
         for encoding, description in encoding_strategies:
             try:
-                detail_logger.debug(f"Attempting to parse {file_path.name} with {description}")
+                detail_logger.debug(
+                    f"Attempting to parse {file_path.name} with {description}"
+                )
 
                 if description.endswith("with errors='replace'"):
                     # For the final attempt, use error handling to replace problematic characters
@@ -103,7 +105,9 @@ class BibtexParser:
 
             except UnicodeDecodeError as e:
                 last_error = e
-                detail_logger.debug(f"{description} decoding failed for {file_path.name}: {e}")
+                detail_logger.debug(
+                    f"{description} decoding failed for {file_path.name}: {e}"
+                )
                 continue
 
             except PybtexSyntaxError as e:
@@ -276,7 +280,9 @@ class BibtexParser:
                                 author_str = str(person)
                                 authors.append(author_str)
                             except (UnicodeDecodeError, UnicodeEncodeError) as e:
-                                detail_logger.debug(f"Encoding error in author field: {e}")
+                                detail_logger.debug(
+                                    f"Encoding error in author field: {e}"
+                                )
                                 # Try to get a safe representation
                                 author_str = repr(person)
                                 authors.append(author_str)
@@ -320,7 +326,9 @@ class BibtexParser:
                         cleaned = value.strip("{}").strip()
                         return cleaned if cleaned else None
                     except (UnicodeDecodeError, UnicodeEncodeError) as e:
-                        detail_logger.debug(f"Encoding error in field '{field_name}': {e}")
+                        detail_logger.debug(
+                            f"Encoding error in field '{field_name}': {e}"
+                        )
                         # Try to get a safe representation
                         try:
                             # Attempt to encode/decode safely

@@ -220,7 +220,9 @@ class RetractionWatchBackend(CachedBackend):
             return openalex_data
 
         except Exception as e:
-            status_logger.warning(f"Failed to fetch OpenAlex data for {journal_name}: {e}")
+            status_logger.warning(
+                f"Failed to fetch OpenAlex data for {journal_name}: {e}"
+            )
             # Cache the failure for 1 day to avoid repeated API calls
             get_cache_manager().set_cached_value(cache_key, "null", ttl_hours=24)
             return None
