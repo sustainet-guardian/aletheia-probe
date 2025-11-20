@@ -1,7 +1,6 @@
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
 import asyncio
-import logging
 import time
 from typing import Any
 from urllib.parse import quote
@@ -9,11 +8,13 @@ from urllib.parse import quote
 import aiohttp
 
 from ..enums import AssessmentType
+from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
 from .base import HybridBackend, get_backend_registry
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class RateLimitError(Exception):
@@ -63,7 +64,7 @@ class DOAJBackend(HybridBackend):
             )
 
         except RateLimitError as e:
-            logger.warning(f"DOAJ API rate limit exceeded: {e}")
+            status_logger.warning(f"DOAJ API rate limit exceeded: {e}")
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.RATE_LIMITED,
@@ -73,7 +74,7 @@ class DOAJBackend(HybridBackend):
                 response_time=time.time() - start_time,
             )
         except aiohttp.ClientError as e:
-            logger.error(f"DOAJ API network error: {e}")
+            status_logger.error(f"DOAJ API network error: {e}")
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -83,7 +84,7 @@ class DOAJBackend(HybridBackend):
                 response_time=time.time() - start_time,
             )
         except Exception as e:
-            logger.error(f"DOAJ API unexpected error: {e}")
+            status_logger.error(f"DOAJ API unexpected error: {e}")
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -127,7 +128,7 @@ class DOAJBackend(HybridBackend):
                     retry_after = response.headers.get("Retry-After")
                     retry_seconds = int(retry_after) if retry_after else 60
 
-                    logger.warning(
+                    detail_logger.debug(
                         f"DOAJ API rate limit hit. Retry-After: {retry_seconds}s. URL: {url}"
                     )
 

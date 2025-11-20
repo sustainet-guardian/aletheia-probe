@@ -1,6 +1,5 @@
 """PDF parsing utilities for Algerian Ministry data."""
 
-import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -8,8 +7,10 @@ from typing import Any
 import pypdf
 
 from aletheia_probe.normalizer import input_normalizer
+from ....logging_config import get_detail_logger, get_status_logger
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class PDFTextExtractor:
@@ -49,7 +50,7 @@ class PDFTextExtractor:
                 )
 
         except Exception as e:
-            logger.error(f"Error reading PDF {pdf_path}: {e}")
+            detail_logger.error(f"Error reading PDF {pdf_path}: {e}")
 
         return entries
 

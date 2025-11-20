@@ -2,16 +2,17 @@
 
 import csv
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ...cache import get_cache_manager
+from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class CustomListSource(DataSource):
@@ -50,10 +51,10 @@ class CustomListSource(DataSource):
             elif self.file_path.suffix.lower() == ".csv":
                 journals = await self._load_csv()
             else:
-                logger.error(f"Unsupported file format: {self.file_path}")
+                status_logger.error(f"Unsupported file format: {self.file_path}")
 
         except Exception as e:
-            logger.error(f"Failed to load {self.file_path}: {e}")
+            status_logger.error(f"Failed to load {self.file_path}: {e}")
 
         return journals
 
@@ -93,7 +94,7 @@ class CustomListSource(DataSource):
                         }
                     )
             except Exception as e:
-                logger.warning(f"Failed to process journal entry: {e}")
+                detail_logger.debug(f"Failed to process journal entry: {e}")
 
         return journals
 
@@ -134,6 +135,6 @@ class CustomListSource(DataSource):
                             }
                         )
                 except Exception as e:
-                    logger.warning(f"Failed to process CSV row: {e}")
+                    detail_logger.debug(f"Failed to process CSV row: {e}")
 
         return journals

@@ -1,10 +1,12 @@
 """RAR file extraction utilities."""
 
-import logging
 import subprocess
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from ....logging_config import get_detail_logger, get_status_logger
+
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class RARExtractor:
@@ -29,20 +31,20 @@ class RARExtractor:
 
         # Validate RAR file path
         if not rar_file.exists():
-            logger.error(f"RAR file does not exist: {rar_file}")
+            detail_logger.error(f"RAR file does not exist: {rar_file}")
             return None
 
         if not rar_file.is_file():
-            logger.error(f"Not a file: {rar_file}")
+            detail_logger.error(f"Not a file: {rar_file}")
             return None
 
         if rar_file.suffix.lower() != ".rar":
-            logger.error(f"Invalid file extension (expected .rar): {rar_file}")
+            detail_logger.error(f"Invalid file extension (expected .rar): {rar_file}")
             return None
 
         # Validate temp directory
         if not temp_directory.exists():
-            logger.error(f"Temp directory does not exist: {temp_directory}")
+            detail_logger.error(f"Temp directory does not exist: {temp_directory}")
             return None
 
         extract_dir = temp_directory / "extracted"
@@ -52,7 +54,7 @@ class RARExtractor:
         try:
             extract_dir.resolve().relative_to(temp_directory.resolve())
         except ValueError:
-            logger.error(f"Extract directory is outside temp directory: {extract_dir}")
+            detail_logger.error(f"Extract directory is outside temp directory: {extract_dir}")
             return None
 
         try:
@@ -65,25 +67,25 @@ class RARExtractor:
             )
 
             if result.returncode == 0:
-                logger.info("Successfully extracted RAR archive")
+                detail_logger.info("Successfully extracted RAR archive")
                 return str(extract_dir)
             else:
-                logger.error(f"RAR extraction failed: {result.stderr}")
+                detail_logger.error(f"RAR extraction failed: {result.stderr}")
                 return None
 
         except subprocess.TimeoutExpired:
-            logger.error("RAR extraction timed out")
+            detail_logger.error("RAR extraction timed out")
             return None
         except FileNotFoundError as e:
             if "unrar" in str(e):
-                logger.error(
+                status_logger.error(
                     "Error extracting RAR: 'unrar' command not found. "
                     "Please install unrar and try again. "
                     "On Debian/Ubuntu: sudo apt-get install unrar"
                 )
             else:
-                logger.error(f"Error extracting RAR: {e}")
+                detail_logger.error(f"Error extracting RAR: {e}")
             return None
         except Exception as e:
-            logger.error(f"Error extracting RAR: {e}")
+            detail_logger.error(f"Error extracting RAR: {e}")
             return None

@@ -1,13 +1,14 @@
 """Retry utilities for API calls."""
 
 import asyncio
-import logging
 import time
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
 
-logger = logging.getLogger(__name__)
+from .logging_config import get_detail_logger
+
+detail_logger = get_detail_logger()
 
 T = TypeVar("T")
 
@@ -47,12 +48,12 @@ def retry_with_backoff(
                     return func(*args, **kwargs)
                 except exceptions as e:
                     if attempt == max_retries:
-                        logger.debug(
+                        detail_logger.debug(
                             f"{func.__name__} failed after {max_retries} retries: {e}"
                         )
                         raise
 
-                    logger.debug(
+                    detail_logger.debug(
                         f"{func.__name__} failed (attempt {attempt + 1}/{max_retries}): {e}. "
                         f"Retrying in {delay:.1f}s..."
                     )
@@ -101,12 +102,12 @@ def async_retry_with_backoff(
                     return await func(*args, **kwargs)
                 except exceptions as e:
                     if attempt == max_retries:
-                        logger.debug(
+                        detail_logger.debug(
                             f"{func.__name__} failed after {max_retries} retries: {e}"
                         )
                         raise
 
-                    logger.debug(
+                    detail_logger.debug(
                         f"{func.__name__} failed (attempt {attempt + 1}/{max_retries}): {e}. "
                         f"Retrying in {delay:.1f}s..."
                     )

@@ -1,15 +1,16 @@
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
 import json
-import logging
 from typing import Any
 
 from ..cache import get_cache_manager
+from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
 from .base import CachedBackend, get_backend_registry
 
-logger = logging.getLogger(__name__)
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class RetractionWatchBackend(CachedBackend):
@@ -202,11 +203,11 @@ class RetractionWatchBackend(CachedBackend):
         # Check cache first
         cached = get_cache_manager().get_cached_value(cache_key)
         if cached is not None:
-            logger.debug(f"OpenAlex cache hit for {journal_name}")
+            detail_logger.debug(f"OpenAlex cache hit for {journal_name}")
             return json.loads(cached) if cached != "null" else None
 
         # Fetch from OpenAlex API
-        logger.info(f"Fetching OpenAlex data on-demand for: {journal_name}")
+        status_logger.info(f"Fetching OpenAlex data on-demand for: {journal_name}")
         try:
             openalex_data = await get_publication_stats(journal_name, issn)
 
@@ -219,7 +220,7 @@ class RetractionWatchBackend(CachedBackend):
             return openalex_data
 
         except Exception as e:
-            logger.warning(f"Failed to fetch OpenAlex data for {journal_name}: {e}")
+            status_logger.warning(f"Failed to fetch OpenAlex data for {journal_name}: {e}")
             # Cache the failure for 1 day to avoid repeated API calls
             get_cache_manager().set_cached_value(cache_key, "null", ttl_hours=24)
             return None
