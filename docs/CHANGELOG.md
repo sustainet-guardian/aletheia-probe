@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-20
+
+### Added
+- **Enhanced Database Schema**: Journal URLs are now extracted and stored in dedicated journal_urls table for improved data structure
+- **Comprehensive Development Workflow**: Added detailed development process documentation in AICodingAgent.md
+- **Code Quality Standards**: Implemented SPDX license identifiers across all Python files for better compliance
+
+### Changed
+- **Backend Naming Convention**: Unified all backend names to consistent lowercase snake_case format
+- **Import Organization**: Reorganized import statements across codebase to follow PEP 8 guidelines
+- **CI/CD Pipeline**: Enhanced security scanning alignment with release pipeline and optimized PyPI publishing workflow
+
+### Fixed
+- **Database Operations**: Fixed URL extraction in AsyncDBWriter to properly populate journal_urls table
+- **Configuration Output**: Removed timestamp prefix from config command output to ensure valid YAML format
+- **Test Suite**: Eliminated RuntimeWarning about unawaited coroutines in test suite
+- **CI Infrastructure**:
+  - Removed unnecessary unrar fallback in macOS CI to eliminate warnings
+  - Cleaned up unused GitHub Pages deployment configuration
+  - Improved security scanning integration
+
+### Removed
+- **Legacy Code**: Removed backward compatibility code and comments no longer needed
+- **Redundant CI Jobs**: Cleaned up duplicate PyPI publishing jobs from CI configuration
+
 ## [0.2.0] - 2025-11-20
 
 ### Added
