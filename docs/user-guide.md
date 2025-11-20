@@ -411,13 +411,13 @@ backends:
     weight: 0.8
     timeout: 5
 
-  "Crossref Analyzer":
+  crossref_analyzer:
     enabled: true
     weight: 1.0
     timeout: 15
     email: "your.email@institution.org"  # Optional for API identification
 
-  "OpenAlex Analyzer":
+  openalex_analyzer:
     enabled: true
     weight: 1.0
     timeout: 15
@@ -449,7 +449,7 @@ cache:
 
 ### API Email Configuration
 
-Some backends (Crossref Analyzer, OpenAlex Analyzer, Cross-Validator) require email addresses for API identification. This follows "polite pool" access patterns to get better rate limits and support.
+Some backends (crossref_analyzer, openalex_analyzer, cross_validator) require email addresses for API identification. This follows "polite pool" access patterns to get better rate limits and support.
 
 **Important**: Use a valid email address. The email is sent only in the User-Agent header for API identification - no emails are sent to this address.
 
@@ -464,7 +464,7 @@ backends:
     weight: 1.0
     timeout: 10
 
-  "Crossref Analyzer":
+  crossref_analyzer:
     enabled: true
     weight: 1.0
     timeout: 15
@@ -472,7 +472,7 @@ backends:
     config:
       cache_ttl_hours: 72  # Extended cache for institutional use
 
-  "OpenAlex Analyzer":
+  openalex_analyzer:
     enabled: true
     weight: 1.0
     timeout: 15

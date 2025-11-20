@@ -67,7 +67,7 @@ backends:
 
 ### API Email Configuration
 
-Several backends (Crossref Analyzer, OpenAlex Analyzer, Cross Validator) use the `email` parameter for API identification and rate limiting. These APIs follow "polite pool" access patterns and require contact information for higher rate limits.
+Several backends (crossref_analyzer, openalex_analyzer, cross_validator) use the `email` parameter for API identification and rate limiting. These APIs follow "polite pool" access patterns and require contact information for higher rate limits.
 
 **Default Behavior**: If no email is configured, backends use `noreply.aletheia-probe.org` as a default contact address.
 
@@ -78,15 +78,15 @@ Several backends (Crossref Analyzer, OpenAlex Analyzer, Cross Validator) use the
 
 ```yaml
 backends:
-  "Crossref Analyzer":
+  crossref_analyzer:
     enabled: true
     email: "your.email@institution.org"  # Your contact email
 
-  "OpenAlex Analyzer":
+  openalex_analyzer:
     enabled: true
     email: "your.email@institution.org"  # Your contact email
 
-  "Cross-Validator":
+  cross_validator:
     enabled: true
     email: "your.email@institution.org"  # Your contact email
 
@@ -316,7 +316,7 @@ backends:
     enabled: true
   bealls:
     enabled: true
-  "Crossref Analyzer":
+  crossref_analyzer:
     enabled: true
     email: "researcher@university.edu"  # Your contact email for API access
 

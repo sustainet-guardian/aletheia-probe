@@ -37,7 +37,7 @@ class CrossrefAnalyzerBackend(HybridBackend):
 
     def get_name(self) -> str:
         """Return backend name."""
-        return "Crossref Analyzer"
+        return "crossref_analyzer"
 
     def get_description(self) -> str:
         """Return backend description."""
@@ -593,7 +593,7 @@ class CrossrefAnalyzerBackend(HybridBackend):
 
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
-    "Crossref Analyzer",
+    "crossref_analyzer",
     lambda email="noreply.aletheia-probe.org",
     cache_ttl_hours=24: CrossrefAnalyzerBackend(
         email=email, cache_ttl_hours=cache_ttl_hours

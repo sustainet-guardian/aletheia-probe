@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports proper "polite pool" access patterns for better rate limits
   - Email validation with clear error messages
   - Configuration via `email` parameter in backend settings
-  - Affects Crossref Analyzer, OpenAlex Analyzer, and Cross-Validator backends
+  - Affects crossref_analyzer, openalex_analyzer, and cross_validator backends
 - **Factory-Based Backend Registry**: Refactored backend registration system to support dynamic configuration
   - Enables runtime backend creation with custom parameters
   - Foundation for future configurable backend parameters
