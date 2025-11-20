@@ -121,20 +121,11 @@ jobs:
 
     - name: Run bandit security scan
       run: |
-        bandit -r src/ -ll -f json -o bandit-report.json
-        echo "Bandit scan completed. Check bandit-report.json for details."
+        bandit -r src/ -ll
 
     - name: Run safety check
       run: |
-        safety check --json --output safety-report.json || true
-
-    - name: Archive security reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
+        safety check
 
   build:
     name: Build Package
@@ -451,16 +442,16 @@ jobs:
     name: Notify
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint-and-type-check, test, build, integration-tests, cross-platform-integration]
+    needs: [lint-and-type-check, test, security-scan, build, integration-tests, cross-platform-integration]
 
     steps:
     - name: Notify on success
-      if: ${{ needs.lint-and-type-check.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success' && needs.cross-platform-integration.result == 'success' }}
+      if: ${{ needs.lint-and-type-check.result == 'success' && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.build.result == 'success' && needs.cross-platform-integration.result == 'success' }}
       run: |
         echo "✅ All checks passed!"
 
     - name: Notify on failure
-      if: ${{ needs.lint-and-type-check.result == 'failure' || needs.test.result == 'failure' || needs.build.result == 'failure' || needs.cross-platform-integration.result == 'failure' }}
+      if: ${{ needs.lint-and-type-check.result == 'failure' || needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.build.result == 'failure' || needs.cross-platform-integration.result == 'failure' }}
       run: |
         echo "❌ Some checks failed!"
         exit 1
