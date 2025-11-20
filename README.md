@@ -260,6 +260,12 @@ This project explicitly encourages and welcomes the use of AI coding agents as p
 
 For detailed guidelines on using AI coding agents with this project, see [AICodingAgent.md](AICodingAgent.md).
 
+## Funding Acknowledgment
+
+This work was funded by the Federal Ministry of Research, Technology
+and Space (BMFTR) in Germany under the grant number 16KIS2251 of the
+SUSTAINET-guardian project. The views expressed are those of the author.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
