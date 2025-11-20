@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Retraction Watch database data source from GitLab."""
 
 import csv

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Abstract base class and utilities for journal assessment backends."""
 
 import asyncio

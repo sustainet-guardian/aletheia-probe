@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
 import asyncio

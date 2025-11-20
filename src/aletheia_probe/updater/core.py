@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Core updater classes and base abstractions."""
 
 from abc import ABC, abstractmethod

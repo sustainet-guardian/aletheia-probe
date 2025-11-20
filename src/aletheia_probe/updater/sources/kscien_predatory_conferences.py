@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Kscien predatory conference data source."""
 
 import asyncio

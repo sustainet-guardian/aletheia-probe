@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Article-level retraction checking using multiple data sources."""
 
 import asyncio

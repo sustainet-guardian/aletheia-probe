@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data models and dataclasses for journal assessment tool."""
 
 from dataclasses import dataclass, field

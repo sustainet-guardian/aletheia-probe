@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for core data models."""
 
 from datetime import datetime

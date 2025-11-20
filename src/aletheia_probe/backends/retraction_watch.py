@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
 import json

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Beall's List backend for predatory journal assessment."""
 
 from .base import CachedBackend, get_backend_registry

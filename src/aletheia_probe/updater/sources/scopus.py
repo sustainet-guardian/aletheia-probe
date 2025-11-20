@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Scopus journal list data source (optional user-provided Excel file)."""
 
 import asyncio

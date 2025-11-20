@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Batch assessment module for evaluating multiple journals from BibTeX files."""
 
 import time

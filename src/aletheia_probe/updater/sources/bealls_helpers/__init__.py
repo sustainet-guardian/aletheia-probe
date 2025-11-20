@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Beall's List parsing and validation utilities."""
 
 from .cleaner import JournalNameCleaner

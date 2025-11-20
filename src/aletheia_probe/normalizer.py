@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Input normalization and validation for journal names and identifiers."""
 
 import re

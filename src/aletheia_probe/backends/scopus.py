@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Scopus backend for legitimate journal verification."""
 
 from .base import CachedBackend, get_backend_registry

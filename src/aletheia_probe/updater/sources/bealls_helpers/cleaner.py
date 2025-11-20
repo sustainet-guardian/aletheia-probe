@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Text cleaning utilities for Beall's List data."""
 
 import html

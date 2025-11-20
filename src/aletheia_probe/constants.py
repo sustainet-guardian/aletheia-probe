@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Constants used throughout the journal assessment tool."""
 
 # Assessment confidence thresholds

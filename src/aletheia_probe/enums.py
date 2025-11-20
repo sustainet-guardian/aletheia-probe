@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Enums for the journal assessment tool."""
 
 from enum import Enum

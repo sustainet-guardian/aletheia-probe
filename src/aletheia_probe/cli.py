@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Command-line interface for the journal assessment tool."""
 
 import asyncio

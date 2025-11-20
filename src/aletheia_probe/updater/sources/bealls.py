@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Beall's List predatory journal data source."""
 
 import asyncio

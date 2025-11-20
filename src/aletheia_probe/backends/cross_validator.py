@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Cross-validation backend that combines OpenAlex and Crossref analysis."""
 
 import asyncio

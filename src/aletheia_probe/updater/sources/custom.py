@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Custom CSV/JSON journal list data source."""
 
 import csv

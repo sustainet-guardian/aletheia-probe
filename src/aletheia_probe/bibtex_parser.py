@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """BibTeX parsing utilities for journal assessment."""
 
 from pathlib import Path

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Algerian Ministry of Higher Education predatory journal list data source."""
 
 import tempfile

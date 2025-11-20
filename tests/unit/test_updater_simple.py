@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Simple tests for updater module to increase coverage."""
 
 import tempfile

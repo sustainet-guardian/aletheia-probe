@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Journal Assessment Tool - Automated predatory journal detection."""
 
 from importlib.metadata import PackageNotFoundError, version

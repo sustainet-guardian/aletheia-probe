@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Risk level calculation utilities for retraction data."""
 
 from .constants import (

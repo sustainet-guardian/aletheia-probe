@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data updater for downloading and processing journal lists."""
 
 # Import dependencies used by sources and tests

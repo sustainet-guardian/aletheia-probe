@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the cache synchronization module."""
 
 from datetime import datetime, timedelta

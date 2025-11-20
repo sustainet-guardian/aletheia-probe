@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Kscien Predatory Conferences backend for conference assessment."""
 
 from .base import CachedBackend, get_backend_registry
