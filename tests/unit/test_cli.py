@@ -33,6 +33,7 @@ def mock_cache_sync_manager():
     preventing the real cache_sync_manager from being accessed and creating
     unawaited coroutines during test execution.
     """
+
     # Create a real async function that can be awaited
     async def _mock_sync_impl(*args, **kwargs):
         """Mock implementation of sync_cache_with_config."""
@@ -42,10 +43,9 @@ def mock_cache_sync_manager():
     mock_manager = MagicMock()
     # Assign the actual async function (not AsyncMock) to avoid introspection issues
     mock_manager.sync_cache_with_config = _mock_sync_impl
-    mock_manager.get_sync_status = MagicMock(return_value={
-        "sync_in_progress": False,
-        "backends": {}
-    })
+    mock_manager.get_sync_status = MagicMock(
+        return_value={"sync_in_progress": False, "backends": {}}
+    )
 
     with patch("aletheia_probe.cli.cache_sync_manager", mock_manager):
         yield mock_manager
@@ -203,6 +203,7 @@ class TestSyncCommand:
 
     def test_sync_command_with_force(self, runner):
         """Test sync command with force flag."""
+
         def run_coro(coro):
             """Run coroutine and return empty dict."""
             coro.close()  # Close without running
@@ -233,6 +234,7 @@ class TestSyncCommand:
 
     def test_sync_command_error(self, runner):
         """Test sync command with error."""
+
         def mock_run_with_cleanup(coro):
             """Mock asyncio.run that properly closes coroutines before raising."""
             coro.close()  # Close the coroutine to avoid warning
