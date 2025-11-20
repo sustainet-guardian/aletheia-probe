@@ -4,6 +4,7 @@
 import asyncio
 import csv
 import io
+import re
 from datetime import datetime
 from typing import Any
 
@@ -13,6 +14,7 @@ from ...cache import get_cache_manager
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
+
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
@@ -211,8 +213,6 @@ class PredatoryJournalsSource(DataSource):
                     html = await response.text()
 
                     # Look for Google Sheets URLs in the HTML
-                    import re
-
                     # Pattern for embedded Google Sheets
                     sheet_pattern = (
                         r"https://docs\.google\.com/spreadsheets/d/([a-zA-Z0-9-_]+)"

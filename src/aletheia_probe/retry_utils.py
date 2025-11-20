@@ -9,6 +9,7 @@ from typing import Any, TypeVar
 
 from .logging_config import get_detail_logger
 
+
 detail_logger = get_detail_logger()
 
 T = TypeVar("T")

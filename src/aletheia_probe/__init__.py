@@ -7,6 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from . import backends as backends
 from . import dispatcher as dispatcher
 
+
 __all__ = ["backends", "dispatcher", "__version__"]
 
 # Get version from installed package metadata

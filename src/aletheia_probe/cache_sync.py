@@ -2,6 +2,8 @@
 """Cache synchronization manager for automatic backend data management."""
 
 import asyncio
+import json
+import sqlite3
 from datetime import datetime
 from typing import Any
 
@@ -98,9 +100,6 @@ class AsyncDBWriter:
         self, source_name: str, list_type: str, journals: list[dict[str, Any]]
     ) -> dict[str, int]:
         """Optimized batch writing of journals to database using SQLite performance tuning."""
-        import json
-        import sqlite3
-
         cache_manager = get_cache_manager()
 
         # Get database connection with performance optimizations

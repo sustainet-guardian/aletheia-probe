@@ -15,6 +15,7 @@ from ...normalizer import input_normalizer
 from ...validation import validate_issn
 from ..core import DataSource
 
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 

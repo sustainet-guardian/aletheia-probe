@@ -11,6 +11,7 @@ from aiohttp import ClientError, ClientResponse, ClientSession, ServerTimeoutErr
 from aletheia_probe.logging_config import get_detail_logger, get_status_logger
 from aletheia_probe.retry_utils import async_retry_with_backoff
 
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 

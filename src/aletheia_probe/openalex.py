@@ -10,6 +10,7 @@ import aiohttp
 from .logging_config import get_detail_logger
 from .validation import normalize_issn as _normalize_issn
 
+
 detail_logger = get_detail_logger()
 
 

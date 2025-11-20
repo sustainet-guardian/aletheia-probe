@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ....logging_config import get_detail_logger, get_status_logger
 
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 

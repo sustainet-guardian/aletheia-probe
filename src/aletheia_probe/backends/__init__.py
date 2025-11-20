@@ -19,6 +19,7 @@ from . import (
     scopus,
 )
 
+
 __all__ = [
     "bealls",
     "doaj",

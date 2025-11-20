@@ -12,6 +12,7 @@ import logging
 import sys
 from pathlib import Path
 
+
 # Logger names
 DETAIL_LOGGER_NAME = "aletheia_probe.detail"
 STATUS_LOGGER_NAME = "aletheia_probe.status"
