@@ -95,7 +95,7 @@ def config() -> None:
     status_logger = get_status_logger()
     try:
         config_output = get_config_manager().show_config()
-        status_logger.info(config_output)
+        print(config_output)
     except Exception as e:
         status_logger.error(f"Error displaying configuration: {e}")
         exit(1)
