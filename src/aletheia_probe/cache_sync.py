@@ -137,6 +137,7 @@ class AsyncDBWriter:
                 name_inserts = []
                 assessment_inserts = []
                 metadata_inserts = []
+                url_inserts = []
 
                 # First, collect all normalized names that will be processed
                 normalized_names = [
@@ -206,6 +207,39 @@ class AsyncDBWriter:
                     # Source assessments
                     assessment_inserts.append((journal_id, source_id, list_type, 1.0))
 
+                    # URLs - Extract from multiple sources and deduplicate
+                    urls_to_insert = set()  # Use set for automatic deduplication
+
+                    # Check for top-level urls field
+                    if journal.get("urls"):
+                        for url in journal["urls"]:
+                            if url and isinstance(url, str) and url.strip():
+                                urls_to_insert.add(url.strip())
+
+                    # Extract URLs from metadata
+                    if metadata:
+                        # Handle Algerian Ministry format: metadata["urls"] as list
+                        if "urls" in metadata and isinstance(metadata["urls"], list):
+                            for url in metadata["urls"]:
+                                if url and isinstance(url, str) and url.strip():
+                                    urls_to_insert.add(url.strip())
+
+                        # Handle Kscien format: metadata["website_url"] as string
+                        if "website_url" in metadata and metadata["website_url"]:
+                            url = metadata["website_url"]
+                            if isinstance(url, str) and url.strip():
+                                urls_to_insert.add(url.strip())
+
+                        # Handle other potential URL fields in metadata
+                        if "source_url" in metadata and metadata["source_url"]:
+                            url = metadata["source_url"]
+                            if isinstance(url, str) and url.strip():
+                                urls_to_insert.add(url.strip())
+
+                    # Add deduplicated URLs to batch inserts
+                    for url in urls_to_insert:
+                        url_inserts.append((journal_id, url))
+
                     # Metadata
                     if metadata:
                         for key, value in metadata.items():
@@ -251,6 +285,15 @@ class AsyncDBWriter:
                            (journal_id, source_id, metadata_key, metadata_value, data_type)
                            VALUES (?, ?, ?, ?, ?)""",
                         metadata_inserts,
+                    )
+
+                # Batch insert/update journal URLs
+                if url_inserts:
+                    cursor.executemany(
+                        """INSERT OR REPLACE INTO journal_urls
+                           (journal_id, url, last_seen_at)
+                           VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                        url_inserts,
                     )
 
                 # Commit transaction
