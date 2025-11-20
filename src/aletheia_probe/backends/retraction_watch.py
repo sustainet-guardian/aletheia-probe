@@ -2,6 +2,7 @@
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
 import json
+import time
 from typing import Any
 
 from ..cache import get_cache_manager
@@ -9,6 +10,7 @@ from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
 from .base import CachedBackend, get_backend_registry
+
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
@@ -37,8 +39,6 @@ class RetractionWatchBackend(CachedBackend):
         with retraction-specific metadata. Fetches OpenAlex publication data
         on-demand for rate calculation.
         """
-        import time
-
         start_time = time.time()
 
         try:

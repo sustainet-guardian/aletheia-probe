@@ -2,10 +2,12 @@
 """Retraction Watch database data source from GitLab."""
 
 import csv
+import json
+import sqlite3
 import subprocess
 import tempfile
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,7 @@ from ...config import get_config_manager
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
+
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
@@ -405,9 +408,6 @@ class RetractionWatchSource(DataSource):
             return
 
         cache_manager = get_cache_manager()
-        import json
-        from datetime import datetime, timedelta
-
         expires_at = datetime.now() + timedelta(hours=24 * 365)  # 1 year
 
         # Prepare batch data
@@ -450,8 +450,6 @@ class RetractionWatchSource(DataSource):
 
         # Batch insert
         if records:
-            import sqlite3
-
             with sqlite3.connect(cache_manager.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.executemany(

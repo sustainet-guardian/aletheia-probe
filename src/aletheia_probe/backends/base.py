@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..cache import get_cache_manager
-from ..models import BackendResult, BackendStatus, QueryInput
+from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
 
 class Backend(ABC):
@@ -236,8 +236,6 @@ class HybridBackend(Backend):
         # Cache the result if successful
         if result.status in [BackendStatus.FOUND, BackendStatus.NOT_FOUND]:
             # For caching, we need to create a minimal AssessmentResult
-            from ..models import AssessmentResult
-
             assessment_result = AssessmentResult(
                 input_query=query_input.raw_input,
                 assessment=result.assessment or "unknown",

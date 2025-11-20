@@ -10,6 +10,7 @@ from ....logging_config import get_detail_logger, get_status_logger
 from .cleaner import JournalNameCleaner
 from .validator import JournalEntryValidator
 
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 

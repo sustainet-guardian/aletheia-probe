@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TypeVar
 
+
 # Generic type for deduplication
 T = TypeVar("T")
 

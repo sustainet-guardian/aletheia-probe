@@ -3,6 +3,7 @@
 
 import re
 
+
 ISSN_PATTERN = re.compile(r"^\d{4}-?\d{3}[\dXx]$")
 DOI_PATTERN = re.compile(r"^10\.\d{4,}/[\S]+$")
 
