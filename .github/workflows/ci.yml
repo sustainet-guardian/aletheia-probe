@@ -256,8 +256,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         # Install unar (macOS equivalent of unrar)
-        brew install unar || echo "unar installation failed, trying unrar"
-        brew install unrar || echo "RAR tools installation completed with warnings"
+        brew install unar || echo "RAR tools installation failed"
         # git and curl are pre-installed on macOS
 
     - name: Install system dependencies (Windows)
