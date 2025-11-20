@@ -484,7 +484,7 @@ class CacheManager:
                 # Get URLs from pre-fetched data
                 journal_dict["urls"] = urls_by_journal.get(journal_id, [])
 
-                # Get source-specific data for backward compatibility
+                # Get source-specific data when filtering by source
                 if source_name:
                     source_cursor = conn.execute(
                         """
@@ -499,7 +499,7 @@ class CacheManager:
 
                     source_data = source_cursor.fetchall()
                     if source_data:
-                        # Add backward compatibility fields
+                        # Add convenience aliases for common fields
                         journal_dict["journal_name"] = journal_dict["display_name"]
                         journal_dict["list_type"] = source_data[0][0]  # assessment
 
@@ -571,7 +571,6 @@ class CacheManager:
 
             return [dict(row) for row in cursor.fetchall()]
 
-    # Backward compatibility methods
     def cache_assessment_result(
         self,
         query_hash: str,
@@ -668,9 +667,6 @@ class CacheManager:
                 return datetime.fromisoformat(row[0])
             return None
 
-    # ===== BACKWARD COMPATIBILITY METHODS =====
-    # These methods provide compatibility with the old CacheManager interface
-
     def add_journal_list_entry(
         self,
         source_name: str,
@@ -683,9 +679,9 @@ class CacheManager:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """
-        Backward compatibility method for add_journal_list_entry.
+        Add a journal entry using list-based nomenclature.
 
-        Maps the old interface to the new normalized add_journal_entry method.
+        Maps list-based parameters (list_type) to assessment-based parameters.
         """
         # Register the data source if not exists (use generic "mixed" type to avoid conflicts)
         with sqlite3.connect(self.db_path) as conn:
@@ -854,15 +850,15 @@ class CacheManager:
 
     def get_source_stats(self) -> dict[str, dict[str, Any]]:
         """
-        Get statistics for all data sources (backward compatibility).
+        Get statistics for all data sources.
 
         Returns:
-            Dictionary with source statistics in old format
+            Dictionary with source statistics
         """
-        # Get the new statistics format
+        # Get the base statistics
         stats = self.get_source_statistics()
 
-        # Convert to old format expected by tests
+        # Convert to structured format
         result = {}
         for source_name, source_stats in stats.items():
             result[source_name] = {

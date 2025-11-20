@@ -220,7 +220,7 @@ class BibtexParser:
         journal_fields = ["journal", "journaltitle"]
 
         for field in journal_fields:
-            journal_name = BibtexParser._get_field(entry, field)
+            journal_name = BibtexParser._get_field_safely(entry, field)
             if journal_name:
                 return journal_name
 
@@ -299,15 +299,6 @@ class BibtexParser:
             return None
 
     @staticmethod
-    def _extract_authors(entry: Entry) -> str | None:
-        """Extract author information from a BibTeX entry.
-
-        This is the original method, kept for backward compatibility.
-        New code should use _extract_authors_safely.
-        """
-        return BibtexParser._extract_authors_safely(entry)
-
-    @staticmethod
     def _get_field_safely(entry: Entry, field_name: str) -> str | None:
         """Get a field value from a BibTeX entry with error handling.
 
@@ -346,12 +337,3 @@ class BibtexParser:
         except Exception as e:
             detail_logger.debug(f"Error getting field '{field_name}': {e}")
             return None
-
-    @staticmethod
-    def _get_field(entry: Entry, field_name: str) -> str | None:
-        """Get a field value from a BibTeX entry.
-
-        This is the original method, kept for backward compatibility.
-        New code should use _get_field_safely.
-        """
-        return BibtexParser._get_field_safely(entry, field_name)
