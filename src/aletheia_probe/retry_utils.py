@@ -7,6 +7,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
 
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")

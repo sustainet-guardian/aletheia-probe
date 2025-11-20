@@ -9,6 +9,7 @@ from aletheia_probe.normalizer import input_normalizer
 from .cleaner import JournalNameCleaner
 from .validator import JournalEntryValidator
 
+
 logger = logging.getLogger(__name__)
 
 

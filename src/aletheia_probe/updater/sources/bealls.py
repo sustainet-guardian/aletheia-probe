@@ -11,6 +11,7 @@ from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
 from .bealls_helpers import BeallsHTMLParser
 
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 

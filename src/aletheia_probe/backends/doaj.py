@@ -13,6 +13,7 @@ from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
 from .base import HybridBackend, get_backend_registry
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -13,6 +13,7 @@ from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
 from .models import BibtexEntry
 
+
 logger = logging.getLogger(__name__)
 
 

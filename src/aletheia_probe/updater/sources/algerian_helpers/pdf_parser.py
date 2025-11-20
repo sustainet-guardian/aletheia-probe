@@ -9,6 +9,7 @@ import pypdf
 
 from aletheia_probe.normalizer import input_normalizer
 
+
 logger = logging.getLogger(__name__)
 
 

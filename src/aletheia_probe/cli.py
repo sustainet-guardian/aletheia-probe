@@ -4,12 +4,14 @@ import asyncio
 import json
 import sqlite3
 import sys
+import traceback
 from pathlib import Path
 
 import click
 
 from . import __version__
 from .batch_assessor import BibtexBatchAssessor
+from .cache import get_cache_manager
 from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
@@ -152,8 +154,6 @@ def clear_cache(confirm: bool) -> None:
         )
 
     try:
-        from .cache import get_cache_manager
-
         cache_manager = get_cache_manager()
 
         # Clear assessment cache
@@ -328,8 +328,6 @@ async def _async_bibtex_main(
         sys.exit(1)
     except Exception as e:
         if verbose:
-            import traceback
-
             status_logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
         else:
@@ -405,8 +403,6 @@ async def _async_assess_publication(
         sys.exit(1)
     except Exception as e:
         if verbose:
-            import traceback
-
             status_logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
         else:

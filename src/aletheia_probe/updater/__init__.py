@@ -27,6 +27,7 @@ from .utils import (
     parse_date_string,
 )
 
+
 # Global data updater instance
 data_updater = DataUpdater()
 

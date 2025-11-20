@@ -15,6 +15,7 @@ from .enums import AssessmentType
 from .logging_config import get_detail_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
+
 logger = logging.getLogger(__name__)
 
 

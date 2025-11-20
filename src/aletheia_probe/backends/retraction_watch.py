@@ -2,12 +2,14 @@
 
 import json
 import logging
+import time
 from typing import Any
 
 from ..cache import get_cache_manager
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
 from .base import CachedBackend, get_backend_registry
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +37,6 @@ class RetractionWatchBackend(CachedBackend):
         with retraction-specific metadata. Fetches OpenAlex publication data
         on-demand for rate calculation.
         """
-        import time
-
         start_time = time.time()
 
         try:

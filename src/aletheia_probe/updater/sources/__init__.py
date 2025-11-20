@@ -11,6 +11,7 @@ from .predatoryjournals import PredatoryJournalsSource
 from .retraction_watch import RetractionWatchSource
 from .scopus import ScopusSource
 
+
 __all__ = [
     "AlgerianMinistrySource",
     "BeallsListSource",

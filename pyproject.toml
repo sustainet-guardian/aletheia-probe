@@ -148,3 +148,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["N", "B", "F"]  # More relaxed rules for tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["aletheia_probe"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+split-on-trailing-comma = true
+lines-after-imports = 2
