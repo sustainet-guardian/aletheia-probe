@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Tests for the CLI module."""
 
+import asyncio
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -22,6 +23,32 @@ from aletheia_probe.models import (
 def runner():
     """Create CLI test runner."""
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def mock_cache_sync_manager():
+    """Mock cache_sync_manager to prevent unawaited coroutine warnings.
+
+    This fixture is autouse=True so it applies to all tests in this module,
+    preventing the real cache_sync_manager from being accessed and creating
+    unawaited coroutines during test execution.
+    """
+
+    # Create a real async function that can be awaited
+    async def _mock_sync_impl(*args, **kwargs):
+        """Mock implementation of sync_cache_with_config."""
+        return {}
+
+    # Create a mock manager with all required methods
+    mock_manager = MagicMock()
+    # Assign the actual async function (not AsyncMock) to avoid introspection issues
+    mock_manager.sync_cache_with_config = _mock_sync_impl
+    mock_manager.get_sync_status = MagicMock(
+        return_value={"sync_in_progress": False, "backends": {}}
+    )
+
+    with patch("aletheia_probe.cli.cache_sync_manager", mock_manager):
+        yield mock_manager
 
 
 @pytest.fixture
@@ -54,8 +81,15 @@ class TestAssessCommand:
 
     def test_assess_basic_usage(self, runner, mock_assessment_result):
         """Test basic journal command usage."""
+        # Store the real asyncio.run before patching
+        real_asyncio_run = asyncio.run
+
+        def run_coro(coro):
+            """Run the coroutine using real asyncio.run."""
+            return real_asyncio_run(coro)
+
         with (
-            patch("aletheia_probe.cli.asyncio.run") as mock_run,
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run,
             patch("aletheia_probe.cli._async_assess_publication") as mock_async_assess,
         ):
             mock_async_assess.return_value = None
@@ -67,10 +101,19 @@ class TestAssessCommand:
 
     def test_assess_with_verbose_flag(self, runner):
         """Test journal command with verbose flag."""
+        # Store the real asyncio.run before patching
+        real_asyncio_run = asyncio.run
+
+        def run_coro(coro):
+            """Run the coroutine using real asyncio.run."""
+            return real_asyncio_run(coro)
+
         with (
-            patch("aletheia_probe.cli.asyncio.run") as mock_run,
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run,
             patch("aletheia_probe.cli._async_assess_publication") as mock_async_assess,
         ):
+            mock_async_assess.return_value = None
+
             result = runner.invoke(main, ["journal", "Test Journal", "--verbose"])
 
             assert result.exit_code == 0
@@ -79,10 +122,19 @@ class TestAssessCommand:
 
     def test_assess_with_json_format(self, runner):
         """Test journal command with JSON output format."""
+        # Store the real asyncio.run before patching
+        real_asyncio_run = asyncio.run
+
+        def run_coro(coro):
+            """Run the coroutine using real asyncio.run."""
+            return real_asyncio_run(coro)
+
         with (
-            patch("aletheia_probe.cli.asyncio.run") as mock_run,
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run,
             patch("aletheia_probe.cli._async_assess_publication") as mock_async_assess,
         ):
+            mock_async_assess.return_value = None
+
             result = runner.invoke(
                 main, ["journal", "Test Journal", "--format", "json"]
             )
@@ -137,12 +189,12 @@ class TestSyncCommand:
             "backend2": {"status": "current"},
         }
 
-        with (
-            patch("aletheia_probe.cli.asyncio.run") as mock_run,
-            patch("aletheia_probe.cli.cache_sync_manager") as mock_cache_sync,
-        ):
-            mock_run.return_value = mock_sync_result
+        def run_coro(coro):
+            """Run coroutine and return mock result."""
+            coro.close()  # Close without running
+            return mock_sync_result
 
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run:
             result = runner.invoke(main, ["sync"])
 
             assert result.exit_code == 0
@@ -151,12 +203,13 @@ class TestSyncCommand:
 
     def test_sync_command_with_force(self, runner):
         """Test sync command with force flag."""
-        with (
-            patch("aletheia_probe.cli.asyncio.run") as mock_run,
-            patch("aletheia_probe.cli.cache_sync_manager") as mock_cache_sync,
-        ):
-            mock_run.return_value = {}
 
+        def run_coro(coro):
+            """Run coroutine and return empty dict."""
+            coro.close()  # Close without running
+            return {}
+
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run:
             result = runner.invoke(main, ["sync", "--force"])
 
             assert result.exit_code == 0
@@ -167,9 +220,12 @@ class TestSyncCommand:
         """Test sync command when sync is skipped."""
         mock_sync_result = {"status": "skipped", "reason": "auto_sync_disabled"}
 
-        with patch("aletheia_probe.cli.asyncio.run") as mock_run:
-            mock_run.return_value = mock_sync_result
+        def run_coro(coro):
+            """Run coroutine and return mock result."""
+            coro.close()  # Close without running
+            return mock_sync_result
 
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run:
             result = runner.invoke(main, ["sync"])
 
             assert result.exit_code == 0
@@ -178,9 +234,13 @@ class TestSyncCommand:
 
     def test_sync_command_error(self, runner):
         """Test sync command with error."""
-        with patch("aletheia_probe.cli.asyncio.run") as mock_run:
-            mock_run.side_effect = Exception("Sync failed")
 
+        def mock_run_with_cleanup(coro):
+            """Mock asyncio.run that properly closes coroutines before raising."""
+            coro.close()  # Close the coroutine to avoid warning
+            raise Exception("Sync failed")
+
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=mock_run_with_cleanup):
             result = runner.invoke(main, ["sync"])
 
             assert result.exit_code == 1
@@ -191,7 +251,7 @@ class TestSyncCommand:
 class TestStatusCommand:
     """Test cases for the status command."""
 
-    def test_status_command_success(self, runner):
+    def test_status_command_success(self, runner, mock_cache_sync_manager):
         """Test status command successful execution."""
         mock_status = {
             "sync_in_progress": False,
@@ -206,37 +266,34 @@ class TestStatusCommand:
             },
         }
 
-        with patch("aletheia_probe.cli.cache_sync_manager") as mock_cache_sync:
-            mock_cache_sync.get_sync_status.return_value = mock_status
+        mock_cache_sync_manager.get_sync_status.return_value = mock_status
 
-            result = runner.invoke(main, ["status"])
+        result = runner.invoke(main, ["status"])
 
-            assert result.exit_code == 0
-            assert "backend1" in result.output
-            assert "enabled" in result.output
-            assert "disabled" in result.output
+        assert result.exit_code == 0
+        assert "backend1" in result.output
+        assert "enabled" in result.output
+        assert "disabled" in result.output
 
-    def test_status_command_sync_in_progress(self, runner):
+    def test_status_command_sync_in_progress(self, runner, mock_cache_sync_manager):
         """Test status command when sync is in progress."""
         mock_status = {"sync_in_progress": True, "backends": {}}
 
-        with patch("aletheia_probe.cli.cache_sync_manager") as mock_cache_sync:
-            mock_cache_sync.get_sync_status.return_value = mock_status
+        mock_cache_sync_manager.get_sync_status.return_value = mock_status
 
-            result = runner.invoke(main, ["status"])
+        result = runner.invoke(main, ["status"])
 
-            assert result.exit_code == 0
-            assert "progress" in result.output.lower()
+        assert result.exit_code == 0
+        assert "progress" in result.output.lower()
 
-    def test_status_command_error(self, runner):
+    def test_status_command_error(self, runner, mock_cache_sync_manager):
         """Test status command with error."""
-        with patch("aletheia_probe.cli.cache_sync_manager") as mock_cache_sync:
-            mock_cache_sync.get_sync_status.side_effect = Exception("Status error")
+        mock_cache_sync_manager.get_sync_status.side_effect = Exception("Status error")
 
-            result = runner.invoke(main, ["status"])
+        result = runner.invoke(main, ["status"])
 
-            assert result.exit_code == 1
-            assert "Status error" in result.output
+        assert result.exit_code == 1
+        assert "Status error" in result.output
 
 
 class TestAddListCommand:
@@ -249,11 +306,7 @@ class TestAddListCommand:
             temp_file = f.name
 
         try:
-            with (
-                patch("aletheia_probe.cli.data_updater") as mock_updater,
-                patch("aletheia_probe.cli.asyncio.run") as mock_run,
-                patch("aletheia_probe.cli.cache_sync_manager"),
-            ):
+            with patch("aletheia_probe.cli.data_updater") as mock_updater:
                 result = runner.invoke(
                     main,
                     [
