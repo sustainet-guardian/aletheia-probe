@@ -98,6 +98,10 @@ class ConfigManager:
         self.config_path = config_path or self._find_config_file()
         self._config: AppConfig | None = None
 
+    def _reset_cache(self) -> None:
+        """Reset cached configuration. Useful for testing."""
+        self._config = None
+
     def _find_config_file(self) -> Path | None:
         """Find configuration file in standard locations."""
         search_paths = [
@@ -273,14 +277,21 @@ class ConfigManager:
 
         backends_config = {}
         for backend_name in backend_names:
-            backends_config[backend_name] = {
+            # Start with common config fields
+            backend_config = {
                 "name": backend_name,
                 "enabled": True,
                 "weight": DEFAULT_BACKEND_WEIGHT,
                 "timeout": DEFAULT_BACKEND_TIMEOUT,
-                "email": None,  # Use backend default unless configured
                 "config": {},
             }
+
+            # Only add parameters that this backend supports
+            supported_params = backend_registry.get_supported_params(backend_name)
+            if "email" in supported_params:
+                backend_config["email"] = None  # Use backend default unless configured
+
+            backends_config[backend_name] = backend_config
 
         return {
             "backends": backends_config,
