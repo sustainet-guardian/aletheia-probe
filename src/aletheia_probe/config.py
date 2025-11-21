@@ -254,7 +254,18 @@ class ConfigManager:
     def get_complete_config_dict(self) -> dict[str, Any]:
         """Get the complete configuration as a dictionary for display."""
         config = self.load_config()
-        return config.model_dump()
+        config_dict = config.model_dump()
+
+        # Remove email field from backends that don't support it
+        from .backends.base import get_backend_registry
+        backend_registry = get_backend_registry()
+
+        if "backends" in config_dict:
+            for backend_name, backend_config in config_dict["backends"].items():
+                if not backend_registry.backend_supports_email(backend_name):
+                    backend_config.pop("email", None)
+
+        return config_dict
 
     def show_config(self) -> str:
         """Show the complete configuration in YAML format.
@@ -273,14 +284,19 @@ class ConfigManager:
 
         backends_config = {}
         for backend_name in backend_names:
-            backends_config[backend_name] = {
+            backend_config = {
                 "name": backend_name,
                 "enabled": True,
                 "weight": DEFAULT_BACKEND_WEIGHT,
                 "timeout": DEFAULT_BACKEND_TIMEOUT,
-                "email": None,  # Use backend default unless configured
                 "config": {},
             }
+
+            # Only add email field if the backend factory supports it
+            if backend_registry.backend_supports_email(backend_name):
+                backend_config["email"] = None  # Use backend default unless configured
+
+            backends_config[backend_name] = backend_config
 
         return {
             "backends": backends_config,

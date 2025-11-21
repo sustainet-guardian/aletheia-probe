@@ -3,6 +3,7 @@
 
 import asyncio
 import hashlib
+import inspect
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -351,12 +352,37 @@ class BackendRegistry:
         # Merge provided config with defaults
         merged_config = {**self._default_configs[name], **config}
 
-        # Create backend instance using factory
-        return self._factories[name](**merged_config)
+        # Filter config to only include parameters the factory can accept
+        factory_func = self._factories[name]
+        try:
+            sig = inspect.signature(factory_func)
+            # Get parameter names that the factory accepts
+            accepted_params = set(sig.parameters.keys())
+
+            # Filter merged_config to only include accepted parameters
+            filtered_config = {k: v for k, v in merged_config.items() if k in accepted_params}
+
+            # Create backend instance using factory with filtered config
+            return factory_func(**filtered_config)
+        except Exception:
+            # Fallback to original behavior if introspection fails
+            return self._factories[name](**merged_config)
 
     def get_backend(self, name: str) -> Backend:
         """Get a backend by name with default configuration."""
         return self.create_backend(name)
+
+    def backend_supports_email(self, name: str) -> bool:
+        """Check if a backend supports email configuration."""
+        if name not in self._factories:
+            return False
+
+        try:
+            factory_func = self._factories[name]
+            sig = inspect.signature(factory_func)
+            return "email" in sig.parameters
+        except Exception:
+            return False
 
     def get_all_backends(self) -> list[Backend]:
         """Get all registered backends with default configuration."""
