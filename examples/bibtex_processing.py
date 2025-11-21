@@ -73,7 +73,7 @@ async def process_bibtex_file():
         print(f"Total entries processed: {result.total_entries}")
         print(f"Legitimate journals: {result.legitimate_count}")
         print(f"Predatory journals: {result.predatory_count}")
-        print(f"Unknown/unclear: {result.unknown_count}")
+        print(f"Insufficient data: {result.insufficient_data_count}")
 
         return result
 
@@ -86,17 +86,17 @@ async def analyze_results(result):
     """Analyze and display detailed results."""
     print("\n=== Detailed Results ===")
 
-    for entry in result.entries:
-        print(f"\nJournal: {entry.journal_name}")
-        print(f"  Assessment: {entry.assessment}")
-        print(f"  Confidence: {entry.confidence:.0%}")
+    for bibtex_entry, assessment in result.assessment_results:
+        print(f"\nJournal: {bibtex_entry.journal_name}")
+        print(f"  Assessment: {assessment.assessment}")
+        print(f"  Confidence: {assessment.confidence:.0%}")
 
-        if entry.retracted:
+        if bibtex_entry.is_retracted:
             print(f"  Warning: Contains retracted articles")
 
-        if entry.assessment == "predatory":
+        if assessment.assessment == "predatory":
             print(f"  Risk Level: HIGH - Avoid this journal")
-        elif entry.assessment == "legitimate":
+        elif assessment.assessment == "legitimate":
             print(f"  Risk Level: LOW - Safe to publish")
         else:
             print(f"  Risk Level: UNKNOWN - Requires manual review")
