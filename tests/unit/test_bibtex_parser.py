@@ -527,13 +527,19 @@ class TestBibtexParser:
 
         # Should succeed on first attempt (UTF-8), so debug should show first attempt
         debug_calls = list(mock_logger.debug.call_args_list)
-        assert len(debug_calls) >= 1
+        assert len(debug_calls) >= 2
 
-        # First debug call should mention UTF-8
+        # First debug call should mention strict parsing mode
         first_debug_msg = debug_calls[0][0][
             0
         ]  # First positional argument of first call
-        assert "UTF-8" in first_debug_msg
+        assert "strict BibTeX parsing mode" in first_debug_msg
+
+        # Second debug call should mention UTF-8 encoding attempt
+        second_debug_msg = debug_calls[1][0][
+            0
+        ]  # First positional argument of second call
+        assert "UTF-8" in second_debug_msg
 
     def test_multiple_encoding_fallback_sequence(self, tmp_path):
         """Test the complete encoding fallback sequence when earlier encodings fail."""
