@@ -153,6 +153,7 @@ class CacheManager:
 
                 -- Indexes for performance
                 CREATE INDEX IF NOT EXISTS idx_journals_normalized_name ON journals(normalized_name);
+                CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
                 CREATE INDEX IF NOT EXISTS idx_journals_issn ON journals(issn);
                 CREATE INDEX IF NOT EXISTS idx_journals_eissn ON journals(eissn);
                 CREATE INDEX IF NOT EXISTS idx_journal_names_name ON journal_names(name);
@@ -161,6 +162,7 @@ class CacheManager:
                 CREATE INDEX IF NOT EXISTS idx_journal_urls_url ON journal_urls(url);
                 CREATE INDEX IF NOT EXISTS idx_source_assessments_journal_id ON source_assessments(journal_id);
                 CREATE INDEX IF NOT EXISTS idx_source_assessments_source_id ON source_assessments(source_id);
+                CREATE INDEX IF NOT EXISTS idx_source_assessments_composite ON source_assessments(source_id, assessment);
                 CREATE INDEX IF NOT EXISTS idx_source_metadata_journal_source ON source_metadata(journal_id, source_id);
                 CREATE INDEX IF NOT EXISTS idx_assessment_cache_expires ON assessment_cache(expires_at);
                 CREATE INDEX IF NOT EXISTS idx_article_retractions_doi ON article_retractions(doi);
@@ -401,6 +403,108 @@ class CacheManager:
                         )
 
             return journal_id
+
+    def search_journals_by_name(
+        self,
+        name: str,
+        source_name: str,
+        assessment: str,
+    ) -> list[dict[str, Any]]:
+        """Search for journals by exact normalized name match.
+
+        Uses SQL WHERE clause for efficient lookup with indexed columns.
+
+        Args:
+            name: Journal name to search (will be normalized to lowercase)
+            source_name: Data source name to filter by
+            assessment: Assessment type to filter by
+
+        Returns:
+            List of matching journal records
+        """
+        name_lower = name.lower().strip()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            # Optimized query using WHERE clause instead of loading all records
+            query = """
+                SELECT DISTINCT j.*,
+                       sa.assessment as list_type,
+                       GROUP_CONCAT(DISTINCT jn.name) as all_names
+                FROM journals j
+                JOIN source_assessments sa ON j.id = sa.journal_id
+                JOIN data_sources ds ON sa.source_id = ds.id
+                LEFT JOIN journal_names jn ON j.id = jn.journal_id
+                WHERE ds.name = ?
+                  AND sa.assessment = ?
+                  AND (LOWER(j.normalized_name) = ? OR LOWER(j.display_name) = ?)
+                GROUP BY j.id
+            """
+
+            cursor = conn.execute(
+                query, (source_name, assessment, name_lower, name_lower)
+            )
+            rows = cursor.fetchall()
+
+            results = []
+
+            # Batch fetch all URLs to avoid N+1 query pattern
+            urls_by_journal: dict[int, list[str]] = {}
+            if rows:
+                journal_ids = [dict(row)["id"] for row in rows]
+                placeholders = ",".join("?" * len(journal_ids))
+                url_cursor = conn.execute(
+                    f"""
+                    SELECT journal_id, url FROM journal_urls
+                    WHERE journal_id IN ({placeholders}) AND is_active = TRUE
+                    ORDER BY journal_id, first_seen_at
+                """,  # nosec B608
+                    journal_ids,
+                )
+                # Group URLs by journal_id
+                for journal_id, url in url_cursor.fetchall():
+                    urls_by_journal.setdefault(journal_id, []).append(url)
+
+            for row in rows:
+                journal_dict = dict(row)
+                journal_id = journal_dict["id"]
+
+                # Get URLs from pre-fetched data
+                journal_dict["urls"] = urls_by_journal.get(journal_id, [])
+
+                # Add convenience aliases for common fields
+                journal_dict["journal_name"] = journal_dict["display_name"]
+
+                # Get source-specific metadata
+                metadata_cursor = conn.execute(
+                    """
+                    SELECT sm.metadata_key, sm.metadata_value, sm.data_type
+                    FROM source_metadata sm
+                    JOIN data_sources ds ON sm.source_id = ds.id
+                    WHERE sm.journal_id = ? AND ds.name = ?
+                """,
+                    (journal_id, source_name),
+                )
+
+                metadata = {}
+                for key, value, data_type in metadata_cursor.fetchall():
+                    if key and value:
+                        if data_type == "json":
+                            metadata[key] = json.loads(value)
+                        elif data_type == "boolean":
+                            metadata[key] = value.lower() == "true"
+                        elif data_type == "integer":
+                            metadata[key] = int(value)
+                        else:
+                            metadata[key] = value
+
+                if metadata:
+                    journal_dict["metadata"] = json.dumps(metadata)
+
+                results.append(journal_dict)
+
+            return results
 
     def search_journals(
         self,

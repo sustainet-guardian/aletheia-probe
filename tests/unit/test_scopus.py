@@ -320,6 +320,7 @@ class TestScopusBackend:
         ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.search_journals.return_value = mock_results
+            mock_cache.search_journals_by_name.return_value = mock_results
             mock_get_cache_manager.return_value = mock_cache
             result = await backend.query(query_input)
 
@@ -340,6 +341,7 @@ class TestScopusBackend:
         ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.search_journals.return_value = []
+            mock_cache.search_journals_by_name.return_value = []
             mock_get_cache_manager.return_value = mock_cache
             result = await backend.query(query_input)
 
@@ -374,6 +376,7 @@ class TestScopusBackend:
         ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.search_journals.return_value = mock_results
+            mock_cache.search_journals_by_name.return_value = mock_results
             mock_get_cache_manager.return_value = mock_cache
             result = await backend.query(query_input)
 

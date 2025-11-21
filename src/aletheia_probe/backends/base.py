@@ -164,25 +164,11 @@ class CachedBackend(Backend):
             )
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
-        """Search for exact journal name matches only."""
-        # Get all journals from this source and filter for exact matches
-        all_results = get_cache_manager().search_journals(
-            source_name=self.source_name, assessment=self.list_type
+        """Search for exact journal name matches using optimized SQL query."""
+        # Use optimized cache manager method with SQL WHERE clause
+        return get_cache_manager().search_journals_by_name(
+            name=name, source_name=self.source_name, assessment=self.list_type
         )
-
-        # Filter for exact matches (case insensitive)
-        exact_matches = []
-        name_lower = name.lower().strip()
-
-        for result in all_results:
-            journal_name = result.get("journal_name", "").lower().strip()
-            normalized_name = result.get("normalized_name", "").lower().strip()
-
-            # Exact match on either original or normalized name
-            if journal_name == name_lower or normalized_name == name_lower:
-                exact_matches.append(result)
-
-        return exact_matches
 
     def _calculate_confidence(
         self, query_input: QueryInput, match: dict[str, Any]
