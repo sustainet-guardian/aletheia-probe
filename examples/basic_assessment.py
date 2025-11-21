@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 Basic journal assessment examples using the Aletheia Probe Python API.
 
