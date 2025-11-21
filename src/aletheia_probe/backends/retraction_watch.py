@@ -9,22 +9,25 @@ from ..cache import get_cache_manager
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
-from .base import CachedBackend, get_backend_registry
+from .base import HybridBackend, get_backend_registry
 
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
-class RetractionWatchBackend(CachedBackend):
+class RetractionWatchBackend(HybridBackend):
     """Backend that checks retraction history from Retraction Watch database."""
 
-    def __init__(self) -> None:
-        super().__init__(
-            source_name="retraction_watch",
-            list_type="quality_indicator",
-            cache_ttl_hours=24 * 7,  # Weekly cache
-        )
+    def __init__(self, cache_ttl_hours: int = 24) -> None:
+        """Initialize backend with configurable cache TTL.
+
+        Args:
+            cache_ttl_hours: Cache time-to-live in hours (default: 24)
+        """
+        super().__init__(cache_ttl_hours=cache_ttl_hours)
+        self.source_name = "retraction_watch"
+        self.list_type = "quality_indicator"
 
     def get_name(self) -> str:
         return "retraction_watch"
@@ -32,12 +35,17 @@ class RetractionWatchBackend(CachedBackend):
     def get_description(self) -> str:
         return "Checks journal retraction history from Retraction Watch database"
 
-    async def query(self, query_input: QueryInput) -> BackendResult:
+    async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query retraction data for journal information.
 
-        Overrides CachedBackend.query to provide custom result formatting
-        with retraction-specific metadata. Fetches OpenAlex publication data
-        on-demand for rate calculation.
+        This method performs the actual query against the Retraction Watch database
+        and OpenAlex API. Results are automatically cached by the HybridBackend parent.
+
+        Args:
+            query_input: Normalized query input with journal information
+
+        Returns:
+            BackendResult with retraction assessment and metadata
         """
         start_time = time.time()
 
@@ -228,6 +236,52 @@ class RetractionWatchBackend(CachedBackend):
             get_cache_manager().set_cached_value(cache_key, "null", ttl_hours=24)
             return None
 
+    def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
+        """Search for exact journal name matches only."""
+        # Get all journals from this source and filter for exact matches
+        all_results = get_cache_manager().search_journals(
+            source_name=self.source_name, assessment=self.list_type
+        )
+
+        # Filter for exact matches (case insensitive)
+        exact_matches = []
+        name_lower = name.lower().strip()
+
+        for result in all_results:
+            journal_name = result.get("journal_name", "").lower().strip()
+            normalized_name = result.get("normalized_name", "").lower().strip()
+
+            # Exact match on either original or normalized name
+            if journal_name == name_lower or normalized_name == name_lower:
+                exact_matches.append(result)
+
+        return exact_matches
+
+    def _calculate_confidence(
+        self, query_input: QueryInput, match: dict[str, Any]
+    ) -> float:
+        """Calculate confidence based on match quality - exact matches only."""
+
+        # High confidence for exact ISSN match
+        if (
+            query_input.identifiers.get("issn")
+            and match.get("issn") == query_input.identifiers["issn"]
+        ):
+            return 0.95
+
+        # High confidence for exact name match (case insensitive)
+        if query_input.normalized_name:
+            query_name = query_input.normalized_name.lower().strip()
+            match_name = match.get("normalized_name", "").lower().strip()
+            original_name = match.get("journal_name", "").lower().strip()
+
+            if query_name == match_name or query_name == original_name:
+                return 0.90
+
+        # If we get here, it means we have a match but it's not exact
+        # This shouldn't happen with our new exact matching, so low confidence
+        return 0.3
+
     def _calculate_risk_level(
         self,
         total: int,
@@ -258,5 +312,7 @@ class RetractionWatchBackend(CachedBackend):
 
 # Register the backend factory
 get_backend_registry().register_factory(
-    "retraction_watch", lambda: RetractionWatchBackend(), default_config={}
+    "retraction_watch",
+    lambda cache_ttl_hours=24: RetractionWatchBackend(cache_ttl_hours=cache_ttl_hours),
+    default_config={"cache_ttl_hours": 24},
 )
