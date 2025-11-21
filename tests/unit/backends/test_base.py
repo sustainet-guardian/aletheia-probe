@@ -355,6 +355,22 @@ class TestHybridBackend:
 class TestBackendRegistry:
     """Test cases for backend registry."""
 
+    @pytest.fixture(autouse=True)
+    def save_and_restore_registry(self):
+        """Save and restore backend registry state for each test."""
+        import copy
+
+        registry = get_backend_registry()
+        # Save current state
+        saved_factories = copy.copy(registry._factories)
+        saved_configs = copy.copy(registry._default_configs)
+
+        yield
+
+        # Restore state
+        registry._factories = saved_factories
+        registry._default_configs = saved_configs
+
     def test_register_and_get_backend(self):
         """Test registering and retrieving backends."""
         # Register backend factory

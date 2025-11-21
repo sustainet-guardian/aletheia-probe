@@ -3,6 +3,7 @@
 
 import asyncio
 import hashlib
+import inspect
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -351,8 +352,59 @@ class BackendRegistry:
         # Merge provided config with defaults
         merged_config = {**self._default_configs[name], **config}
 
+        # Filter config parameters based on factory signature
+        factory = self._factories[name]
+        filtered_config = self._filter_config_params(factory, merged_config)
+
         # Create backend instance using factory
-        return self._factories[name](**merged_config)
+        return factory(**filtered_config)
+
+    def _filter_config_params(
+        self, factory: Callable[..., Backend], config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Filter config parameters based on factory function signature.
+
+        Args:
+            factory: Backend factory function
+            config: Configuration parameters to filter
+
+        Returns:
+            Filtered configuration with only parameters the factory accepts
+        """
+        try:
+            sig = inspect.signature(factory)
+            accepted_params = set(sig.parameters.keys())
+
+            # Filter config to only include parameters the factory accepts
+            filtered_config = {
+                key: value for key, value in config.items() if key in accepted_params
+            }
+
+            return filtered_config
+        except Exception:
+            # If signature inspection fails, return original config
+            # This ensures backward compatibility
+            return config
+
+    def get_supported_params(self, name: str) -> set[str]:
+        """Get the set of parameters supported by a backend.
+
+        Args:
+            name: Backend name
+
+        Returns:
+            Set of parameter names the backend accepts
+        """
+        if name not in self._factories:
+            return set()
+
+        try:
+            factory = self._factories[name]
+            sig = inspect.signature(factory)
+            return set(sig.parameters.keys())
+        except Exception:
+            # If signature inspection fails, return empty set
+            return set()
 
     def get_backend(self, name: str) -> Backend:
         """Get a backend by name with default configuration."""

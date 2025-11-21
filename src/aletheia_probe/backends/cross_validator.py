@@ -24,6 +24,7 @@ class CrossValidatorBackend(Backend):
             cache_ttl_hours: Cache TTL in hours
         """
         super().__init__(cache_ttl_hours)
+        self.email = email
         self.openalex_backend = OpenAlexAnalyzerBackend(email, cache_ttl_hours)
         self.crossref_backend = CrossrefAnalyzerBackend(email, cache_ttl_hours)
 

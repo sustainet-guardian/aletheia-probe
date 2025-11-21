@@ -205,6 +205,8 @@ class TestConfigManager:
                 "backend2",
                 "backend3",
             ]
+            # Mock get_supported_params to return empty set (no special params)
+            mock_registry.get_supported_params.return_value = set()
             mock_get_registry.return_value = mock_registry
 
             manager = ConfigManager(temp_config_file)
@@ -223,6 +225,8 @@ class TestConfigManager:
         with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["test_backend"]
+            # Mock get_supported_params to return empty set (no special params)
+            mock_registry.get_supported_params.return_value = set()
             mock_get_registry.return_value = mock_registry
 
             manager = ConfigManager()

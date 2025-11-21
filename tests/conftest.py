@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 
 
