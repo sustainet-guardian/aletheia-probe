@@ -89,6 +89,7 @@ class TestBackendBase:
         assert result.status == BackendStatus.TIMEOUT
         assert result.error_message is not None
         assert "timed out" in result.error_message.lower()
+        assert result.cached is False  # Timeouts are not cached
 
     @pytest.mark.asyncio
     async def test_query_with_timeout_exception(self):
@@ -108,6 +109,7 @@ class TestBackendBase:
         assert result.status == BackendStatus.ERROR
         assert result.error_message is not None
         assert "Test error" in result.error_message
+        assert result.cached is False  # Errors are not cached
 
 
 class TestCachedBackend:
@@ -145,6 +147,7 @@ class TestCachedBackend:
             assert result.status == BackendStatus.FOUND
             assert result.assessment == "predatory"
             assert result.confidence == 0.9
+            assert result.cached is True  # CachedBackend always returns cached=True
 
     @pytest.mark.asyncio
     async def test_cached_backend_query_not_found(
@@ -157,6 +160,7 @@ class TestCachedBackend:
             assert result.status == BackendStatus.NOT_FOUND
             assert result.assessment is None
             assert result.confidence == 0.0
+            assert result.cached is True  # Still searched cache, just no match found
 
     def test_search_exact_match(self, mock_cached_backend):
         """Test exact match search functionality."""
@@ -301,6 +305,7 @@ class TestHybridBackend:
             assert result.status == BackendStatus.FOUND
             assert result.confidence == 0.9
             assert result.data["from_cache"] is True
+            assert result.cached is True  # Cache hit should set cached=True
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_cache_miss_api_hit(
@@ -321,6 +326,7 @@ class TestHybridBackend:
             assert result.status == BackendStatus.FOUND
             assert result.confidence == 0.7
             assert result.data == {"api": "data"}
+            assert result.cached is False  # API call should set cached=False
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_both_miss(

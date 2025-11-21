@@ -59,6 +59,7 @@ class CrossValidatorBackend(Backend):
                     assessment=None,
                     error_message=str(openalex_result),
                     response_time=0.0,
+                    cached=False,  # Errors are not cached
                 )
 
             if isinstance(crossref_result, Exception):
@@ -69,6 +70,7 @@ class CrossValidatorBackend(Backend):
                     assessment=None,
                     error_message=str(crossref_result),
                     response_time=0.0,
+                    cached=False,  # Errors are not cached
                 )
 
             # Perform cross-validation analysis (check for errors first)
@@ -84,11 +86,15 @@ class CrossValidatorBackend(Backend):
                     sources=[],
                     error_message="Backend error during cross-validation",
                     response_time=response_time,
+                    cached=False,  # Errors are not cached
                 )
 
             validation_result = self._cross_validate_results(
                 openalex_result, crossref_result, query_input
             )
+
+            # Set cached flag: True only if both sub-backends returned cached results
+            both_cached = openalex_result.cached and crossref_result.cached
 
             return BackendResult(
                 backend_name=self.get_name(),
@@ -113,6 +119,7 @@ class CrossValidatorBackend(Backend):
                 sources=list(set(openalex_result.sources + crossref_result.sources)),
                 error_message=None,
                 response_time=response_time,
+                cached=both_cached,  # Cached only if both sub-backends used cache
             )
 
         except Exception as e:
@@ -124,6 +131,7 @@ class CrossValidatorBackend(Backend):
                 assessment=None,
                 error_message=str(e),
                 response_time=response_time,
+                cached=False,  # Errors are not cached
             )
 
     def _cross_validate_results(
