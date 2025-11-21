@@ -154,6 +154,8 @@ class CacheManager:
                 -- Indexes for performance
                 CREATE INDEX IF NOT EXISTS idx_journals_normalized_name ON journals(normalized_name);
                 CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
+                CREATE INDEX IF NOT EXISTS idx_journals_normalized_name_lower ON journals(LOWER(normalized_name));
+                CREATE INDEX IF NOT EXISTS idx_journals_display_name_lower ON journals(LOWER(display_name));
                 CREATE INDEX IF NOT EXISTS idx_journals_issn ON journals(issn);
                 CREATE INDEX IF NOT EXISTS idx_journals_eissn ON journals(eissn);
                 CREATE INDEX IF NOT EXISTS idx_journal_names_name ON journal_names(name);
