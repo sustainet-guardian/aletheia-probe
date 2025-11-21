@@ -6,12 +6,12 @@ import time
 from typing import Any
 
 from ..models import BackendResult, BackendStatus, QueryInput
-from .base import Backend, get_backend_registry
+from .base import HybridBackend, get_backend_registry
 from .crossref_analyzer import CrossrefAnalyzerBackend
 from .openalex_analyzer import OpenAlexAnalyzerBackend
 
 
-class CrossValidatorBackend(Backend):
+class CrossValidatorBackend(HybridBackend):
     """Backend that combines and cross-validates OpenAlex and Crossref data."""
 
     def __init__(
@@ -36,7 +36,7 @@ class CrossValidatorBackend(Backend):
         """Return backend description."""
         return "Cross-validates assessments between OpenAlex and Crossref data sources"
 
-    async def query(self, query_input: QueryInput) -> BackendResult:
+    async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query both backends and cross-validate results."""
         start_time = time.time()
 
@@ -93,9 +93,6 @@ class CrossValidatorBackend(Backend):
                 openalex_result, crossref_result, query_input
             )
 
-            # Set cached flag: True only if both sub-backends returned cached results
-            both_cached = openalex_result.cached and crossref_result.cached
-
             return BackendResult(
                 backend_name=self.get_name(),
                 status=validation_result["status"],
@@ -119,7 +116,7 @@ class CrossValidatorBackend(Backend):
                 sources=list(set(openalex_result.sources + crossref_result.sources)),
                 error_message=None,
                 response_time=response_time,
-                cached=both_cached,  # Cached only if both sub-backends used cache
+                cached=False,  # Will be set by HybridBackend.query() when result is cached
             )
 
         except Exception as e:
