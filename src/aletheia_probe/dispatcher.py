@@ -173,9 +173,9 @@ class QueryDispatcher:
             backend_config = self.config_manager.get_backend_config(backend_name)
             timeout = backend_config.timeout if backend_config else 15
 
-            # Create task with timeout
+            # Create task with timeout and timing wrapper
             task = asyncio.create_task(
-                backend.query_with_timeout(query_input, timeout),
+                self._query_backend_with_timing(backend, query_input, timeout),
                 name=f"backend_{backend_name}",
             )
             tasks.append((backend_name, task))
@@ -231,6 +231,28 @@ class QueryDispatcher:
                 backend_results.append(error_result)
 
         return backend_results
+
+    async def _query_backend_with_timing(
+        self, backend: Backend, query_input: QueryInput, timeout: int
+    ) -> BackendResult:
+        """Query a backend and add execution timing information.
+
+        Args:
+            backend: The backend to query
+            query_input: The query input
+            timeout: Timeout in seconds
+
+        Returns:
+            BackendResult with execution_time_ms populated
+        """
+        start_time = time.perf_counter()
+        result = await backend.query_with_timeout(query_input, timeout)
+        execution_time_ms = (time.perf_counter() - start_time) * 1000
+
+        # Add timing to result (create a modified copy)
+        result_dict = result.model_dump()
+        result_dict["execution_time_ms"] = execution_time_ms
+        return BackendResult(**result_dict)
 
     def _calculate_assessment(
         self,

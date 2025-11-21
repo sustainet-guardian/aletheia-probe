@@ -52,6 +52,9 @@ class BackendResult(BaseModel):
     )
     response_time: float = Field(..., description="Query response time in seconds")
     cached: bool = Field(False, description="Whether result was retrieved from cache")
+    execution_time_ms: float | None = Field(
+        None, description="Backend execution time in milliseconds"
+    )
 
 
 class JournalMetadata(BaseModel):

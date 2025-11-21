@@ -393,8 +393,11 @@ async def _async_assess_publication(
                         )
                     )
                     cache_indicator = " [cached]" if backend_result.cached else ""
+                    timing_info = ""
+                    if backend_result.execution_time_ms is not None:
+                        timing_info = f" ({backend_result.execution_time_ms:.2f}ms)"
                     print(
-                        f"  {status_emoji} {backend_result.backend_name}: {backend_result.status}{cache_indicator}"
+                        f"  {status_emoji} {backend_result.backend_name}: {backend_result.status}{cache_indicator}{timing_info}"
                     )
                     if backend_result.assessment:
                         print(
