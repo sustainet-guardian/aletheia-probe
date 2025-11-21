@@ -11,11 +11,17 @@ Before running the examples, ensure you have:
    pip install aletheia-probe
    ```
 
-2. **Configured the tool:**
+2. **Synced backend data:**
+   ```bash
+   aletheia-probe sync
+   ```
+   This downloads the predatory journal lists and other data sources needed for assessment.
+
+3. **(Optional) View configuration:**
    ```bash
    aletheia-probe config
    ```
-   Follow the prompts to set up your data sources and preferences.
+   This displays the current configuration. The tool works with default settings, but you can customize backends and other options.
 
 ## Examples
 
@@ -32,19 +38,21 @@ Demonstrates core journal assessment functionality:
 python basic_assessment.py
 ```
 
-**Expected Output:**
+**Expected Output (similar to):**
 ```
 === Single Journal Assessment ===
 Journal: Nature Communications
 Assessment: legitimate
-Confidence: 95%
-Backend Results: 3 sources checked
+Confidence: 98%
+Backend Results: 13 sources checked
 
 === Batch Assessment ===
 Science: legitimate (98% confidence)
-PLOS ONE: legitimate (92% confidence)
-Journal of Biomedicine: predatory (87% confidence)
+PLOS ONE: legitimate (100% confidence)
+Journal of Biomedicine: legitimate (83% confidence)
 ```
+
+*Note: Results may vary based on enabled backends and available data.*
 
 ### bibtex_processing.py
 
@@ -59,23 +67,25 @@ Shows how to process BibTeX bibliography files:
 python bibtex_processing.py
 ```
 
-**Expected Output:**
+**Expected Output (similar to):**
 ```
 === BibTeX File Processing ===
-Created sample BibTeX file: /tmp/sample.bib
+Created sample BibTeX file: /tmp/tmplbecdqnw.bib
 
 === Assessment Summary ===
 Total entries processed: 3
 Legitimate journals: 2
 Predatory journals: 1
-Unknown/unclear: 0
+Insufficient data: 0
 
 === Detailed Results ===
 Journal: Nature Communications
   Assessment: legitimate
-  Confidence: 95%
+  Confidence: 93%
   Risk Level: LOW - Safe to publish
 ```
+
+*Note: Results may vary based on enabled backends and available data.*
 
 ## Integration Tips
 
@@ -93,15 +103,12 @@ except Exception as e:
 
 ### Configuration
 
-The API uses your configured settings from `aletheia-probe config`. For programmatic configuration:
+The API uses configuration in this order of precedence:
+1. Local `.aletheia-probe/` directory (project-specific settings)
+2. User configuration directory (`~/.config/aletheia-probe/` or platform equivalent)
+3. Default settings
 
-```python
-from aletheia_probe.config_manager import get_config_manager
-
-config_manager = get_config_manager()
-config = config_manager.load_config()
-# Access configuration settings...
-```
+For more details, see the [Configuration documentation](https://github.com/sustainet-guardian/aletheia-probe#configuration).
 
 ### Async/Await
 
@@ -117,10 +124,3 @@ async def main():
 # Run the async function
 result = asyncio.run(main())
 ```
-
-## Support
-
-For questions or issues:
-- Check the main documentation
-- Review the source code examples in the docstrings
-- Report bugs via the project issue tracker
