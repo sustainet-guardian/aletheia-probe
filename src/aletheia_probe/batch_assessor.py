@@ -49,13 +49,14 @@ class BibtexBatchAssessor:
 
     @staticmethod
     async def assess_bibtex_file(
-        file_path: Path, verbose: bool = False
+        file_path: Path, verbose: bool = False, relax_bibtex: bool = False
     ) -> BibtexAssessmentResult:
         """Assess all journals in a BibTeX file.
 
         Args:
             file_path: Path to the BibTeX file
             verbose: Whether to enable verbose output
+            relax_bibtex: If True, enable relaxed BibTeX parsing to handle malformed files
 
         Returns:
             BibtexAssessmentResult containing aggregated assessment results
@@ -74,7 +75,7 @@ class BibtexBatchAssessor:
 
         # Parse the BibTeX file to extract journal entries
         try:
-            bibtex_entries = BibtexParser.parse_bibtex_file(file_path)
+            bibtex_entries = BibtexParser.parse_bibtex_file(file_path, relax_bibtex)
             detail_logger.debug(f"Successfully parsed {len(bibtex_entries)} entries")
         except Exception as e:
             detail_logger.error(f"Failed to parse BibTeX file: {e}")

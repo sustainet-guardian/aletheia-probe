@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+from pybtex import errors as pybtex_errors  # type: ignore
 from pybtex.database import (  # type: ignore
     BibliographyData,
     Entry,
@@ -23,7 +24,9 @@ class BibtexParser:
     """Parser for BibTeX files to extract journal information."""
 
     @staticmethod
-    def parse_bibtex_file(file_path: Path) -> list[BibtexEntry]:
+    def parse_bibtex_file(
+        file_path: Path, relax_parsing: bool = False
+    ) -> list[BibtexEntry]:
         """Parse a BibTeX file and extract journal entries.
 
         This method tries multiple encoding strategies to maximize the number
@@ -31,6 +34,8 @@ class BibtexParser:
 
         Args:
             file_path: Path to the BibTeX file
+            relax_parsing: If True, enable lenient parsing mode to handle
+                         malformed BibTeX files (e.g., duplicate keys, syntax errors)
 
         Returns:
             List of BibtexEntry objects with extracted journal information
@@ -47,104 +52,117 @@ class BibtexParser:
         if not file_path.is_file():
             raise ValueError(f"Path is not a file: {file_path}")
 
-        # Try different encoding strategies
-        encoding_strategies = [
-            ("utf-8", "UTF-8"),
-            ("latin-1", "Latin-1"),
-            ("cp1252", "Windows-1252"),
-            ("utf-8", "UTF-8 with errors='replace'"),
-        ]
-
-        last_error = None
-
-        for encoding, description in encoding_strategies:
-            try:
-                detail_logger.debug(
-                    f"Attempting to parse {file_path.name} with {description}"
-                )
-
-                if description.endswith("with errors='replace'"):
-                    # For the final attempt, use error handling to replace problematic characters
-                    bib_data = BibtexParser._parse_with_error_handling(
-                        file_path, encoding
-                    )
-                else:
-                    # Standard parsing attempt
-                    bib_data = parse_file(str(file_path), encoding=encoding)
-
-                entries = []
-                skipped_entries = 0
-
-                for entry_key, entry in bib_data.entries.items():
-                    try:
-                        # Extract each entry with individual error handling
-                        processed_entry = BibtexParser._process_entry_safely(
-                            entry_key, entry
-                        )
-                        if processed_entry:
-                            entries.append(processed_entry)
-                        else:
-                            skipped_entries += 1
-                    except Exception as e:
-                        status_logger.warning(
-                            f"Skipping entry '{entry_key}' due to processing error: {e}"
-                        )
-                        skipped_entries += 1
-                        continue
-
-                if skipped_entries > 0:
-                    status_logger.info(
-                        f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                        f"with {description}, skipped {skipped_entries} problematic entries"
-                    )
-                else:
-                    detail_logger.debug(
-                        f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                        f"with {description}"
-                    )
-
-                return entries
-
-            except UnicodeDecodeError as e:
-                last_error = e
-                detail_logger.debug(
-                    f"{description} decoding failed for {file_path.name}: {e}"
-                )
-                continue
-
-            except PybtexSyntaxError as e:
-                # Syntax errors are not encoding-related, so don't try other encodings
-                raise ValueError(
-                    f"Invalid BibTeX syntax in {file_path.name}: {e}"
-                ) from e
-
-            except PermissionError as e:
-                raise PermissionError(f"Cannot read {file_path}: {e}") from e
-
-            except PybtexError as e:
-                last_error = e
-                detail_logger.debug(
-                    f"PyBTeX error with {description} for {file_path.name}: {e}"
-                )
-                continue
-
-        # If we get here, all encoding strategies failed
-        if last_error:
-            if isinstance(last_error, UnicodeDecodeError):
-                raise UnicodeDecodeError(
-                    "utf-8",
-                    b"",
-                    0,
-                    1,
-                    f"Could not decode {file_path.name} with any supported encoding "
-                    f"(tried UTF-8, Latin-1, Windows-1252).",
-                ) from last_error
+        # Configure pybtex parsing mode based on relax_parsing parameter
+        original_strict_mode = pybtex_errors.strict
+        try:
+            if relax_parsing:
+                detail_logger.debug("Enabling relaxed BibTeX parsing mode")
+                pybtex_errors.set_strict_mode(False)
             else:
-                raise ValueError(
-                    f"Error parsing BibTeX file {file_path.name}: {last_error}"
-                ) from last_error
-        else:
-            raise ValueError(f"Unknown error parsing BibTeX file {file_path.name}")
+                detail_logger.debug("Using strict BibTeX parsing mode")
+                pybtex_errors.set_strict_mode(True)
+
+            # Try different encoding strategies
+            encoding_strategies = [
+                ("utf-8", "UTF-8"),
+                ("latin-1", "Latin-1"),
+                ("cp1252", "Windows-1252"),
+                ("utf-8", "UTF-8 with errors='replace'"),
+            ]
+
+            last_error = None
+
+            for encoding, description in encoding_strategies:
+                try:
+                    detail_logger.debug(
+                        f"Attempting to parse {file_path.name} with {description}"
+                    )
+
+                    if description.endswith("with errors='replace'"):
+                        # For the final attempt, use error handling to replace problematic characters
+                        bib_data = BibtexParser._parse_with_error_handling(
+                            file_path, encoding
+                        )
+                    else:
+                        # Standard parsing attempt
+                        bib_data = parse_file(str(file_path), encoding=encoding)
+
+                    entries = []
+                    skipped_entries = 0
+
+                    for entry_key, entry in bib_data.entries.items():
+                        try:
+                            # Extract each entry with individual error handling
+                            processed_entry = BibtexParser._process_entry_safely(
+                                entry_key, entry
+                            )
+                            if processed_entry:
+                                entries.append(processed_entry)
+                            else:
+                                skipped_entries += 1
+                        except Exception as e:
+                            status_logger.warning(
+                                f"Skipping entry '{entry_key}' due to processing error: {e}"
+                            )
+                            skipped_entries += 1
+                            continue
+
+                    if skipped_entries > 0:
+                        status_logger.info(
+                            f"Successfully parsed {len(entries)} entries from {file_path.name} "
+                            f"with {description}, skipped {skipped_entries} problematic entries"
+                        )
+                    else:
+                        detail_logger.debug(
+                            f"Successfully parsed {len(entries)} entries from {file_path.name} "
+                            f"with {description}"
+                        )
+
+                    return entries
+
+                except UnicodeDecodeError as e:
+                    last_error = e
+                    detail_logger.debug(
+                        f"{description} decoding failed for {file_path.name}: {e}"
+                    )
+                    continue
+
+                except PybtexSyntaxError as e:
+                    # Syntax errors are not encoding-related, so don't try other encodings
+                    raise ValueError(
+                        f"Invalid BibTeX syntax in {file_path.name}: {e}"
+                    ) from e
+
+                except PermissionError as e:
+                    raise PermissionError(f"Cannot read {file_path}: {e}") from e
+
+                except PybtexError as e:
+                    last_error = e
+                    detail_logger.debug(
+                        f"PyBTeX error with {description} for {file_path.name}: {e}"
+                    )
+                    continue
+
+            # If we get here, all encoding strategies failed
+            if last_error:
+                if isinstance(last_error, UnicodeDecodeError):
+                    raise UnicodeDecodeError(
+                        "utf-8",
+                        b"",
+                        0,
+                        1,
+                        f"Could not decode {file_path.name} with any supported encoding "
+                        f"(tried UTF-8, Latin-1, Windows-1252).",
+                    ) from last_error
+                else:
+                    raise ValueError(
+                        f"Error parsing BibTeX file {file_path.name}: {last_error}"
+                    ) from last_error
+            else:
+                raise ValueError(f"Unknown error parsing BibTeX file {file_path.name}")
+        finally:
+            # Restore original strict mode setting
+            pybtex_errors.set_strict_mode(original_strict_mode)
 
     @staticmethod
     def _parse_with_error_handling(file_path: Path, encoding: str) -> BibliographyData:

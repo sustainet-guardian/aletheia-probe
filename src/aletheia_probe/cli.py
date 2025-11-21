@@ -273,7 +273,14 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
     type=click.Choice(["text", "json"]),
     help="Output format",
 )
-def bibtex(bibtex_file: str, verbose: bool, output_format: str) -> None:
+@click.option(
+    "--relax-bibtex",
+    is_flag=True,
+    help="Enable relaxed BibTeX parsing to handle malformed files",
+)
+def bibtex(
+    bibtex_file: str, verbose: bool, output_format: str, relax_bibtex: bool
+) -> None:
     """Assess all journals in a BibTeX file for predatory status.
 
     BIBTEX_FILE: Path to the BibTeX file to assess
@@ -282,11 +289,11 @@ def bibtex(bibtex_file: str, verbose: bool, output_format: str) -> None:
     This allows the command to be used in automated scripts to check
     if a bibliography contains predatory journals.
     """
-    asyncio.run(_async_bibtex_main(bibtex_file, verbose, output_format))
+    asyncio.run(_async_bibtex_main(bibtex_file, verbose, output_format, relax_bibtex))
 
 
 async def _async_bibtex_main(
-    bibtex_file: str, verbose: bool, output_format: str
+    bibtex_file: str, verbose: bool, output_format: str, relax_bibtex: bool
 ) -> None:
     """Async main function for BibTeX assessment."""
     status_logger = get_status_logger()
@@ -298,7 +305,9 @@ async def _async_bibtex_main(
             status_logger.info(f"Assessing BibTeX file: {file_path}")
 
         # Assess all journals in the BibTeX file
-        result = await BibtexBatchAssessor.assess_bibtex_file(file_path, verbose)
+        result = await BibtexBatchAssessor.assess_bibtex_file(
+            file_path, verbose, relax_bibtex
+        )
 
         # Output results
         if output_format == "json":
