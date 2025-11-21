@@ -245,13 +245,12 @@ class QueryDispatcher:
         Returns:
             BackendResult with execution_time_ms populated
         """
-        start_time = time.perf_counter()
         result = await backend.query_with_timeout(query_input, timeout)
-        execution_time_ms = (time.perf_counter() - start_time) * 1000
 
-        # Add timing to result (create a modified copy)
+        # Convert response_time (seconds) to execution_time_ms (milliseconds)
+        # response_time already contains the actual backend execution time
         result_dict = result.model_dump()
-        result_dict["execution_time_ms"] = execution_time_ms
+        result_dict["execution_time_ms"] = result.response_time * 1000
         return BackendResult(**result_dict)
 
     def _calculate_assessment(
