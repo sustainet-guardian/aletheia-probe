@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-21
+
+### Added
+- **Python API Examples**: Comprehensive standalone demonstration scripts in examples/ directory
+  - basic_assessment.py: Single journal and batch assessment examples
+  - bibtex_processing.py: BibTeX file processing and result aggregation
+  - Complete README with setup instructions and usage guidance
+- **Relaxed BibTeX Parsing**: Optional --relax-bibtex flag for handling malformed BibTeX files
+  - Enables lenient parsing mode for files with common formatting issues
+  - Handles too many commas in author lists, repeated entries, and syntax errors
+  - Maintains strict parsing as default for quality control
+- **Performance Timing Instrumentation**: Per-backend execution timing for performance monitoring
+- **Enhanced Caching System**: Multiple performance optimization features
+  - Cross Validator results caching to prevent redundant backend queries
+  - Retraction Watch backend results caching to prevent redundant API calls
+  - Scopus backend queries optimization with functional indexes
+  - CachedBackend database query optimization to eliminate O(n) filtering
+
+### Changed
+- **Cross Validator Backend Architecture**: Refactored to use HybridBackend pattern
+  - Eliminates redundant queries to OpenAlex and Crossref backends
+  - Cached queries complete in <50ms vs 400-800ms for fresh queries
+  - Cross-validation results cached as complete units with 24-hour TTL
+
+### Fixed
+- **Email Configuration**: Resolved backend email configuration issues
+- **Cache Flag Propagation**: Fixed cached flag propagation in CrossValidatorBackend
+- **Database Performance**: Optimized query patterns across multiple backend implementations
+
+### Performance Improvements
+- **Query Optimization**: Significant performance gains through comprehensive caching strategy
+- **Database Efficiency**: Functional indexes and optimized filtering reduce query overhead
+- **API Call Reduction**: Smart caching prevents redundant external API requests
+
 ## [0.3.0] - 2025-11-20
 
 ### Added
