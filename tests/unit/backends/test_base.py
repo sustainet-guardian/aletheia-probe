@@ -162,20 +162,24 @@ class TestCachedBackend:
         """Test exact match search functionality."""
         mock_results = [
             {"journal_name": "Test Journal", "normalized_name": "test journal"},
-            {"journal_name": "Another Journal", "normalized_name": "another journal"},
         ]
 
         with patch(
             "aletheia_probe.backends.base.get_cache_manager"
         ) as mock_get_cache_manager:
             mock_cache = Mock()
-            mock_cache.search_journals.return_value = mock_results
+            mock_cache.search_journals_by_name.return_value = mock_results
             mock_get_cache_manager.return_value = mock_cache
 
             results = mock_cached_backend._search_exact_match("Test Journal")
 
-            # Should filter for exact matches
-            mock_cache.search_journals.assert_called_once()
+            # Should call the optimized search_journals_by_name method
+            mock_cache.search_journals_by_name.assert_called_once_with(
+                name="Test Journal",
+                source_name=mock_cached_backend.source_name,
+                assessment=mock_cached_backend.list_type,
+            )
+            assert results == mock_results
 
     def test_calculate_confidence_issn_match(self, mock_cached_backend):
         """Test confidence calculation with ISSN match."""
