@@ -218,6 +218,8 @@ class HybridBackend(Backend):
 
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Check cache first, then query live API if needed."""
+        start_time = time.time()
+
         # Generate cache key for this query
         cache_key = self._generate_cache_key(query_input)
 
@@ -225,9 +227,11 @@ class HybridBackend(Backend):
         cached_result = get_cache_manager().get_cached_assessment(cache_key)
         if cached_result:
             # Update the cached result to indicate it came from cache
+            cache_lookup_time = time.time() - start_time
             for backend_result in cached_result.backend_results:
                 if backend_result.backend_name == self.get_name():
                     backend_result.cached = True
+                    backend_result.response_time = cache_lookup_time
                     backend_result.data = {**backend_result.data, "from_cache": True}
                     return backend_result
 
