@@ -55,6 +55,9 @@ run_check "Logging consistency" python scripts/check-logging.py || true
 # 6. SPDX license identifier check
 run_check "SPDX license identifiers" python scripts/check-spdx.py || true
 
+# 7. Example execution check
+run_check "Example execution" python scripts/check-examples.py || true
+
 # Final summary
 echo -e "${BLUE}========================================${NC}"
 if [ $FAILED -eq 0 ]; then
