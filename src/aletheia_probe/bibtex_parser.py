@@ -378,7 +378,7 @@ class BibtexParser:
 
         # Remove nested curly braces iteratively until none remain
         # This handles multiple levels like {{{text}}} -> {{text}} -> {text} -> text
-        while re.search(r'\{[^{}]*\}', value):
-            value = re.sub(r'\{([^{}]*)\}', r'\1', value)
+        while re.search(r"\{[^{}]*\}", value):
+            value = re.sub(r"\{([^{}]*)\}", r"\1", value)
 
         return value.strip()

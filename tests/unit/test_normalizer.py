@@ -143,12 +143,22 @@ class TestInputNormalizer:
         normalizer = InputNormalizer()
 
         # Test journal name with abbreviation in parentheses
-        result = normalizer.normalize("Advances in Neural Information Processing Systems (NeurIPS)")
-        assert result.normalized_name == "Advances in Neural Information Processing Systems"
-        assert result.raw_input == "Advances in Neural Information Processing Systems (NeurIPS)"
+        result = normalizer.normalize(
+            "Advances in Neural Information Processing Systems (NeurIPS)"
+        )
+        assert (
+            result.normalized_name
+            == "Advances in Neural Information Processing Systems"
+        )
+        assert (
+            result.raw_input
+            == "Advances in Neural Information Processing Systems (NeurIPS)"
+        )
 
         # Test conference name with abbreviation in parentheses
-        result2 = normalizer.normalize("International Conference on Cloud Computing (CLOUD)")
+        result2 = normalizer.normalize(
+            "International Conference on Cloud Computing (CLOUD)"
+        )
         assert result2.normalized_name == "International Conference on CLOUD Computing"
 
     def test_bracket_removal_square_brackets(self):
@@ -172,8 +182,13 @@ class TestInputNormalizer:
         assert result.normalized_name == "IEEE Conference"
 
         # Test nested braces (BibTeX style)
-        result2 = normalizer.normalize("{{IEEE}} {{International Conference}} on {{Cloud Computing}}")
-        assert result2.normalized_name == "IEEE International Conference on CLOUD Computing"
+        result2 = normalizer.normalize(
+            "{{IEEE}} {{International Conference}} on {{Cloud Computing}}"
+        )
+        assert (
+            result2.normalized_name
+            == "IEEE International Conference on CLOUD Computing"
+        )
 
         # Test triple nested braces
         result3 = normalizer.normalize("{{{CLOUD}}} Conference")
@@ -184,12 +199,16 @@ class TestInputNormalizer:
         normalizer = InputNormalizer()
 
         # Test combination of all bracket types
-        result = normalizer.normalize("2018 {{IEEE}} 11th {International Conference} on [Cloud] Computing (CLOUD)")
+        result = normalizer.normalize(
+            "2018 {{IEEE}} 11th {International Conference} on [Cloud] Computing (CLOUD)"
+        )
         expected = "2018 IEEE 11th International Conference on Computing"  # IEEE preserved as acronym
         assert result.normalized_name == expected
 
         # Test real BibTeX example
-        result2 = normalizer.normalize("2018 {{IEEE}} 11th {{International Conference}} on {{Cloud Computing}} ({{CLOUD}})")
+        result2 = normalizer.normalize(
+            "2018 {{IEEE}} 11th {{International Conference}} on {{Cloud Computing}} ({{CLOUD}})"
+        )
         expected2 = "2018 IEEE 11th International Conference on CLOUD Computing"  # IEEE and CLOUD preserved as acronyms
         assert result2.normalized_name == expected2
 

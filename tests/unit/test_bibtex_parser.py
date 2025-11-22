@@ -727,7 +727,9 @@ class TestBibtexParser:
         assert result == "CLOUD"
 
         # Mixed content with multiple braced sections
-        result = BibtexParser._remove_nested_braces("{{IEEE}} {{International Conference}} on {{Cloud Computing}}")
+        result = BibtexParser._remove_nested_braces(
+            "{{IEEE}} {{International Conference}} on {{Cloud Computing}}"
+        )
         assert result == "IEEE International Conference on Cloud Computing"
 
         # Text without braces should remain unchanged
@@ -761,11 +763,15 @@ class TestBibtexParser:
         entry = entries[0]
 
         # Title should have nested braces removed
-        expected_title = "Software Greenability: A Case Study of Cloud-Based Applications"
+        expected_title = (
+            "Software Greenability: A Case Study of Cloud-Based Applications"
+        )
         assert entry.title == expected_title
 
         # Conference name should have nested braces removed
-        expected_conference = "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
+        expected_conference = (
+            "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
+        )
         assert entry.journal_name == expected_conference
 
     def test_parse_bibtex_journal_with_nested_braces(self, tmp_path):

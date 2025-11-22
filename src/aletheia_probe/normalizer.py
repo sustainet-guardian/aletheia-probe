@@ -21,13 +21,61 @@ class InputNormalizer:
 
         # Common acronyms that should remain uppercase
         self.acronyms = {
-            "IEEE", "ACM", "SIGCOMM", "SIGCHI", "SIGKDD", "SIGMOD", "SIGPLAN",
-            "VLDB", "ICML", "NIPS", "NEURIPS", "ICLR", "AAAI", "IJCAI", "CIKM",
-            "WWW", "KDD", "ICDM", "SDM", "PAKDD", "ECML", "PKDD", "CLOUD",
-            "NASA", "NIH", "NSF", "DARPA", "NIST", "ISO", "IEC", "ITU",
-            "RFC", "HTTP", "TCP", "IP", "UDP", "DNS", "SSL", "TLS",
-            "AI", "ML", "NLP", "CV", "HCI", "DB", "OS", "SE", "PL",
-            "UK", "USA", "US", "EU", "UN", "WHO", "NATO"
+            "IEEE",
+            "ACM",
+            "SIGCOMM",
+            "SIGCHI",
+            "SIGKDD",
+            "SIGMOD",
+            "SIGPLAN",
+            "VLDB",
+            "ICML",
+            "NIPS",
+            "NEURIPS",
+            "ICLR",
+            "AAAI",
+            "IJCAI",
+            "CIKM",
+            "WWW",
+            "KDD",
+            "ICDM",
+            "SDM",
+            "PAKDD",
+            "ECML",
+            "PKDD",
+            "CLOUD",
+            "NASA",
+            "NIH",
+            "NSF",
+            "DARPA",
+            "NIST",
+            "ISO",
+            "IEC",
+            "ITU",
+            "RFC",
+            "HTTP",
+            "TCP",
+            "IP",
+            "UDP",
+            "DNS",
+            "SSL",
+            "TLS",
+            "AI",
+            "ML",
+            "NLP",
+            "CV",
+            "HCI",
+            "DB",
+            "OS",
+            "SE",
+            "PL",
+            "UK",
+            "USA",
+            "US",
+            "EU",
+            "UN",
+            "WHO",
+            "NATO",
         }
 
         # Common abbreviation expansions
@@ -135,19 +183,19 @@ class InputNormalizer:
         """
         # Remove nested curly braces (BibTeX formatting) - handle multiple levels
         # This handles cases like {{IEEE}} -> IEEE
-        while re.search(r'\{[^{}]*\}', text):
-            text = re.sub(r'\{([^{}]*)\}', r'\1', text)
+        while re.search(r"\{[^{}]*\}", text):
+            text = re.sub(r"\{([^{}]*)\}", r"\1", text)
 
         # Remove content within square brackets [...]
         # This handles abbreviations and annotations like [2023], [Online]
-        text = re.sub(r'\[[^\]]*\]', '', text)
+        text = re.sub(r"\[[^\]]*\]", "", text)
 
         # Remove content within parentheses (...)
         # This handles journal/conference abbreviations like (NeurIPS), (CLOUD)
-        text = re.sub(r'\([^)]*\)', '', text)
+        text = re.sub(r"\([^)]*\)", "", text)
 
         # Clean up multiple spaces left by bracket removal
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\s+", " ", text)
 
         return text.strip()
 
