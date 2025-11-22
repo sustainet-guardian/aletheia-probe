@@ -249,7 +249,7 @@ class BibtexParser:
         """Extract conference name from a BibTeX @inproceedings entry.
 
         Prioritizes series name (normalized) over full booktitle.
-        Attempts to extract conference series by removing years and ordinals.
+        Normalizes conference names to improve matching across variations.
 
         Args:
             entry: BibTeX entry
@@ -263,19 +263,50 @@ class BibtexParser:
             # Remove common artifacts (quotes, extra spaces)
             series = series.strip("'\"").strip()
             if series:
-                return series
+                return BibtexParser._normalize_conference_name(series)
 
         # Priority 2: Try to extract from booktitle
         booktitle = BibtexParser._get_field_safely(entry, "booktitle")
         if booktitle:
-            return booktitle
+            return BibtexParser._normalize_conference_name(booktitle)
 
         # Priority 3: Fallback to organization
         organization = BibtexParser._get_field_safely(entry, "organization")
         if organization:
-            return organization
+            return BibtexParser._normalize_conference_name(organization)
 
         return None
+
+    @staticmethod
+    def _normalize_conference_name(name: str) -> str:
+        """Normalize conference names to improve matching across variations.
+
+        Removes common prefixes like "Proceedings of" and "Proceedings of the"
+        to reduce variation between different citation styles.
+
+        Args:
+            name: Raw conference name
+
+        Returns:
+            Normalized conference name
+
+        Examples:
+            "Proceedings of the IEEE conference on computer vision" ->
+            "IEEE conference on computer vision"
+            "Proceedings of Semantic Web" -> "Semantic Web"
+        """
+        import re
+
+        # Remove "Proceedings of the" prefix (case-insensitive)
+        name = re.sub(r"^proceedings\s+of\s+the\s+", "", name, flags=re.IGNORECASE)
+
+        # Remove "Proceedings of" prefix (case-insensitive)
+        name = re.sub(r"^proceedings\s+of\s+", "", name, flags=re.IGNORECASE)
+
+        # Clean up any extra whitespace
+        name = re.sub(r"\s+", " ", name).strip()
+
+        return name
 
     @staticmethod
     def _extract_authors_safely(entry: Entry) -> str | None:
