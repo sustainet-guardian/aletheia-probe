@@ -114,6 +114,9 @@ class BibtexBatchAssessor:
         # Assess each journal
         assessment_results: list[tuple[BibtexEntry, AssessmentResult]] = []
 
+        # Cache for venue assessments using case-insensitive normalized names
+        venue_assessment_cache: dict[str, AssessmentResult] = {}
+
         for i, entry in enumerate(bibtex_entries, 1):
             status_logger.info(
                 f"[{i}/{len(bibtex_entries)}] Assessing: {entry.journal_name}"
@@ -150,11 +153,28 @@ class BibtexBatchAssessor:
                     f"Normalized journal name: {query_input.normalized_name}"
                 )
 
-                # Assess the journal
-                assessment = await query_dispatcher.assess_journal(query_input)
-                detail_logger.debug(
-                    f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
+                # Create a cache key using lowercase normalized name for case-insensitive matching
+                cache_key = (
+                    query_input.normalized_name.lower()
+                    if query_input.normalized_name
+                    else entry.journal_name.lower()
                 )
+
+                # Check if we've already assessed this venue (case-insensitive)
+                if cache_key in venue_assessment_cache:
+                    assessment = venue_assessment_cache[cache_key]
+                    detail_logger.debug(
+                        f"Using cached assessment for '{entry.journal_name}' (matches '{cache_key}')"
+                    )
+                    status_logger.info("    → Using cached result for case variant")
+                else:
+                    # Assess the journal
+                    assessment = await query_dispatcher.assess_journal(query_input)
+                    detail_logger.debug(
+                        f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
+                    )
+                    # Cache the assessment for future case variants
+                    venue_assessment_cache[cache_key] = assessment
 
                 # Store the result
                 assessment_results.append((entry, assessment))
