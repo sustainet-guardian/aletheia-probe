@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from aletheia_probe.dispatcher import QueryDispatcher
+from aletheia_probe.enums import EvidenceType
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 from aletheia_probe.normalizer import InputNormalizer
 
@@ -55,6 +56,7 @@ class TestBasicIntegration:
             # Create a mock backend
             mock_backend = Mock()
             mock_backend.get_name.return_value = "test_backend"
+            mock_backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
             mock_backend.weight = 0.8  # Add weight attribute
             mock_backend.query_with_timeout = AsyncMock(
                 return_value=BackendResult(
@@ -65,6 +67,7 @@ class TestBasicIntegration:
                     data={"test": "data"},
                     sources=["test_source"],
                     response_time=0.1,
+                    evidence_type=EvidenceType.PREDATORY_LIST.value,
                 )
             )
 
@@ -137,6 +140,7 @@ backends:
             # Setup mock backend
             mock_backend = Mock()
             mock_backend.get_name.return_value = "integration_test_backend"
+            mock_backend.get_evidence_type.return_value = EvidenceType.LEGITIMATE_LIST
             mock_backend.weight = 0.8  # Add weight attribute
             mock_backend.query_with_timeout = AsyncMock(
                 return_value=BackendResult(
@@ -147,6 +151,7 @@ backends:
                     data={"source": "integration_test"},
                     sources=["test_database"],
                     response_time=0.2,
+                    evidence_type=EvidenceType.LEGITIMATE_LIST.value,
                 )
             )
 
@@ -183,6 +188,7 @@ backends:
             data={"key": "value"},
             sources=["source1", "source2"],
             response_time=0.15,
+            evidence_type=EvidenceType.PREDATORY_LIST.value,
         )
 
         assessment_result = AssessmentResult(
@@ -244,6 +250,7 @@ backends:
             # Setup mock backend
             mock_backend = Mock()
             mock_backend.get_name.return_value = "concurrent_test_backend"
+            mock_backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
             mock_backend.weight = 0.8  # Add weight attribute
             mock_backend.query_with_timeout = AsyncMock(
                 return_value=BackendResult(
@@ -254,6 +261,7 @@ backends:
                     data={},
                     sources=["test"],
                     response_time=0.1,
+                    evidence_type=EvidenceType.PREDATORY_LIST.value,
                 )
             )
 

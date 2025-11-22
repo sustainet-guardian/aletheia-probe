@@ -12,6 +12,7 @@ from aletheia_probe.backends.base import (
     HybridBackend,
     get_backend_registry,
 )
+from aletheia_probe.enums import EvidenceType
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 
 
@@ -38,6 +39,9 @@ class MockBackend(Backend):
 
     def get_description(self) -> str:
         return "Mock backend for testing"
+
+    def get_evidence_type(self) -> EvidenceType:
+        return EvidenceType.HEURISTIC
 
 
 class MockCachedBackend(CachedBackend):
@@ -428,6 +432,9 @@ class TestBackendRegistry:
 
             def get_description(self) -> str:
                 return "New mock backend"
+
+            def get_evidence_type(self) -> EvidenceType:
+                return EvidenceType.HEURISTIC
 
             async def query(self, query_input):
                 return BackendResult(

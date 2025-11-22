@@ -11,7 +11,7 @@ from .constants import (
     AGREEMENT_BONUS_AMOUNT,
     CONFIDENCE_THRESHOLD_HIGH,
 )
-from .enums import AssessmentType
+from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
@@ -205,6 +205,7 @@ class QueryDispatcher:
                     assessment=None,
                     error_message=str(result),
                     response_time=0.0,
+                    evidence_type="heuristic",  # Default for error cases
                 )
                 backend_results.append(error_result)
             elif isinstance(result, BackendResult):
@@ -227,6 +228,7 @@ class QueryDispatcher:
                     assessment=None,
                     error_message=f"Unexpected result type: {type(result)}",
                     response_time=0.0,
+                    evidence_type="heuristic",  # Default for error cases
                 )
                 backend_results.append(error_result)
 
@@ -251,6 +253,7 @@ class QueryDispatcher:
         # response_time already contains the actual backend execution time
         result_dict = result.model_dump()
         result_dict["execution_time_ms"] = result.response_time * 1000
+        result_dict["evidence_type"] = backend.get_evidence_type().value
         return BackendResult(**result_dict)
 
     def _calculate_assessment(
@@ -460,30 +463,63 @@ class QueryDispatcher:
         total_weight = score_data["total_weight"]
         retraction_risk_level = retraction_info.get("risk_level")
 
-        # Decision logic
+        # Analyze evidence types to determine classification
+        predatory_list_evidence = []
+        legitimate_list_evidence = []
+        heuristic_evidence = []
+
+        for result in successful_results:
+            if (
+                result.evidence_type == EvidenceType.PREDATORY_LIST.value
+                and result.assessment == AssessmentType.PREDATORY
+            ):
+                predatory_list_evidence.append(result)
+            elif (
+                result.evidence_type == EvidenceType.LEGITIMATE_LIST.value
+                and result.assessment == AssessmentType.LEGITIMATE
+            ):
+                legitimate_list_evidence.append(result)
+            elif result.evidence_type == EvidenceType.HEURISTIC.value:
+                heuristic_evidence.append(result)
+
+        # Decision logic based on issue #65 requirements
         if total_weight == 0:
             assessment = AssessmentType.UNKNOWN
             confidence = 0.1
             overall_score = 0.0
-        elif total_predatory_weight > total_legitimate_weight:
-            assessment = AssessmentType.PREDATORY
-            confidence = min(0.95, total_predatory_weight / total_weight)
-            overall_score = total_predatory_weight / total_weight
-            reasoning.insert(
-                0,
-                f"Classified as predatory based on {score_data['predatory_count']} source(s)",
-            )
+            reasoning.insert(0, "No assessment data available")
 
-            # Cross-validate with retraction data
-            if retraction_risk_level in ["critical", "high"]:
-                confidence = min(
-                    CONFIDENCE_THRESHOLD_HIGH, confidence + AGREEMENT_BONUS_AMOUNT
+        elif len(predatory_list_evidence) > 0:
+            # Rule: If ANY predatory list evidence exists, can be PREDATORY
+            if total_predatory_weight > total_legitimate_weight:
+                assessment = AssessmentType.PREDATORY
+                confidence = min(0.95, total_predatory_weight / total_weight)
+                overall_score = total_predatory_weight / total_weight
+                reasoning.insert(
+                    0,
+                    f"Classified as predatory based on {len(predatory_list_evidence)} predatory list(s)",
                 )
-                reasoning.append(
-                    "⚠️ High retraction rate corroborates predatory classification"
+
+                # Cross-validate with retraction data
+                if retraction_risk_level in ["critical", "high"]:
+                    confidence = min(
+                        CONFIDENCE_THRESHOLD_HIGH, confidence + AGREEMENT_BONUS_AMOUNT
+                    )
+                    reasoning.append(
+                        "⚠️ High retraction rate corroborates predatory classification"
+                    )
+            else:
+                # Predatory list evidence exists but legitimate evidence is stronger
+                assessment = AssessmentType.LEGITIMATE
+                confidence = min(0.9, total_legitimate_weight / total_weight)
+                overall_score = total_legitimate_weight / total_weight
+                reasoning.insert(
+                    0,
+                    "Classified as legitimate despite predatory list match - stronger legitimate evidence",
                 )
 
         elif total_legitimate_weight > 0:
+            # Only legitimate evidence (list or heuristic)
             assessment = AssessmentType.LEGITIMATE
             confidence = min(0.9, total_legitimate_weight / total_weight)
             overall_score = total_legitimate_weight / total_weight
@@ -500,6 +536,25 @@ class QueryDispatcher:
             elif retraction_risk_level == "moderate":
                 reasoning.append(
                     "⚠️ NOTE: Moderate retraction rate - quality concerns exist"
+                )
+
+        elif total_predatory_weight > 0:
+            # Rule: Predatory assessment based ONLY on heuristics = SUSPICIOUS
+            assessment = AssessmentType.SUSPICIOUS
+            confidence = min(
+                0.85, total_predatory_weight / total_weight
+            )  # Lower confidence for heuristic-only
+            overall_score = total_predatory_weight / total_weight
+            reasoning.insert(
+                0,
+                f"Classified as suspicious based on heuristic analysis only ({score_data['predatory_count']} source(s))",
+            )
+
+            # Retraction data supports suspicious classification
+            if retraction_risk_level in ["critical", "high"]:
+                confidence = min(0.95, confidence + AGREEMENT_BONUS_AMOUNT)
+                reasoning.append(
+                    "⚠️ High retraction rate supports suspicious classification"
                 )
 
         else:

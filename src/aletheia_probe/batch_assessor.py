@@ -93,12 +93,15 @@ class BibtexBatchAssessor:
             predatory_count=0,
             legitimate_count=0,
             insufficient_data_count=0,
+            suspicious_count=0,
             conference_entries=0,
             conference_predatory=0,
             conference_legitimate=0,
+            conference_suspicious=0,
             journal_entries=0,
             journal_predatory=0,
             journal_legitimate=0,
+            journal_suspicious=0,
             has_predatory_journals=False,
             retracted_articles_count=0,
             articles_checked_for_retraction=0,
@@ -182,6 +185,12 @@ class BibtexBatchAssessor:
                         result.conference_legitimate += 1
                     else:
                         result.journal_legitimate += 1
+                elif assessment.assessment == AssessmentType.SUSPICIOUS:
+                    result.suspicious_count += 1
+                    if is_conference:
+                        result.conference_suspicious += 1
+                    else:
+                        result.journal_suspicious += 1
                 else:
                     result.insufficient_data_count += 1
 
@@ -246,6 +255,15 @@ class BibtexBatchAssessor:
             summary_lines.append(
                 f"    🎤 Conferences: {result.conference_predatory}/{result.conference_entries}"
             )
+        summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
+        if result.journal_entries > 0:
+            summary_lines.append(
+                f"    📄 Journals: {result.journal_suspicious}/{result.journal_entries}"
+            )
+        if result.conference_entries > 0:
+            summary_lines.append(
+                f"    🎤 Conferences: {result.conference_suspicious}/{result.conference_entries}"
+            )
         summary_lines.append(f"  Legitimate: {result.legitimate_count} total")
         if result.journal_entries > 0:
             summary_lines.append(
@@ -294,6 +312,7 @@ class BibtexBatchAssessor:
                 emoji_map: dict[str, str] = {
                     AssessmentType.PREDATORY.value: "❌",
                     AssessmentType.LEGITIMATE.value: "✅",
+                    AssessmentType.SUSPICIOUS.value: "⚠️",
                     AssessmentType.UNKNOWN.value: "❓",
                 }
                 status_emoji = emoji_map.get(assessment.assessment, "❓")
