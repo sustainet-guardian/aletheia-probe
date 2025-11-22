@@ -708,3 +708,106 @@ class TestBibtexParser:
         assert entry.series == "VLC"
         assert entry.booktitle == "2023 Very Long Conference Name with Year and Edition"
         assert entry.organization == "IEEE"
+
+    def test_nested_brace_removal(self):
+        """Test removal of nested curly braces in BibTeX fields."""
+        # Test the static method directly
+        from aletheia_probe.bibtex_parser import BibtexParser
+
+        # Single level braces
+        result = BibtexParser._remove_nested_braces("{IEEE}")
+        assert result == "IEEE"
+
+        # Double nested braces (common in BibTeX)
+        result = BibtexParser._remove_nested_braces("{{IEEE}}")
+        assert result == "IEEE"
+
+        # Triple nested braces
+        result = BibtexParser._remove_nested_braces("{{{CLOUD}}}")
+        assert result == "CLOUD"
+
+        # Mixed content with multiple braced sections
+        result = BibtexParser._remove_nested_braces("{{IEEE}} {{International Conference}} on {{Cloud Computing}}")
+        assert result == "IEEE International Conference on Cloud Computing"
+
+        # Text without braces should remain unchanged
+        result = BibtexParser._remove_nested_braces("Plain text")
+        assert result == "Plain text"
+
+        # Empty braces
+        result = BibtexParser._remove_nested_braces("{}")
+        assert result == ""
+
+        # Nested empty braces
+        result = BibtexParser._remove_nested_braces("{{}}")
+        assert result == ""
+
+    def test_parse_bibtex_conference_with_nested_braces(self, tmp_path):
+        """Test parsing BibTeX entries with heavily nested braces."""
+        bibtex_content = """
+@inproceedings{test2018,
+  title = {{{Software}} {{Greenability}}: {{A Case Study}} of {{Cloud-Based Applications}}},
+  booktitle = {2018 {{IEEE}} 11th {{International Conference}} on {{Cloud Computing}} ({{CLOUD}})},
+  author = {Test Author},
+  year = 2018
+}
+"""
+        test_file = tmp_path / "test_nested_braces.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries = BibtexParser.parse_bibtex_file(test_file)
+
+        assert len(entries) == 1
+        entry = entries[0]
+
+        # Title should have nested braces removed
+        expected_title = "Software Greenability: A Case Study of Cloud-Based Applications"
+        assert entry.title == expected_title
+
+        # Conference name should have nested braces removed
+        expected_conference = "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
+        assert entry.journal_name == expected_conference
+
+    def test_parse_bibtex_journal_with_nested_braces(self, tmp_path):
+        """Test parsing journal entries with nested braces."""
+        bibtex_content = """
+@article{test2023,
+  title = {{{Advanced}} {{Machine Learning}} {Techniques}},
+  journal = {{{IEEE}} {{Transactions}} on {{Pattern Analysis}}},
+  author = {Test Author},
+  year = 2023
+}
+"""
+        test_file = tmp_path / "test_journal_nested.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries = BibtexParser.parse_bibtex_file(test_file)
+
+        assert len(entries) == 1
+        entry = entries[0]
+
+        # Title should have all braces removed
+        expected_title = "Advanced Machine Learning Techniques"
+        assert entry.title == expected_title
+
+        # Journal should have nested braces removed
+        expected_journal = "IEEE Transactions on Pattern Analysis"
+        assert entry.journal_name == expected_journal
+
+    def test_brace_removal_edge_cases(self):
+        """Test edge cases for nested brace removal."""
+        # Test asymmetric braces (malformed)
+        result = BibtexParser._remove_nested_braces("{incomplete")
+        assert result == "{incomplete"  # Should not remove incomplete braces
+
+        # Test mixed valid and invalid braces
+        result = BibtexParser._remove_nested_braces("{valid} {incomplete")
+        assert result == "valid {incomplete"
+
+        # Test deeply nested braces
+        result = BibtexParser._remove_nested_braces("{{{{deep}}}}")
+        assert result == "deep"
+
+        # Test braces with special characters
+        result = BibtexParser._remove_nested_braces("{{IEEE-802.11}} {Conference}")
+        assert result == "IEEE-802.11 Conference"

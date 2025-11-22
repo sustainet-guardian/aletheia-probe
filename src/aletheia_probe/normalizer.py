@@ -19,6 +19,17 @@ class InputNormalizer:
             (r"\s*&\s*", " & "),  # Normalize ampersands
         ]
 
+        # Common acronyms that should remain uppercase
+        self.acronyms = {
+            "IEEE", "ACM", "SIGCOMM", "SIGCHI", "SIGKDD", "SIGMOD", "SIGPLAN",
+            "VLDB", "ICML", "NIPS", "NEURIPS", "ICLR", "AAAI", "IJCAI", "CIKM",
+            "WWW", "KDD", "ICDM", "SDM", "PAKDD", "ECML", "PKDD", "CLOUD",
+            "NASA", "NIH", "NSF", "DARPA", "NIST", "ISO", "IEC", "ITU",
+            "RFC", "HTTP", "TCP", "IP", "UDP", "DNS", "SSL", "TLS",
+            "AI", "ML", "NLP", "CV", "HCI", "DB", "OS", "SE", "PL",
+            "UK", "USA", "US", "EU", "UN", "WHO", "NATO"
+        }
+
         # Common abbreviation expansions
         self.abbreviations = {
             "J.": "Journal",
@@ -99,9 +110,44 @@ class InputNormalizer:
         text = self.issn_pattern.sub("", text)
         text = self.doi_pattern.sub("", text)
 
+        # Remove content within brackets and parentheses that could interfere with matching
+        text = self._remove_bracketed_content(text)
+
         # Apply cleanup patterns
         for pattern, replacement in self.cleanup_patterns:
             text = re.sub(pattern, replacement, text)
+
+        return text.strip()
+
+    def _remove_bracketed_content(self, text: str) -> str:
+        """Remove content within brackets and parentheses that could interfere with journal matching.
+
+        Examples:
+            "Journal of Science (ISSN: 1234-5678)" -> "Journal of Science"
+            "{{IEEE}} Conference on {{Cloud Computing}} ({{CLOUD}})" -> "IEEE Conference on Cloud Computing"
+            "Advances in Neural Information Processing Systems (NeurIPS)" -> "Advances in Neural Information Processing Systems"
+
+        Args:
+            text: Input text that may contain bracketed content
+
+        Returns:
+            Text with bracketed content removed and whitespace normalized
+        """
+        # Remove nested curly braces (BibTeX formatting) - handle multiple levels
+        # This handles cases like {{IEEE}} -> IEEE
+        while re.search(r'\{[^{}]*\}', text):
+            text = re.sub(r'\{([^{}]*)\}', r'\1', text)
+
+        # Remove content within square brackets [...]
+        # This handles abbreviations and annotations like [2023], [Online]
+        text = re.sub(r'\[[^\]]*\]', '', text)
+
+        # Remove content within parentheses (...)
+        # This handles journal/conference abbreviations like (NeurIPS), (CLOUD)
+        text = re.sub(r'\([^)]*\)', '', text)
+
+        # Clean up multiple spaces left by bracket removal
+        text = re.sub(r'\s+', ' ', text)
 
         return text.strip()
 
@@ -126,8 +172,11 @@ class InputNormalizer:
         normalized_words = []
 
         for i, word in enumerate(words):
+            # Check if word is a known acronym (case-insensitive)
+            if word.upper() in self.acronyms:
+                normalized_words.append(word.upper())
             # Keep certain words lowercase unless at start
-            if i > 0 and word.lower() in [
+            elif i > 0 and word.lower() in [
                 "of",
                 "and",
                 "or",

@@ -333,8 +333,8 @@ class BibtexParser:
                 # Clean up common BibTeX formatting
                 if isinstance(value, str):
                     try:
-                        # Remove curly braces and extra whitespace
-                        cleaned = value.strip("{}").strip()
+                        # Remove nested curly braces (BibTeX formatting)
+                        cleaned = BibtexParser._remove_nested_braces(value)
                         return cleaned if cleaned else None
                     except (UnicodeDecodeError, UnicodeEncodeError) as e:
                         detail_logger.debug(
@@ -355,3 +355,30 @@ class BibtexParser:
         except Exception as e:
             detail_logger.debug(f"Error getting field '{field_name}': {e}")
             return None
+
+    @staticmethod
+    def _remove_nested_braces(value: str) -> str:
+        """Remove nested curly braces from BibTeX field values.
+
+        BibTeX often uses nested braces like {{IEEE}} or {{{CLOUD}}} for formatting.
+        This method recursively removes all levels of curly braces.
+
+        Args:
+            value: BibTeX field value that may contain nested braces
+
+        Returns:
+            Value with all curly braces removed
+
+        Examples:
+            "{{IEEE}} Conference" -> "IEEE Conference"
+            "{{{CLOUD}}}" -> "CLOUD"
+            "Normal text" -> "Normal text"
+        """
+        import re
+
+        # Remove nested curly braces iteratively until none remain
+        # This handles multiple levels like {{{text}}} -> {{text}} -> {text} -> text
+        while re.search(r'\{[^{}]*\}', value):
+            value = re.sub(r'\{([^{}]*)\}', r'\1', value)
+
+        return value.strip()
