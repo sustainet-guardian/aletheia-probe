@@ -768,7 +768,8 @@ class TestBibtexParser:
         )
         assert entry.title == expected_title
 
-        # Conference name should have nested braces removed
+        # Conference name should have nested braces removed and no proceedings prefix
+        # Note: The booktitle doesn't have "Proceedings of" so it stays as is
         expected_conference = (
             "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
         )
@@ -916,3 +917,97 @@ class TestBibtexParser:
         # Check third entry with multiple escapes
         entry3 = [e for e in entries if e.key == "test_multiple"][0]
         assert entry3.journal_name == 'Test & Review: "Quality" % Assessment'
+
+    def test_conference_name_normalization(self, tmp_path):
+        """Test normalization of conference names to reduce variations."""
+        bibtex_content = """
+@inproceedings{cvpr_proceedings,
+    title={Test Paper 1},
+    booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+    author={Author One},
+    year={2023}
+}
+
+@inproceedings{cvpr_short,
+    title={Test Paper 2},
+    booktitle={IEEE Conference on Computer Vision and Pattern Recognition},
+    author={Author Two},
+    year={2023}
+}
+
+@inproceedings{neurips_proceedings,
+    title={Test Paper 3},
+    booktitle={Proceedings of Advances in Neural Information Processing Systems},
+    author={Author Three},
+    year={2023}
+}
+
+@inproceedings{neurips_normal,
+    title={Test Paper 4},
+    booktitle={Advances in Neural Information Processing Systems},
+    author={Author Four},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_conference_normalization.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries = BibtexParser.parse_bibtex_file(test_file)
+
+        assert len(entries) == 4
+
+        # Both CVPR entries should normalize to the same form (without "Proceedings of the")
+        cvpr_proceedings = [e for e in entries if e.key == "cvpr_proceedings"][0]
+        cvpr_short = [e for e in entries if e.key == "cvpr_short"][0]
+        assert (
+            cvpr_proceedings.journal_name
+            == "IEEE Conference on Computer Vision and Pattern Recognition"
+        )
+        assert (
+            cvpr_short.journal_name
+            == "IEEE Conference on Computer Vision and Pattern Recognition"
+        )
+
+        # Both NeurIPS entries should normalize to the same form (without "Proceedings of")
+        neurips_proceedings = [e for e in entries if e.key == "neurips_proceedings"][0]
+        neurips_normal = [e for e in entries if e.key == "neurips_normal"][0]
+        assert (
+            neurips_proceedings.journal_name
+            == "Advances in Neural Information Processing Systems"
+        )
+        assert (
+            neurips_normal.journal_name
+            == "Advances in Neural Information Processing Systems"
+        )
+
+    def test_normalize_conference_name_method(self):
+        """Test the _normalize_conference_name static method directly."""
+        # Test "Proceedings of the" removal
+        result = BibtexParser._normalize_conference_name(
+            "Proceedings of the IEEE Conference on Computer Vision"
+        )
+        assert result == "IEEE Conference on Computer Vision"
+
+        # Test "Proceedings of" removal
+        result = BibtexParser._normalize_conference_name(
+            "Proceedings of Advances in Neural Information Processing Systems"
+        )
+        assert result == "Advances in Neural Information Processing Systems"
+
+        # Test case-insensitive matching
+        result = BibtexParser._normalize_conference_name(
+            "PROCEEDINGS OF THE International Conference on Machine Learning"
+        )
+        assert result == "International Conference on Machine Learning"
+
+        # Test name without "Proceedings of" prefix remains unchanged
+        result = BibtexParser._normalize_conference_name(
+            "IEEE Conference on Computer Vision and Pattern Recognition"
+        )
+        assert result == "IEEE Conference on Computer Vision and Pattern Recognition"
+
+        # Test whitespace normalization
+        result = BibtexParser._normalize_conference_name(
+            "Proceedings  of  the   Conference    Name"
+        )
+        assert result == "Conference Name"
