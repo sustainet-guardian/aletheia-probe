@@ -1,0 +1,1568 @@
+%
+%  all-biblatex.bib  2022-10-05  Mark Senn  http://bit.ly/marksenn
+%
+%  This is an example BibLaTeX data file.
+%
+%  BibLaTeX documentation is at
+%  https://mirror.math.princeton.edu/pub/CTAN/macros/latex/contrib/biblatex/doc/biblatex.pdf
+%
+%  BibTeX documentation is at
+%  https://ctan.math.utah.edu/ctan/tex-archive/biblio/bibtex/base/btxdoc.pdf
+%
+%                          ENTRY TYPES
+%  ============================================================
+%  BibLaTeX          BibTeX           Comment
+%  -------------     -----------      -------------------------
+%  article           article
+%  artwork
+%  audio
+%  book              book
+%  bookinbook
+%  booklet           booklet
+%  collection
+%  commentary
+%  conference[*]     conference       [*] same as inproceedings
+%  custom[a-f]
+%  dataset
+%  electronic[*]                      [*] same as online
+%  image
+%  inbook            inbook
+%  incollection      incollection
+%  inproceedings     inproceedings
+%  inreference
+%  jurisdiction
+%  legal
+%  legislation
+%  letter
+%  manual            manual
+%  mastersthesis     mastersthesis
+%  misc              misc
+%  movie
+%  music
+%  mvbook
+%  mvcollection
+%  mvproceedings
+%  mvreference
+%  online
+%  patent
+%  performance
+%  periodical
+%  phdthesis         phdthesis
+%  proceedings       proceedings
+%  reference
+%  report
+%  review
+%  set
+%  software
+%  standard
+%  suppbook
+%  suppcollection
+%  suppperiodical
+%  techreport        techreport
+%  thesis
+%  unpublished       unpublished
+%  video
+%  www[*]                             [*] same as online
+%  xdata
+%
+%
+%                               FIELDS
+%  =================================================================
+%  BibLaTeX             BibTeX         Comment
+%  --------             -----------    -----------------------------
+%
+%  abstract
+%  addendum
+%  address[*]           address        [*] an alias for location
+%  afterword
+%  annotation
+%  annote[*]            annote         [*] an alias for annotation
+%  annotator
+%  archiveprefix[*]                    [*] an alias for eprinttype
+%  author               author
+%  authortype
+%  bookauthor
+%  bookpagination
+%  booksubtitle
+%  booktitle            booktitle
+%  booktitleaddon
+%                       chapter
+%  commentator
+%  crossref             crossref
+%  date
+%  doi
+%  edition              edition
+%  editor               editor
+%  editora
+%  editorb
+%  editorc
+%  editortype
+%  editoratype
+%  editorbtype
+%  editorctype
+%  eid
+%  entryset
+%  entrysubtype
+%  eprint
+%  eprintclass
+%  eprinttype
+%  eventdate
+%  eventtitle
+%  eventtitleaddon
+%  execute
+%  file
+%  foreward
+%  gender
+%  holder
+%  howpublished         howpublished
+%  indextitle
+%  ids
+%  indexsorttitle
+%  institution          institution
+%  introduction
+%  isan
+%  isbn
+%  ismn
+%  isrn
+%  issn
+%  issue
+%  issuesubtitle
+%  issuetitle
+%  issuetitleaddon
+%  iswc
+%  journal[*]           journal        [*] an alias for journaltitle
+%  journalsubtitle
+%  journaltitle
+%  journaltitleaddon
+%  key                  key            [*] an alias for sortkey
+%  keywords
+%  label
+%  langid
+%  language
+%  langidopts
+%  library
+%  list[a-f]
+%  location
+%  mainsubtitle
+%  maintitle
+%  maintitleaddon
+%  month                month
+%  name[a-c]
+%  name[a-c]type
+%  nameaddon
+%  note                 note
+%  number               number
+%  options
+%  organization         organization
+%  origdate
+%  origlanguage
+%  origlocation
+%  origpublisher
+%  origtitle
+%  pages                pages
+%  pagetotal
+%  part
+%  pdf                                 [*] an alias for file
+%  presort
+%  primaryclass[*]                     [*] an alias for eprintclass
+%  publisher            publisher
+%  pubstate
+%  related
+%  relatedoptions
+%  relatedstring
+%  relatedtype
+%  reprinttitle
+%  school[*]            school         [*] an alias for institution
+%  series               series
+%  shortauthor
+%  shorteditor
+%  shorthand
+%  shorthandintro
+%  shortjournal
+%  shortseries
+%  shorttitle
+%  sortkey
+%  sortname
+%  sortshorthand
+%  sorttitle
+%  sortyear
+%  title                title
+%  titleaddon
+%  translator
+%  type                 type
+%  url
+%  urldate
+%  user[a-f]
+%  venue
+%  verb[a-c]
+%  version
+%  volume               volume
+%  volumes
+%  xdata
+%  xref
+%  year                 year
+
+
+
+%  I like to order the entries by author, and within author by date.
+%  If, for example, I later added a second 1994 publication for Goossens,
+%  I would give it the key, "goossens1994b".
+%
+%  From http://isbn.org/about_ISBN_standard
+%      For more than thirty years, ISBNs were 10 digits long.
+%      On January 1, 2007 the ISBN system switched to a 13-digit
+%      format.  Now all ISBNs are 13-digits long.
+%
+%  The apa7-<number> references are from the _Publication Manual
+%  of the American Psychological Association_, 7th edition,
+%  pages 317--352.
+%
+
+@misc{chizat2020lazy,
+      title={On Lazy Training in Differentiable Programming}, 
+      author={Lenaic Chizat and Edouard Oyallon and Francis Bach},
+      year={2020},
+      eprint={1812.07956},
+      archivePrefix={arXiv},
+      primaryClass={math.OC}
+}
+@incollection{Bengio+chapter2007,
+author = {Bengio, Yoshua and LeCun, Yann},
+booktitle = {Large Scale Kernel Machines},
+publisher = {MIT Press},
+title = {Scaling Learning Algorithms Towards {AI}},
+year = {2007}
+}
+
+@article{Hinton06,
+author = {Hinton, Geoffrey E. and Osindero, Simon and Teh, Yee Whye},
+journal = {Neural Computation},
+pages = {1527--1554},
+title = {A Fast Learning Algorithm for Deep Belief Nets},
+volume = {18},
+year = {2006}
+}
+
+@book{goodfellow2016deep,
+title={Deep learning},
+author={Goodfellow, Ian and Bengio, Yoshua and Courville, Aaron and Bengio, Yoshua},
+volume={1},
+year={2016},
+publisher={MIT Press}
+}
+
+
+@article{zhuang2020,
+  title={A comprehensive survey on transfer learning},
+  author={Zhuang, Fuzhen and Qi, Zhiyuan and Duan, Keyu and Xi, Dongbo and Zhu, Yongchun and Zhu, Hengshu and Xiong, Hui and He, Qing},
+  journal={Proceedings of the IEEE},
+  volume={109},
+  number={1},
+  year={2020},
+  publisher={IEEE}
+}
+@article{liu2022deep,
+  title={Deep unsupervised domain adaptation: a review of recent advances and perspectives},
+  author={Liu, Xiaofeng and Yoo, Chaehwa and Xing, Fangxu and Oh, Hyejin and El Fakhri, Georges and Kang, Je-Won and Woo, Jonghye and others},
+  journal={APSIPA Transactions on Signal and Information Processing},
+  volume={11},
+  number={1},
+  year={2022},
+  publisher={Now Publishers, Inc.}
+}
+@article{zhang2022transfer,
+  title={Transfer adaptation learning: A decade survey},
+  author={Zhang, Lei and Gao, Xinbo},
+  journal={IEEE Transactions on Neural Networks and Learning Systems},
+  year={2022},
+  publisher={IEEE}
+}
+
+@article{zhang2021survey,
+  title={A survey of unsupervised domain adaptation for visual recognition},
+  author={Zhang, Youshan},
+  journal={arXiv preprint arXiv:2112.06745},
+  year={2021}
+}
+
+@article{wang2018deep,
+  title={Deep visual domain adaptation: A survey},
+  author={Wang, Mei and Deng, Weihong},
+  journal={Neurocomputing},
+  volume={312},
+  pages={135--153},
+  year={2018},
+  publisher={Elsevier}
+}
+@inproceedings{liu2019transferable,
+  title={Transferable adversarial training: A general approach to adapting deep classifiers},
+  author={Liu, Hong and Long, Mingsheng and Wang, Jianmin and Jordan, Michael},
+  booktitle={International Conference on Machine Learning},
+  pages={4013--4022},
+  year={2019},
+  organization={PMLR}
+}
+@article{shao2014transfer,
+  title={Transfer learning for visual categorization: A survey},
+  author={Shao, Ling and Zhu, Fan and Li, Xuelong},
+  journal={IEEE transactions on neural networks and learning systems},
+  volume={26},
+  number={5},
+  pages={1019--1034},
+  year={2014},
+  publisher={IEEE}
+}
+@article{tsuboi2009direct,
+  title={Direct density ratio estimation for large-scale covariate shift adaptation},
+  author={Tsuboi, Yuta and Kashima, Hisashi and Hido, Shohei and Bickel, Steffen and Sugiyama, Masashi},
+  journal={Journal of Information Processing},
+  volume={17},
+  pages={138--155},
+  year={2009},
+  publisher={Information Processing Society of Japan}
+}
+
+@article{becker2013non,
+  title={Non-linear domain adaptation with boosting},
+  author={Becker, Carlos J and Christoudias, Christos M and Fua, Pascal},
+  journal={Advances in neural information processing systems},
+  volume={26},
+  year={2013}
+}
+
+@inproceedings{glorot2011domain,
+  title={Domain adaptation for large-scale sentiment classification: A deep learning approach},
+  author={Glorot, Xavier and Bordes, Antoine and Bengio, Yoshua},
+  booktitle={ICML},
+  year={2011}
+}
+@article{chen2012marginalized,
+  title={Marginalized denoising autoencoders for domain adaptation},
+  author={Chen, Minmin and Xu, Zhixiang and Weinberger, Kilian and Sha, Fei},
+  journal={arXiv preprint arXiv:1206.4683},
+  year={2012}
+}
+@inproceedings{ghifary2016deep,
+  title={Deep reconstruction-classification networks for unsupervised domain adaptation},
+  author={Ghifary, Muhammad and Kleijn, W Bastiaan and Zhang, Mengjie and Balduzzi, David and Li, Wen},
+  booktitle={European conference on computer vision},
+  pages={597--613},
+  year={2016},
+  organization={Springer}
+  }
+
+@article{ganin2016domain,
+  title={Domain-adversarial training of neural networks},
+  author={Ganin, Yaroslav and Ustinova, Evgeniya and Ajakan, Hana and Germain, Pascal and Larochelle, Hugo and Laviolette, Fran{\c{c}}ois and Marchand, Mario and Lempitsky, Victor},
+  journal={The journal of machine learning research},
+  volume={17},
+  number={1},
+  pages={2096--2030},
+  year={2016},
+  publisher={JMLR. org}
+}
+
+@inproceedings{tzeng2015simultaneous,
+  title={Simultaneous deep transfer across domains and tasks},
+  author={Tzeng, Eric and Hoffman, Judy and Darrell, Trevor and Saenko, Kate},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={4068--4076},
+  year={2015}
+}
+
+@inproceedings{tzeng2017adversarial,
+  title={Adversarial discriminative domain adaptation},
+  author={Tzeng, Eric and Hoffman, Judy and Saenko, Kate and Darrell, Trevor},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={7167--7176},
+  year={2017}
+}
+
+@inproceedings{hoffman2018cycada,
+  title={Cycada: Cycle-consistent adversarial domain adaptation},
+  author={Hoffman, Judy and Tzeng, Eric and Park, Taesung and Zhu, Jun-Yan and Isola, Phillip and Saenko, Kate and Efros, Alexei and Darrell, Trevor},
+  booktitle={International conference on machine learning},
+  pages={1989--1998},
+  year={2018},
+  organization={Pmlr}
+}
+
+@inproceedings{akkaya2021self,
+  title={Self-training guided adversarial domain adaptation for thermal imagery},
+  author={Akkaya, Ibrahim Batuhan and Altinel, Fazil and Halici, Ugur},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={4322--4331},
+  year={2021}
+}
+
+
+
+@article{liu2016coupled,
+  title={Coupled generative adversarial networks},
+  author={Liu, Ming-Yu and Tuzel, Oncel},
+  journal={Advances in neural information processing systems},
+  volume={29},
+  year={2016}
+}
+
+@inproceedings{saito2018maximum,
+  title={Maximum classifier discrepancy for unsupervised domain adaptation},
+  author={Saito, Kuniaki and Watanabe, Kohei and Ushiku, Yoshitaka and Harada, Tatsuya},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={3723--3732},
+  year={2018}
+}
+
+@article{bousmalis2016domain,
+  title={Domain separation networks},
+  author={Bousmalis, Konstantinos and Trigeorgis, George and Silberman, Nathan and Krishnan, Dilip and Erhan, Dumitru},
+  journal={Advances in neural information processing systems},
+  volume={29},
+  year={2016}
+}
+
+
+
+
+@inproceedings{ioffe2015batch,
+  title={Batch normalization: Accelerating deep network training by reducing internal covariate shift},
+  author={Ioffe, Sergey and Szegedy, Christian},
+  booktitle={International conference on machine learning},
+  pages={448--456},
+  year={2015},
+  organization={PMLR}
+}
+
+
+@inproceedings{spam,
+author = {Leiba, Barry and Ossher, Joel and Rajan, Vadakkedathu and Segal, Richard and Wegman, Mark},
+year = {2005},
+month = {01},
+pages = {},
+title = {SMTP Path Analysis.}
+}
+
+
+@article{lecun1998gradient,
+  title={Gradient-based learning applied to document recognition},
+  author={LeCun, Yann and Bottou, L{\'e}on and Bengio, Yoshua and Haffner, Patrick},
+  journal={Proceedings of the IEEE},
+  volume={86},
+  number={11},
+  pages={2278--2324},
+  year={1998},
+  publisher={Ieee}
+}
+
+@article{netzer2011reading,
+  title={Reading digits in natural images with unsupervised feature learning},
+  author={Netzer, Yuval and Wang, Tao and Coates, Adam and Bissacco, Alessandro and Wu, Bo and Ng, Andrew Y},
+  year={2011}
+}
+
+@article{arbelaez2010contour,
+  title={Contour detection and hierarchical image segmentation},
+  author={Arbelaez, Pablo and Maire, Michael and Fowlkes, Charless and Malik, Jitendra},
+  journal={IEEE transactions on pattern analysis and machine intelligence},
+  volume={33},
+  number={5},
+  pages={898--916},
+  year={2010},
+  publisher={IEEE}
+}
+
+@inproceedings{saenko2010adapting,
+  title={Adapting visual category models to new domains},
+  author={Saenko, Kate and Kulis, Brian and Fritz, Mario and Darrell, Trevor},
+  booktitle={Computer Vision--ECCV 2010: 11th European Conference on Computer Vision, Heraklion, Crete, Greece, September 5-11, 2010, Proceedings, Part IV 11},
+  pages={213--226},
+  year={2010},
+  organization={Springer}
+}
+
+@inproceedings{chen2020adversarial,
+  title={Adversarial-learned loss for domain adaptation},
+  author={Chen, Minghao and Zhao, Shuai and Liu, Haifeng and Cai, Deng},
+  booktitle={Proceedings of the AAAI conference on artificial intelligence},
+  volume={34},
+  number={04},
+  pages={3521--3528},
+  year={2020}
+}
+
+@inproceedings{zou2018unsupervised,
+  title={Unsupervised domain adaptation for semantic segmentation via class-balanced self-training},
+  author={Zou, Yang and Yu, Zhiding and Kumar, BVK and Wang, Jinsong},
+  booktitle={Proceedings of the European conference on computer vision (ECCV)},
+  pages={289--305},
+  year={2018}
+}
+
+@inproceedings{deng2009imagenet,
+  title={Imagenet: A large-scale hierarchical image database},
+  author={Deng, Jia and Dong, Wei and Socher, Richard and Li, Li-Jia and Li, Kai and Fei-Fei, Li},
+  booktitle={2009 IEEE conference on computer vision and pattern recognition},
+  pages={248--255},
+  year={2009},
+  organization={Ieee}
+}
+
+
+@misc{mitAvoidingShortcut,
+	author = {Adam Zewe},
+	title = {{A}voiding shortcut solutions in artificial intelligence --- news.mit.edu},
+	howpublished = {\url{https://news.mit.edu/2021/shortcut-artificial-intelligence-1102}},
+	year = {2021},
+	note = {},
+}
+
+@inproceedings{chen2022reusing,
+  title={Reusing the task-specific classifier as a discriminator: Discriminator-free adversarial domain adaptation},
+  author={Chen, Lin and Chen, Huaian and Wei, Zhixiang and Jin, Xin and Tan, Xiao and Jin, Yi and Chen, Enhong},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={7181--7190},
+  year={2022}
+}
+
+
+@article{chadha2019improved,
+  title={Improved techniques for adversarial discriminative domain adaptation},
+  author={Chadha, Aaron and Andreopoulos, Yiannis},
+  journal={IEEE Transactions on Image Processing},
+  volume={29},
+  pages={2622--2637},
+  year={2019},
+  publisher={IEEE}
+}
+
+@article{hwang2020variational,
+  title={Variational interaction information maximization for cross-domain disentanglement},
+  author={Hwang, HyeongJoo and Kim, Geon-Hyeong and Hong, Seunghoon and Kim, Kee-Eung},
+  journal={Advances in Neural Information Processing Systems},
+  volume={33},
+  pages={22479--22491},
+  year={2020}
+}
+
+@inproceedings{peng2019domain,
+  title={Domain agnostic learning with disentangled representations},
+  author={Peng, Xingchao and Huang, Zijun and Sun, Ximeng and Saenko, Kate},
+  booktitle={International Conference on Machine Learning},
+  pages={5102--5112},
+  year={2019},
+  organization={PMLR}
+}
+
+@article{wang2022variational,
+  title={Variational Disentanglement for Domain Generalization},
+  author={Wang, Yufei and Li, Haoliang and Cheng, Hao and Wen, Bihan and Chau, Lap-Pui and Kot, Alex},
+  journal={Transactions on Machine Learning Research},
+  year={2022}
+}
+
+@article{deng2021informative,
+  title={Informative feature disentanglement for unsupervised domain adaptation},
+  author={Deng, Wanxia and Zhao, Lingjun and Liao, Qing and Guo, Deke and Kuang, Gangyao and Hu, Dewen and Pietik{\"a}inen, Matti and Liu, Li},
+  journal={IEEE Transactions on Multimedia},
+  volume={24},
+  pages={2407--2421},
+  year={2021},
+  publisher={IEEE}
+}
+
+
+@inproceedings{xu2019larger,
+  title={Larger norm more transferable: An adaptive feature norm approach for unsupervised domain adaptation},
+  author={Xu, Ruijia and Li, Guanbin and Yang, Jihan and Lin, Liang},
+  booktitle={Proceedings of the IEEE/CVF international conference on computer vision},
+  pages={1426--1435},
+  year={2019}
+}
+
+@inproceedings{pinheiro2018unsupervised,
+  title={Unsupervised domain adaptation with similarity learning},
+  author={Pinheiro, Pedro O},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={8004--8013},
+  year={2018}
+}
+
+@inproceedings{kang2018deep,
+  title={Deep adversarial attention alignment for unsupervised domain adaptation: the benefit of target expectation maximization},
+  author={Kang, Guoliang and Zheng, Liang and Yan, Yan and Yang, Yi},
+  booktitle={Proceedings of the European conference on computer vision (ECCV)},
+  pages={401--416},
+  year={2018}
+}
+
+@article{long2018conditional,
+  title={Conditional adversarial domain adaptation},
+  author={Long, Mingsheng and Cao, Zhangjie and Wang, Jianmin and Jordan, Michael I},
+  journal={Advances in neural information processing systems},
+  volume={31},
+  year={2018}
+}
+
+@inproceedings{sankaranarayanan2018generate,
+  title={Generate to adapt: Aligning domains using generative adversarial networks},
+  author={Sankaranarayanan, Swami and Balaji, Yogesh and Castillo, Carlos D and Chellappa, Rama},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={8503--8512},
+  year={2018}
+}
+
+@inproceedings{pei2018multi,
+  title={Multi-adversarial domain adaptation},
+  author={Pei, Zhongyi and Cao, Zhangjie and Long, Mingsheng and Wang, Jianmin},
+  booktitle={Proceedings of the AAAI conference on artificial intelligence},
+  volume={32},
+  number={1},
+  year={2018}
+}
+
+@inproceedings{zhu2023patch,
+  title={Patch-mix transformer for unsupervised domain adaptation: A game perspective},
+  author={Zhu, Jinjing and Bai, Haotian and Wang, Lin},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={3561--3571},
+  year={2023}
+}
+
+@inproceedings{tang2020discriminative,
+  title={Discriminative adversarial domain adaptation},
+  author={Tang, Hui and Jia, Kui},
+  booktitle={Proceedings of the AAAI conference on artificial intelligence},
+  volume={34},
+  number={04},
+  pages={5940--5947},
+  year={2020}
+}
+
+@inproceedings{le2021lamda,
+  title={Lamda: Label matching deep domain adaptation},
+  author={Le, Trung and Nguyen, Tuan and Ho, Nhat and Bui, Hung and Phung, Dinh},
+  booktitle={International Conference on Machine Learning},
+  pages={6043--6054},
+  year={2021},
+  organization={PMLR}
+}
+
+@inproceedings{xu2020reliable,
+  title={Reliable weighted optimal transport for unsupervised domain adaptation},
+  author={Xu, Renjun and Liu, Pelen and Wang, Liyan and Chen, Chao and Wang, Jindong},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={4394--4403},
+  year={2020}
+}
+
+@inproceedings{xie2019scalable,
+  title={On scalable and efficient computation of large scale optimal transport},
+  author={Xie, Yujia and Chen, Minshuo and Jiang, Haoming and Zhao, Tuo and Zha, Hongyuan},
+  booktitle={International Conference on Machine Learning},
+  pages={6882--6892},
+  year={2019},
+  organization={PMLR}
+}
+
+@misc{fungtion_DSN,
+  author = {fungtion},
+  title = {DSN},
+  howpublished = {\url{https://github.com/fungtion/DSN}},
+  year = {2024},
+  note = {Accessed: 2024-05-21}
+}
+
+
+@inproceedings{venkateswara2017deep,
+  title={Deep hashing network for unsupervised domain adaptation},
+  author={Venkateswara, Hemanth and Eusebio, Jose and Chakraborty, Shayok and Panchanathan, Sethuraman},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  pages={5018--5027},
+  year={2017}
+}
+
+
+
+
+bibtex
+Copy code
+@misc{nsltkdd,
+  author       = {N. M. Ahmed and A. H. Hu and N. G. Memon},
+  title        = {NSL-KDD Dataset},
+  year         = {2009},
+  howpublished = {\url{http://www.unb.ca/cic/datasets/nsl.html}},
+  note         = {}
+}
+
+
+@inproceedings{moustafa2015unsw,
+  title={UNSW-NB15: a comprehensive data set for network intrusion detection systems (UNSW-NB15 network data set)},
+  author={Moustafa, Nour and Slay, Jill},
+  booktitle={2015 military communications and information systems conference (MilCIS)},
+  pages={1--6},
+  year={2015},
+  organization={IEEE}
+}
+
+@inproceedings{kim2019unsupervised,
+  title={Unsupervised visual domain adaptation: A deep max-margin gaussian process approach},
+  author={Kim, Minyoung and Sahu, Pritish and Gholami, Behnam and Pavlovic, Vladimir},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={4380--4390},
+  year={2019}
+}
+
+@article{ma2021adversarial,
+  title={Adversarial entropy optimization for unsupervised domain adaptation},
+  author={Ma, Ao and Li, Jingjing and Lu, Ke and Zhu, Lei and Shen, Heng Tao},
+  journal={IEEE Transactions on Neural Networks and Learning Systems},
+  volume={33},
+  number={11},
+  pages={6263--6274},
+  year={2021},
+  publisher={IEEE}
+}
+
+@article{ben2010theory,
+  title={A theory of learning from different domains},
+  author={Ben-David, Shai and Blitzer, John and Crammer, Koby and Kulesza, Alex and Pereira, Fernando and Vaughan, Jennifer Wortman},
+  journal={Machine learning},
+  volume={79},
+  pages={151--175},
+  year={2010},
+  publisher={Springer}
+}
+
+@inproceedings{chen2019transferability,
+  title={Transferability vs. discriminability: Batch spectral penalization for adversarial domain adaptation},
+  author={Chen, Xinyang and Wang, Sinan and Long, Mingsheng and Wang, Jianmin},
+  booktitle={International conference on machine learning},
+  pages={1081--1090},
+  year={2019},
+  organization={PMLR}
+}
+
+
+@article{stojanov2021domain,
+  title={Domain adaptation with invariant representation learning: What transformations to learn?},
+  author={Stojanov, Petar and Li, Zijian and Gong, Mingming and Cai, Ruichu and Carbonell, Jaime and Zhang, Kun},
+  journal={Advances in Neural Information Processing Systems},
+  volume={34},
+  pages={24791--24803},
+  year={2021}
+}
+
+
+@inproceedings{park2021information,
+  title={Information-theoretic regularization for multi-source domain adaptation},
+  author={Park, Geon Yeong and Lee, Sang Wan},
+  booktitle={Proceedings of the IEEE/CVF international conference on computer vision},
+  pages={9214--9223},
+  year={2021}
+}
+
+
+
+@article{pan2009survey,
+  title={A survey on transfer learning},
+  author={Pan, Sinno Jialin and Yang, Qiang},
+  journal={IEEE Transactions on knowledge and data engineering},
+  volume={22},
+  number={10},
+  pages={1345--1359},
+  year={2009},
+  publisher={IEEE}
+}
+@inproceedings{wu2021malware,
+  title={Malware classification by learning semantic and structural features of control flow graphs},
+  author={Wu, Bolun and Xu, Yuanhang and Zou, Futai},
+  booktitle={2021 IEEE 20th International Conference on Trust, Security and Privacy in Computing and Communications (TrustCom)},
+  pages={540--547},
+  year={2021},
+  organization={IEEE}
+}
+@inproceedings{li2021palmtree,
+  title={Palmtree: Learning an assembly language model for instruction embedding},
+  author={Li, Xuezixiang and Qu, Yu and Yin, Heng},
+  booktitle={Proceedings of the 2021 ACM SIGSAC Conference on Computer and Communications Security},
+  pages={3236--3251},
+  year={2021}
+}
+@inproceedings{yan2019classifying,
+  title={Classifying malware represented as control flow graphs using deep graph convolutional neural network},
+  author={Yan, Jiaqi and Yan, Guanhua and Jin, Dong},
+  booktitle={2019 49th annual IEEE/IFIP international conference on dependable systems and networks (DSN)},
+  pages={52--63},
+  year={2019},
+  organization={IEEE}
+}
+@article{goodfellow2020generative,
+  title={Generative adversarial networks},
+  author={Goodfellow, Ian and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
+  journal={Communications of the ACM},
+  volume={63},
+  number={11},
+  pages={139--144},
+  year={2020},
+  publisher={ACM New York, NY, USA}
+}
+
+@article{li2023maximal,
+  title     = {Maximizing Information in Domain-Invariant Representation Improves Transfer Learning},
+  author    = {Li, Adrian Shuai and Bertino, Elisa and Dang, Xuan{-}Hong and Singla, Ankush and Tu, Yuhai and Wegman, Mark N.},
+  journal   = {arXiv preprint arXiv:2306.00262},
+  year      = {2023}
+}
+
+
+
+
+@inproceedings{raff2018malware,
+  title={Malware detection by eating a whole exe},
+  author={Raff, Edward and Barker, Jon and Sylvester, Jared and Brandon, Robert and Catanzaro, Bryan and Nicholas, Charles K},
+  booktitle={Workshops at the thirty-second AAAI conference on artificial intelligence},
+  year={2018}
+}
+
+@inproceedings{nataraj2011malware,
+  title={Malware images: visualization and automatic classification},
+  author={Nataraj, Lakshmanan and Karthikeyan, Sreejith and Jacob, Gregoire and Manjunath, Bangalore S},
+  booktitle={Proceedings of the 8th international symposium on visualization for cyber security},
+  pages={1--7},
+  year={2011}
+}
+
+@inproceedings{ma2021comprehensive,
+  title={A comprehensive study on learning-based PE malware family classification methods},
+  author={Ma, Yixuan and Liu, Shuang and Jiang, Jiajun and Chen, Guanhong and Li, Keqiu},
+  booktitle={Proceedings of the 29th ACM Joint Meeting on European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+  pages={1314--1325},
+  year={2021}
+}
+
+
+
+@inproceedings{someya2023fcgat,
+  title={FCGAT: Interpretable Malware Classification Method using Function Call Graph and Attention Mechanism},
+  author={Someya, Minami and Otsubo, Yuhei and Otsuka, Akira},
+  booktitle={Proceedings of Network and Distributed Systems Security (NDSS) Symposium},
+  volume={1},
+  year={2023}
+}
+
+
+@article{xu2018powerful,
+  title={How powerful are graph neural networks?},
+  author={Xu, Keyulu and Hu, Weihua and Leskovec, Jure and Jegelka, Stefanie},
+  journal={arXiv preprint arXiv:1810.00826},
+  year={2018}
+}
+
+@inproceedings{ahmadi2016novel,
+  title={Novel feature extraction, selection and fusion for effective malware family classification},
+  author={Ahmadi, Mansour and Ulyanov, Dmitry and Semenov, Stanislav and Trofimov, Mikhail and Giacinto, Giorgio},
+  booktitle={Proceedings of the sixth ACM conference on data and application security and privacy},
+  pages={183--194},
+  year={2016}
+}
+
+@inproceedings{aghakhani2020malware,
+  title={When malware is packin'heat; limits of machine learning classifiers based on static analysis features},
+  author={Aghakhani, Hojjat and Gritti, Fabio and Mecca, Francesco and Lindorfer, Martina and Ortolani, Stefano and Balzarotti, Davide and Vigna, Giovanni and Kruegel, Christopher},
+  booktitle={Network and Distributed Systems Security (NDSS) Symposium 2020},
+  year={2020}
+}
+
+@inproceedings{dambra2023decoding,
+  title={Decoding the secrets of machine learning in malware classification: A deep dive into datasets, feature extraction, and model performance},
+  author={Dambra, Savino and Han, Yufei and Aonzo, Simone and Kotzias, Platon and Vitale, Antonino and Caballero, Juan and Balzarotti, Davide and Bilge, Leyla},
+  booktitle={Proceedings of the 2023 ACM SIGSAC Conference on Computer and Communications Security},
+  pages={60--74},
+  year={2023}
+}
+
+@article{vasan2020imcfn,
+  title={IMCFN: Image-based malware classification using fine-tuned convolutional neural network architecture},
+  author={Vasan, Danish and Alazab, Mamoun and Wassan, Sobia and Naeem, Hamad and Safaei, Babak and Zheng, Qin},
+  journal={Computer Networks},
+  volume={171},
+  pages={107138},
+  year={2020},
+  publisher={Elsevier}
+}
+
+
+@inproceedings{singh2019malware,
+  title={Malware classification using image representation},
+  author={Singh, Ajay and Handa, Anand and Kumar, Nitesh and Shukla, Sandeep Kumar},
+  booktitle={Cyber Security Cryptography and Machine Learning: Third International Symposium, CSCML 2019, Beer-Sheva, Israel, June 27--28, 2019, Proceedings 3},
+  pages={75--92},
+  year={2019},
+  organization={Springer}
+}
+
+@article{bhodia2019transfer,
+  title={Transfer learning for image-based malware classification},
+  author={Bhodia, Niket and Prajapati, Pratikkumar and Di Troia, Fabio and Stamp, Mark},
+  journal={arXiv preprint arXiv:1903.11551},
+  year={2019}
+}
+
+@article{simonyan2014very,
+  title={Very deep convolutional networks for large-scale image recognition},
+  author={Simonyan, Karen and Zisserman, Andrew},
+  journal={arXiv preprint arXiv:1409.1556},
+  year={2014}
+}
+
+@inproceedings{he2016deep,
+  title={Deep residual learning for image recognition},
+  author={He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={770--778},
+  year={2016}
+}
+
+@article{kumar2021mcft,
+  title={MCFT-CNN: Malware classification with fine-tune convolution neural networks using traditional and transfer learning in Internet of Things},
+  author={Kumar, Sushil and others},
+  journal={Future Generation Computer Systems},
+  volume={125},
+  pages={334--351},
+  year={2021},
+  publisher={Elsevier}
+}
+@inproceedings{yin2023method,
+  title={A Method for Summarizing and Classifying Evasive Malware},
+  author={Yin, Haikuo and Lou, Brandon and Reiher, Peter},
+  booktitle={Proceedings of the 26th International Symposium on Research in Attacks, Intrusions and Defenses},
+  pages={455--470},
+  year={2023}
+}
+
+@inproceedings{hou2023proteus,
+  title={PROTEUS: Domain Adaptation for Dynamic Features in AI-assisted Windows Malware Detection},
+  author={Hou, Yubo and Truong-Huu, Tram and Chen, Zhenghua and Kwoh, Chee-Keong and Teo, Sin G},
+  booktitle={2023 IEEE International Conference on Data Mining Workshops (ICDMW)},
+  pages={1322--1331},
+  year={2023},
+  organization={IEEE}
+}
+
+@article{li2024transfer,
+  title={Transfer Learning for Security: Challenges and Future Directions},
+  author={Li, Adrian Shuai and Iyengar, Arun and Kundu, Ashish and Bertino, Elisa},
+  journal={arXiv preprint arXiv:2403.00935},
+  year={2024}
+}
+
+@misc{mit,
+  author = {Zewe, Adam },
+  title = {{Avoiding shortcut solutions in artificial intelligence}},
+  howpublished = "\url{https://news.mit.edu/2021/shortcut-artificial-intelligence-1102}",
+  year = {2021}, 
+  note = "[Online; accessed April 2024]"
+}
+
+@inproceedings{massarelli2019investigating,
+  title={Investigating graph embedding neural networks with unsupervised features extraction for binary analysis},
+  author={Massarelli, Luca and Di Luna, Giuseppe A and Petroni, Fabio and Querzoni, Leonardo and Baldoni, Roberto and others},
+  booktitle={Proceedings of the 2nd Workshop on Binary Analysis Research (BAR)},
+  pages={1--11},
+  year={2019}
+}
+
+@article{salha2019keep,
+  title={Keep it simple: Graph autoencoders without graph convolutional networks},
+  author={Salha, Guillaume and Hennequin, Romain and Vazirgiannis, Michalis},
+  journal={arXiv preprint arXiv:1910.00942},
+  year={2019}
+}
+
+@article{kipf2016variational,
+  title={Variational graph auto-encoders},
+  author={Kipf, Thomas N and Welling, Max},
+  journal={arXiv preprint arXiv:1611.07308},
+  year={2016}
+}
+
+@article{ronen2018microsoft,
+  title={Microsoft malware classification challenge},
+  author={Ronen, Royi and Radu, Marian and Feuerstein, Corina and Yom-Tov, Elad and Ahmadi, Mansour},
+  journal={arXiv preprint arXiv:1802.10135},
+  year={2018}
+}
+
+@inproceedings{wang2022jtrans,
+  title={Jtrans: Jump-aware transformer for binary code similarity detection},
+  author={Wang, Hao and Qu, Wenjie and Katz, Gilad and Zhu, Wenyu and Gao, Zeyu and Qiu, Han and Zhuge, Jianwei and Zhang, Chao},
+  booktitle={Proceedings of the 31st ACM SIGSOFT International Symposium on Software Testing and Analysis},
+  pages={1--13},
+  year={2022}
+}
+
+@article{wadkar2020detecting,
+  title={Detecting malware evolution using support vector machines},
+  author={Wadkar, Mayuri and Di Troia, Fabio and Stamp, Mark},
+  journal={Expert Systems with Applications},
+  volume={143},
+  pages={113022},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@inproceedings{tzeng2017adversarial,
+  title={Adversarial discriminative domain adaptation},
+  author={Tzeng, Eric and Hoffman, Judy and Saenko, Kate and Darrell, Trevor},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={7167--7176},
+  year={2017}
+}
+
+@article{dai2022graph,
+  title={Graph transfer learning via adversarial domain adaptation with graph convolution},
+  author={Dai, Quanyu and Wu, Xiao-Ming and Xiao, Jiaren and Shen, Xiao and Wang, Dan},
+  journal={IEEE Transactions on Knowledge and Data Engineering},
+  volume={35},
+  number={5},
+  pages={4908--4922},
+  year={2022},
+  publisher={IEEE}
+}
+
+@article{shen2020network,
+  title={Network together: Node classification via cross-network deep network embedding},
+  author={Shen, Xiao and Dai, Quanyu and Mao, Sitong and Chung, Fu-lai and Choi, Kup-Sze},
+  journal={IEEE Transactions on Neural Networks and Learning Systems},
+  volume={32},
+  number={5},
+  pages={1935--1948},
+  year={2020},
+  publisher={IEEE}
+}
+
+
+@inproceedings{yang2021cade,
+  title={$\{$CADE$\}$: Detecting and explaining concept drift samples for security applications},
+  author={Yang, Limin and Guo, Wenbo and Hao, Qingying and Ciptadi, Arridhana and Ahmadzadeh, Ali and Xing, Xinyu and Wang, Gang},
+  booktitle={30th USENIX Security Symposium (USENIX Security 21)},
+  pages={2327--2344},
+  year={2021}
+}
+
+@inproceedings{barbero2022transcending,
+  title={Transcending transcend: Revisiting malware classification in the presence of concept drift},
+  author={Barbero, Federico and Pendlebury, Feargus and Pierazzi, Fabio and Cavallaro, Lorenzo},
+  booktitle={2022 IEEE Symposium on Security and Privacy (SP)},
+  pages={805--823},
+  year={2022},
+  organization={IEEE}
+}
+
+@inproceedings{jordaney2017transcend,
+  title={Transcend: Detecting concept drift in malware classification models},
+  author={Jordaney, Roberto and Sharad, Kumar and Dash, Santanu K and Wang, Zhi and Papini, Davide and Nouretdinov, Ilia and Cavallaro, Lorenzo},
+  booktitle={26th USENIX security symposium (USENIX security 17)},
+  pages={625--642},
+  year={2017}
+}
+
+@inproceedings{han2023anomaly,
+  title={Anomaly Detection in the Open World: Normality Shift Detection, Explanation, and Adaptation.},
+  author={Han, Dongqi and Wang, Zhiliang and Chen, Wenqi and Wang, Kai and Yu, Rui and Wang, Su and Zhang, Han and Wang, Zhihua and Jin, Minghui and Yang, Jiahai and others},
+  booktitle={NDSS},
+  year={2023}
+}
+
+@inproceedings{kan2021investigating,
+  title={Investigating labelless drift adaptation for malware detection},
+  author={Kan, Zeliang and Pendlebury, Feargus and Pierazzi, Fabio and Cavallaro, Lorenzo},
+  booktitle={Proceedings of the 14th ACM Workshop on Artificial Intelligence and Security},
+  pages={123--134},
+  year={2021}
+}
+
+@article{narayanan2017context,
+  title={Context-aware, adaptive, and scalable android malware detection through online learning},
+  author={Narayanan, Annamalai and Chandramohan, Mahinthan and Chen, Lihui and Liu, Yang},
+  journal={IEEE Transactions on Emerging Topics in Computational Intelligence},
+  volume={1},
+  number={3},
+  pages={157--175},
+  year={2017},
+  publisher={IEEE}
+}
+
+@inproceedings{narayanan2016adaptive,
+  title={Adaptive and scalable android malware detection through online learning},
+  author={Narayanan, Annamalai and Yang, Liu and Chen, Lihui and Jinliang, Liu},
+  booktitle={2016 International Joint Conference on Neural Networks (IJCNN)},
+  pages={2484--2491},
+  year={2016},
+  organization={IEEE}
+}
+
+@inproceedings{pendlebury2019tesseract,
+  title={$\{$TESSERACT$\}$: Eliminating experimental bias in malware classification across space and time},
+  author={Pendlebury, Feargus and Pierazzi, Fabio and Jordaney, Roberto and Kinder, Johannes and Cavallaro, Lorenzo},
+  booktitle={28th USENIX security symposium (USENIX Security 19)},
+  pages={729--746},
+  year={2019}
+}
+
+
+@article{zhang2023cpvd,
+  title={CPVD: Cross Project Vulnerability Detection Based On Graph Attention Network And Domain Adaptation},
+  author={Zhang, Chunyong and Liu, Bin and Xin, Yang and Yao, Liangwei},
+  journal={IEEE Transactions on Software Engineering},
+  year={2023},
+  publisher={IEEE}
+}
+
+@article{li2023cross,
+  title={Cross-domain vulnerability detection using graph embedding and domain adaptation},
+  author={Li, Xin and Xin, Yang and Zhu, Hongliang and Yang, Yixian and Chen, Yuling},
+  journal={Computers \& Security},
+  volume={125},
+  pages={103017},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@inproceedings{singla2020preparing,
+  title={Preparing network intrusion detection deep learning models with minimal data using adversarial domain adaptation},
+  author={Singla, Ankush and Bertino, Elisa and Verma, Dinesh},
+  booktitle={Proceedings of the 15th ACM Asia conference on computer and communications security},
+  pages={127--140},
+  year={2020}
+}
+
+@inproceedings{pa2023attacker,
+  title={An attacker’s dream? exploring the capabilities of chatgpt for developing malware},
+  author={Pa Pa, Yin Minn and Tanizaki, Shunsuke and Kou, Tetsui and Van Eeten, Michel and Yoshioka, Katsunari and Matsumoto, Tsutomu},
+  booktitle={Proceedings of the 16th Cyber Security Experimentation and Test Workshop},
+  pages={10--18},
+  year={2023}
+}
+@article{xie2023defending,
+  title={Defending chatgpt against jailbreak attack via self-reminders},
+  author={Xie, Yueqi and Yi, Jingwei and Shao, Jiawei and Curl, Justin and Lyu, Lingjuan and Chen, Qifeng and Xie, Xing and Wu, Fangzhao},
+  journal={Nature Machine Intelligence},
+  volume={5},
+  number={12},
+  pages={1486--1496},
+  year={2023},
+  publisher={Nature Publishing Group UK London}
+}
+
+@article{mariconti2016mamadroid,
+  title={Mamadroid: Detecting android malware by building markov chains of behavioral models},
+  author={Mariconti, Enrico and Onwuzurike, Lucky and Andriotis, Panagiotis and De Cristofaro, Emiliano and Ross, Gordon and Stringhini, Gianluca},
+  journal={arXiv preprint arXiv:1612.04433},
+  year={2016}
+}
+
+@inproceedings{xu2019droidevolver,
+  title={Droidevolver: Self-evolving android malware detection system},
+  author={Xu, Ke and Li, Yingjiu and Deng, Robert and Chen, Kai and Xu, Jiayun},
+  booktitle={2019 IEEE European Symposium on Security and Privacy (EuroS\&P)},
+  pages={47--62},
+  year={2019},
+  organization={IEEE}
+}
+
+@inproceedings{li2019dart,
+  title={Dart: Detecting unseen malware variants using adaptation regularization transfer learning},
+  author={Li, Hao and Chen, Zhenxiang and Spolaor, Riccardo and Yan, Qiben and Zhao, Chuan and Yang, Bo},
+  booktitle={ICC 2019-2019 IEEE International Conference on Communications (ICC)},
+  pages={1--6},
+  year={2019},
+  organization={IEEE}
+}
+
+@article{bhardwaj2024overcoming,
+  title={Overcoming the lack of labeled data: Training malware detection models using adversarial domain adaptation},
+  author={Bhardwaj, Sonam and Li, Adrian Shuai and Dave, Mayank and Bertino, Elisa},
+  journal={Computers \& Security},
+  pages={103769},
+  year={2024},
+  publisher={Elsevier}
+}
+
+@article{wang2022efficient,
+  title={An efficient deep unsupervised domain adaptation for unknown malware detection},
+  author={Wang, Fangwei and Chai, Guofang and Li, Qingru and Wang, Changguang},
+  journal={Symmetry},
+  volume={14},
+  number={2},
+  pages={296},
+  year={2022},
+  publisher={MDPI}
+}
+
+@article{rousseeuw1987silhouettes,
+  title={Silhouettes: a graphical aid to the interpretation and validation of cluster analysis},
+  author={Rousseeuw, Peter J},
+  journal={Journal of computational and applied mathematics},
+  volume={20},
+  pages={53--65},
+  year={1987},
+  publisher={Elsevier}
+}
+
+@article{calinski1974dendrite,
+  title={A dendrite method for cluster analysis},
+  author={Cali{\'n}ski, Tadeusz and Harabasz, Jerzy},
+  journal={Communications in Statistics-theory and Methods},
+  volume={3},
+  number={1},
+  pages={1--27},
+  year={1974},
+  publisher={Taylor \& Francis}
+}
+
+@article{davies1979cluster,
+  title={A cluster separation measure},
+  author={Davies, David L and Bouldin, Donald W},
+  journal={IEEE transactions on pattern analysis and machine intelligence},
+  number={2},
+  pages={224--227},
+  year={1979},
+  publisher={IEEE}
+}
+
+
+@inproceedings{chen2023continuous,
+  title={Continuous learning for android malware detection},
+  author={Chen, Yizheng and Ding, Zhoujie and Wagner, David},
+  booktitle={32nd USENIX Security Symposium (USENIX Security 23)},
+  pages={1127--1144},
+  year={2023}
+}
+
+@inproceedings{long2015learning,
+  title={Learning transferable features with deep adaptation networks},
+  author={Long, Mingsheng and Cao, Yue and Wang, Jianmin and Jordan, Michael},
+  booktitle={International conference on machine learning},
+  pages={97--105},
+  year={2015},
+  organization={PMLR}
+}
+
+@inproceedings{ling2024wolf,
+  title={A Wolf in Sheep's Clothing: Practical Black-box Adversarial Attacks for Evading Learning-based Windows Malware Detection in the Wild},
+  author={Ling, Xiang and Wu, Zhiyu and Wang, Bin and Deng, Wei and Wu, Jingzheng and Ji, Shouling and Luo, Tianyue and Wu, Yanjun},
+  booktitle={33rd USENIX Security Symposium (USENIX Security 24)},
+  pages={7393--7410},
+  year={2024},
+  organization={USENIX Association}
+}
+
+@inproceedings{bodmas,
+  title = {BODMAS: An Open Dataset for Learning based Temporal Analysis of PE Malware},
+  author = {Yang, Limin and Ciptadi, Arridhana and Laziuk, Ihar and Ahmadzadeh, Ali and Wang, Gang},
+  booktitle = {4th Deep Learning and Security Workshop},
+  year = {2021}
+}
+
+@ARTICLE{2018arXiv180404637A,
+  author = {{Anderson}, H.~S. and {Roth}, P.},
+  title = "{EMBER: An Open Dataset for Training Static PE Malware Machine Learning Models}",
+  journal = {ArXiv e-prints},
+  archivePrefix = "arXiv",
+  eprint = {1804.04637},
+  primaryClass = "cs.CR",
+  keywords = {Computer Science - Cryptography and Security},
+  year = 2018,
+  month = apr,
+  adsurl = {http://adsabs.harvard.edu/abs/2018arXiv180404637A},
+}
+
+@inproceedings{panareda2017open,
+  title={Open set domain adaptation},
+  author={Panareda Busto, Pau and Gall, Juergen},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={754--763},
+  year={2017}
+}
+
+
+@inproceedings{liang2021fare,
+  title={FARE: enabling fine-grained attack categorization under low-quality labeled data},
+  author={Liang, Junjie and Guo, Wenbo and Luo, Tongbo and Vasant, Honavar and Wang, Gang and Xing, Xinyu},
+  booktitle={Proceedings of The Network and Distributed System Security Symposium (NDSS)},
+  year={2021}
+}
+
+
+@inproceedings{saito2018open,
+  title={Open set domain adaptation by backpropagation},
+  author={Saito, Kuniaki and Yamamoto, Shohei and Ushiku, Yoshitaka and Harada, Tatsuya},
+  booktitle={Proceedings of the European conference on computer vision (ECCV)},
+  pages={153--168},
+  year={2018}
+}
+
+
+@inproceedings{Allix:2016:ACM:2901739.2903508,
+    author = {Allix, Kevin and Bissyand{\'e}, Tegawend{\'e} F. and Klein, Jacques and Le Traon, Yves},
+    title = {AndroZoo: Collecting Millions of Android Apps for the Research Community},
+    booktitle = {Proceedings of the 13th International Conference on Mining Software Repositories},
+    series = {MSR '16},
+    year = {2016},
+    isbn = {978-1-4503-4186-8},
+    location = {Austin, Texas},
+    pages = {468--471},
+    numpages = {4},
+    url = {http://doi.acm.org/10.1145/2901739.2903508},
+    doi = {10.1145/2901739.2903508},
+    acmid = {2903508},
+    publisher = {ACM},
+    address = {New York, NY, USA},
+    keywords = {APK, android applications, software repository},
+} 
+
+@report{sonicwall2024,
+  author = {SonicWall},
+  title = {Cyber Threat Report 2024},
+  year = {2024},
+  institution = {SonicWall},
+  url = {https://www.sonicwall.com/2024-cyber-threat-report/},
+  urldate = {2024-07-10}
+}
+
+@book{bertino2023machine,
+  title={Machine Learning Techniques for Cybersecurity},
+  author={Bertino, Elisa and Bhardwaj, Sonam and Cicala, Fabrizio and Gong, Sishuai and Karim, Imtiaz and Katsis, Charalampos and Lee, Hyunwoo and Li, Adrian Shuai and Mahgoub, Ashraf Y},
+  year={2023},
+  publisher={Springer}
+}
+
+@article{li2025agnncert,
+  title={AGNNCert: Defending Graph Neural Networks against Arbitrary Perturbations with Deterministic Certification},
+  author={Li, Jiate and Wang, Binghui},
+  journal={arXiv preprint arXiv:2502.00765},
+  year={2025}
+}
+
+
+@inproceedings{lucas2023adversarial,
+  title={Adversarial training for $\{$Raw-Binary$\}$ malware classifiers},
+  author={Lucas, Keane and Pai, Samruddhi and Lin, Weiran and Bauer, Lujo and Reiter, Michael K and Sharif, Mahmood},
+  booktitle={32nd USENIX Security Symposium (USENIX Security 23)},
+  pages={1163--1180},
+  year={2023}
+}
+
+@report{microsoft2023,
+  author = {{Microsoft Security Team}},
+  title = {Microsoft Digital Defense Report 2023},
+  year = {2023},
+  month = {Oct},
+  url = {https://www.microsoft.com/en-us/security/business/security-intelligence-report},
+  institution = {Microsoft},
+  note = {Reports that Windows devices are targeted by 80\% of all malware attacks}
+}
+
+@inproceedings{li2025revisiting,
+  title={Revisiting Concept Drift in Windows Malware Detection: Adaptation to Real Drifted Malware with Minimal Samples},
+  author={Li, Adrian Shuai and Iyengar, Arun and Kundu, Ashish and Bertino, Elisa},
+  year={2025},
+  organization={Network and Distributed System Security (NDSS) Symposium}
+}
+
+
+@article{Salha2021FastGAE,
+  title   = {FastGAE: Scalable Graph Autoencoders with Stochastic Subgraph Decoding},
+  author  = {Salha, Guillaume and Hennequin, Romain and Remy, Jean-Baptiste and Moussallam, Manuel and Vazirgiannis, Michalis},
+  journal = {Neural Networks},
+  volume  = {142},
+  pages   = {1--19},
+  year    = {2021},
+  doi     = {10.1016/j.neunet.2021.04.015}
+}
+
+@inproceedings{Salha2019Degeneracy,
+  title     = {A Degeneracy Framework for Scalable Graph Autoencoders},
+  author    = {Salha, Guillaume and Hennequin, Romain and Tran, Viet Anh and Vazirgiannis, Michalis},
+  booktitle = {Proceedings of the 28th International Joint Conference on Artificial Intelligence (IJCAI‑19)},
+  pages     = {3353--3359},
+  year      = {2019},
+  doi       = {10.24963/ijcai.2019/465}
+}
+
+@inproceedings{Diamant2023Bandwidth,
+  title     = {Improving Graph Generation by Restricting Graph Bandwidth},
+  author    = {Diamant, Nathaniel L. and Tseng, Alex M. and Chuang, Kangway V. and Biancalani, Tommaso and Scalia, Gabriele},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {202},
+  pages     = {7939--7959},
+  year      = {2023},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v202/diamant23a.html}
+}
+
+
+@inproceedings{Breunig2000,
+  author    = {Markus M. Breunig and Hans-Peter Kriegel and Raymond T. Ng and J{\"o}rg Sander},
+  title     = {{LOF}: Identifying Density-Based Local Outliers},
+  booktitle = {Proceedings of the 2000 ACM SIGMOD International Conference on Management of Data},
+  year      = {2000}
+}
+
+
+@incollection{Bishop2006,
+  author    = {Christopher M. Bishop},
+  title     = {Mixture Models \& EM},
+  booktitle = {Pattern Recognition and Machine Learning},
+  publisher = {Springer},
+  year      = {2006},
+  pages     = {423--454},
+  note      = {Sec.\ 9.2 shows how log-likelihood can be thresholded for novelty detection.}
+}
+
+
+@inproceedings{Scholkopf2001,
+  author    = {Bernhard Sch{\"o}lkopf and John C. Platt and John Shawe-Taylor
+               and Alex J. Smola and Robert C. Williamson},
+  title     = {Estimating the Support of a High-Dimensional Distribution},
+  booktitle = {Advances in Neural Information Processing Systems 13 (NeurIPS)},
+  pages     = {582--588},
+  year      = {2001}
+}
+
+
+@article{RousseeuwHubert2018,
+  author  = {Peter J. Rousseeuw and Mia Hubert},
+  title   = {Robust Statistics for Outlier Detection},
+  journal = {WIREs Data Mining and Knowledge Discovery},
+  volume  = {8},
+  number  = {2},
+  pages   = {e1236},
+  year    = {2018},
+  doi     = {10.1002/widm.1236},
+  note    = {Section 3.2 reviews Mahalanobis‐distance methods for multivariate anomaly detection.}
+}
+
+@inproceedings{Liu2008IsolationForest,
+  author    = {Fei Ting Liu and Kai Ming Ting and Zhi-Hua Zhou},
+  title     = {Isolation Forest},
+  booktitle = {Proceedings of the 8th IEEE International Conference on Data Mining (ICDM)},
+  pages     = {413--422},
+  year      = {2008},
+  publisher = {IEEE}
+}
+
+
+@inproceedings{li2023building,
+  title={Building manufacturing deep learning models with minimal and imbalanced training data using domain adaptation and data augmentation},
+  author={Li, Adrian Shuai and Bertino, Elisa and Wu, Rih-Teng and Wu, Ting-Yan},
+  booktitle={2023 IEEE International Conference on Industrial Technology (ICIT)},
+  pages={1--8},
+  year={2023},
+  organization={IEEE}
+}
+
+@inproceedings{kemker2018measuring,
+  title={Measuring catastrophic forgetting in neural networks},
+  author={Kemker, Ronald and McClure, Marc and Abitino, Angelina and Hayes, Tyler and Kanan, Christopher},
+  booktitle={Proceedings of the AAAI conference on artificial intelligence},
+  volume={32},
+  number={1},
+  year={2018}
+}
+
+@article{kirkpatrick2017overcoming,
+  title={Overcoming catastrophic forgetting in neural networks},
+  author={Kirkpatrick, James and Pascanu, Razvan and Rabinowitz, Neil and Veness, Joel and Desjardins, Guillaume and Rusu, Andrei A and Milan, Kieran and Quan, John and Ramalho, Tiago and Grabska-Barwinska, Agnieszka and others},
+  journal={Proceedings of the national academy of sciences},
+  volume={114},
+  number={13},
+  pages={3521--3526},
+  year={2017},
+  publisher={National Academy of Sciences}
+}
+
+
+@inproceedings{wan2017variational,
+  title={Variational autoencoder based synthetic data generation for imbalanced learning},
+  author={Wan, Zhiqiang and Zhang, Yazhou and He, Haibo},
+  booktitle={2017 IEEE symposium series on computational intelligence (SSCI)},
+  pages={1--7},
+  year={2017},
+  organization={IEEE}
+}
+
+
+@misc{malwarebazaar_api,
+  title        = {{MalwareBazaar API}},
+  author       = {Abuse.ch},
+  howpublished = {\url{https://bazaar.abuse.ch/api/}},
+  year         = {2025},
+  note         = {Online; accessed 29-May-2025}
+}
+
+
+@misc{nullsecurity_binary_tools,
+  title        = {{Nullsecurity Binary Tools Collection}},
+  author       = {Nullsecurity Team},
+  howpublished = {\url{https://nullsecurity.net/tools/binary.html}},
+  year         = {2025},
+  note         = {Online; accessed 29-May-2025}
+}
+``` :contentReference[oaicite:0]{index=0}
+::contentReference[oaicite:1]{index=1}
+
+
+@inproceedings{tripathi2025towards,
+  title={Towards Explainable Drift Detection and Early Retrain in ML-Based Malware Detection Pipelines},
+  author={Tripathi, Jayesh and Gomes, Heitor and Botacin, Marcus},
+  booktitle={International Conference on Detection of Intrusions and Malware, and Vulnerability Assessment},
+  pages={3--24},
+  year={2025},
+  organization={Springer}
+}
+
+@inproceedings{abusnaina2025exposing,
+  title={Exposing the Limitations of Machine Learning for Malware Detection Under Concept Drift},
+  author={Abusnaina, Ahmed and Anwar, Afsah and Saad, Muhammad and Alabduljabbar, Abdulrahman and Jang, Rhongho and Salem, Saeed and Mohaisen, David},
+  booktitle={International Conference on Web Information Systems Engineering},
+  pages={273--289},
+  year={2025},
+  organization={Springer}
+}
+
+@article{botacin2025towards,
+  title={Towards more realistic evaluations: The impact of label delays in malware detection pipelines},
+  author={Botacin, Marcus and Gomes, Heitor},
+  journal={Computers \& Security},
+  volume={148},
+  pages={104122},
+  year={2025},
+  publisher={Elsevier}
+}
+
+
+@article{hendrycks2016baseline,
+  title={A baseline for detecting misclassified and out-of-distribution examples in neural networks},
+  author={Hendrycks, Dan and Gimpel, Kevin},
+  journal={arXiv preprint arXiv:1610.02136},
+  year={2016}
+}
+
+@article{alam2025adapt,
+  title={ADAPT: A Pseudo-labeling Approach to Combat Concept Drift in Malware Detection},
+  author={Alam, Md Tanvirul and Piplai, Aritran and Rastogi, Nidhi},
+  journal={arXiv preprint arXiv:2507.08597},
+  year={2025}
+}
+
+
+@inproceedings{bendale2016towards,
+  title={Towards open set deep networks},
+  author={Bendale, Abhijit and Boult, Terrance E},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  pages={1563--1572},
+  year={2016}
+}

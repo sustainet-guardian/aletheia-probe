@@ -186,9 +186,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
             "reasoning": self._generate_reasoning(red_flags, green_flags, metrics),
         }
 
-    def _calculate_base_metrics(
-        self, openalex_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _calculate_base_metrics(self, openalex_data: dict[str, Any]) -> dict[str, Any]:
         """Calculate base metrics shared by both journals and conferences.
 
         Args:
@@ -384,7 +382,6 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         green_flags = []
 
         citation_ratio = metrics["citation_ratio"]
-        years_active = metrics["years_active"]
         total_publications = metrics["total_publications"]
         total_citations = metrics["total_citations"]
         last_year = metrics["last_year"]
@@ -422,9 +419,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
         # Recent activity (conferences may have gaps)
         if last_year and last_year >= current_year - 5:
-            green_flags.append(
-                f"Recently active: last publication in {last_year}"
-            )
+            green_flags.append(f"Recently active: last publication in {last_year}")
 
         return green_flags
 
