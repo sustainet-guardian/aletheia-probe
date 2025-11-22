@@ -119,6 +119,9 @@ class InputNormalizer:
         # Extract identifiers first
         identifiers = self._extract_identifiers(raw_input)
 
+        # Extract conference/journal acronyms from parentheses before cleaning
+        extracted_acronyms = self._extract_acronyms(raw_input)
+
         # Clean and normalize the text
         normalized = self._clean_text(raw_input)
         normalized = self._expand_abbreviations(normalized)
@@ -126,6 +129,18 @@ class InputNormalizer:
 
         # Generate aliases
         aliases = self._generate_aliases(normalized)
+
+        # Add extracted acronyms to aliases for better matching
+        aliases.extend(extracted_acronyms)
+
+        # Remove duplicates while preserving order
+        seen: set[str] = set()
+        unique_aliases: list[str] = []
+        for alias in aliases:
+            if alias not in seen:
+                seen.add(alias)
+                unique_aliases.append(alias)
+        aliases = unique_aliases
 
         return QueryInput(
             raw_input=raw_input.strip(),
@@ -151,6 +166,69 @@ class InputNormalizer:
             identifiers["doi"] = doi_matches[0]
 
         return identifiers
+
+    def _extract_acronyms(self, text: str) -> list[str]:
+        """Extract conference/journal acronyms from parentheses for use as aliases.
+
+        Conference acronyms are typically uppercase letters, possibly with numbers,
+        and appear in parentheses (e.g., CVPR, NeurIPS, ICCV, 3DV).
+
+        Examples:
+            "IEEE Conference on Computer Vision (CVPR)" -> ["CVPR"]
+            "Neural Information Processing Systems (NeurIPS)" -> ["NeurIPS"]
+            "Conference (ISSN: 1234-5678)" -> []  # Not an acronym
+
+        Args:
+            text: Input text that may contain parenthesized acronyms
+
+        Returns:
+            List of extracted acronyms
+        """
+        acronyms = []
+
+        # Find all content within parentheses
+        pattern = r"\(([^)]+)\)"
+        matches = re.findall(pattern, text)
+
+        for content in matches:
+            content = content.strip()
+
+            # Skip if contains certain keywords that indicate metadata, not acronyms
+            skip_keywords = [
+                "issn",
+                "isbn",
+                "doi",
+                "online",
+                "print",
+                "invited",
+                "accepted",
+                "to appear",
+            ]
+            if any(keyword in content.lower() for keyword in skip_keywords):
+                continue
+
+            # Check if content looks like a conference/journal acronym:
+            # - Primarily uppercase letters (allow some lowercase for mixed cases like NeurIPS)
+            # - May contain numbers (e.g., 3DV, CVPR'23)
+            # - May contain apostrophes for year indicators (e.g., CVPR'23)
+            # - May contain hyphens (e.g., AAAI-23)
+            # - Typically short (2-20 characters)
+            # - Must start with uppercase letter
+            # - No spaces, colons, or special punctuation
+
+            # Pattern: starts with uppercase, contains mostly uppercase letters/numbers,
+            # may have apostrophes, hyphens, or few lowercase letters
+            if re.match(r"^[A-Z][A-Za-z0-9'\-]{1,19}$", content):
+                # Additional check: should have a good proportion of uppercase letters
+                # to avoid catching things like "(Online)" or "(Invited)"
+                # Use 50% threshold to catch "NeurIPS" (57%) while excluding "Online" (17%)
+                uppercase_count = sum(1 for c in content if c.isupper())
+                total_alpha = sum(1 for c in content if c.isalpha())
+
+                if total_alpha > 0 and (uppercase_count / total_alpha) >= 0.5:
+                    acronyms.append(content)
+
+        return acronyms
 
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text using regex patterns."""
