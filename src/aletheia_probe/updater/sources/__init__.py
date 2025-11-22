@@ -4,8 +4,8 @@
 from .algerian import AlgerianMinistrySource
 from .bealls import BeallsListSource
 from .custom import CustomListSource
+from .kscien_generic import KscienGenericSource
 from .kscien_hijacked_journals import KscienHijackedJournalsSource
-from .kscien_predatory_conferences import KscienPredatoryConferencesSource
 from .kscien_publishers import KscienPublishersSource
 from .kscien_standalone_journals import KscienStandaloneJournalsSource
 from .predatoryjournals import PredatoryJournalsSource
@@ -17,8 +17,8 @@ __all__ = [
     "AlgerianMinistrySource",
     "BeallsListSource",
     "CustomListSource",
+    "KscienGenericSource",
     "KscienHijackedJournalsSource",
-    "KscienPredatoryConferencesSource",
     "KscienPublishersSource",
     "KscienStandaloneJournalsSource",
     "PredatoryJournalsSource",

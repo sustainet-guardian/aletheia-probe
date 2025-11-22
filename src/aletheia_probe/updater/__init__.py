@@ -10,8 +10,8 @@ from .sources import (
     AlgerianMinistrySource,
     BeallsListSource,
     CustomListSource,
+    KscienGenericSource,
     KscienHijackedJournalsSource,
-    KscienPredatoryConferencesSource,
     KscienPublishersSource,
     KscienStandaloneJournalsSource,
     PredatoryJournalsSource,
@@ -36,7 +36,7 @@ data_updater = DataUpdater()
 data_updater.add_source(BeallsListSource())
 data_updater.add_source(AlgerianMinistrySource())
 data_updater.add_source(PredatoryJournalsSource())
-data_updater.add_source(KscienPredatoryConferencesSource())
+data_updater.add_source(KscienGenericSource(publication_type="predatory-conferences"))
 data_updater.add_source(KscienStandaloneJournalsSource())
 data_updater.add_source(KscienHijackedJournalsSource())
 data_updater.add_source(KscienPublishersSource())
@@ -52,8 +52,8 @@ __all__ = [
     "AlgerianMinistrySource",
     "BeallsListSource",
     "CustomListSource",
+    "KscienGenericSource",
     "KscienHijackedJournalsSource",
-    "KscienPredatoryConferencesSource",
     "KscienPublishersSource",
     "KscienStandaloneJournalsSource",
     "PredatoryJournalsSource",
