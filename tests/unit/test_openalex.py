@@ -87,6 +87,11 @@ class TestOpenAlexClient:
                     "id": "https://openalex.org/S123456789",
                     "display_name": "Journal of Computer Science",
                     "issn_l": "1234-5678",
+                    "works_count": 1000,
+                    "cited_by_count": 50000,
+                    "first_publication_year": 2000,
+                    "last_publication_year": 2023,
+                    "type": "journal",
                 }
             ]
         }

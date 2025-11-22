@@ -93,8 +93,72 @@ class OpenAlexClient:
 
         return None
 
+    def _score_source_match(self, source: dict[str, Any], journal_name: str) -> float:
+        """Score how well a source matches the journal name.
+
+        Args:
+            source: OpenAlex source record
+            journal_name: Journal name being searched
+
+        Returns:
+            Score between 0 and 1 (higher = better match)
+        """
+        display_name = source.get("display_name", "").lower()
+        search_name = journal_name.lower()
+        works_count = source.get("works_count", 0)
+        cited_by_count = source.get("cited_by_count", 0)
+        first_year = source.get("first_publication_year")
+        last_year = source.get("last_publication_year")
+        source_type = source.get("type", "")
+
+        score = 0.0
+
+        # Name matching (40% of score)
+        if search_name in display_name or display_name in search_name:
+            score += 0.4
+        elif any(word in display_name for word in search_name.split() if len(word) > 3):
+            score += 0.2
+
+        # Avoid year-specific conference instances (conferences with only 1-2 years active)
+        if source_type == "conference" and first_year and last_year:
+            years_active = last_year - first_year + 1
+            if years_active <= 2:
+                score *= 0.3  # Heavily penalize single-year instances
+            elif years_active >= 10:
+                score += 0.1  # Bonus for long-running venues
+
+        # Publication volume (30% of score)
+        if works_count > 1000:
+            score += 0.3
+        elif works_count > 100:
+            score += 0.2
+        elif works_count > 10:
+            score += 0.1
+        elif works_count <= 2:
+            score *= 0.2  # Heavily penalize sources with very few papers
+
+        # Citation impact (20% of score)
+        if cited_by_count > 50000:
+            score += 0.2
+        elif cited_by_count > 10000:
+            score += 0.15
+        elif cited_by_count > 1000:
+            score += 0.1
+        elif cited_by_count <= 10:
+            score *= 0.5  # Penalize low-impact sources
+
+        # Recency (10% of score) - penalize inactive sources
+        if last_year:
+            current_year = datetime.now().year
+            if last_year >= current_year - 2:
+                score += 0.1
+            elif last_year < current_year - 10:
+                score *= 0.5  # Penalize very old sources
+
+        return min(score, 1.0)
+
     async def get_source_by_name(self, journal_name: str) -> dict[str, Any] | None:
-        """Get journal source information by name search.
+        """Get journal source information by name search with improved matching.
 
         Args:
             journal_name: Journal name to search for
@@ -117,9 +181,27 @@ class OpenAlexClient:
                         data = await response.json()
                         results = data.get("results", [])
                         if results:
-                            # Return first result (usually best match)
-                            # Could add fuzzy matching logic here
-                            return dict(results[0])
+                            # Score all results and pick the best match
+                            scored_results = [
+                                (self._score_source_match(result, journal_name), result)
+                                for result in results
+                            ]
+                            scored_results.sort(key=lambda x: x[0], reverse=True)
+
+                            best_score, best_result = scored_results[0]
+
+                            # Only return result if it has a reasonable score
+                            if best_score > 0.1:
+                                detail_logger.debug(
+                                    f"Selected OpenAlex source for '{journal_name}': "
+                                    f"{best_result.get('display_name')} (score: {best_score:.2f})"
+                                )
+                                return dict(best_result)
+                            else:
+                                detail_logger.debug(
+                                    f"No good OpenAlex source match for '{journal_name}' "
+                                    f"(best score: {best_score:.2f})"
+                                )
                         else:
                             detail_logger.debug(
                                 f"No OpenAlex source found for name '{journal_name}'"
@@ -266,6 +348,7 @@ class OpenAlexClient:
             "openalex_id": source_id,
             "openalex_url": source_id_full,
             "display_name": source.get("display_name"),
+            "source_type": source.get("type"),
             "issn_l": source.get("issn_l"),
             "issns": source.get("issn", []),
             "total_publications": total_works,
