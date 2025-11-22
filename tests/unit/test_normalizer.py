@@ -265,3 +265,50 @@ class TestInputNormalizer:
         # Test mixed case input
         result4 = normalizer.normalize("IeEe CoNfErEnCe")
         assert result4.normalized_name == "IEEE Conference"
+
+    def test_case_insensitive_normalization_produces_same_lowercase_key(self):
+        """Test that different case variations normalize to the same lowercase key.
+
+        This test verifies that venue names differing only in case will produce
+        the same cache key when lowercased, enabling case-insensitive matching.
+        """
+        normalizer = InputNormalizer()
+
+        # Test conference names with different cases
+        result1 = normalizer.normalize("International Conference on Machine Learning")
+        result2 = normalizer.normalize("International conference on machine learning")
+        result3 = normalizer.normalize("INTERNATIONAL CONFERENCE ON MACHINE LEARNING")
+
+        # After normalization, the lowercase versions should be identical
+        assert result1.normalized_name.lower() == result2.normalized_name.lower()
+        assert result1.normalized_name.lower() == result3.normalized_name.lower()
+
+        # Test journal names with different cases
+        result4 = normalizer.normalize(
+            "IEEE Transactions on Neural Networks and Learning Systems"
+        )
+        result5 = normalizer.normalize(
+            "IEEE transactions on neural networks and learning systems"
+        )
+        result6 = normalizer.normalize(
+            "ieee TRANSACTIONS on NEURAL networks AND learning SYSTEMS"
+        )
+
+        # After normalization, the lowercase versions should be identical
+        assert result4.normalized_name.lower() == result5.normalized_name.lower()
+        assert result4.normalized_name.lower() == result6.normalized_name.lower()
+
+        # Test with conference full names
+        result7 = normalizer.normalize(
+            "Advances in Neural Information Processing Systems"
+        )
+        result8 = normalizer.normalize(
+            "Advances in neural information processing systems"
+        )
+        result9 = normalizer.normalize(
+            "ADVANCES IN NEURAL INFORMATION PROCESSING SYSTEMS"
+        )
+
+        # After normalization, the lowercase versions should be identical
+        assert result7.normalized_name.lower() == result8.normalized_name.lower()
+        assert result7.normalized_name.lower() == result9.normalized_name.lower()
