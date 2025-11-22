@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..cache import get_cache_manager
+from ..enums import EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
 
@@ -40,6 +41,11 @@ class Backend(ABC):
     @abstractmethod
     def get_description(self) -> str:
         """Return a description of what this backend checks."""
+        pass
+
+    @abstractmethod
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the type of evidence this backend provides."""
         pass
 
     async def query_with_timeout(
@@ -90,6 +96,16 @@ class CachedBackend(Backend):
         super().__init__(cache_ttl_hours)
         self.source_name = source_name
         self.list_type = list_type
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return evidence type based on list type."""
+        if self.list_type == "predatory":
+            return EvidenceType.PREDATORY_LIST
+        elif self.list_type == "legitimate":
+            return EvidenceType.LEGITIMATE_LIST
+        else:
+            # Default to heuristic for unknown list types
+            return EvidenceType.HEURISTIC
 
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Query cached data for journal information."""
@@ -201,6 +217,10 @@ class HybridBackend(Backend):
 
     def __init__(self, cache_ttl_hours: int = 24):
         super().__init__(cache_ttl_hours)
+
+    def get_evidence_type(self) -> EvidenceType:
+        """HybridBackend provides heuristic evidence by default."""
+        return EvidenceType.HEURISTIC
 
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Check cache first, then query live API if needed."""

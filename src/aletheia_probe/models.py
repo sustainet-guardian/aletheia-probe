@@ -39,7 +39,7 @@ class BackendResult(BaseModel):
         ..., ge=0.0, le=1.0, description="Confidence score 0.0-1.0"
     )
     assessment: str | None = Field(
-        None, description="predatory, legitimate, or unknown"
+        None, description="predatory, legitimate, suspicious, or unknown"
     )
     data: dict[str, Any] = Field(
         default_factory=dict, description="Backend-specific raw data"
@@ -54,6 +54,10 @@ class BackendResult(BaseModel):
     cached: bool = Field(False, description="Whether result was retrieved from cache")
     execution_time_ms: float | None = Field(
         None, description="Backend execution time in milliseconds"
+    )
+    evidence_type: str | None = Field(
+        None,
+        description="Type of evidence: predatory_list, legitimate_list, or heuristic",
     )
 
 
@@ -79,7 +83,7 @@ class AssessmentResult(BaseModel):
 
     input_query: str = Field(..., description="Original query string")
     assessment: str = Field(
-        ..., description="predatory, legitimate, or insufficient_data"
+        ..., description="predatory, legitimate, suspicious, or insufficient_data"
     )
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Overall confidence score"
@@ -179,6 +183,9 @@ class BibtexAssessmentResult(BaseModel):
     insufficient_data_count: int = Field(
         0, description="Number of entries with insufficient data"
     )
+    suspicious_count: int = Field(
+        0, description="Number of entries with suspicious journals/conferences"
+    )
     # Conference-specific counters
     conference_entries: int = Field(
         0,
@@ -188,12 +195,16 @@ class BibtexAssessmentResult(BaseModel):
     conference_legitimate: int = Field(
         0, description="Number of legitimate conferences"
     )
+    conference_suspicious: int = Field(
+        0, description="Number of suspicious conferences"
+    )
     # Journal-specific counters
     journal_entries: int = Field(
         0, description="Number of journal entries (article, etc.)"
     )
     journal_predatory: int = Field(0, description="Number of predatory journals")
     journal_legitimate: int = Field(0, description="Number of legitimate journals")
+    journal_suspicious: int = Field(0, description="Number of suspicious journals")
     has_predatory_journals: bool = Field(
         False, description="Whether any predatory journals/conferences were found"
     )

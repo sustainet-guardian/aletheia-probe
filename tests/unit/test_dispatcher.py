@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from aletheia_probe.dispatcher import QueryDispatcher
-from aletheia_probe.enums import AssessmentType
+from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -43,6 +43,7 @@ def mock_backend():
     """Create a mock backend for testing."""
     backend = Mock()
     backend.get_name.return_value = "test_backend"
+    backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
     backend.query_with_timeout = AsyncMock(
         return_value=BackendResult(
             backend_name="test_backend",
@@ -52,6 +53,7 @@ def mock_backend():
             data={"test": "data"},
             sources=["test_source"],
             response_time=0.1,
+            evidence_type=EvidenceType.PREDATORY_LIST.value,
         )
     )
     return backend
@@ -119,6 +121,7 @@ class TestQueryDispatcher:
         """Test assessment with multiple backends."""
         predatory_backend = Mock()
         predatory_backend.get_name.return_value = "predatory_backend"
+        predatory_backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
         predatory_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
                 backend_name="predatory_backend",
@@ -128,11 +131,13 @@ class TestQueryDispatcher:
                 data={},
                 sources=["source1"],
                 response_time=0.1,
+                evidence_type=EvidenceType.PREDATORY_LIST.value,
             )
         )
 
         legitimate_backend = Mock()
         legitimate_backend.get_name.return_value = "legitimate_backend"
+        legitimate_backend.get_evidence_type.return_value = EvidenceType.LEGITIMATE_LIST
         legitimate_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
                 backend_name="legitimate_backend",
@@ -142,6 +147,7 @@ class TestQueryDispatcher:
                 data={},
                 sources=["source2"],
                 response_time=0.1,
+                evidence_type=EvidenceType.LEGITIMATE_LIST.value,
             )
         )
 
@@ -171,6 +177,7 @@ class TestQueryDispatcher:
         """Test assessment with retraction watch data."""
         retraction_backend = Mock()
         retraction_backend.get_name.return_value = "retraction_watch"
+        retraction_backend.get_evidence_type.return_value = EvidenceType.HEURISTIC
         retraction_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
                 backend_name="retraction_watch",
@@ -187,6 +194,7 @@ class TestQueryDispatcher:
                 },
                 sources=["retraction_watch"],
                 response_time=0.1,
+                evidence_type=EvidenceType.HEURISTIC.value,
             )
         )
 
@@ -282,6 +290,7 @@ class TestQueryDispatcher:
         """Test backend querying with timeout."""
         slow_backend = Mock()
         slow_backend.get_name.return_value = "slow_backend"
+        slow_backend.get_evidence_type.return_value = EvidenceType.HEURISTIC
         slow_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
                 backend_name="slow_backend",
@@ -292,6 +301,7 @@ class TestQueryDispatcher:
                 sources=[],
                 error_message="Timeout",
                 response_time=10.0,
+                evidence_type=EvidenceType.HEURISTIC.value,
             )
         )
 
@@ -319,6 +329,7 @@ class TestQueryDispatcher:
             data={},
             sources=[],
             response_time=0.1,
+            evidence_type=EvidenceType.HEURISTIC.value,
         )
 
         with patch.object(
@@ -330,9 +341,9 @@ class TestQueryDispatcher:
                 sample_query_input, [predatory_result], 1.0
             )
 
-            assert result.assessment == AssessmentType.PREDATORY
+            assert result.assessment == AssessmentType.SUSPICIOUS
             assert result.confidence > 0.8
-            assert "predatory" in " ".join(result.reasoning).lower()
+            assert "suspicious" in " ".join(result.reasoning).lower()
 
     def test_calculate_assessment_legitimate_classification(
         self, dispatcher, sample_query_input
@@ -346,6 +357,7 @@ class TestQueryDispatcher:
             data={},
             sources=[],
             response_time=0.1,
+            evidence_type=EvidenceType.LEGITIMATE_LIST.value,
         )
 
         with patch.object(
@@ -374,6 +386,7 @@ class TestQueryDispatcher:
             sources=[],
             error_message="Test error",
             response_time=0.1,
+            evidence_type=EvidenceType.HEURISTIC.value,
         )
 
         result = dispatcher._calculate_assessment(

@@ -230,7 +230,12 @@ def status() -> None:
 @click.option(
     "--list-type",
     type=click.Choice(
-        [AssessmentType.PREDATORY, AssessmentType.LEGITIMATE, AssessmentType.UNKNOWN]
+        [
+            AssessmentType.PREDATORY,
+            AssessmentType.LEGITIMATE,
+            AssessmentType.SUSPICIOUS,
+            AssessmentType.UNKNOWN,
+        ]
     ),
     default=AssessmentType.PREDATORY,
     help="Type of journals in the list",

@@ -20,6 +20,7 @@ class AssessmentType(str, Enum):
 
     PREDATORY = "predatory"
     LEGITIMATE = "legitimate"
+    SUSPICIOUS = "suspicious"
     UNKNOWN = "unknown"
     QUESTIONABLE = "questionable"
     QUALITY_INDICATOR = "quality_indicator"
@@ -31,6 +32,14 @@ class BackendType(str, Enum):
     CURATED = "curated"
     PATTERN_ANALYSIS = "pattern_analysis"
     QUALITY_INDICATOR = "quality_indicator"
+
+
+class EvidenceType(str, Enum):
+    """Types of evidence provided by backends for classification purposes."""
+
+    PREDATORY_LIST = "predatory_list"  # Curated lists of predatory journals
+    LEGITIMATE_LIST = "legitimate_list"  # Curated lists of legitimate journals
+    HEURISTIC = "heuristic"  # Analysis-based assessment (retraction rates, etc.)
 
 
 class RiskLevel(str, Enum):
