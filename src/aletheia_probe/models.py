@@ -28,6 +28,9 @@ class QueryInput(BaseModel):
         default_factory=dict, description="ISSN, DOI, etc."
     )
     aliases: list[str] = Field(default_factory=list, description="Alternative names")
+    acronym_expanded_from: str | None = Field(
+        None, description="Original acronym if expansion was applied"
+    )
 
 
 class BackendResult(BaseModel):
@@ -102,6 +105,12 @@ class AssessmentResult(BaseModel):
         default_factory=datetime.now, description="Assessment timestamp"
     )
     processing_time: float = Field(..., description="Total processing time in seconds")
+    acronym_expanded_from: str | None = Field(
+        None, description="Original acronym if expansion was applied during assessment"
+    )
+    acronym_expansion_used: bool = Field(
+        False, description="Whether acronym expansion was used to get results"
+    )
 
 
 class ConfigBackend(BaseModel):

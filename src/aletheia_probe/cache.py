@@ -97,6 +97,16 @@ class CacheManager:
                     UNIQUE(journal_id, source_id)
                 );
 
+                -- Conference/journal acronym mappings (self-learning cache)
+                CREATE TABLE IF NOT EXISTS conference_acronyms (
+                    acronym TEXT PRIMARY KEY COLLATE NOCASE,
+                    full_name TEXT NOT NULL,
+                    source TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_acronyms_full_name ON conference_acronyms(full_name);
+
                 -- Source metadata (replaces JSON metadata)
                 CREATE TABLE IF NOT EXISTS source_metadata (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1087,6 +1097,97 @@ class CacheManager:
             )
             conn.commit()
             return cursor.rowcount
+
+    # Acronym management methods
+
+    def get_full_name_for_acronym(self, acronym: str) -> str | None:
+        """
+        Look up the full name for a conference/journal acronym.
+
+        Args:
+            acronym: The acronym to look up (e.g., 'ICML', 'CVPR')
+
+        Returns:
+            Full name if found in cache, None otherwise
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT full_name FROM conference_acronyms
+                WHERE acronym = ? COLLATE NOCASE
+                """,
+                (acronym.strip(),),
+            )
+
+            row = cursor.fetchone()
+            if row:
+                # Update last_used_at timestamp
+                cursor.execute(
+                    """
+                    UPDATE conference_acronyms
+                    SET last_used_at = CURRENT_TIMESTAMP
+                    WHERE acronym = ? COLLATE NOCASE
+                    """,
+                    (acronym.strip(),),
+                )
+                conn.commit()
+                return str(row["full_name"])
+            return None
+
+    def store_acronym_mapping(
+        self, acronym: str, full_name: str, source: str = "unknown"
+    ) -> None:
+        """
+        Store an acronym to full name mapping in the cache.
+
+        If the acronym already exists with a different full_name, logs a warning
+        and overwrites with the new mapping.
+
+        Args:
+            acronym: The acronym (e.g., 'ICML')
+            full_name: The full conference/journal name
+            source: Source of the mapping ('bibtex_extraction', 'openalex_response', 'manual')
+        """
+        from .logging_config import get_status_logger
+
+        status_logger = get_status_logger()
+
+        acronym = acronym.strip()
+        full_name = full_name.strip()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Check for existing mapping
+            cursor.execute(
+                """
+                SELECT full_name FROM conference_acronyms
+                WHERE acronym = ? COLLATE NOCASE
+                """,
+                (acronym,),
+            )
+
+            existing = cursor.fetchone()
+            if existing and existing["full_name"] != full_name:
+                status_logger.warning(
+                    f"Acronym '{acronym}' already maps to '{existing['full_name']}', "
+                    f"overwriting with '{full_name}'"
+                )
+
+            # Insert or replace the mapping
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO conference_acronyms
+                (acronym, full_name, source, created_at, last_used_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (acronym, full_name, source),
+            )
+            conn.commit()
 
 
 # Global cache manager instance with factory pattern

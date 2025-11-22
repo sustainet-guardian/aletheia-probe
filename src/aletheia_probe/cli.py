@@ -380,6 +380,13 @@ async def _async_assess_publication(
                 label = "Journal"
 
             print(f"{label}: {result.input_query}")
+
+            # Show acronym expansion note if applicable
+            if result.acronym_expansion_used and result.acronym_expanded_from:
+                print(
+                    f"Note: Expanded acronym '{result.acronym_expanded_from}' using cached mapping"
+                )
+
             print(f"Assessment: {result.assessment.upper()}")
             print(f"Confidence: {result.confidence:.2f}")
             print(f"Overall Score: {result.overall_score:.2f}")
