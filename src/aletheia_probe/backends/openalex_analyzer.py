@@ -94,6 +94,9 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                         response_time=response_time,
                     )
 
+                # Store acronym mapping if display_name contains acronym in parentheses
+                self._store_acronym_from_openalex(openalex_data)
+
                 # Route to appropriate assessment based on publication type
                 source_type = openalex_data.get("source_type", "").lower()
                 if source_type == "conference":
@@ -133,6 +136,29 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                 error_message=str(e),
                 response_time=response_time,
             )
+
+    def _store_acronym_from_openalex(self, openalex_data: dict[str, Any]) -> None:
+        """Extract and store acronym mapping from OpenAlex display_name.
+
+        OpenAlex sometimes includes acronyms in parentheses in the display_name field.
+        For example: "International Conference on Machine Learning (ICML)"
+
+        Args:
+            openalex_data: Raw data from OpenAlex API
+        """
+        from ..normalizer import InputNormalizer
+
+        display_name = openalex_data.get("display_name")
+        if not display_name:
+            return
+
+        # Use the normalizer's acronym extraction logic
+        normalizer = InputNormalizer()
+        acronyms = normalizer._extract_acronyms(display_name)
+
+        if acronyms:
+            # Store the mapping for each extracted acronym
+            normalizer._store_acronym_mappings_from_text(display_name, acronyms)
 
     def _analyze_journal_patterns(
         self, openalex_data: dict[str, Any]

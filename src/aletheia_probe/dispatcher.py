@@ -88,6 +88,8 @@ class QueryDispatcher:
                 metadata=None,
                 reasoning=["No backends available for assessment"],
                 processing_time=time.time() - start_time,
+                acronym_expanded_from=query_input.acronym_expanded_from,
+                acronym_expansion_used=bool(query_input.acronym_expanded_from),
             )
 
         self.status_logger.info(
@@ -101,6 +103,46 @@ class QueryDispatcher:
         assessment_result = self._calculate_assessment(
             query_input, backend_results, time.time() - start_time
         )
+
+        # Acronym fallback: If initial query yields no confident results and input looks
+        # like an acronym with a cached expansion, retry with the expanded name
+        if self._should_try_acronym_fallback(assessment_result, query_input):
+            from .cache import CacheManager
+            from .normalizer import InputNormalizer
+
+            normalizer = InputNormalizer()
+            cache = CacheManager()
+
+            # Check if input is acronym-like and has expansion
+            if normalizer._is_standalone_acronym(query_input.raw_input):
+                expanded_name = cache.get_full_name_for_acronym(query_input.raw_input)
+
+                if expanded_name:
+                    self.status_logger.info(
+                        f"No confident results for '{query_input.raw_input}'. "
+                        f"Retrying with expanded name: '{expanded_name}'"
+                    )
+
+                    # Create new query input with expanded name
+                    from .normalizer import input_normalizer
+
+                    expanded_query = input_normalizer.normalize(expanded_name)
+
+                    # Re-query backends with expanded name
+                    retry_results = await self._query_backends(
+                        enabled_backends, expanded_query
+                    )
+
+                    # Calculate new assessment
+                    retry_assessment = self._calculate_assessment(
+                        expanded_query, retry_results, time.time() - start_time
+                    )
+
+                    # If retry gave better results, use it and mark acronym expansion
+                    if retry_assessment.confidence > assessment_result.confidence:
+                        retry_assessment.acronym_expanded_from = query_input.raw_input
+                        retry_assessment.acronym_expansion_used = True
+                        return retry_assessment
 
         return assessment_result
 
@@ -256,6 +298,46 @@ class QueryDispatcher:
         result_dict["evidence_type"] = backend.get_evidence_type().value
         return BackendResult(**result_dict)
 
+    def _should_try_acronym_fallback(
+        self, assessment_result: AssessmentResult, query_input: QueryInput
+    ) -> bool:
+        """Determine if we should try acronym expansion fallback.
+
+        Acronym fallback is attempted when:
+        - Initial assessment is UNKNOWN or has low confidence
+        - No backends returned FOUND status
+        - Input hasn't already been expanded from an acronym
+
+        Args:
+            assessment_result: The initial assessment result
+            query_input: The original query input
+
+        Returns:
+            True if acronym fallback should be attempted
+        """
+        # Don't retry if we already used acronym expansion
+        if query_input.acronym_expanded_from:
+            return False
+
+        # Retry if assessment is UNKNOWN
+        if assessment_result.assessment == AssessmentType.UNKNOWN:
+            return True
+
+        # Retry if confidence is very low (< 0.3)
+        if assessment_result.confidence < 0.3:
+            return True
+
+        # Retry if no backends found anything
+        found_count = sum(
+            1
+            for r in assessment_result.backend_results
+            if r.status == BackendStatus.FOUND
+        )
+        if found_count == 0:
+            return True
+
+        return False
+
     def _calculate_assessment(
         self,
         query_input: QueryInput,
@@ -395,6 +477,8 @@ class QueryDispatcher:
             metadata=None,
             reasoning=reasoning,
             processing_time=processing_time,
+            acronym_expanded_from=query_input.acronym_expanded_from,
+            acronym_expansion_used=bool(query_input.acronym_expanded_from),
         )
 
     def _calculate_backend_scores(
@@ -611,6 +695,8 @@ class QueryDispatcher:
             metadata=None,
             reasoning=reasoning,
             processing_time=processing_time,
+            acronym_expanded_from=query_input.acronym_expanded_from,
+            acronym_expansion_used=bool(query_input.acronym_expanded_from),
         )
 
 
