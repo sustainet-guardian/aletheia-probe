@@ -119,14 +119,6 @@ class OpenAlexClient:
         elif any(word in display_name for word in search_name.split() if len(word) > 3):
             score += 0.2
 
-        # Avoid year-specific conference instances (conferences with only 1-2 years active)
-        if source_type == "conference" and first_year and last_year:
-            years_active = last_year - first_year + 1
-            if years_active <= 2:
-                score *= 0.3  # Heavily penalize single-year instances
-            elif years_active >= 10:
-                score += 0.1  # Bonus for long-running venues
-
         # Publication volume (30% of score)
         if works_count > 1000:
             score += 0.3
@@ -146,6 +138,26 @@ class OpenAlexClient:
             score += 0.1
         elif cited_by_count <= 10:
             score *= 0.5  # Penalize low-impact sources
+
+        # Enhanced conference scoring: Consider quality metrics before penalizing short spans
+        if source_type == "conference" and first_year and last_year:
+            years_active = last_year - first_year + 1
+
+            # Determine if this is a high-quality conference instance
+            is_high_quality = (cited_by_count > 50000) or (works_count > 1000)
+            is_medium_quality = (cited_by_count > 10000) or (works_count > 500)
+
+            if years_active <= 2:
+                # High-quality single-year instances are legitimate (e.g., CVPR 2022)
+                if is_high_quality:
+                    score += 0.15  # Bonus for major conference instance
+                elif is_medium_quality:
+                    score += 0.05  # Small bonus for good conference instance
+                else:
+                    # Only penalize low-quality short-span conferences
+                    score *= 0.4  # Reduced penalty (was 0.3)
+            elif years_active >= 10:
+                score += 0.1  # Bonus for long-running venues
 
         # Recency (10% of score) - penalize inactive sources
         if last_year:
