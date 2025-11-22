@@ -357,26 +357,85 @@ class BibtexParser:
             return None
 
     @staticmethod
-    def _remove_nested_braces(value: str) -> str:
-        """Remove nested curly braces from BibTeX field values.
+    def _clean_latex_escapes(value: str) -> str:
+        """Clean LaTeX escape sequences from BibTeX field values.
 
-        BibTeX often uses nested braces like {{IEEE}} or {{{CLOUD}}} for formatting.
-        This method recursively removes all levels of curly braces.
+        BibTeX files often contain LaTeX escape sequences like \\& or \\'
+        that need to be converted to their actual characters for proper
+        database matching and display.
 
         Args:
-            value: BibTeX field value that may contain nested braces
+            value: BibTeX field value that may contain LaTeX escape sequences
 
         Returns:
-            Value with all curly braces removed
+            Value with LaTeX escape sequences converted to actual characters
+
+        Examples:
+            "Computers \\& Security" -> "Computers & Security"
+            "Journal of \\"Research\\"" -> 'Journal of "Research"'
+            "Test\\_Case" -> "Test_Case"
+        """
+        import re
+
+        # Map of LaTeX escape sequences to their actual characters
+        # Handle both single and double backslash patterns
+        escape_mappings = [
+            (r"\\\\&", "&"),  # Double backslash (raw string in files)
+            (r"\\&", "&"),  # Single backslash
+            (r"\\\\'", "'"),
+            (r"\\'", "'"),
+            (r'\\\\"', '"'),
+            (r'\\"', '"'),
+            (r"\\\\{", "{"),
+            (r"\\{", "{"),
+            (r"\\\\}", "}"),
+            (r"\\}", "}"),
+            (r"\\\\\$", "$"),
+            (r"\\\$", "$"),
+            (r"\\\\%", "%"),
+            (r"\\%", "%"),
+            (r"\\\\#", "#"),
+            (r"\\#", "#"),
+            (r"\\\\_", "_"),
+            (r"\\_", "_"),
+            (r"\\\\\^", "^"),
+            (r"\\\^", "^"),
+            (r"\\\\~", "~"),
+            (r"\\~", "~"),
+        ]
+
+        # Apply all escape sequence replacements
+        for pattern, replacement in escape_mappings:
+            value = re.sub(pattern, replacement, value)
+
+        return value
+
+    @staticmethod
+    def _remove_nested_braces(value: str) -> str:
+        """Remove nested curly braces and clean LaTeX escapes from BibTeX field values.
+
+        BibTeX often uses nested braces like {{IEEE}} or {{{CLOUD}}} for formatting,
+        and LaTeX escape sequences like \\& for special characters.
+        This method removes all levels of curly braces and converts escape sequences.
+
+        Args:
+            value: BibTeX field value that may contain nested braces and escapes
+
+        Returns:
+            Value with all curly braces removed and LaTeX escapes cleaned
 
         Examples:
             "{{IEEE}} Conference" -> "IEEE Conference"
             "{{{CLOUD}}}" -> "CLOUD"
+            "Computers \\& Security" -> "Computers & Security"
             "Normal text" -> "Normal text"
         """
         import re
 
-        # Remove nested curly braces iteratively until none remain
+        # First, clean LaTeX escape sequences
+        value = BibtexParser._clean_latex_escapes(value)
+
+        # Then remove nested curly braces iteratively until none remain
         # This handles multiple levels like {{{text}}} -> {{text}} -> {text} -> text
         while re.search(r"\{[^{}]*\}", value):
             value = re.sub(r"\{([^{}]*)\}", r"\1", value)

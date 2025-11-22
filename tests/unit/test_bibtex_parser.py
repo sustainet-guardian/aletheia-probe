@@ -817,3 +817,102 @@ class TestBibtexParser:
         # Test braces with special characters
         result = BibtexParser._remove_nested_braces("{{IEEE-802.11}} {Conference}")
         assert result == "IEEE-802.11 Conference"
+
+    def test_clean_latex_escapes(self):
+        """Test cleaning of LaTeX escape sequences."""
+        # Test ampersand escape
+        result = BibtexParser._clean_latex_escapes("Computers \\& Security")
+        assert result == "Computers & Security"
+
+        # Test double backslash ampersand
+        result = BibtexParser._clean_latex_escapes("Computers \\\\& Security")
+        assert result == "Computers & Security"
+
+        # Test quote escapes
+        result = BibtexParser._clean_latex_escapes(r"Journal of \"Research\"")
+        assert result == 'Journal of "Research"'
+
+        # Test apostrophe escape
+        result = BibtexParser._clean_latex_escapes(r"Author\'s Work")
+        assert result == "Author's Work"
+
+        # Test underscore escape
+        result = BibtexParser._clean_latex_escapes(r"Test\_Case")
+        assert result == "Test_Case"
+
+        # Test multiple escapes in same string
+        result = BibtexParser._clean_latex_escapes(r"A \& B: \"Test\" \% Done")
+        assert result == 'A & B: "Test" % Done'
+
+        # Test all common escapes
+        result = BibtexParser._clean_latex_escapes(
+            r"Test\& \' \" \{ \} \$ \% \# \_ \^ \~"
+        )
+        assert result == "Test& ' \" { } $ % # _ ^ ~"
+
+        # Test text without escapes
+        result = BibtexParser._clean_latex_escapes("Normal text")
+        assert result == "Normal text"
+
+        # Test empty string
+        result = BibtexParser._clean_latex_escapes("")
+        assert result == ""
+
+    def test_remove_nested_braces_with_latex_escapes(self):
+        """Test that _remove_nested_braces also cleans LaTeX escapes."""
+        # Test combined braces and escapes
+        result = BibtexParser._remove_nested_braces(r"{Computers \& Security}")
+        assert result == "Computers & Security"
+
+        # Test nested braces with escapes
+        result = BibtexParser._remove_nested_braces(r"{{IEEE}} \& {{ACM}}")
+        assert result == "IEEE & ACM"
+
+        # Test complex combination
+        result = BibtexParser._remove_nested_braces(
+            r"{Journal of \"Machine Learning\"} \& {{AI}}"
+        )
+        assert result == 'Journal of "Machine Learning" & AI'
+
+    def test_parse_bibtex_file_with_latex_escapes(self, tmp_path):
+        """Test parsing BibTeX file with LaTeX escape sequences in journal names."""
+        bibtex_content = """
+@article{test_latex_escapes,
+    title={Test Article with LaTeX Escapes},
+    journal={Computers \\& Security},
+    author={Test Author},
+    year={2023}
+}
+
+@article{test_quotes,
+    title={Article with Quotes},
+    journal={Journal of \\"Research\\"},
+    author={Another Author},
+    year={2024}
+}
+
+@article{test_multiple,
+    title={Multiple Escapes},
+    journal={Test \\& Review: \\"Quality\\" \\% Assessment},
+    author={Third Author},
+    year={2025}
+}
+"""
+        test_file = tmp_path / "test_latex.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries = BibtexParser.parse_bibtex_file(test_file)
+
+        assert len(entries) == 3
+
+        # Check first entry with ampersand escape
+        entry1 = [e for e in entries if e.key == "test_latex_escapes"][0]
+        assert entry1.journal_name == "Computers & Security"
+
+        # Check second entry with quote escapes
+        entry2 = [e for e in entries if e.key == "test_quotes"][0]
+        assert entry2.journal_name == 'Journal of "Research"'
+
+        # Check third entry with multiple escapes
+        entry3 = [e for e in entries if e.key == "test_multiple"][0]
+        assert entry3.journal_name == 'Test & Review: "Quality" % Assessment'
