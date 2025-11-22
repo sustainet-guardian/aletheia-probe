@@ -78,8 +78,13 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                         response_time=response_time,
                     )
 
-                # Analyze patterns in the data
-                analysis = self._analyze_journal_patterns(openalex_data)
+                # Route to appropriate assessment based on publication type
+                source_type = openalex_data.get("source_type", "").lower()
+                if source_type == "conference":
+                    analysis = self._analyze_conference_patterns(openalex_data)
+                else:
+                    # Default to journal analysis for journals and unknown types
+                    analysis = self._analyze_journal_patterns(openalex_data)
 
                 return BackendResult(
                     backend_name=self.get_name(),
@@ -92,6 +97,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                         "metrics": analysis["metrics"],
                         "red_flags": analysis["red_flags"],
                         "green_flags": analysis["green_flags"],
+                        "publication_type": source_type or "journal",
                     },
                     sources=[
                         "https://api.openalex.org",
@@ -115,7 +121,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
     def _analyze_journal_patterns(
         self, openalex_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """Analyze publication patterns to detect predatory characteristics.
+        """Analyze journal publication patterns to detect predatory characteristics.
 
         Args:
             openalex_data: Raw data from OpenAlex
@@ -123,14 +129,14 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         Returns:
             Analysis dictionary with assessment, confidence, and flags
         """
-        # Calculate metrics from raw data
-        metrics = self._calculate_journal_metrics(openalex_data)
+        # Calculate shared base metrics
+        metrics = self._calculate_base_metrics(openalex_data)
 
-        # Check for green flags (legitimacy indicators)
-        green_flags = self._check_green_flags(metrics)
+        # Check for journal-specific green flags (legitimacy indicators)
+        green_flags = self._check_journal_green_flags(metrics)
 
-        # Check for red flags (predatory indicators)
-        red_flags = self._check_red_flags(metrics)
+        # Check for journal-specific red flags (predatory indicators)
+        red_flags = self._check_journal_red_flags(metrics)
 
         # Determine final assessment and confidence
         assessment, confidence = self._determine_assessment(
@@ -146,10 +152,44 @@ class OpenAlexAnalyzerBackend(HybridBackend):
             "reasoning": self._generate_reasoning(red_flags, green_flags, metrics),
         }
 
-    def _calculate_journal_metrics(
+    def _analyze_conference_patterns(
         self, openalex_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """Calculate derived metrics from OpenAlex data.
+        """Analyze conference publication patterns to detect predatory characteristics.
+
+        Args:
+            openalex_data: Raw data from OpenAlex
+
+        Returns:
+            Analysis dictionary with assessment, confidence, and flags
+        """
+        # Calculate shared base metrics
+        metrics = self._calculate_base_metrics(openalex_data)
+
+        # Check for conference-specific green flags (legitimacy indicators)
+        green_flags = self._check_conference_green_flags(metrics)
+
+        # Check for conference-specific red flags (predatory indicators)
+        red_flags = self._check_conference_red_flags(metrics)
+
+        # Determine final assessment and confidence
+        assessment, confidence = self._determine_assessment(
+            red_flags, green_flags, metrics
+        )
+
+        return {
+            "assessment": assessment,
+            "confidence": confidence,
+            "metrics": metrics,
+            "red_flags": red_flags,
+            "green_flags": green_flags,
+            "reasoning": self._generate_reasoning(red_flags, green_flags, metrics),
+        }
+
+    def _calculate_base_metrics(
+        self, openalex_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Calculate base metrics shared by both journals and conferences.
 
         Args:
             openalex_data: Raw data from OpenAlex
@@ -198,10 +238,11 @@ class OpenAlexAnalyzerBackend(HybridBackend):
             "last_year": last_year,
             "is_in_doaj": is_in_doaj,
             "current_year": current_year,
+            "source_type": openalex_data.get("source_type"),
         }
 
-    def _check_green_flags(self, metrics: dict[str, Any]) -> list[str]:
-        """Check for green flags (indicators of journal legitimacy).
+    def _check_journal_green_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for green flags specific to journal legitimacy.
 
         Args:
             metrics: Dictionary of calculated metrics
@@ -250,7 +291,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         if is_in_doaj:
             green_flags.append("Listed in Directory of Open Access Journals (DOAJ)")
 
-        # Consistent recent activity
+        # Consistent recent activity (journals should publish regularly)
         if recent_publications > 0 and last_year and last_year >= current_year - 2:
             green_flags.append(
                 f"Recently active: {recent_publications} papers in last 5 years"
@@ -258,8 +299,8 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
         return green_flags
 
-    def _check_red_flags(self, metrics: dict[str, Any]) -> list[str]:
-        """Check for red flags (indicators of predatory behavior).
+    def _check_journal_red_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for red flags specific to journal predatory behavior.
 
         Args:
             metrics: Dictionary of calculated metrics
@@ -317,7 +358,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                     f"Recent publication explosion: {recent_rate_per_year:.0f} recent vs {historical_rate:.0f} historical papers/year"
                 )
 
-        # Inactive journal (may be legitimate but worth noting)
+        # Journal appears inactive (journals should publish regularly)
         if last_year and last_year < current_year - 3:
             red_flags.append(
                 f"Journal appears inactive: last publication in {last_year}"
@@ -327,6 +368,106 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         if years_active <= 2 and total_publications < 20:
             red_flags.append(
                 f"Very new journal: only {years_active} years active with {total_publications} papers"
+            )
+
+        return red_flags
+
+    def _check_conference_green_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for green flags specific to conference legitimacy.
+
+        Args:
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            List of green flag descriptions
+        """
+        green_flags = []
+
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        total_citations = metrics["total_citations"]
+        last_year = metrics["last_year"]
+        current_year = metrics["current_year"]
+
+        # Strong citation ratio for conferences (conferences often have higher ratios)
+        if citation_ratio >= 50:
+            green_flags.append(
+                f"Excellent citation ratio: {citation_ratio:.1f} citations per paper"
+            )
+        elif citation_ratio >= 20:
+            green_flags.append(
+                f"Good citation ratio: {citation_ratio:.1f} citations per paper"
+            )
+
+        # High total citations indicate impact
+        if total_citations > 100000:
+            green_flags.append(
+                f"High-impact venue: {total_citations:,} total citations"
+            )
+        elif total_citations > 20000:
+            green_flags.append(
+                f"Significant impact: {total_citations:,} total citations"
+            )
+
+        # Substantial proceedings volume
+        if total_publications > 1000:
+            green_flags.append(
+                f"Major venue: {total_publications:,} total publications"
+            )
+        elif total_publications > 100:
+            green_flags.append(
+                f"Established venue: {total_publications:,} total publications"
+            )
+
+        # Recent activity (conferences may have gaps)
+        if last_year and last_year >= current_year - 5:
+            green_flags.append(
+                f"Recently active: last publication in {last_year}"
+            )
+
+        return green_flags
+
+    def _check_conference_red_flags(self, metrics: dict[str, Any]) -> list[str]:
+        """Check for red flags specific to conference predatory behavior.
+
+        Args:
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            List of red flag descriptions
+        """
+        red_flags = []
+
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        publication_rate_per_year = metrics["publication_rate_per_year"]
+        last_year = metrics["last_year"]
+        current_year = metrics["current_year"]
+
+        # Extremely low citation ratio (even for conferences)
+        if citation_ratio < 0.5 and total_publications >= 50:
+            red_flags.append(
+                f"Very low citation ratio: {citation_ratio:.2f} citations per paper"
+            )
+
+        # Conference appears completely discontinued
+        if last_year and last_year < current_year - 15:
+            red_flags.append(
+                f"Conference appears discontinued: last publication in {last_year}"
+            )
+
+        # Suspiciously high publication volume for a conference
+        if publication_rate_per_year > 5000:
+            red_flags.append(
+                f"Suspicious volume for conference: {publication_rate_per_year:.0f} papers/year"
+            )
+
+        # Conference with virtually no content
+        if total_publications < 5 and years_active > 2:
+            red_flags.append(
+                f"Minimal content: only {total_publications} papers over {years_active} years"
             )
 
         return red_flags
