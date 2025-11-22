@@ -119,17 +119,22 @@ class BibtexParser:
                             skipped_entries += 1
                             continue
 
-                    total_skipped = skipped_entries + arxiv_entries
-                    if total_skipped > 0:
+                    # Log parsing results with clear messaging
+                    detail_logger.debug(
+                        f"Successfully parsed {len(entries)} entries from {file_path.name} "
+                        f"with {description}"
+                    )
+
+                    # Inform user about arXiv preprints (if any)
+                    if arxiv_entries > 0:
                         status_logger.info(
-                            f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                            f"with {description}, skipped {total_skipped} problematic entries "
-                            f"({arxiv_entries} arXiv, {skipped_entries} other)"
+                            f"Skipped {arxiv_entries} arXiv preprint(s) - not publication venues"
                         )
-                    else:
+
+                    # Log other skipped entries
+                    if skipped_entries > 0:
                         detail_logger.debug(
-                            f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                            f"with {description}"
+                            f"Skipped {skipped_entries} other entries due to processing errors"
                         )
 
                     return entries, skipped_entries, arxiv_entries
