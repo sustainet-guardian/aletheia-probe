@@ -59,6 +59,21 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                     journal_name=journal_name, issn=issn, eissn=eissn
                 )
 
+                # If not found with normalized name, try aliases (especially acronyms)
+                if not openalex_data and query_input.aliases:
+                    self.detail_logger.info(
+                        f"OpenAlex: Normalized name '{journal_name}' not found, trying {len(query_input.aliases)} alias(es)"
+                    )
+                    for alias in query_input.aliases:
+                        openalex_data = await client.enrich_journal_data(
+                            journal_name=alias, issn=issn, eissn=eissn
+                        )
+                        if openalex_data:
+                            self.detail_logger.info(
+                                f"OpenAlex: Found match using alias '{alias}'"
+                            )
+                            break
+
                 response_time = time.time() - start_time
 
                 if not openalex_data:
@@ -72,6 +87,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                             "searched_for": journal_name,
                             "issn": issn,
                             "eissn": eissn,
+                            "aliases_tried": query_input.aliases,
                         },
                         sources=["https://api.openalex.org"],
                         error_message=None,
