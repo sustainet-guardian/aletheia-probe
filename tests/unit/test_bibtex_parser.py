@@ -42,7 +42,7 @@ class TestBibtexParser:
         test_file.write_text(bibtex_content, encoding="utf-8")
 
         # Parse the file
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Verify results
         assert len(entries) == 2
@@ -79,7 +79,7 @@ class TestBibtexParser:
         test_file.write_text(bibtex_content, encoding="latin-1")
 
         # Parse the file
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Verify results
         assert len(entries) == 1
@@ -102,7 +102,7 @@ class TestBibtexParser:
         test_file.write_text(bibtex_content, encoding="cp1252")
 
         # Parse the file
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Verify results
         assert len(entries) == 1
@@ -132,7 +132,7 @@ class TestBibtexParser:
             f.write(bibtex_content.encode("utf-8", errors="replace"))
 
         # Parse should succeed with error handling
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should get at least one entry
         assert len(entries) >= 1
@@ -179,7 +179,7 @@ class TestBibtexParser:
         with patch.object(
             BibtexParser, "_process_entry_safely", side_effect=mock_process_entry_safely
         ):
-            entries = BibtexParser.parse_bibtex_file(test_file)
+            entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should still get the valid entries
         assert len(entries) == 2
@@ -212,7 +212,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_filter.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should only get the entry with journal
         assert len(entries) == 1
@@ -257,7 +257,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_fields.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should include article entries and inproceedings entries
         # Only book entries without valid venue should be filtered out
@@ -320,7 +320,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_entry_types.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should include article, periodical, and inproceedings entries
         assert len(entries) == 3
@@ -347,7 +347,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_clean.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -423,7 +423,7 @@ class TestBibtexParser:
         test_file.write_text(bibtex_content, encoding="latin-1")
 
         with caplog.at_level(logging.DEBUG):
-            entries = BibtexParser.parse_bibtex_file(test_file)
+            entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
 
@@ -521,7 +521,7 @@ class TestBibtexParser:
         test_file.write_text(bibtex_content, encoding="utf-8")
 
         with patch("aletheia_probe.bibtex_parser.detail_logger") as mock_logger:
-            entries = BibtexParser.parse_bibtex_file(test_file)
+            entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
 
@@ -575,7 +575,7 @@ class TestBibtexParser:
             "aletheia_probe.bibtex_parser.parse_file",
             side_effect=mock_parse_file,
         ):
-            entries = BibtexParser.parse_bibtex_file(test_file)
+            entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         # Should still successfully parse with fallback encoding
         assert len(entries) == 1
@@ -595,7 +595,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_conference.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -628,7 +628,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_series.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -669,7 +669,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_mixed.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 3
 
@@ -699,7 +699,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_priority.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -757,7 +757,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_nested_braces.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -788,7 +788,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_journal_nested.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 1
         entry = entries[0]
@@ -902,7 +902,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_latex.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 3
 
@@ -952,7 +952,7 @@ class TestBibtexParser:
         test_file = tmp_path / "test_conference_normalization.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries = BibtexParser.parse_bibtex_file(test_file)
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
         assert len(entries) == 4
 
@@ -1011,3 +1011,49 @@ class TestBibtexParser:
             "Proceedings  of  the   Conference    Name"
         )
         assert result == "Conference Name"
+
+    def test_arxiv_entries_are_skipped(self, tmp_path):
+        """Test that arXiv entries are skipped and counted correctly."""
+        bibtex_content = """
+@article{regular_journal,
+    title={A Regular Journal Article},
+    journal={Journal of Important Research},
+    author={Test Author},
+    year={2023}
+}
+
+@article{arxiv_entry_1,
+    title={A Cool Paper on arXiv},
+    journal={arXiv preprint arXiv:2112.06745},
+    author={Scientist One},
+    year={2021}
+}
+
+@misc{arxiv_entry_2,
+    title={Another arXiv paper},
+    howpublished={ArXiv e-prints},
+    author={Scientist Two},
+    year={2022},
+    eprint={2201.0001}
+}
+
+@article{arxiv_entry_3,
+    title={Title},
+    journal={arXiv:2306.00262},
+    author={Scientist Three},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_arxiv.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, arxiv_count = BibtexParser.parse_bibtex_file(test_file)
+
+        # Should only get the regular journal entry
+        assert len(entries) == 1
+        assert entries[0].key == "regular_journal"
+        assert entries[0].journal_name == "Journal of Important Research"
+
+        # Should have skipped 3 arXiv entries
+        assert arxiv_count == 3
+        assert skipped_count == 0

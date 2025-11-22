@@ -26,7 +26,7 @@ class BibtexParser:
     @staticmethod
     def parse_bibtex_file(
         file_path: Path, relax_parsing: bool = False
-    ) -> list[BibtexEntry]:
+    ) -> tuple[list[BibtexEntry], int, int]:
         """Parse a BibTeX file and extract journal entries.
 
         This method tries multiple encoding strategies to maximize the number
@@ -38,7 +38,10 @@ class BibtexParser:
                          malformed BibTeX files (e.g., duplicate keys, syntax errors)
 
         Returns:
-            List of BibtexEntry objects with extracted journal information
+            A tuple containing:
+            - List of BibtexEntry objects with extracted journal information
+            - Number of entries skipped (excluding arXiv)
+            - Number of arXiv entries detected and skipped
 
         Raises:
             FileNotFoundError: If the BibTeX file doesn't exist
@@ -89,9 +92,18 @@ class BibtexParser:
 
                     entries = []
                     skipped_entries = 0
+                    arxiv_entries = 0
 
                     for entry_key, entry in bib_data.entries.items():
                         try:
+                            # First, check for arXiv entries to correctly categorize skipped entries
+                            if BibtexParser._is_arxiv_entry(entry):
+                                arxiv_entries += 1
+                                detail_logger.debug(
+                                    f"Skipping arXiv entry: {entry_key}"
+                                )
+                                continue
+
                             # Extract each entry with individual error handling
                             processed_entry = BibtexParser._process_entry_safely(
                                 entry_key, entry
@@ -107,10 +119,12 @@ class BibtexParser:
                             skipped_entries += 1
                             continue
 
-                    if skipped_entries > 0:
+                    total_skipped = skipped_entries + arxiv_entries
+                    if total_skipped > 0:
                         status_logger.info(
                             f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                            f"with {description}, skipped {skipped_entries} problematic entries"
+                            f"with {description}, skipped {total_skipped} problematic entries "
+                            f"({arxiv_entries} arXiv, {skipped_entries} other)"
                         )
                     else:
                         detail_logger.debug(
@@ -118,7 +132,7 @@ class BibtexParser:
                             f"with {description}"
                         )
 
-                    return entries
+                    return entries, skipped_entries, arxiv_entries
 
                 except UnicodeDecodeError as e:
                     last_error = e
@@ -187,6 +201,10 @@ class BibtexParser:
                 venue_name = BibtexParser._extract_journal_name(entry)
 
             if not venue_name:
+                # This can happen if the entry is an arXiv preprint or if it's a non-journal/conference type
+                detail_logger.debug(
+                    f"Skipping entry '{entry_key}' because no venue name could be extracted."
+                )
                 return None
 
             return BibtexEntry(
@@ -472,3 +490,63 @@ class BibtexParser:
             value = re.sub(r"\{([^{}]*)\}", r"\1", value)
 
         return value.strip()
+
+    @staticmethod
+    def _is_arxiv_entry(entry: Entry) -> bool:
+        """Detects if a BibTeX entry is an arXiv preprint.
+
+        Checks the 'journal', 'booktitle', 'eprint', and 'title' fields
+        for common arXiv patterns.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is identified as an arXiv preprint, False otherwise.
+        """
+        import re
+
+        # Patterns to identify arXiv entries
+        # - "arXiv preprint arXiv:XXXX.XXXXX"
+        # - "ArXiv e-prints"
+        # - "arXiv:XXXX.XXXXX" (bare arXiv identifier)
+        # - "e-print" field containing "arXiv"
+        # - Journal field containing only arXiv identifier
+
+        arxiv_patterns = [
+            r"arxiv\s+preprint\s+arxiv:\d{4}\.\d{5}(v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
+            r"arxiv\s+e-prints",  # ArXiv e-prints
+            r"arxiv:\d{4}\.\d{5}(v\d+)?",  # bare arXiv identifier
+            r"arxiv:\w+\.\w+(v\d+)?",  # arXiv:cs.AI/9901001 (old style)
+            r"eprint:\s*arxiv",  # for entries where eprint field is "eprint = {arXiv}"
+        ]
+
+        # Combine all relevant fields into a single string for pattern matching
+        # Prioritize 'journal' and 'booktitle' as they are often used for venue names
+        # 'eprint' is a direct indicator, 'title' might contain it if poorly formatted
+        fields_to_check = [
+            BibtexParser._get_field_safely(entry, "journal"),
+            BibtexParser._get_field_safely(entry, "booktitle"),
+            BibtexParser._get_field_safely(entry, "eprint"),
+            BibtexParser._get_field_safely(entry, "title"),
+        ]
+
+        # Filter out None values and convert to lowercase for case-insensitive matching
+        checked_content = " ".join(
+            [f.lower() for f in fields_to_check if f is not None]
+        )
+
+        for pattern in arxiv_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected arXiv pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+
+        # Additionally, check if the entry type itself is 'misc' and contains 'arxiv' in title/journal
+        if entry.type.lower() == "misc":
+            if re.search(r"arxiv", checked_content, re.IGNORECASE):
+                detail_logger.debug(f"Detected arXiv in 'misc' type entry: {entry.key}")
+                return True
+
+        return False
