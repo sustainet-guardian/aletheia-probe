@@ -180,6 +180,12 @@ class BibtexAssessmentResult(BaseModel):
     entries_with_journals: int = Field(
         ..., description="Number of entries with identifiable journals"
     )
+    arxiv_entries_count: int = Field(
+        0, description="Number of entries identified as arXiv preprints"
+    )
+    skipped_entries_count: int = Field(
+        0, description="Number of entries skipped for other reasons"
+    )
     assessment_results: list[tuple[BibtexEntry, AssessmentResult]] = Field(
         default_factory=list, description="List of (entry, assessment) pairs"
     )
