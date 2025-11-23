@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Normalized caching system for journal data and assessment results."""
 
+import html
 import json
 import re
 import sqlite3
@@ -182,6 +183,66 @@ class CacheManager:
                 CREATE INDEX IF NOT EXISTS idx_article_retractions_expires ON article_retractions(expires_at);
             """
             )
+
+    # Common words to ignore for comparison (e.g., "journal of", "the")
+    STOP_WORDS = {
+        "a",
+        "an",
+        "and",
+        "the",
+        "of",
+        "in",
+        "on",
+        "for",
+        "with",
+        "at",
+        "by",
+        "to",
+        "from",
+        "as",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "can",
+        "will",
+        "or",
+        "but",
+        "not",
+        "do",
+        "don",
+        "s",
+        "t",
+        "m",
+        "ll",
+        "d",
+        "ve",
+        "re",
+        "journal",
+        "international",
+        "conference",
+        "proceedings",
+    }
+
+    def _normalize_for_comparison(self, text: str) -> str:
+        """
+        Normalize text for robust comparison, removing common words and special characters.
+
+        Args:
+            text: The input string (e.g., a journal or conference name).
+
+        Returns:
+            A cleaned and normalized string suitable for comparison.
+        """
+        text = html.unescape(text)  # Add this line
+        text = text.lower()
+        # Remove common special characters, keeping only alphanumeric and spaces
+        text = re.sub(r"[^\w\s]", "", text)
+        words = [word for word in text.split() if word not in self.STOP_WORDS]
+        return " ".join(words)
 
     def register_data_source(
         self,
@@ -1216,7 +1277,8 @@ class CacheManager:
 
         This method uses the existing conference series normalization logic to
         identify trivial differences like year prefixes/suffixes and ordinal numbers
-        that don't represent different conferences.
+        that don't represent different conferences. It also uses a more robust
+        comparison by normalizing the names to remove stop words and special characters.
 
         Args:
             name1: First conference name
@@ -1230,8 +1292,16 @@ class CacheManager:
             - "Conference 2022" and "Conference" -> True
             - "1st International Conference" and "International Conference" -> True
             - "AAAI" and "AI Conference" -> False
+            - "journal of process management and new technologies international" and "journal of process management new technologies international" -> True
         """
         from .normalizer import input_normalizer
+
+        # Perform a quick comparison after aggressive normalization first
+        normalized_for_comp1 = self._normalize_for_comparison(name1)
+        normalized_for_comp2 = self._normalize_for_comparison(name2)
+
+        if normalized_for_comp1 == normalized_for_comp2:
+            return True
 
         # Normalize case
         norm1 = name1.lower().strip()
@@ -1248,21 +1318,28 @@ class CacheManager:
 
         # If both extracted to the same series, they're equivalent
         if series1 and series2:
-            if series1.lower() == series2.lower():
+            if self._normalize_for_comparison(
+                series1
+            ) == self._normalize_for_comparison(series2):
                 return True
 
         # Handle case where one might be the series of the other
         # e.g., "2022 Conference" vs "Conference" where series2 is None
-        if series1 and series1.lower() == norm2:
+        # Apply robust comparison here as well
+        if series1 and self._normalize_for_comparison(series1) == normalized_for_comp2:
             return True
-        if series2 and series2.lower() == norm1:
+        if series2 and self._normalize_for_comparison(series2) == normalized_for_comp1:
             return True
 
         # Check if one is a substring of the other after normalization
         # But only if the shorter name is at least 10 characters to avoid false positives
         # (e.g., "AI" vs "AAAI" should not match)
-        if len(norm1) >= 10 or len(norm2) >= 10:
-            if norm1 in norm2 or norm2 in norm1:
+        # Apply robust comparison here as well
+        if len(normalized_for_comp1) >= 10 or len(normalized_for_comp2) >= 10:
+            if (
+                normalized_for_comp1 in normalized_for_comp2
+                or normalized_for_comp2 in normalized_for_comp1
+            ):
                 return True
 
         return False

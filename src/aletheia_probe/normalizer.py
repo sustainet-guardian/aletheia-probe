@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Input normalization and validation for journal names and identifiers."""
 
+import html
 import re
 
 from .models import QueryInput
@@ -274,6 +275,8 @@ class InputNormalizer:
 
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text using regex patterns."""
+        # Decode HTML entities first
+        text = html.unescape(text)
         # Remove identifiers from text for name normalization
         text = self.issn_pattern.sub("", text)
         text = self.doi_pattern.sub("", text)
