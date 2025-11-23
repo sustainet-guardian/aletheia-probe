@@ -58,6 +58,9 @@ run_check "SPDX license identifiers" python scripts/check-spdx.py || true
 # 7. Example execution check
 run_check "Example execution" python scripts/check-examples.py || true
 
+# 8. Markdown link check
+run_check "Markdown link check" python scripts/check-markdown-links.py || true
+
 # Final summary
 echo -e "${BLUE}========================================${NC}"
 if [ $FAILED -eq 0 ]; then

@@ -242,7 +242,7 @@ For a list of current backends check `aletheia_probe.backends`.
 
 Key points for contributors:
 - Review and test all AI-generated code thoroughly
-- Follow project standards in [AICodingAgent.md](../../AICodingAgent.md)
+- Follow project standards in [AGENTS.md](../../AGENTS.md)
 - Optionally tag commits/PRs with `[AI-assisted]` for transparency
 - You are responsible for all submitted code
 

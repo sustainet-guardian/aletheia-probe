@@ -669,7 +669,7 @@ aletheia-probe sync
 
 ### Custom Backends
 
-Extend the tool with custom data sources by implementing the Backend interface. See [API Reference](api-reference.md) for details.
+Extend the tool with custom data sources by implementing the Backend interface. See the source code in `src/backends/` for implementation examples.
 
 ### Integration with Workflows
 
@@ -679,4 +679,4 @@ The tool can be integrated into:
 - Grant application review processes
 - Academic policy enforcement systems
 
-See the [API Reference](api-reference.md) for programmatic integration examples.
+See the examples in `examples/` directory for programmatic integration examples.
