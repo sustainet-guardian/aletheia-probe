@@ -347,15 +347,21 @@ def stats() -> None:
         status_logger.info(f"Total acronyms: {total:,}")
 
         if "most_recent_acronym" in stats:
+            # Apply title casing for display
+            normalized_name = str(stats["most_recent_normalized_name"])
+            display_name = input_normalizer._normalize_case(normalized_name)
             status_logger.info("\nMost Recently Used:")
             status_logger.info(f"  Acronym: {stats['most_recent_acronym']}")
-            status_logger.info(f"  Full Name: {stats['most_recent_full_name']}")
+            status_logger.info(f"  Conference: {display_name}")
             status_logger.info(f"  Last Used: {stats['most_recent_used']}")
 
         if "oldest_acronym" in stats:
+            # Apply title casing for display
+            normalized_name = str(stats["oldest_normalized_name"])
+            display_name = input_normalizer._normalize_case(normalized_name)
             status_logger.info("\nOldest Entry:")
             status_logger.info(f"  Acronym: {stats['oldest_acronym']}")
-            status_logger.info(f"  Full Name: {stats['oldest_full_name']}")
+            status_logger.info(f"  Conference: {display_name}")
             status_logger.info(f"  Created: {stats['oldest_created']}")
 
     except Exception as e:
@@ -382,14 +388,12 @@ def list(limit: int | None, offset: int) -> None:
         status_logger.info("=" * 80)
 
         for entry in acronyms:
-            # Normalize the full name to show what the system actually searches for
-            normalized_name = input_normalizer.normalize(
-                entry["full_name"]
-            ).normalized_name
+            # Apply title casing for display
+            display_name = input_normalizer._normalize_case(entry["normalized_name"])
 
             status_logger.info(f"\nAcronym: {entry['acronym']}")
-            status_logger.info(f"  Full Name: {entry['full_name']}")
-            status_logger.info(f"  Normalized: {normalized_name}")
+            status_logger.info(f"  Conference: {display_name}")
+            status_logger.info(f"  Normalized: {entry['normalized_name']}")
             status_logger.info(f"  Source: {entry['source']}")
             status_logger.info(f"  Created: {entry['created_at']}")
             status_logger.info(f"  Last Used: {entry['last_used_at']}")

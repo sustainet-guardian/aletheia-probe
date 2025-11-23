@@ -525,9 +525,9 @@ class TestAcronymMapping:
             acronym="ICML", full_name="International Conference on Machine Learning"
         )
 
-        # Verify the mapping was stored
+        # Verify the mapping was stored (returns normalized lowercase form)
         result = temp_cache.get_full_name_for_acronym("ICML")
-        assert result == "International Conference on Machine Learning"
+        assert result == "international conference on machine learning"
 
     def test_store_acronym_mapping_case_insensitive(self, temp_cache):
         """Test that acronym lookup is case-insensitive."""
@@ -535,18 +535,18 @@ class TestAcronymMapping:
             acronym="CVPR", full_name="Conference on Computer Vision"
         )
 
-        # Should work with different cases
+        # Should work with different cases (returns normalized lowercase form)
         assert (
             temp_cache.get_full_name_for_acronym("CVPR")
-            == "Conference on Computer Vision"
+            == "conference on computer vision"
         )
         assert (
             temp_cache.get_full_name_for_acronym("cvpr")
-            == "Conference on Computer Vision"
+            == "conference on computer vision"
         )
         assert (
             temp_cache.get_full_name_for_acronym("CvPr")
-            == "Conference on Computer Vision"
+            == "conference on computer vision"
         )
 
     def test_store_acronym_mapping_no_warn_on_year_variation(self, temp_cache, caplog):
@@ -622,7 +622,7 @@ class TestAcronymMapping:
         ]
         assert len(warnings) == 1
         assert "already maps to" in warnings[0].message
-        assert "Artificial Intelligence Conference" in warnings[0].message
+        assert "artificial intelligence conference" in warnings[0].message
 
     def test_store_acronym_mapping_source_tracking(self, temp_cache):
         """Test that the source of acronym mappings is tracked."""
@@ -632,9 +632,9 @@ class TestAcronymMapping:
             source="bibtex_extraction",
         )
 
-        # Verify the mapping exists (source is tracked internally)
+        # Verify the mapping exists (source is tracked internally, returns normalized form)
         result = temp_cache.get_full_name_for_acronym("NeurIPS")
-        assert result == "Neural Information Processing Systems"
+        assert result == "neural information processing systems"
 
     def test_are_conference_names_equivalent_identical(self, temp_cache):
         """Test equivalence check for identical names."""
@@ -736,6 +736,6 @@ class TestAcronymMapping:
             acronym="TEST", full_name="Test Conference 2023"
         )
 
-        # Should return the latest one
+        # Both normalize to the same generic form (years stripped)
         result = temp_cache.get_full_name_for_acronym("TEST")
-        assert result == "Test Conference 2023"
+        assert result == "test conference"
