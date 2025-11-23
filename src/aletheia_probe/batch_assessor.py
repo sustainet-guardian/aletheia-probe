@@ -293,40 +293,70 @@ class BibtexBatchAssessor:
         # Assessment summary
         summary_lines.append("Assessment Results:")
         summary_lines.append(f"  Predatory: {result.predatory_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_predatory}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_predatory}/{result.conference_entries}"
-            )
-        if result.venue_type_counts.get(VenueType.WORKSHOP, 0) > 0:
-            summary_lines.append(
-                f"    🔧 Workshops: {result.venue_type_counts[VenueType.WORKSHOP]}"
-            )
-        if result.venue_type_counts.get(VenueType.SYMPOSIUM, 0) > 0:
-            summary_lines.append(
-                f"    🎪 Symposiums: {result.venue_type_counts[VenueType.SYMPOSIUM]}"
-            )
+
+        # Display venue types with assessment breakdown where available
+        predatory_venue_display = [
+            # Legacy counters with assessment breakdown
+            ("📄", "Journals", result.journal_entries, result.journal_predatory),
+            (
+                "🎤",
+                "Conferences",
+                result.conference_entries,
+                result.conference_predatory,
+            ),
+        ]
+
+        for emoji, name, total_count, predatory_count in predatory_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {predatory_count}/{total_count}"
+                )
+
+        # New venue types with total counts only
+        predatory_venue_types = {
+            VenueType.WORKSHOP: ("🔧", "Workshops"),
+            VenueType.SYMPOSIUM: ("🎪", "Symposiums"),
+        }
+        for venue_type, (emoji, name) in predatory_venue_types.items():
+            count = result.venue_type_counts.get(venue_type, 0)
+            if count > 0:
+                summary_lines.append(f"    {emoji} {name}: {count}")
         summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_suspicious}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_suspicious}/{result.conference_entries}"
-            )
+
+        # Display venue types with assessment breakdown for suspicious
+        suspicious_venue_display = [
+            ("📄", "Journals", result.journal_entries, result.journal_suspicious),
+            (
+                "🎤",
+                "Conferences",
+                result.conference_entries,
+                result.conference_suspicious,
+            ),
+        ]
+
+        for emoji, name, total_count, suspicious_count in suspicious_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {suspicious_count}/{total_count}"
+                )
         summary_lines.append(f"  Legitimate: {result.legitimate_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_legitimate}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_legitimate}/{result.conference_entries}"
-            )
+
+        # Display venue types with assessment breakdown for legitimate
+        legitimate_venue_display = [
+            ("📄", "Journals", result.journal_entries, result.journal_legitimate),
+            (
+                "🎤",
+                "Conferences",
+                result.conference_entries,
+                result.conference_legitimate,
+            ),
+        ]
+
+        for emoji, name, total_count, legitimate_count in legitimate_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {legitimate_count}/{total_count}"
+                )
         summary_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
 
         # Venue type breakdown
