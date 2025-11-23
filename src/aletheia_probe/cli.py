@@ -297,6 +297,167 @@ def bibtex(
     asyncio.run(_async_bibtex_main(bibtex_file, verbose, output_format, relax_bibtex))
 
 
+@main.group(name="conference-acronym")
+def conference_acronym() -> None:
+    """Manage the conference acronym database."""
+    pass
+
+
+@conference_acronym.command(name="status")
+def acronym_status() -> None:
+    """Show conference acronym database status."""
+    status_logger = get_status_logger()
+
+    try:
+        cache_manager = get_cache_manager()
+        stats = cache_manager.get_acronym_stats()
+        count = stats.get("total_count", 0)
+
+        status_logger.info("Conference Acronym Database Status")
+        status_logger.info("=" * 40)
+
+        if count == 0:
+            status_logger.info("Database is empty (no acronyms stored)")
+        else:
+            status_logger.info(f"Total acronyms: {count:,}")
+
+    except Exception as e:
+        status_logger.error(f"Error getting acronym database status: {e}")
+        exit(1)
+
+
+@conference_acronym.command()
+def stats() -> None:
+    """Show detailed statistics about the acronym database."""
+    status_logger = get_status_logger()
+
+    try:
+        cache_manager = get_cache_manager()
+        stats = cache_manager.get_acronym_stats()
+
+        status_logger.info("Conference Acronym Database Statistics")
+        status_logger.info("=" * 40)
+
+        total = stats.get("total_count", 0)
+
+        if total == 0:
+            status_logger.info("Database is empty (no acronyms stored)")
+            return
+
+        status_logger.info(f"Total acronyms: {total:,}")
+
+        if "most_recent_acronym" in stats:
+            status_logger.info("\nMost Recently Used:")
+            status_logger.info(f"  Acronym: {stats['most_recent_acronym']}")
+            status_logger.info(f"  Full Name: {stats['most_recent_full_name']}")
+            status_logger.info(f"  Last Used: {stats['most_recent_used']}")
+
+        if "oldest_acronym" in stats:
+            status_logger.info("\nOldest Entry:")
+            status_logger.info(f"  Acronym: {stats['oldest_acronym']}")
+            status_logger.info(f"  Full Name: {stats['oldest_full_name']}")
+            status_logger.info(f"  Created: {stats['oldest_created']}")
+
+    except Exception as e:
+        status_logger.error(f"Error getting acronym statistics: {e}")
+        exit(1)
+
+
+@conference_acronym.command()
+@click.option("--limit", type=int, help="Maximum number of entries to display")
+@click.option("--offset", type=int, default=0, help="Number of entries to skip")
+def list(limit: int | None, offset: int) -> None:
+    """List all acronym mappings in the database."""
+    status_logger = get_status_logger()
+
+    try:
+        cache_manager = get_cache_manager()
+        acronyms = cache_manager.list_all_acronyms(limit=limit, offset=offset)
+
+        if not acronyms:
+            status_logger.info("No acronyms found in the database.")
+            return
+
+        status_logger.info("Conference Acronym Mappings")
+        status_logger.info("=" * 80)
+
+        for entry in acronyms:
+            # Normalize the full name to show what the system actually searches for
+            normalized_name = input_normalizer.normalize(
+                entry["full_name"]
+            ).normalized_name
+
+            status_logger.info(f"\nAcronym: {entry['acronym']}")
+            status_logger.info(f"  Full Name: {entry['full_name']}")
+            status_logger.info(f"  Normalized: {normalized_name}")
+            status_logger.info(f"  Source: {entry['source']}")
+            status_logger.info(f"  Created: {entry['created_at']}")
+            status_logger.info(f"  Last Used: {entry['last_used_at']}")
+
+        total_count = cache_manager.get_acronym_stats()["total_count"]
+        shown = len(acronyms)
+
+        if limit is not None or offset > 0:
+            status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
+
+    except Exception as e:
+        status_logger.error(f"Error listing acronyms: {e}")
+        exit(1)
+
+
+@conference_acronym.command()
+@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+def clear(confirm: bool) -> None:
+    """Clear all entries from the acronym database."""
+    status_logger = get_status_logger()
+
+    if not confirm:
+        click.confirm(
+            "This will delete all conference acronym mappings. Continue?", abort=True
+        )
+
+    try:
+        cache_manager = get_cache_manager()
+        count = cache_manager.clear_acronym_database()
+
+        if count == 0:
+            status_logger.info("Acronym database is already empty.")
+        else:
+            status_logger.info(f"Cleared {count:,} acronym mapping(s).")
+
+    except Exception as e:
+        status_logger.error(f"Error clearing acronym database: {e}")
+        exit(1)
+
+
+@conference_acronym.command()
+@click.argument("acronym")
+@click.argument("full_name")
+@click.option(
+    "--source",
+    default="manual",
+    help="Source of the mapping (default: manual)",
+)
+def add(acronym: str, full_name: str, source: str) -> None:
+    """Manually add an acronym mapping to the database.
+
+    ACRONYM: The conference acronym (e.g., ICML)
+    FULL_NAME: The full conference name
+    """
+    status_logger = get_status_logger()
+
+    try:
+        cache_manager = get_cache_manager()
+        cache_manager.store_acronym_mapping(acronym, full_name, source)
+
+        status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
+        status_logger.info(f"Source: {source}")
+
+    except Exception as e:
+        status_logger.error(f"Error adding acronym mapping: {e}")
+        exit(1)
+
+
 async def _async_bibtex_main(
     bibtex_file: str, verbose: bool, output_format: str, relax_bibtex: bool
 ) -> None:

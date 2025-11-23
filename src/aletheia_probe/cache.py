@@ -1189,6 +1189,118 @@ class CacheManager:
             )
             conn.commit()
 
+    def get_acronym_stats(self) -> dict[str, int | str]:
+        """
+        Get statistics about the acronym database.
+
+        Returns:
+            Dictionary containing count, most_recent, and oldest entry info
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Get total count
+            cursor.execute("SELECT COUNT(*) as count FROM conference_acronyms")
+            count = cursor.fetchone()["count"]
+
+            # Get most recently used
+            cursor.execute(
+                """
+                SELECT acronym, full_name, last_used_at
+                FROM conference_acronyms
+                ORDER BY last_used_at DESC
+                LIMIT 1
+                """
+            )
+            most_recent = cursor.fetchone()
+
+            # Get oldest entry
+            cursor.execute(
+                """
+                SELECT acronym, full_name, created_at
+                FROM conference_acronyms
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            )
+            oldest = cursor.fetchone()
+
+            stats = {"total_count": count}
+
+            if most_recent:
+                stats["most_recent_acronym"] = most_recent["acronym"]
+                stats["most_recent_full_name"] = most_recent["full_name"]
+                stats["most_recent_used"] = most_recent["last_used_at"]
+
+            if oldest:
+                stats["oldest_acronym"] = oldest["acronym"]
+                stats["oldest_full_name"] = oldest["full_name"]
+                stats["oldest_created"] = oldest["created_at"]
+
+            return stats
+
+    def list_all_acronyms(
+        self, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, str]]:
+        """
+        List all acronym mappings in the database.
+
+        Args:
+            limit: Maximum number of entries to return (None for all)
+            offset: Number of entries to skip
+
+        Returns:
+            List of dictionaries containing acronym details
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            query = """
+                SELECT acronym, full_name, source, created_at, last_used_at
+                FROM conference_acronyms
+                ORDER BY acronym ASC
+            """
+
+            if limit is not None:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            return [
+                {
+                    "acronym": row["acronym"],
+                    "full_name": row["full_name"],
+                    "source": row["source"],
+                    "created_at": row["created_at"],
+                    "last_used_at": row["last_used_at"],
+                }
+                for row in rows
+            ]
+
+    def clear_acronym_database(self) -> int:
+        """
+        Clear all entries from the acronym database.
+
+        Returns:
+            Number of entries deleted
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Get count before deletion
+            cursor.execute("SELECT COUNT(*) FROM conference_acronyms")
+            result = cursor.fetchone()
+            count: int = result[0] if result else 0
+
+            # Delete all entries
+            cursor.execute("DELETE FROM conference_acronyms")
+            conn.commit()
+
+            return count
+
 
 # Global cache manager instance with factory pattern
 _cache_manager_instance: CacheManager | None = None
