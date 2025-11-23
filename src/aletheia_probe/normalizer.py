@@ -487,9 +487,9 @@ class InputNormalizer:
         Returns:
             Full name if found, None otherwise
         """
-        from .cache import CacheManager
+        from .cache import get_cache_manager
 
-        cache = CacheManager()
+        cache = get_cache_manager()
         return cache.get_full_name_for_acronym(acronym)
 
     def _store_acronym_mappings_from_text(
@@ -507,9 +507,9 @@ class InputNormalizer:
         if not extracted_acronyms:
             return
 
-        from .cache import CacheManager
+        from .cache import get_cache_manager
 
-        cache = CacheManager()
+        cache = get_cache_manager()
 
         # For each acronym, try to extract the full name before the parentheses
         for acronym in extracted_acronyms:
