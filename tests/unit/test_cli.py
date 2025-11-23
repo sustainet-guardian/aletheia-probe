@@ -525,72 +525,27 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_status_empty(self, runner):
         """Test conference-acronym status command with empty database."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test_cache.db"
+        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+            mock_cache = MagicMock()
+            mock_cache.get_acronym_stats.return_value = {"total_count": 0}
+            mock_get_cache.return_value = mock_cache
 
-            with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
-                mock_cache = MagicMock()
-                mock_cache.db_path = db_path
-                mock_get_cache.return_value = mock_cache
+            result = runner.invoke(main, ["conference-acronym", "status"])
 
-                # Create empty database
-                import sqlite3
-
-                with sqlite3.connect(db_path) as conn:
-                    conn.execute(
-                        """CREATE TABLE conference_acronyms (
-                            acronym TEXT PRIMARY KEY,
-                            full_name TEXT NOT NULL,
-                            source TEXT,
-                            created_at TIMESTAMP,
-                            last_used_at TIMESTAMP
-                        )"""
-                    )
-
-                result = runner.invoke(main, ["conference-acronym", "status"])
-
-                assert result.exit_code == 0
-                assert "empty" in result.output.lower()
+            assert result.exit_code == 0
+            assert "empty" in result.output.lower()
 
     def test_conference_acronym_status_with_data(self, runner):
         """Test conference-acronym status command with data."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test_cache.db"
+        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+            mock_cache = MagicMock()
+            mock_cache.get_acronym_stats.return_value = {"total_count": 2}
+            mock_get_cache.return_value = mock_cache
 
-            with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
-                mock_cache = MagicMock()
-                mock_cache.db_path = db_path
-                mock_get_cache.return_value = mock_cache
+            result = runner.invoke(main, ["conference-acronym", "status"])
 
-                # Create database with test data
-                import sqlite3
-
-                with sqlite3.connect(db_path) as conn:
-                    conn.execute(
-                        """CREATE TABLE conference_acronyms (
-                            acronym TEXT PRIMARY KEY,
-                            full_name TEXT NOT NULL,
-                            source TEXT,
-                            created_at TIMESTAMP,
-                            last_used_at TIMESTAMP
-                        )"""
-                    )
-                    conn.execute(
-                        """INSERT INTO conference_acronyms
-                           (acronym, full_name, source)
-                           VALUES ('ICML', 'International Conference on Machine Learning', 'test')"""
-                    )
-                    conn.execute(
-                        """INSERT INTO conference_acronyms
-                           (acronym, full_name, source)
-                           VALUES ('CVPR', 'Computer Vision and Pattern Recognition', 'test')"""
-                    )
-                    conn.commit()
-
-                result = runner.invoke(main, ["conference-acronym", "status"])
-
-                assert result.exit_code == 0
-                assert "2" in result.output
+            assert result.exit_code == 0
+            assert "2" in result.output
 
     def test_conference_acronym_stats(self, runner):
         """Test conference-acronym stats command."""

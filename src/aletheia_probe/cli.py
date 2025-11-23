@@ -310,10 +310,8 @@ def acronym_status() -> None:
 
     try:
         cache_manager = get_cache_manager()
-
-        with sqlite3.connect(cache_manager.db_path) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM conference_acronyms")
-            count = cursor.fetchone()[0]
+        stats = cache_manager.get_acronym_stats()
+        count = stats.get("total_count", 0)
 
         status_logger.info("Conference Acronym Database Status")
         status_logger.info("=" * 40)
