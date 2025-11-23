@@ -1143,8 +1143,9 @@ class CacheManager:
         """
         Store an acronym to full name mapping in the cache.
 
-        If the acronym already exists with a different full_name, logs a warning
-        and overwrites with the new mapping.
+        If the acronym already exists with a different full_name, it logs a
+        warning and overwrites it, unless the names are essentially the same
+        conference with minor variations (e.g., year prefix/suffix).
 
         Args:
             acronym: The acronym (e.g., 'ICML')
@@ -1173,10 +1174,14 @@ class CacheManager:
 
             existing = cursor.fetchone()
             if existing and existing["full_name"] != full_name:
-                status_logger.warning(
-                    f"Acronym '{acronym}' already maps to '{existing['full_name']}', "
-                    f"overwriting with '{full_name}'"
-                )
+                # Check if this is essentially the same conference with minor variations
+                if not self._are_conference_names_equivalent(
+                    existing["full_name"], full_name
+                ):
+                    status_logger.warning(
+                        f"Acronym '{acronym}' already maps to '{existing['full_name']}', "
+                        f"overwriting with '{full_name}'"
+                    )
 
             # Insert or replace the mapping
             cursor.execute(
@@ -1188,6 +1193,63 @@ class CacheManager:
                 (acronym, full_name, source),
             )
             conn.commit()
+
+    def _are_conference_names_equivalent(self, name1: str, name2: str) -> bool:
+        """
+        Check if two conference names are essentially the same with minor variations.
+
+        This method uses the existing conference series normalization logic to
+        identify trivial differences like year prefixes/suffixes and ordinal numbers
+        that don't represent different conferences.
+
+        Args:
+            name1: First conference name
+            name2: Second conference name
+
+        Returns:
+            True if the names represent the same conference with minor variations
+
+        Examples:
+            - "2022 IEEE/CVF Conference" and "IEEE/CVF Conference" -> True
+            - "Conference 2022" and "Conference" -> True
+            - "1st International Conference" and "International Conference" -> True
+            - "AAAI" and "AI Conference" -> False
+        """
+        from .normalizer import input_normalizer
+
+        # Normalize case
+        norm1 = name1.lower().strip()
+        norm2 = name2.lower().strip()
+
+        # If identical after case normalization, they're equivalent
+        if norm1 == norm2:
+            return True
+
+        # Use the existing conference series extraction logic
+        # This removes years, ordinals, and "Proceedings of" prefix
+        series1 = input_normalizer._extract_conference_series(norm1)
+        series2 = input_normalizer._extract_conference_series(norm2)
+
+        # If both extracted to the same series, they're equivalent
+        if series1 and series2:
+            if series1.lower() == series2.lower():
+                return True
+
+        # Handle case where one might be the series of the other
+        # e.g., "2022 Conference" vs "Conference" where series2 is None
+        if series1 and series1.lower() == norm2:
+            return True
+        if series2 and series2.lower() == norm1:
+            return True
+
+        # Check if one is a substring of the other after normalization
+        # But only if the shorter name is at least 10 characters to avoid false positives
+        # (e.g., "AI" vs "AAAI" should not match)
+        if len(norm1) >= 10 or len(norm2) >= 10:
+            if norm1 in norm2 or norm2 in norm1:
+                return True
+
+        return False
 
     def get_acronym_stats(self) -> dict[str, int | str]:
         """

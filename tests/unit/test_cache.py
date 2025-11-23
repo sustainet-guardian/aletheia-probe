@@ -514,3 +514,228 @@ class TestCacheManager:
             total_count += len(source_results)
 
         assert total_count == 30  # 3 sources * 10 entries each
+
+
+class TestAcronymMapping:
+    """Test cases for conference acronym mapping functionality."""
+
+    def test_store_acronym_mapping_new_entry(self, temp_cache):
+        """Test storing a new acronym mapping."""
+        temp_cache.store_acronym_mapping(
+            acronym="ICML", full_name="International Conference on Machine Learning"
+        )
+
+        # Verify the mapping was stored
+        result = temp_cache.get_full_name_for_acronym("ICML")
+        assert result == "International Conference on Machine Learning"
+
+    def test_store_acronym_mapping_case_insensitive(self, temp_cache):
+        """Test that acronym lookup is case-insensitive."""
+        temp_cache.store_acronym_mapping(
+            acronym="CVPR", full_name="Conference on Computer Vision"
+        )
+
+        # Should work with different cases
+        assert (
+            temp_cache.get_full_name_for_acronym("CVPR")
+            == "Conference on Computer Vision"
+        )
+        assert (
+            temp_cache.get_full_name_for_acronym("cvpr")
+            == "Conference on Computer Vision"
+        )
+        assert (
+            temp_cache.get_full_name_for_acronym("CvPr")
+            == "Conference on Computer Vision"
+        )
+
+    def test_store_acronym_mapping_no_warn_on_year_variation(self, temp_cache, caplog):
+        """Test that no warning is logged for year variations of same conference."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        # Store initial mapping with year
+        temp_cache.store_acronym_mapping(
+            acronym="CVPR",
+            full_name="2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+        )
+
+        # Store same conference without year - should not warn
+        temp_cache.store_acronym_mapping(
+            acronym="CVPR",
+            full_name="IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+        )
+
+        # Verify no warning was logged
+        warnings = [
+            record for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert len(warnings) == 0
+
+    def test_store_acronym_mapping_no_warn_on_ordinal_variation(
+        self, temp_cache, caplog
+    ):
+        """Test that no warning is logged for ordinal variations."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        # Store with ordinal
+        temp_cache.store_acronym_mapping(
+            acronym="ICML",
+            full_name="37th International Conference on Machine Learning",
+        )
+
+        # Store without ordinal - should not warn
+        temp_cache.store_acronym_mapping(
+            acronym="ICML", full_name="International Conference on Machine Learning"
+        )
+
+        # Verify no warning was logged
+        warnings = [
+            record for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert len(warnings) == 0
+
+    def test_store_acronym_mapping_warns_on_different_conferences(
+        self, temp_cache, caplog
+    ):
+        """Test that warning is logged when acronym maps to truly different conferences."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        # Store first conference
+        temp_cache.store_acronym_mapping(
+            acronym="AI", full_name="Artificial Intelligence Conference"
+        )
+
+        # Store different conference with same acronym - should warn
+        temp_cache.store_acronym_mapping(
+            acronym="AI", full_name="Algorithms and Informatics Symposium"
+        )
+
+        # Verify warning was logged
+        warnings = [
+            record for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert len(warnings) == 1
+        assert "already maps to" in warnings[0].message
+        assert "Artificial Intelligence Conference" in warnings[0].message
+
+    def test_store_acronym_mapping_source_tracking(self, temp_cache):
+        """Test that the source of acronym mappings is tracked."""
+        temp_cache.store_acronym_mapping(
+            acronym="NeurIPS",
+            full_name="Neural Information Processing Systems",
+            source="bibtex_extraction",
+        )
+
+        # Verify the mapping exists (source is tracked internally)
+        result = temp_cache.get_full_name_for_acronym("NeurIPS")
+        assert result == "Neural Information Processing Systems"
+
+    def test_are_conference_names_equivalent_identical(self, temp_cache):
+        """Test equivalence check for identical names."""
+        assert temp_cache._are_conference_names_equivalent(
+            "Machine Learning Conference", "Machine Learning Conference"
+        )
+
+    def test_are_conference_names_equivalent_case_insensitive(self, temp_cache):
+        """Test equivalence check is case-insensitive."""
+        assert temp_cache._are_conference_names_equivalent(
+            "Machine Learning Conference", "machine learning conference"
+        )
+
+    def test_are_conference_names_equivalent_year_prefix(self, temp_cache):
+        """Test equivalence with year prefix."""
+        assert temp_cache._are_conference_names_equivalent(
+            "2022 IEEE/CVF Conference on Computer Vision",
+            "IEEE/CVF Conference on Computer Vision",
+        )
+
+    def test_are_conference_names_equivalent_year_suffix(self, temp_cache):
+        """Test equivalence with year suffix."""
+        assert temp_cache._are_conference_names_equivalent(
+            "Conference on Machine Learning 2023",
+            "Conference on Machine Learning",
+        )
+
+    def test_are_conference_names_equivalent_edition_markers(self, temp_cache):
+        """Test equivalence with edition markers."""
+        assert temp_cache._are_conference_names_equivalent(
+            "2022 edition International Conference",
+            "International Conference",
+        )
+        assert temp_cache._are_conference_names_equivalent(
+            "International Conference edition 2022",
+            "International Conference",
+        )
+
+    def test_are_conference_names_equivalent_ordinals(self, temp_cache):
+        """Test equivalence with ordinal numbers."""
+        assert temp_cache._are_conference_names_equivalent(
+            "37th International Conference on Machine Learning",
+            "International Conference on Machine Learning",
+        )
+        assert temp_cache._are_conference_names_equivalent(
+            "1st Workshop on Neural Networks",
+            "Workshop on Neural Networks",
+        )
+        assert temp_cache._are_conference_names_equivalent(
+            "22nd Annual Conference",
+            "Annual Conference",
+        )
+
+    def test_are_conference_names_equivalent_different_conferences(self, temp_cache):
+        """Test that truly different conferences are not equivalent."""
+        assert not temp_cache._are_conference_names_equivalent(
+            "Artificial Intelligence Conference",
+            "Algorithms and Informatics Symposium",
+        )
+        assert not temp_cache._are_conference_names_equivalent("AAAI", "AI Conference")
+
+    def test_are_conference_names_equivalent_substring_with_length_check(
+        self, temp_cache
+    ):
+        """Test that short substrings don't match to avoid false positives."""
+        # Short names (< 10 chars) should not match via substring
+        assert not temp_cache._are_conference_names_equivalent("AI", "AAAI")
+        assert not temp_cache._are_conference_names_equivalent("ML", "ICML")
+
+        # But longer names can match via substring after year/ordinal removal
+        assert temp_cache._are_conference_names_equivalent(
+            "International Conference on Machine Learning and Applications",
+            "International Conference on Machine Learning",
+        )
+
+    def test_are_conference_names_equivalent_complex_variations(self, temp_cache):
+        """Test complex real-world variations."""
+        # Real example from issue #90
+        assert temp_cache._are_conference_names_equivalent(
+            "2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+            "IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+        )
+
+        # Multiple years in name
+        assert temp_cache._are_conference_names_equivalent(
+            "2023 25th International Conference",
+            "International Conference",
+        )
+
+    def test_store_acronym_mapping_overwrites_with_latest(self, temp_cache):
+        """Test that newer mappings overwrite older ones."""
+        # Store initial mapping
+        temp_cache.store_acronym_mapping(
+            acronym="TEST", full_name="Test Conference 2022"
+        )
+
+        # Store updated mapping (equivalent, just different year)
+        temp_cache.store_acronym_mapping(
+            acronym="TEST", full_name="Test Conference 2023"
+        )
+
+        # Should return the latest one
+        result = temp_cache.get_full_name_for_acronym("TEST")
+        assert result == "Test Conference 2023"
