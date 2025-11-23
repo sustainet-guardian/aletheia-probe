@@ -1,9 +1,21 @@
 # AI Coding Agent Guidelines
 
-**Project:** Aletheia-Probe - Journal Assessment Tool
+**Project:** Aletheia-Probe - Journal and Conference Assessment Tool
 **Purpose:** Explicit instructions for AI coding assistants
+**Supported Agents:** All AI coding assistants
 
 **Note:** This project actively encourages the use of AI coding agents in development. Your contributions are valued as tools to aid problem-solving, code generation, review, and learning.
+
+---
+
+## 0. Agent Communication Guidelines
+
+**IMPORTANT:** Follow these communication rules:
+
+- **NEVER** mention your specific agent name (Claude, Gemini, etc.) in commits, PRs, or code
+- **NEVER** add co-author attribution for AI agents
+- **DO** use the tag `[AI-assisted]` when appropriate in comments or PR descriptions
+- Focus on the technical content, not the tool used to create it
 
 ---
 
@@ -25,7 +37,7 @@ Follow this process for ALL development work:
 
 3. **Create a feature branch**
    ```bash
-   git checkout -b fix-issue-<number>  # or feat-<description>
+   git checkout -b fix-issue-<number>-<description>
    ```
 
 4. **Develop, fix, and test**
@@ -40,8 +52,8 @@ Follow this process for ALL development work:
    - ALL checks MUST pass before proceeding
 
 6. **Commit your changes**
-   - Follow conventional commit format (see section 4 below)
-   - Write clear commit messages explaining WHY
+   - Follow conventional commit format
+   - Write clear commit messages explaining WHY the changes were made
 
 7. **Create a Pull Request**
    - Push your branch to GitHub
@@ -138,3 +150,33 @@ Include:
 5. Use backwards-compatibility hacks
 
 **When uncertain, ask for clarification.**
+
+---
+
+## 6. Git and Version Control Guidelines
+
+**IMPORTANT Git Rules:**
+- **ALWAYS** use specific filenames when adding to git, NEVER use patterns or directories
+- **NEVER** reference any specific agent name (Claude, Gemini, etc.) in commit messages
+- **NEVER** reference any agent name in any part of source code or documentation
+- **DO** use `[AI-assisted]` tag when appropriate in commit messages
+
+---
+
+## 7. GitHub PR Comment Replies
+
+To reply to PR review comments on GitHub:
+
+```bash
+# Reply to a specific review comment using the comment ID
+gh api --method POST repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies --field body="Your reply message [AI-assisted]"
+
+# Example:
+gh api --method POST repos/sustainet-guardian/aletheia-probe/pulls/28/comments/2544706229/replies --field body="Fixed! Removed the unrelated cache TTL entry from the changelog. [AI-assisted]"
+```
+
+**Important notes:**
+- Use the `/replies` endpoint to reply to existing review comments
+- The `comment_id` must be a top-level review comment (not a reply to a reply)
+- Always include the `[AI-assisted]` tag in replies
+- Find comment IDs using: `gh api repos/{owner}/{repo}/pulls/{pr_number}/comments`

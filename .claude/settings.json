@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aletheia-probe bibtex:*)",
+      "Bash(aletheia-probe conference:*)",
+      "Bash(aletheia-probe journal:*)",
+      "Bash(bash scripts/run-quality-checks.sh:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(gh api:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(git add:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git log:*)",
+      "Bash(git show-ref:*)",
+      "Bash(git show:*)",
+      "Bash(jq:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(sqlite3:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
