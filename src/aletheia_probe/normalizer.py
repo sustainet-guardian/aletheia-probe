@@ -101,6 +101,34 @@ class InputNormalizer:
         # DOI pattern
         self.doi_pattern = re.compile(r"\b10\.\d{4,}[^\s]*\b")
 
+    def extract_conference_series(self, conference_name: str) -> str | None:
+        """Extract conference series name by removing years and ordinals.
+
+        This is a public interface for extracting the base series name from
+        conference names that include years or ordinal numbers.
+
+        Args:
+            conference_name: Full conference name (may include year/ordinal)
+
+        Returns:
+            Conference series name if extractable, None otherwise
+
+        Examples:
+            >>> normalizer = InputNormalizer()
+            >>> normalizer.extract_conference_series("34th ICML 2024")
+            "ICML"
+            >>> normalizer.extract_conference_series("2023 IEEE CVPR")
+            "IEEE CVPR"
+        """
+        if not conference_name or not isinstance(conference_name, str):
+            return None
+
+        try:
+            return self._extract_conference_series(conference_name.strip())
+        except Exception:
+            # Gracefully handle any unexpected errors in series extraction
+            return None
+
     def normalize(self, raw_input: str) -> QueryInput:
         """Normalize input and extract identifiers.
 
