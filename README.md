@@ -4,13 +4,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-> **🚧 Beta Release (v0.1.0)** - This tool is currently in beta testing. We welcome feedback and bug reports from early adopters. See [BETA-TESTING.md](BETA-TESTING.md) for how to help test and provide feedback.
+> **🚧 Beta Release** - This tool is currently in beta testing. We welcome feedback and bug reports from early adopters. See [BETA-TESTING.md](BETA-TESTING.md) for how to help test and provide feedback.
 
 Aletheia-Probe is a comprehensive command-line tool for evaluating the legitimacy of academic journals and conferences. By aggregating data from authoritative sources and applying advanced pattern analysis, it helps researchers, librarians, and institutions detect predatory venues and ensure the integrity of scholarly publishing.
 
+**Setting Realistic Expectations**: If you are an honest researcher using established, well-known journals and conferences through major search engines and databases, you will likely never encounter predatory venues. This tool functions like a virus scanner for academic publishing—you should have it installed and running, but hopefully never receive any warnings. It's designed to catch the edge cases and protect against the less obvious threats that might slip through normal research workflows.
+
 ### About the Name
 
-The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones. The suffix "-Probe" emphasizes the tool's investigative nature—actively examining and uncovering the reality behind scholarly publishing claims.
+The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones.
 
 ## TL;DR
 
