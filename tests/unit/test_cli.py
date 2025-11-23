@@ -628,7 +628,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_list(self, runner):
         """Test conference-acronym list command."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with (
+            patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache,
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+        ):
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = [
                 {
@@ -649,12 +652,22 @@ class TestConferenceAcronymCommands:
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
             mock_get_cache.return_value = mock_cache
 
+            # Mock the normalizer to return normalized names
+            def mock_normalize(text):
+                mock_result = MagicMock()
+                # Return the text in lowercase as a simple normalization
+                mock_result.normalized_name = text.lower()
+                return mock_result
+
+            mock_normalizer.normalize = mock_normalize
+
             result = runner.invoke(main, ["conference-acronym", "list"])
 
             assert result.exit_code == 0
             assert "ICML" in result.output
             assert "CVPR" in result.output
             assert "International Conference on Machine Learning" in result.output
+            assert "Normalized:" in result.output
 
     def test_conference_acronym_list_empty(self, runner):
         """Test conference-acronym list command with empty database."""
@@ -670,7 +683,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_list_with_limit(self, runner):
         """Test conference-acronym list command with limit option."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with (
+            patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache,
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+        ):
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = [
                 {
@@ -683,6 +699,14 @@ class TestConferenceAcronymCommands:
             ]
             mock_cache.get_acronym_stats.return_value = {"total_count": 10}
             mock_get_cache.return_value = mock_cache
+
+            # Mock the normalizer
+            def mock_normalize(text):
+                mock_result = MagicMock()
+                mock_result.normalized_name = text.lower()
+                return mock_result
+
+            mock_normalizer.normalize = mock_normalize
 
             result = runner.invoke(main, ["conference-acronym", "list", "--limit", "1"])
 

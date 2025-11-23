@@ -384,8 +384,14 @@ def list(limit: int | None, offset: int) -> None:
         status_logger.info("=" * 80)
 
         for entry in acronyms:
+            # Normalize the full name to show what the system actually searches for
+            normalized_name = input_normalizer.normalize(
+                entry["full_name"]
+            ).normalized_name
+
             status_logger.info(f"\nAcronym: {entry['acronym']}")
             status_logger.info(f"  Full Name: {entry['full_name']}")
+            status_logger.info(f"  Normalized: {normalized_name}")
             status_logger.info(f"  Source: {entry['source']}")
             status_logger.info(f"  Created: {entry['created_at']}")
             status_logger.info(f"  Last Used: {entry['last_used_at']}")
