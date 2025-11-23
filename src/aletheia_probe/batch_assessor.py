@@ -110,11 +110,7 @@ class BibtexBatchAssessor:
             journal_legitimate=0,
             journal_suspicious=0,
             has_predatory_journals=False,
-            workshop_entries=0,
-            symposium_entries=0,
-            book_entries=0,
-            preprint_entries=0,
-            unknown_venue_type_entries=0,
+            venue_type_counts={},
             retracted_articles_count=0,
             articles_checked_for_retraction=0,
             processing_time=0.0,  # Will be updated at the end
@@ -209,16 +205,9 @@ class BibtexBatchAssessor:
                     result.journal_entries += 1
 
                 # Update venue type counters
-                if entry.venue_type == VenueType.WORKSHOP:
-                    result.workshop_entries += 1
-                elif entry.venue_type == VenueType.SYMPOSIUM:
-                    result.symposium_entries += 1
-                elif entry.venue_type == VenueType.BOOK:
-                    result.book_entries += 1
-                elif entry.venue_type == VenueType.PREPRINT:
-                    result.preprint_entries += 1
-                elif entry.venue_type == VenueType.UNKNOWN:
-                    result.unknown_venue_type_entries += 1
+                result.venue_type_counts[entry.venue_type] = (
+                    result.venue_type_counts.get(entry.venue_type, 0) + 1
+                )
 
                 # Update counters based on assessment
                 if assessment.assessment == AssessmentType.PREDATORY:
@@ -312,10 +301,14 @@ class BibtexBatchAssessor:
             summary_lines.append(
                 f"    🎤 Conferences: {result.conference_predatory}/{result.conference_entries}"
             )
-        if result.workshop_entries > 0:
-            summary_lines.append(f"    🔧 Workshops: {result.workshop_entries}")
-        if result.symposium_entries > 0:
-            summary_lines.append(f"    🎪 Symposiums: {result.symposium_entries}")
+        if result.venue_type_counts.get(VenueType.WORKSHOP, 0) > 0:
+            summary_lines.append(
+                f"    🔧 Workshops: {result.venue_type_counts[VenueType.WORKSHOP]}"
+            )
+        if result.venue_type_counts.get(VenueType.SYMPOSIUM, 0) > 0:
+            summary_lines.append(
+                f"    🎪 Symposiums: {result.venue_type_counts[VenueType.SYMPOSIUM]}"
+            )
         summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
         if result.journal_entries > 0:
             summary_lines.append(
@@ -337,25 +330,26 @@ class BibtexBatchAssessor:
         summary_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
 
         # Venue type breakdown
-        if any(
-            [
-                result.workshop_entries,
-                result.symposium_entries,
-                result.book_entries,
-                result.preprint_entries,
-                result.unknown_venue_type_entries,
-            ]
-        ):
+        if result.venue_type_counts:
             summary_lines.append("")
             summary_lines.append("Venue Type Breakdown:")
-            if result.book_entries > 0:
-                summary_lines.append(f"  📚 Books: {result.book_entries}")
-            if result.preprint_entries > 0:
-                summary_lines.append(f"  📝 Preprints: {result.preprint_entries}")
-            if result.unknown_venue_type_entries > 0:
-                summary_lines.append(
-                    f"  ❓ Unknown venue type: {result.unknown_venue_type_entries}"
-                )
+
+            venue_type_emojis = {
+                VenueType.BOOK: "📚",
+                VenueType.PREPRINT: "📝",
+                VenueType.WORKSHOP: "🔧",
+                VenueType.SYMPOSIUM: "🎪",
+                VenueType.UNKNOWN: "❓",
+                VenueType.PROCEEDINGS: "📑",
+            }
+
+            for venue_type, count in result.venue_type_counts.items():
+                if venue_type in venue_type_emojis and count > 0:
+                    emoji = venue_type_emojis[venue_type]
+                    type_name = venue_type.value.title() + (
+                        "s" if venue_type != VenueType.UNKNOWN else " venue type"
+                    )
+                    summary_lines.append(f"  {emoji} {type_name}: {count}")
         summary_lines.append("")
 
         # Retraction summary

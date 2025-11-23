@@ -246,12 +246,8 @@ class BibtexAssessmentResult(BaseModel):
         False, description="Whether any predatory journals/conferences were found"
     )
     # Venue type counters
-    workshop_entries: int = Field(0, description="Number of workshop entries")
-    symposium_entries: int = Field(0, description="Number of symposium entries")
-    book_entries: int = Field(0, description="Number of book entries")
-    preprint_entries: int = Field(0, description="Number of preprint entries")
-    unknown_venue_type_entries: int = Field(
-        0, description="Number of entries with unknown venue type"
+    venue_type_counts: dict[VenueType, int] = Field(
+        default_factory=dict, description="Count of entries by venue type"
     )
     # Article retraction counters
     retracted_articles_count: int = Field(
