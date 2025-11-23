@@ -16,6 +16,17 @@ The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where
 
 ## TL;DR
 
+Aletheia-Probe helps answer two critical questions for researchers:
+
+1.  **Is the journal I want to publish in legitimate?**
+    ```bash
+    aletheia-probe journal "Journal of Computer Science"
+    ```
+2.  **Are the references in my paper legitimate?**
+    ```bash
+    aletheia-probe bibtex references.bib
+    ```
+
 ```bash
 # Beta release - Install from PyPI or source
 
@@ -80,7 +91,7 @@ The tool analyzes publication patterns, citation metrics, and metadata quality t
 
 ## Quick Start
 
-See the [Quick Start Guide](docs/quick-start.md) for installation instructions and basic usage examples.
+See the [Quick Start Guide](docs/quick-start.md) for installation and basic usage examples.
 
 ## Assessment Methodology
 
@@ -271,4 +282,3 @@ SUSTAINET-guardian project. The views expressed are those of the author.
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
