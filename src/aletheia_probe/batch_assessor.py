@@ -9,7 +9,13 @@ from .bibtex_parser import BibtexParser
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_detail_logger, get_status_logger
-from .models import AssessmentResult, BibtexAssessmentResult, BibtexEntry
+from .models import (
+    VENUE_TYPE_EMOJI,
+    AssessmentResult,
+    BibtexAssessmentResult,
+    BibtexEntry,
+    VenueType,
+)
 from .normalizer import input_normalizer
 
 
@@ -110,6 +116,7 @@ class BibtexBatchAssessor:
             journal_legitimate=0,
             journal_suspicious=0,
             has_predatory_journals=False,
+            venue_type_counts={},
             retracted_articles_count=0,
             articles_checked_for_retraction=0,
             processing_time=0.0,  # Will be updated at the end
@@ -156,8 +163,10 @@ class BibtexBatchAssessor:
 
                 # Normalize the journal name for assessment
                 query_input = input_normalizer.normalize(entry.journal_name)
+                # Pass venue type information to the query
+                query_input.venue_type = entry.venue_type
                 detail_logger.debug(
-                    f"Normalized journal name: {query_input.normalized_name}"
+                    f"Normalized journal name: {query_input.normalized_name}, venue type: {entry.venue_type.value}"
                 )
 
                 # Create a cache key using lowercase normalized name for case-insensitive matching
@@ -177,6 +186,8 @@ class BibtexBatchAssessor:
                 else:
                     # Assess the journal
                     assessment = await query_dispatcher.assess_journal(query_input)
+                    # Update venue type information in the assessment result
+                    assessment.venue_type = entry.venue_type
                     detail_logger.debug(
                         f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
                     )
@@ -198,6 +209,11 @@ class BibtexBatchAssessor:
                     result.conference_entries += 1
                 else:
                     result.journal_entries += 1
+
+                # Update venue type counters
+                result.venue_type_counts[entry.venue_type] = (
+                    result.venue_type_counts.get(entry.venue_type, 0) + 1
+                )
 
                 # Update counters based on assessment
                 if assessment.assessment == AssessmentType.PREDATORY:
@@ -283,33 +299,99 @@ class BibtexBatchAssessor:
         # Assessment summary
         summary_lines.append("Assessment Results:")
         summary_lines.append(f"  Predatory: {result.predatory_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_predatory}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_predatory}/{result.conference_entries}"
-            )
+
+        # Display venue types with assessment breakdown where available
+        predatory_venue_display = [
+            # Legacy counters with assessment breakdown
+            (
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_predatory,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
+                "Conferences",
+                result.conference_entries,
+                result.conference_predatory,
+            ),
+        ]
+
+        for emoji, name, total_count, predatory_count in predatory_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {predatory_count}/{total_count}"
+                )
+
+        # New venue types with total counts only
+        predatory_venue_types = {
+            VenueType.WORKSHOP: (VENUE_TYPE_EMOJI[VenueType.WORKSHOP], "Workshops"),
+            VenueType.SYMPOSIUM: (VENUE_TYPE_EMOJI[VenueType.SYMPOSIUM], "Symposiums"),
+        }
+        for venue_type, (emoji, name) in predatory_venue_types.items():
+            count = result.venue_type_counts.get(venue_type, 0)
+            if count > 0:
+                summary_lines.append(f"    {emoji} {name}: {count}")
         summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_suspicious}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_suspicious}/{result.conference_entries}"
-            )
+
+        # Display venue types with assessment breakdown for suspicious
+        suspicious_venue_display = [
+            (
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_suspicious,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
+                "Conferences",
+                result.conference_entries,
+                result.conference_suspicious,
+            ),
+        ]
+
+        for emoji, name, total_count, suspicious_count in suspicious_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {suspicious_count}/{total_count}"
+                )
         summary_lines.append(f"  Legitimate: {result.legitimate_count} total")
-        if result.journal_entries > 0:
-            summary_lines.append(
-                f"    📄 Journals: {result.journal_legitimate}/{result.journal_entries}"
-            )
-        if result.conference_entries > 0:
-            summary_lines.append(
-                f"    🎤 Conferences: {result.conference_legitimate}/{result.conference_entries}"
-            )
+
+        # Display venue types with assessment breakdown for legitimate
+        legitimate_venue_display = [
+            (
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_legitimate,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
+                "Conferences",
+                result.conference_entries,
+                result.conference_legitimate,
+            ),
+        ]
+
+        for emoji, name, total_count, legitimate_count in legitimate_venue_display:
+            if total_count > 0:
+                summary_lines.append(
+                    f"    {emoji} {name}: {legitimate_count}/{total_count}"
+                )
         summary_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
+
+        # Venue type breakdown
+        if result.venue_type_counts:
+            summary_lines.append("")
+            summary_lines.append("Venue Type Breakdown:")
+
+            for venue_type, count in result.venue_type_counts.items():
+                if count > 0:
+                    emoji = VENUE_TYPE_EMOJI.get(venue_type, "❓")
+                    type_name = venue_type.value.title() + (
+                        "s" if venue_type != VenueType.UNKNOWN else " venue type"
+                    )
+                    summary_lines.append(f"  {emoji} {type_name}: {count}")
         summary_lines.append("")
 
         # Retraction summary
@@ -358,8 +440,11 @@ class BibtexBatchAssessor:
                 if entry.is_retracted:
                     retraction_indicator = " 🚫 RETRACTED"
 
+                # Add venue type indicator
+                venue_type_emoji = VENUE_TYPE_EMOJI.get(entry.venue_type, "❓")
+
                 summary_lines.append(
-                    f"{status_emoji} {entry.journal_name} "
+                    f"{status_emoji} {venue_type_emoji} {entry.journal_name} "
                     f"({assessment.assessment}, confidence: {assessment.confidence:.2f})"
                     f"{retraction_indicator}"
                 )

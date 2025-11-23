@@ -9,6 +9,32 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
+class VenueType(str, Enum):
+    """Types of academic venues for publication classification."""
+
+    JOURNAL = "journal"
+    CONFERENCE = "conference"
+    WORKSHOP = "workshop"
+    SYMPOSIUM = "symposium"
+    PROCEEDINGS = "proceedings"
+    BOOK = "book"
+    PREPRINT = "preprint"
+    UNKNOWN = "unknown"
+
+
+# Centralized venue type emoji mapping
+VENUE_TYPE_EMOJI: dict[VenueType, str] = {
+    VenueType.JOURNAL: "📄",
+    VenueType.CONFERENCE: "🎤",
+    VenueType.WORKSHOP: "🔧",
+    VenueType.SYMPOSIUM: "🎪",
+    VenueType.PROCEEDINGS: "📑",
+    VenueType.BOOK: "📚",
+    VenueType.PREPRINT: "📝",
+    VenueType.UNKNOWN: "❓",
+}
+
+
 class BackendStatus(Enum):
     """Status of a backend query result."""
 
@@ -30,6 +56,9 @@ class QueryInput(BaseModel):
     aliases: list[str] = Field(default_factory=list, description="Alternative names")
     acronym_expanded_from: str | None = Field(
         None, description="Original acronym if expansion was applied"
+    )
+    venue_type: VenueType = Field(
+        VenueType.UNKNOWN, description="Detected venue type (journal, conference, etc.)"
     )
 
 
@@ -111,6 +140,9 @@ class AssessmentResult(BaseModel):
     acronym_expansion_used: bool = Field(
         False, description="Whether acronym expansion was used to get results"
     )
+    venue_type: VenueType = Field(
+        VenueType.UNKNOWN, description="Detected venue type (journal, conference, etc.)"
+    )
 
 
 class ConfigBackend(BaseModel):
@@ -150,6 +182,9 @@ class BibtexEntry(BaseModel):
     journal_name: str = Field(..., description="Extracted journal or conference name")
     entry_type: str = Field(
         ..., description="BibTeX entry type (article, inproceedings, etc.)"
+    )
+    venue_type: VenueType = Field(
+        VenueType.UNKNOWN, description="Detected venue type (journal, conference, etc.)"
     )
     title: str | None = Field(None, description="Paper/article title")
     authors: str | None = Field(None, description="Authors")
@@ -222,6 +257,10 @@ class BibtexAssessmentResult(BaseModel):
     journal_suspicious: int = Field(0, description="Number of suspicious journals")
     has_predatory_journals: bool = Field(
         False, description="Whether any predatory journals/conferences were found"
+    )
+    # Venue type counters
+    venue_type_counts: dict[VenueType, int] = Field(
+        default_factory=dict, description="Count of entries by venue type"
     )
     # Article retraction counters
     retracted_articles_count: int = Field(

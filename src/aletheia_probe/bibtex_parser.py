@@ -13,7 +13,7 @@ from pybtex.database import (  # type: ignore
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
 from .logging_config import get_detail_logger, get_status_logger
-from .models import BibtexEntry
+from .models import BibtexEntry, VenueType
 
 
 detail_logger = get_detail_logger()
@@ -212,10 +212,14 @@ class BibtexParser:
                 )
                 return None
 
+            # Detect venue type
+            venue_type = BibtexParser._detect_venue_type(entry, venue_name)
+
             return BibtexEntry(
                 key=entry_key,
                 journal_name=venue_name,
                 entry_type=entry.type,
+                venue_type=venue_type,
                 title=BibtexParser._get_field_safely(entry, "title"),
                 authors=BibtexParser._extract_authors_safely(entry),
                 year=BibtexParser._get_field_safely(entry, "year"),
@@ -555,3 +559,146 @@ class BibtexParser:
                 return True
 
         return False
+
+    @staticmethod
+    def _detect_venue_type(entry: Entry, venue_name: str) -> VenueType:
+        """Detect the type of venue based on BibTeX entry and venue name patterns.
+
+        This method classifies venues into journals, conferences, workshops, symposiums,
+        etc., based on naming patterns and BibTeX entry types.
+
+        Args:
+            entry: BibTeX entry object
+            venue_name: Extracted venue name
+
+        Returns:
+            VenueType enum value representing the detected venue type
+
+        Examples:
+            "4th Deep Learning and Security Workshop" -> VenueType.WORKSHOP
+            "30th USENIX Security Symposium" -> VenueType.SYMPOSIUM
+            "IEEE Transactions on Neural Networks" -> VenueType.JOURNAL
+            "Proceedings of the IEEE conference on computer vision" -> VenueType.CONFERENCE
+        """
+        import re
+
+        # Convert venue name to lowercase for case-insensitive matching
+        venue_name_lower = venue_name.lower()
+        entry_type_lower = entry.type.lower()
+
+        # Check for arXiv/preprints first (highest priority)
+        if BibtexParser._is_arxiv_entry(entry):
+            return VenueType.PREPRINT
+
+        # Symposium patterns (check first since they should have highest priority)
+        symposium_patterns = [
+            r"\bsymposium\b",
+            r"\bsymposia\b",
+            r"\d+(st|nd|rd|th)\s+.*\s+symposium\b",  # "30th USENIX Security Symposium"
+            r"symposium\s+on\b",  # "Symposium on Security"
+            r"international\s+symposium\b",
+            r"annual\s+symposium\b",
+        ]
+
+        for pattern in symposium_patterns:
+            if re.search(pattern, venue_name_lower):
+                detail_logger.debug(
+                    f"Detected symposium pattern '{pattern}' in '{venue_name}'"
+                )
+                return VenueType.SYMPOSIUM
+
+        # Workshop patterns (check before conference since workshops often contain "conference")
+        workshop_patterns = [
+            r"\bworkshop\b",
+            r"\bworkshops\b",
+            r"\d+(st|nd|rd|th)\s+.*\s+workshop\b",  # "4th Deep Learning Workshop"
+            r"workshop\s+on\b",  # "Workshop on Security"
+            r"\bws\b",  # Workshop abbreviation
+            r"international\s+workshop\b",
+        ]
+
+        for pattern in workshop_patterns:
+            if re.search(pattern, venue_name_lower):
+                detail_logger.debug(
+                    f"Detected workshop pattern '{pattern}' in '{venue_name}'"
+                )
+                return VenueType.WORKSHOP
+
+        # Conference patterns (check after workshop/symposium)
+        if entry_type_lower in ["inproceedings", "conference", "proceedings"]:
+            conference_patterns = [
+                r"\bconference\b",
+                r"\bconf\b",
+                r"proceedings\s+of\b",
+                r"international\s+conference\b",
+                r"annual\s+conference\b",
+                r"\bacm\s+.+\s+conference\b",
+                r"\bieee\s+.+\s+conference\b",
+                # Common conference series patterns
+                r"\b(sigchi|sigcomm|sigmod|sigkdd|icml|nips|iclr|aaai|ijcai)\b",
+                r"\b(cvpr|iccv|eccv|neurips|icassp|interspeech)\b",
+            ]
+
+            # Default to conference for conference-type entries
+            venue_type = VenueType.CONFERENCE
+
+            for pattern in conference_patterns:
+                if re.search(pattern, venue_name_lower):
+                    detail_logger.debug(
+                        f"Detected conference pattern '{pattern}' in '{venue_name}'"
+                    )
+                    return VenueType.CONFERENCE
+
+            # If it's a conference-type entry but no conference patterns, might be proceedings
+            if "proceedings" in venue_name_lower:
+                return VenueType.PROCEEDINGS
+
+            return venue_type
+
+        # Journal patterns
+        journal_patterns = [
+            r"\bjournal\b",
+            r"\btransactions\b",
+            r"\bletters\b",
+            r"\breview\b",
+            r"\bannals\b",
+            r"\barchives\b",
+            r"\bbulletin\b",
+            r"\bmagazine\b",
+            r"ieee\s+transactions\b",
+            r"acm\s+transactions\b",
+            r"journal\s+of\b",
+            r"international\s+journal\b",
+            r"european\s+journal\b",
+            r"american\s+journal\b",
+        ]
+
+        # Check for journal entry types
+        if entry_type_lower in ["article", "periodical", "suppperiodical"]:
+            for pattern in journal_patterns:
+                if re.search(pattern, venue_name_lower):
+                    detail_logger.debug(
+                        f"Detected journal pattern '{pattern}' in '{venue_name}'"
+                    )
+                    return VenueType.JOURNAL
+
+            # Default to journal for article-type entries
+            return VenueType.JOURNAL
+
+        # Book patterns
+        if entry_type_lower in ["book", "inbook", "incollection", "booklet"]:
+            return VenueType.BOOK
+
+        # Check for other venue type patterns regardless of entry type
+        for pattern in journal_patterns:
+            if re.search(pattern, venue_name_lower):
+                detail_logger.debug(
+                    f"Detected journal pattern '{pattern}' in '{venue_name}'"
+                )
+                return VenueType.JOURNAL
+
+        # If no patterns match, return UNKNOWN
+        detail_logger.debug(
+            f"No venue type pattern matched for '{venue_name}' (entry type: {entry.type})"
+        )
+        return VenueType.UNKNOWN
