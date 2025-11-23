@@ -41,6 +41,8 @@ Follow this process for ALL development work:
    ```
 
 4. **Develop, fix, and test**
+   - The user will typically hint you to a issue on github, using:
+     "work on issue#<ISSUE-NUMBER>". Use the "gh" tool to access the issue.
    - Make your changes following all coding standards
    - Write or update tests as needed
    - Test locally during development
