@@ -29,7 +29,11 @@
       "ShellTool(python3)",
       "ShellTool(ruff check)",
       "ShellTool(ruff format)",
-      "ShellTool(sqlite3)"
+      "ShellTool(sqlite3)",
+      "ShellTool(grep)",
+      "ShellTool(xargs)",
+      "ShellTool(printf)",
+      "ShellTool(sed)"
     ]
   },
   "context": {
