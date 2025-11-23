@@ -9,7 +9,7 @@ from .bibtex_parser import BibtexParser
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_detail_logger, get_status_logger
-from .models import AssessmentResult, BibtexAssessmentResult, BibtexEntry
+from .models import AssessmentResult, BibtexAssessmentResult, BibtexEntry, VenueType
 from .normalizer import input_normalizer
 
 
@@ -110,6 +110,11 @@ class BibtexBatchAssessor:
             journal_legitimate=0,
             journal_suspicious=0,
             has_predatory_journals=False,
+            workshop_entries=0,
+            symposium_entries=0,
+            book_entries=0,
+            preprint_entries=0,
+            unknown_venue_type_entries=0,
             retracted_articles_count=0,
             articles_checked_for_retraction=0,
             processing_time=0.0,  # Will be updated at the end
@@ -156,8 +161,10 @@ class BibtexBatchAssessor:
 
                 # Normalize the journal name for assessment
                 query_input = input_normalizer.normalize(entry.journal_name)
+                # Pass venue type information to the query
+                query_input.venue_type = entry.venue_type
                 detail_logger.debug(
-                    f"Normalized journal name: {query_input.normalized_name}"
+                    f"Normalized journal name: {query_input.normalized_name}, venue type: {entry.venue_type.value}"
                 )
 
                 # Create a cache key using lowercase normalized name for case-insensitive matching
@@ -177,6 +184,8 @@ class BibtexBatchAssessor:
                 else:
                     # Assess the journal
                     assessment = await query_dispatcher.assess_journal(query_input)
+                    # Update venue type information in the assessment result
+                    assessment.venue_type = entry.venue_type
                     detail_logger.debug(
                         f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
                     )
@@ -198,6 +207,18 @@ class BibtexBatchAssessor:
                     result.conference_entries += 1
                 else:
                     result.journal_entries += 1
+
+                # Update venue type counters
+                if entry.venue_type == VenueType.WORKSHOP:
+                    result.workshop_entries += 1
+                elif entry.venue_type == VenueType.SYMPOSIUM:
+                    result.symposium_entries += 1
+                elif entry.venue_type == VenueType.BOOK:
+                    result.book_entries += 1
+                elif entry.venue_type == VenueType.PREPRINT:
+                    result.preprint_entries += 1
+                elif entry.venue_type == VenueType.UNKNOWN:
+                    result.unknown_venue_type_entries += 1
 
                 # Update counters based on assessment
                 if assessment.assessment == AssessmentType.PREDATORY:
@@ -291,6 +312,10 @@ class BibtexBatchAssessor:
             summary_lines.append(
                 f"    🎤 Conferences: {result.conference_predatory}/{result.conference_entries}"
             )
+        if result.workshop_entries > 0:
+            summary_lines.append(f"    🔧 Workshops: {result.workshop_entries}")
+        if result.symposium_entries > 0:
+            summary_lines.append(f"    🎪 Symposiums: {result.symposium_entries}")
         summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
         if result.journal_entries > 0:
             summary_lines.append(
@@ -310,6 +335,27 @@ class BibtexBatchAssessor:
                 f"    🎤 Conferences: {result.conference_legitimate}/{result.conference_entries}"
             )
         summary_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
+
+        # Venue type breakdown
+        if any(
+            [
+                result.workshop_entries,
+                result.symposium_entries,
+                result.book_entries,
+                result.preprint_entries,
+                result.unknown_venue_type_entries,
+            ]
+        ):
+            summary_lines.append("")
+            summary_lines.append("Venue Type Breakdown:")
+            if result.book_entries > 0:
+                summary_lines.append(f"  📚 Books: {result.book_entries}")
+            if result.preprint_entries > 0:
+                summary_lines.append(f"  📝 Preprints: {result.preprint_entries}")
+            if result.unknown_venue_type_entries > 0:
+                summary_lines.append(
+                    f"  ❓ Unknown venue type: {result.unknown_venue_type_entries}"
+                )
         summary_lines.append("")
 
         # Retraction summary
@@ -358,8 +404,20 @@ class BibtexBatchAssessor:
                 if entry.is_retracted:
                     retraction_indicator = " 🚫 RETRACTED"
 
+                # Add venue type indicator
+                venue_type_emoji = {
+                    VenueType.JOURNAL: "📄",
+                    VenueType.CONFERENCE: "🎤",
+                    VenueType.WORKSHOP: "🔧",
+                    VenueType.SYMPOSIUM: "🎪",
+                    VenueType.BOOK: "📚",
+                    VenueType.PREPRINT: "📝",
+                    VenueType.PROCEEDINGS: "📑",
+                    VenueType.UNKNOWN: "❓",
+                }.get(entry.venue_type, "❓")
+
                 summary_lines.append(
-                    f"{status_emoji} {entry.journal_name} "
+                    f"{status_emoji} {venue_type_emoji} {entry.journal_name} "
                     f"({assessment.assessment}, confidence: {assessment.confidence:.2f})"
                     f"{retraction_indicator}"
                 )
