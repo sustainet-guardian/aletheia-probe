@@ -2,6 +2,7 @@
 """Normalized caching system for journal data and assessment results."""
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -100,12 +101,12 @@ class CacheManager:
                 -- Conference/journal acronym mappings (self-learning cache)
                 CREATE TABLE IF NOT EXISTS conference_acronyms (
                     acronym TEXT PRIMARY KEY COLLATE NOCASE,
-                    full_name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL,
                     source TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                CREATE INDEX IF NOT EXISTS idx_acronyms_full_name ON conference_acronyms(full_name);
+                CREATE INDEX IF NOT EXISTS idx_acronyms_normalized_name ON conference_acronyms(normalized_name);
 
                 -- Source metadata (replaces JSON metadata)
                 CREATE TABLE IF NOT EXISTS source_metadata (
@@ -1102,13 +1103,13 @@ class CacheManager:
 
     def get_full_name_for_acronym(self, acronym: str) -> str | None:
         """
-        Look up the full name for a conference/journal acronym.
+        Look up the normalized name for a conference/journal acronym.
 
         Args:
             acronym: The acronym to look up (e.g., 'ICML', 'CVPR')
 
         Returns:
-            Full name if found in cache, None otherwise
+            Normalized name if found in cache, None otherwise
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -1116,7 +1117,7 @@ class CacheManager:
 
             cursor.execute(
                 """
-                SELECT full_name FROM conference_acronyms
+                SELECT normalized_name FROM conference_acronyms
                 WHERE acronym = ? COLLATE NOCASE
                 """,
                 (acronym.strip(),),
@@ -1134,30 +1135,45 @@ class CacheManager:
                     (acronym.strip(),),
                 )
                 conn.commit()
-                return str(row["full_name"])
+                return str(row["normalized_name"])
             return None
 
     def store_acronym_mapping(
         self, acronym: str, full_name: str, source: str = "unknown"
     ) -> None:
         """
-        Store an acronym to full name mapping in the cache.
+        Store an acronym to normalized name mapping in the cache.
 
-        If the acronym already exists with a different full_name, it logs a
+        Automatically normalizes conference names to their generic series form
+        by removing years, edition numbers, and "Proceedings of" prefixes.
+
+        If the acronym already exists with a different normalized_name, it logs a
         warning and overwrites it, unless the names are essentially the same
         conference with minor variations (e.g., year prefix/suffix).
 
         Args:
             acronym: The acronym (e.g., 'ICML')
-            full_name: The full conference/journal name
+            full_name: The full conference/journal name (may include year/edition)
             source: Source of the mapping ('bibtex_extraction', 'openalex_response', 'manual')
         """
         from .logging_config import get_status_logger
+        from .normalizer import input_normalizer
 
         status_logger = get_status_logger()
 
         acronym = acronym.strip()
         full_name = full_name.strip()
+
+        # Normalize the conference name to generic series form
+        # This removes years, ordinals, and "Proceedings of" prefix
+        series_name = input_normalizer._extract_conference_series(full_name.lower())
+
+        if series_name:
+            # Use the extracted series name
+            normalized_name = re.sub(r"\s+", " ", series_name).strip()
+        else:
+            # No normalization possible, use original (lowercased, whitespace normalized)
+            normalized_name = re.sub(r"\s+", " ", full_name.lower()).strip()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -1166,31 +1182,31 @@ class CacheManager:
             # Check for existing mapping
             cursor.execute(
                 """
-                SELECT full_name FROM conference_acronyms
+                SELECT normalized_name FROM conference_acronyms
                 WHERE acronym = ? COLLATE NOCASE
                 """,
                 (acronym,),
             )
 
             existing = cursor.fetchone()
-            if existing and existing["full_name"] != full_name:
+            if existing and existing["normalized_name"] != normalized_name:
                 # Check if this is essentially the same conference with minor variations
                 if not self._are_conference_names_equivalent(
-                    existing["full_name"], full_name
+                    existing["normalized_name"], normalized_name
                 ):
                     status_logger.warning(
-                        f"Acronym '{acronym}' already maps to '{existing['full_name']}', "
-                        f"overwriting with '{full_name}'"
+                        f"Acronym '{acronym}' already maps to '{existing['normalized_name']}', "
+                        f"overwriting with '{normalized_name}'"
                     )
 
-            # Insert or replace the mapping
+            # Insert or replace the mapping with normalized form
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO conference_acronyms
-                (acronym, full_name, source, created_at, last_used_at)
+                (acronym, normalized_name, source, created_at, last_used_at)
                 VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
-                (acronym, full_name, source),
+                (acronym, normalized_name, source),
             )
             conn.commit()
 
@@ -1269,7 +1285,7 @@ class CacheManager:
             # Get most recently used
             cursor.execute(
                 """
-                SELECT acronym, full_name, last_used_at
+                SELECT acronym, normalized_name, last_used_at
                 FROM conference_acronyms
                 ORDER BY last_used_at DESC
                 LIMIT 1
@@ -1280,7 +1296,7 @@ class CacheManager:
             # Get oldest entry
             cursor.execute(
                 """
-                SELECT acronym, full_name, created_at
+                SELECT acronym, normalized_name, created_at
                 FROM conference_acronyms
                 ORDER BY created_at ASC
                 LIMIT 1
@@ -1292,12 +1308,12 @@ class CacheManager:
 
             if most_recent:
                 stats["most_recent_acronym"] = most_recent["acronym"]
-                stats["most_recent_full_name"] = most_recent["full_name"]
+                stats["most_recent_normalized_name"] = most_recent["normalized_name"]
                 stats["most_recent_used"] = most_recent["last_used_at"]
 
             if oldest:
                 stats["oldest_acronym"] = oldest["acronym"]
-                stats["oldest_full_name"] = oldest["full_name"]
+                stats["oldest_normalized_name"] = oldest["normalized_name"]
                 stats["oldest_created"] = oldest["created_at"]
 
             return stats
@@ -1320,7 +1336,7 @@ class CacheManager:
             cursor = conn.cursor()
 
             query = """
-                SELECT acronym, full_name, source, created_at, last_used_at
+                SELECT acronym, normalized_name, source, created_at, last_used_at
                 FROM conference_acronyms
                 ORDER BY acronym ASC
             """
@@ -1334,7 +1350,7 @@ class CacheManager:
             return [
                 {
                     "acronym": row["acronym"],
-                    "full_name": row["full_name"],
+                    "normalized_name": row["normalized_name"],
                     "source": row["source"],
                     "created_at": row["created_at"],
                     "last_used_at": row["last_used_at"],
