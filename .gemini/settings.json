@@ -1,38 +1,42 @@
 {
-  "contextFileName": "AGENTS.md",
-  "coreTools": [
-    "ReadFileTool",
-    "WriteFileTool",
-    "EditFileTool",
-    "GlobTool",
-    "GrepTool",
-    "ShellTool(aletheia-probe bibtex)",
-    "ShellTool(aletheia-probe conference)",
-    "ShellTool(aletheia-probe journal)",
-    "ShellTool(bash scripts/run-quality-checks.sh)",
-    "ShellTool(curl)",
-    "ShellTool(find)",
-    "ShellTool(gh api)",
-    "ShellTool(gh issue list)",
-    "ShellTool(gh issue view)",
-    "ShellTool(gh pr list)",
-    "ShellTool(gh pr view)",
-    "ShellTool(git add)",
-    "ShellTool(git checkout)",
-    "ShellTool(git log)",
-    "ShellTool(git show-ref)",
-    "ShellTool(git show)",
-    "ShellTool(jq)",
-    "ShellTool(pytest)",
-    "ShellTool(python)",
-    "ShellTool(python3)",
-    "ShellTool(ruff check)",
-    "ShellTool(ruff format)",
-    "ShellTool(sqlite3)"
-  ],
-  "autoAccept": false,
-  "fileFiltering": {
-    "respectGitIgnore": true,
-    "enableRecursiveFileSearch": true
+  "tools": {
+    "autoAccept": false,
+    "core": [
+      "ReadFileTool",
+      "WriteFileTool",
+      "EditFileTool",
+      "GlobTool",
+      "GrepTool",
+      "ShellTool(aletheia-probe bibtex)",
+      "ShellTool(aletheia-probe conference)",
+      "ShellTool(aletheia-probe journal)",
+      "ShellTool(bash scripts/run-quality-checks.sh)",
+      "ShellTool(curl)",
+      "ShellTool(find)",
+      "ShellTool(gh api)",
+      "ShellTool(gh issue list)",
+      "ShellTool(gh issue view)",
+      "ShellTool(gh pr list)",
+      "ShellTool(gh pr view)",
+      "ShellTool(git add)",
+      "ShellTool(git checkout)",
+      "ShellTool(git log)",
+      "ShellTool(git show-ref)",
+      "ShellTool(git show)",
+      "ShellTool(jq)",
+      "ShellTool(pytest)",
+      "ShellTool(python)",
+      "ShellTool(python3)",
+      "ShellTool(ruff check)",
+      "ShellTool(ruff format)",
+      "ShellTool(sqlite3)"
+    ]
+  },
+  "context": {
+    "fileName": "AGENTS.md",
+    "fileFiltering": {
+      "respectGitIgnore": true,
+      "enableRecursiveFileSearch": true
+    }
   }
 }
