@@ -312,3 +312,73 @@ class TestInputNormalizer:
         # After normalization, the lowercase versions should be identical
         assert result7.normalized_name.lower() == result8.normalized_name.lower()
         assert result7.normalized_name.lower() == result9.normalized_name.lower()
+
+    def test_extract_conference_series_success(self):
+        """Test successful conference series extraction."""
+        normalizer = InputNormalizer()
+
+        # Test cases with expected outputs
+        test_cases = [
+            (
+                "34th International Conference on Machine Learning (ICML 2024)",
+                "International Conference on Machine Learning (ICML )",
+            ),
+            (
+                "2023 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+                "IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+            ),
+            (
+                "Proceedings of the 15th International Conference on Learning Representations",
+                "the International Conference on Learning Representations",
+            ),
+            (
+                "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)",
+                "IEEE International Conference on Cloud Computing (CLOUD)",
+            ),
+        ]
+
+        for input_name, expected_output in test_cases:
+            result = normalizer.extract_conference_series(input_name)
+            # Remove extra whitespace for comparison
+            if result:
+                result = result.strip()
+            if expected_output:
+                expected_output = expected_output.strip()
+
+            assert result == expected_output, (
+                f"Expected '{expected_output}', got '{result}' for input '{input_name}'"
+            )
+
+    def test_extract_conference_series_edge_cases(self):
+        """Test conference series extraction edge cases."""
+        normalizer = InputNormalizer()
+
+        # Edge cases that should return None
+        edge_cases = [
+            "",  # Empty string
+            None,  # None input
+            "Short",  # Too short
+            "ICML",  # Already an acronym
+            "Conference without year",  # No year/ordinal to remove
+            123,  # Non-string input
+            "   ",  # Whitespace only
+        ]
+
+        for case in edge_cases:
+            result = normalizer.extract_conference_series(case)
+            assert result is None, f"Expected None for input '{case}', got '{result}'"
+
+    def test_extract_conference_series_no_change(self):
+        """Test cases where series extraction doesn't change the name."""
+        normalizer = InputNormalizer()
+
+        # Cases where no extraction should occur (returns None)
+        no_change_cases = [
+            "International Conference on Machine Learning",  # Already series form
+            "IEEE Computer Vision",  # No ordinals/years
+            "Neural Information Processing Systems",  # Base form
+        ]
+
+        for case in no_change_cases:
+            result = normalizer.extract_conference_series(case)
+            assert result is None, f"Expected None for input '{case}', got '{result}'"

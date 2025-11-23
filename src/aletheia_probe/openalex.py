@@ -7,6 +7,8 @@ from typing import Any
 
 import aiohttp
 
+from aletheia_probe.normalizer import input_normalizer
+
 from .logging_config import get_detail_logger
 from .validation import normalize_issn as _normalize_issn
 
@@ -169,11 +171,14 @@ class OpenAlexClient:
 
         return min(score, 1.0)
 
-    async def get_source_by_name(self, journal_name: str) -> dict[str, Any] | None:
+    async def get_source_by_name(
+        self, journal_name: str, is_series_lookup: bool = False
+    ) -> dict[str, Any] | None:
         """Get journal source information by name search with improved matching.
 
         Args:
             journal_name: Journal name to search for
+            is_series_lookup: Whether this lookup is for a conference series name
 
         Returns:
             Dictionary with source information or None if not found
@@ -208,6 +213,8 @@ class OpenAlexClient:
                                     f"Selected OpenAlex source for '{journal_name}': "
                                     f"{best_result.get('display_name')} (score: {best_score:.2f})"
                                 )
+                                if is_series_lookup:
+                                    best_result["is_series_match"] = True
                                 return dict(best_result)
                             else:
                                 detail_logger.debug(
@@ -329,6 +336,37 @@ class OpenAlexClient:
         # Fall back to name search if no ISSN match
         if not source and journal_name:
             source = await self.get_source_by_name(journal_name)
+
+            # NEW: Fallback to series name if full name fails
+            if not source:
+                try:
+                    series_name = input_normalizer.extract_conference_series(
+                        journal_name
+                    )
+                    if series_name and series_name != journal_name:
+                        detail_logger.debug(
+                            f"Attempting series fallback for '{journal_name}' -> '{series_name}'"
+                        )
+                        source = await self.get_source_by_name(
+                            series_name, is_series_lookup=True
+                        )
+                        if source:
+                            detail_logger.debug(
+                                f"Series fallback successful: found '{source.get('display_name')}'"
+                            )
+                        else:
+                            detail_logger.debug(
+                                f"Series fallback failed: no match for '{series_name}'"
+                            )
+                    else:
+                        detail_logger.debug(
+                            f"Skipping series fallback for '{journal_name}': "
+                            f"series name {'not extractable' if not series_name else 'identical'}"
+                        )
+                except Exception as e:
+                    detail_logger.warning(
+                        f"Error during conference series extraction for '{journal_name}': {e}"
+                    )
 
         if not source:
             detail_logger.debug(f"No OpenAlex data found for journal '{journal_name}'")
