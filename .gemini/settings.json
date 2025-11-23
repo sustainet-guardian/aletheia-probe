@@ -1,6 +1,6 @@
 {
   "tools": {
-    "autoAccept": false,
+    "autoAccept": true,
     "core": [
       "ReadFileTool",
       "WriteFileTool",
