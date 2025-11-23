@@ -24,14 +24,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        cache: 'pip'
 
     - name: Install dependencies
       run: |
@@ -73,14 +66,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        cache: 'pip'
 
     - name: Install dependencies
       run: |
@@ -216,17 +202,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/pip
-          ~/Library/Caches/pip
-          ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        cache: 'pip'
 
     - name: Cache assessment data
       uses: actions/cache@v4
