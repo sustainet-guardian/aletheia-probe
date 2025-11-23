@@ -107,11 +107,11 @@ class QueryDispatcher:
         # Acronym fallback: If initial query yields no confident results and input looks
         # like an acronym with a cached expansion, retry with the expanded name
         if self._should_try_acronym_fallback(assessment_result, query_input):
-            from .cache import CacheManager
+            from .cache import get_cache_manager
             from .normalizer import InputNormalizer
 
             normalizer = InputNormalizer()
-            cache = CacheManager()
+            cache = get_cache_manager()
 
             # Check if input is acronym-like and has expansion
             if normalizer._is_standalone_acronym(query_input.raw_input):
