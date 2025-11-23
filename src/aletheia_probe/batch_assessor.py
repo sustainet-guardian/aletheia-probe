@@ -9,7 +9,13 @@ from .bibtex_parser import BibtexParser
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_detail_logger, get_status_logger
-from .models import AssessmentResult, BibtexAssessmentResult, BibtexEntry, VenueType
+from .models import (
+    VENUE_TYPE_EMOJI,
+    AssessmentResult,
+    BibtexAssessmentResult,
+    BibtexEntry,
+    VenueType,
+)
 from .normalizer import input_normalizer
 
 
@@ -297,9 +303,14 @@ class BibtexBatchAssessor:
         # Display venue types with assessment breakdown where available
         predatory_venue_display = [
             # Legacy counters with assessment breakdown
-            ("📄", "Journals", result.journal_entries, result.journal_predatory),
             (
-                "🎤",
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_predatory,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
                 "Conferences",
                 result.conference_entries,
                 result.conference_predatory,
@@ -314,8 +325,8 @@ class BibtexBatchAssessor:
 
         # New venue types with total counts only
         predatory_venue_types = {
-            VenueType.WORKSHOP: ("🔧", "Workshops"),
-            VenueType.SYMPOSIUM: ("🎪", "Symposiums"),
+            VenueType.WORKSHOP: (VENUE_TYPE_EMOJI[VenueType.WORKSHOP], "Workshops"),
+            VenueType.SYMPOSIUM: (VENUE_TYPE_EMOJI[VenueType.SYMPOSIUM], "Symposiums"),
         }
         for venue_type, (emoji, name) in predatory_venue_types.items():
             count = result.venue_type_counts.get(venue_type, 0)
@@ -325,9 +336,14 @@ class BibtexBatchAssessor:
 
         # Display venue types with assessment breakdown for suspicious
         suspicious_venue_display = [
-            ("📄", "Journals", result.journal_entries, result.journal_suspicious),
             (
-                "🎤",
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_suspicious,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
                 "Conferences",
                 result.conference_entries,
                 result.conference_suspicious,
@@ -343,9 +359,14 @@ class BibtexBatchAssessor:
 
         # Display venue types with assessment breakdown for legitimate
         legitimate_venue_display = [
-            ("📄", "Journals", result.journal_entries, result.journal_legitimate),
             (
-                "🎤",
+                VENUE_TYPE_EMOJI[VenueType.JOURNAL],
+                "Journals",
+                result.journal_entries,
+                result.journal_legitimate,
+            ),
+            (
+                VENUE_TYPE_EMOJI[VenueType.CONFERENCE],
                 "Conferences",
                 result.conference_entries,
                 result.conference_legitimate,
@@ -364,18 +385,9 @@ class BibtexBatchAssessor:
             summary_lines.append("")
             summary_lines.append("Venue Type Breakdown:")
 
-            venue_type_emojis = {
-                VenueType.BOOK: "📚",
-                VenueType.PREPRINT: "📝",
-                VenueType.WORKSHOP: "🔧",
-                VenueType.SYMPOSIUM: "🎪",
-                VenueType.UNKNOWN: "❓",
-                VenueType.PROCEEDINGS: "📑",
-            }
-
             for venue_type, count in result.venue_type_counts.items():
-                if venue_type in venue_type_emojis and count > 0:
-                    emoji = venue_type_emojis[venue_type]
+                if count > 0:
+                    emoji = VENUE_TYPE_EMOJI.get(venue_type, "❓")
                     type_name = venue_type.value.title() + (
                         "s" if venue_type != VenueType.UNKNOWN else " venue type"
                     )
@@ -429,16 +441,7 @@ class BibtexBatchAssessor:
                     retraction_indicator = " 🚫 RETRACTED"
 
                 # Add venue type indicator
-                venue_type_emoji = {
-                    VenueType.JOURNAL: "📄",
-                    VenueType.CONFERENCE: "🎤",
-                    VenueType.WORKSHOP: "🔧",
-                    VenueType.SYMPOSIUM: "🎪",
-                    VenueType.BOOK: "📚",
-                    VenueType.PREPRINT: "📝",
-                    VenueType.PROCEEDINGS: "📑",
-                    VenueType.UNKNOWN: "❓",
-                }.get(entry.venue_type, "❓")
+                venue_type_emoji = VENUE_TYPE_EMOJI.get(entry.venue_type, "❓")
 
                 summary_lines.append(
                     f"{status_emoji} {venue_type_emoji} {entry.journal_name} "

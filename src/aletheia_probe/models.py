@@ -22,6 +22,19 @@ class VenueType(str, Enum):
     UNKNOWN = "unknown"
 
 
+# Centralized venue type emoji mapping
+VENUE_TYPE_EMOJI: dict[VenueType, str] = {
+    VenueType.JOURNAL: "📄",
+    VenueType.CONFERENCE: "🎤",
+    VenueType.WORKSHOP: "🔧",
+    VenueType.SYMPOSIUM: "🎪",
+    VenueType.PROCEEDINGS: "📑",
+    VenueType.BOOK: "📚",
+    VenueType.PREPRINT: "📝",
+    VenueType.UNKNOWN: "❓",
+}
+
+
 class BackendStatus(Enum):
     """Status of a backend query result."""
 
