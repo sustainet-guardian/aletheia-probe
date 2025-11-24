@@ -596,32 +596,7 @@ class BibtexParser:
                 )
                 return True
 
-        # Additionally, check if the entry type itself is 'misc' and contains preprint indicators
-        if entry.type.lower() == "misc":
-            misc_preprint_patterns = [
-                r"arxiv",
-                r"biorxiv",
-                r"ssrn",
-                r"medrxiv",
-                r"zenodo",
-            ]
-            for pattern in misc_preprint_patterns:
-                if re.search(pattern, checked_content, re.IGNORECASE):
-                    detail_logger.debug(
-                        f"Detected preprint in 'misc' type entry: {entry.key}"
-                    )
-                    return True
-
         return False
-
-    @staticmethod
-    def _is_arxiv_entry(entry: Entry) -> bool:
-        """Legacy method for backward compatibility. Use _is_preprint_entry instead.
-
-        This method is maintained for any existing code that might call it directly,
-        but internally delegates to the more comprehensive preprint detection.
-        """
-        return BibtexParser._is_preprint_entry(entry)
 
     @staticmethod
     def _detect_venue_type(entry: Entry, venue_name: str) -> VenueType:
