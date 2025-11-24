@@ -515,15 +515,24 @@ class BibtexParser:
         """
         import re
 
-        # Patterns for arXiv (existing patterns preserved)
+        # Comprehensive patterns for arXiv (all variants from real-world data)
         arxiv_patterns = [
-            r"arxiv\s+preprint\s+arxiv:\d{4}\.\d{5}(v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
-            r"arxiv\s+e-prints",  # ArXiv e-prints
-            r"arxiv:\d{4}\.\d{5}(v\d+)?",  # bare arXiv identifier
-            r"arxiv:\w+\.\w+(v\d+)?",  # arXiv:cs.AI/9901001 (old style)
+            # Standard arXiv patterns
+            r"arxiv\s*preprint\s*(?:arxiv\s*:)?\s*\d{4}\.\d{5}(?:v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
+            r"arxiv\s*preprint\s*:?\s*\d{4}\.\d{5}(?:v\d+)?",  # ArXivPreprint:2510.09378
+            r"arxiv\s*e-?prints?",  # ArXiv e-prints, ArXive-prints
+            r"arxiv:\d{4}\.\d{5}(?:v\d+)?",  # bare arXiv identifier
+            r"arxiv:\w+\.\w+(?:v\d+)?",  # arXiv:cs.AI/9901001 (old style)
             r"eprint:\s*arxiv",  # for entries where eprint field is "eprint = {arXiv}"
+            # ArXiv with classifications and institutional info
             r"arxiv\s*\[[^\]]+\]",  # arXiv with subject classification (e.g., "arXiv [cs.LG]")
             r"arxiv\s*\([^)]*\)",  # arXiv with parenthetical info (e.g., "arXiv (Cornell University)")
+            # Common variants found in real bibliographies
+            r"\barxive?\s*preprints?\b",  # ArXivpreprint, ArXivepreprint
+            r"\barxive?\b",  # Just "ArXiv" or "ArXive" as word boundary
+            r"^arxive?$",  # Just "ArXiv" or "ArXive" as whole field
+            r"^arxive?\s*preprints?",  # ArXiv preprint at start
+            r"arxive?\s*preprints?\s*$",  # ArXiv preprint at end
         ]
 
         # Patterns for other legitimate preprint repositories
@@ -564,12 +573,15 @@ class BibtexParser:
         all_patterns = arxiv_patterns + preprint_patterns
 
         # Combine all relevant fields into a single string for pattern matching
+        # Include publisher and howpublished fields based on real-world data analysis
         fields_to_check = [
             BibtexParser._get_field_safely(entry, "journal"),
             BibtexParser._get_field_safely(entry, "booktitle"),
             BibtexParser._get_field_safely(entry, "eprint"),
             BibtexParser._get_field_safely(entry, "url"),
             BibtexParser._get_field_safely(entry, "title"),
+            BibtexParser._get_field_safely(entry, "publisher"),
+            BibtexParser._get_field_safely(entry, "howpublished"),
         ]
 
         # Filter out None values and convert to lowercase for case-insensitive matching

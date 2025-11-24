@@ -1671,3 +1671,78 @@ class TestBibtexParser:
         # Should have skipped 4 arXiv variant entries
         assert preprint_count == 4
         assert skipped_count == 0
+
+    def test_arxiv_variants_from_real_world_data(self, tmp_path):
+        """Test arXiv variants found in real-world test data to prevent regressions."""
+        bibtex_content = """
+@article{arxiv_variant1,
+    title={Test Paper 1},
+    journal={ArXivPreprint:2510.09378},
+    author={Author One},
+    year={2023}
+}
+
+@article{arxiv_variant2,
+    title={Test Paper 2},
+    booktitle={ArXivPreprint},
+    author={Author Two},
+    year={2023}
+}
+
+@article{arxiv_variant3,
+    title={Test Paper 3},
+    howpublished={ArXiv},
+    author={Author Three},
+    year={2023}
+}
+
+@article{arxiv_variant4,
+    title={Test Paper 4},
+    journal={ArXive-prints},
+    author={Author Four},
+    year={2023}
+}
+
+@article{arxiv_variant5,
+    title={Test Paper 5},
+    journal={ArXivpreprint},
+    author={Author Five},
+    year={2023}
+}
+
+@article{arxiv_variant6,
+    title={Test Paper 6},
+    journal={ArXiv},
+    author={Author Six},
+    year={2023}
+}
+
+@article{arxiv_variant7,
+    title={Test Paper 7},
+    publisher={ArXiv},
+    author={Author Seven},
+    year={2023}
+}
+
+@article{regular_journal,
+    title={Regular Paper},
+    journal={Journal of Computer Science},
+    author={Regular Author},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_real_world_arxiv_variants.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
+
+        # Should only process the regular journal
+        assert len(entries) == 1
+        assert entries[0].key == "regular_journal"
+        assert entries[0].journal_name == "Journal of Computer Science"
+
+        # Should have detected and skipped all 7 arXiv variants
+        assert preprint_count == 7
+        assert skipped_count == 0
