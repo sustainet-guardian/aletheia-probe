@@ -22,7 +22,7 @@ Aletheia-Probe helps answer two critical questions for researchers:
     ```bash
     aletheia-probe journal "Journal of Computer Science"
     ```
-2.  **Are the references in my paper legitimate?**
+2.  **Are the references in my paper legitimate?** (Are the journal entries in my bibtex file valid?)
     ```bash
     aletheia-probe bibtex references.bib
     ```
