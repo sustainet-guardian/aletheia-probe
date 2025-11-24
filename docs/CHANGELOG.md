@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-24
+
+### Added
+- **Conference Acronym Management**: New `conference-acronym` CLI command group for managing conference acronyms (#101)
+  - List, add, update, and delete conference acronyms
+  - Support for acronym normalization and equivalence management
+  - Integration with self-learning acronym recognition system
+- **Venue Type Detection**: Enhanced publication type handling for journals, conferences, and preprints (#100)
+  - Automatic detection of publication venue types
+  - Specialized assessment paths for different publication categories
+  - Improved classification accuracy through type-aware processing
+- **ArXiv Preprint Support**: Dedicated handling for arXiv preprints separate from journal/conference assessment (#89)
+  - Recognizes arXiv identifiers and URLs
+  - Bypasses predatory journal assessment for legitimate preprint servers
+  - Maintains assessment quality while reducing false positives
+- **Self-Learning Conference Acronym Recognition**: Intelligent acronym matching system (#86)
+  - Automatic learning and recognition of conference acronyms
+  - Dynamic acronym database updates
+  - Improved venue identification through acronym equivalence
+- **Post-PR Merge Cleanup Script**: Automated development workflow cleanup (#99)
+  - Streamlines post-merge branch cleanup
+  - Integrated with development workflow documentation
+  - Reduces manual maintenance overhead
+
+### Enhanced
+- **Conference Name Normalization**: Comprehensive venue name processing to reduce 'unknown' assessments (#85, #81)
+  - Preserves critical acronyms while normalizing variations
+  - Handles common conference name patterns and variations
+  - Significantly improves venue identification accuracy
+- **Case-Insensitive Venue Matching**: Improved matching accuracy through case normalization (#84)
+  - Eliminates case-sensitivity issues in venue identification
+  - Better handling of mixed-case venue names
+  - Consistent matching across different input formats
+- **LaTeX Processing**: Enhanced cleaning of LaTeX escape sequences in venue names (#83)
+  - Removes LaTeX formatting artifacts from BibTeX entries
+  - Improves venue name clarity and matching accuracy
+  - Better handling of special characters and formatting
+- **OpenAlex Conference Scoring**: Enhanced recognition of high-quality single-year conference instances (#82)
+  - Better assessment of conference quality metrics
+  - Improved handling of one-time or irregular conferences
+  - More nuanced quality scoring for diverse conference patterns
+- **Bracket Removal**: Improved journal name processing by removing brackets for better matching (#68)
+  - Handles common bracketed additions in venue names
+  - Improves matching accuracy by focusing on core venue names
+  - Reduces false negatives in venue identification
+
+### Fixed
+- **Acronym and Venue Name Normalization**: Improved processing accuracy (#119)
+  - More robust acronym processing and normalization
+  - Better handling of edge cases in venue name variants
+  - Enhanced consistency in acronym recognition
+- **Documentation Links**: Fixed broken markdown links across documentation (#118)
+  - Comprehensive link validation and repair
+  - Improved documentation accessibility and navigation
+  - Added automated link checking to prevent future issues
+- **Database Isolation**: Test database now properly isolated from production cache (#116)
+  - Prevents test data contamination of production cache
+  - Ensures clean separation of test and production environments
+  - Improves reliability of both testing and production usage
+- **Configuration Management**: Corrected tool names in settings and configuration files (#108)
+  - Fixed inconsistencies in tool naming conventions
+  - Improved configuration accuracy and reliability
+  - Better alignment with actual tool implementations
+- **CI/CD Pipeline**: Enhanced caching and file handling in GitHub Actions workflows (#96, #93)
+  - Replaced manual cache implementations with built-in solutions
+  - Fixed glob pattern issues in CI file handling
+  - Improved build reliability and performance
+
+### Assessment Quality
+- **Suspicious Assessment Category**: New evaluation result for heuristic-only assessments (#66)
+  - Provides intermediate assessment category for uncertain cases
+  - Better granularity in assessment confidence reporting
+  - Helps users understand assessment reliability levels
+- **Conference Architecture Refactoring**: Fixed conference misclassification issues (#80)
+  - Improved separation between journal and conference assessment paths
+  - Better handling of hybrid publication venues
+  - More accurate classification of publication types
+
+### Documentation
+- **README Enhancements**: Improved documentation with core assessment questions and expectations (#106)
+  - Clearer explanation of tool capabilities and limitations
+  - Better guidance on expected outcomes and usage
+  - Enhanced user understanding of assessment methodology
+- **Agent Configuration Unification**: Standardized AI agent configuration through AGENTS.md (#97)
+  - Consolidated agent guidelines and best practices
+  - Improved consistency across development tools
+  - Better integration with AI-assisted development workflows
+
+### Development Workflow
+- **Error Handling Improvements**: Enhanced logging and encapsulation for conference processing (#91)
+  - Better error reporting and debugging capabilities
+  - Improved fault tolerance in conference series processing
+  - More informative error messages for troubleshooting
+
 ## [0.4.0] - 2025-11-21
 
 ### Added
