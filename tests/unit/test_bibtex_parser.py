@@ -1746,3 +1746,107 @@ class TestBibtexParser:
         # Should have detected and skipped all 7 arXiv variants
         assert preprint_count == 7
         assert skipped_count == 0
+
+    def test_latex_journal_macro_expansion(self):
+        """Test expansion of LaTeX journal macros like \\pasp."""
+        # Note: This test requires the acronym cache to be populated
+        # In practice, the cache would be populated from database or API calls
+        # For this test, we just verify that the macro is converted to uppercase
+        result = BibtexParser._expand_latex_journal_macros(r"\pasp")
+        # Should convert to uppercase (PASP) even if not in cache
+        assert "pasp" not in result.lower() or result == "PASP"
+        assert "\\" not in result  # Should not contain backslash
+
+    def test_latex_macro_in_journal_field(self, tmp_path):
+        """Test that LaTeX journal macros in journal fields are properly cleaned."""
+        bibtex_content = r"""
+@article{test_latex_macro,
+    title={Test Article},
+    journal={\pasp},
+    author={Test Author},
+    year={2023}
+}
+
+@article{test_normal_journal,
+    title={Test Article 2},
+    journal={Nature},
+    author={Test Author 2},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_latex_macro.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
+
+        # Should process both entries
+        assert len(entries) == 2
+
+        # Find the entry with the LaTeX macro
+        macro_entry = [e for e in entries if e.key == "test_latex_macro"][0]
+        # Journal name should not contain backslash
+        assert "\\" not in macro_entry.journal_name
+        # Should be converted to uppercase acronym at minimum
+        assert macro_entry.journal_name == "PASP" or "PASP" in macro_entry.journal_name
+
+    def test_comprehensive_bibliography_parsing_cleanup(self, tmp_path):
+        """Integration test for LaTeX macro expansion and escape cleaning."""
+        bibtex_content = r"""
+@article{latex_macro,
+    title={Astronomy Paper},
+    journal={\pasp},
+    author={Astronomer One},
+    year={2023}
+}
+
+@article{latex_escapes,
+    title={Entry with Escapes},
+    journal={Computers \& Security},
+    author={Author Two},
+    year={2023}
+}
+
+@article{normal_journal,
+    title={Normal Entry},
+    journal={Nature},
+    author={Author Three},
+    year={2023}
+}
+
+@article{preprint_arxiv,
+    title={Preprint Entry},
+    journal={arXiv preprint arXiv:2301.12345},
+    author={Author Four},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_comprehensive.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
+
+        # Should get 3 entries: latex_macro (cleaned), latex_escapes (cleaned), normal_journal
+        # Note: We no longer filter based on venue name patterns
+        assert len(entries) == 3
+
+        # Check the LaTeX macro was expanded (to PASP or full name if in cache)
+        latex_macro_entry = [e for e in entries if e.key == "latex_macro"][0]
+        assert "\\" not in latex_macro_entry.journal_name
+        assert (
+            latex_macro_entry.journal_name == "PASP"
+            or "PASP" in latex_macro_entry.journal_name
+        )
+
+        # Check the latex escapes were properly cleaned
+        latex_escape_entry = [e for e in entries if e.key == "latex_escapes"][0]
+        assert latex_escape_entry.journal_name == "Computers & Security"
+
+        # Check normal journal
+        normal_entry = [e for e in entries if e.key == "normal_journal"][0]
+        assert normal_entry.journal_name == "Nature"
+
+        # Should have identified 1 preprint
+        assert preprint_count == 1
+        assert skipped_count == 0

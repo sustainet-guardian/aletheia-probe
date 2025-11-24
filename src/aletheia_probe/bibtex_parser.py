@@ -261,7 +261,8 @@ class BibtexParser:
         if entry.type.lower() not in journal_entry_types:
             return None
 
-        # For journal entry types, check appropriate fields
+        # For journal entry types, check appropriate fields ONLY
+        # DO NOT extract from publisher, address, organization, note, or institution fields
         journal_fields = ["journal", "journaltitle"]
 
         for field in journal_fields:
@@ -290,17 +291,23 @@ class BibtexParser:
             # Remove common artifacts (quotes, extra spaces)
             series = series.strip("'\"").strip()
             if series:
-                return BibtexParser._normalize_conference_name(series)
+                normalized = BibtexParser._normalize_conference_name(series)
+                if normalized:
+                    return normalized
 
         # Priority 2: Try to extract from booktitle
         booktitle = BibtexParser._get_field_safely(entry, "booktitle")
         if booktitle:
-            return BibtexParser._normalize_conference_name(booktitle)
+            normalized = BibtexParser._normalize_conference_name(booktitle)
+            if normalized:
+                return normalized
 
         # Priority 3: Fallback to organization
         organization = BibtexParser._get_field_safely(entry, "organization")
         if organization:
-            return BibtexParser._normalize_conference_name(organization)
+            normalized = BibtexParser._normalize_conference_name(organization)
+            if normalized:
+                return normalized
 
         return None
 
@@ -469,6 +476,52 @@ class BibtexParser:
         return value
 
     @staticmethod
+    def _expand_latex_journal_macros(value: str) -> str:
+        """Expand LaTeX journal macros using the acronym cache.
+
+        Many astronomy and physics BibTeX files use LaTeX macros for journal names
+        (e.g., \\pasp, \\apj, \\mnras). This method converts them to uppercase
+        acronyms and looks them up in the cache to get the full journal name.
+
+        Args:
+            value: BibTeX field value that may contain LaTeX journal macros
+
+        Returns:
+            Value with LaTeX journal macros expanded when possible
+
+        Examples:
+            "\\pasp" -> "PASP" -> (lookup in cache) -> "Publications of..."
+            "\\ieee" -> "IEEE" -> (lookup in cache) -> full name or "IEEE"
+            "\\unknownmacro" -> "UNKNOWNMACRO" (or removed if not in cache)
+        """
+        import re
+
+        from .cache import get_cache_manager
+
+        # Find all LaTeX commands (backslash followed by letters)
+        latex_command_pattern = r"\\([a-zA-Z]+)"
+
+        def replace_macro(match: re.Match[str]) -> str:
+            macro_name = match.group(1)  # Get the name without backslash
+            acronym = macro_name.upper()  # Convert to uppercase (e.g., pasp -> PASP)
+
+            # Try to look up the acronym in the cache
+            cache = get_cache_manager()
+            full_name = cache.get_full_name_for_acronym(acronym)
+
+            if full_name:
+                return full_name
+            else:
+                # If not in cache, just return the uppercase acronym
+                # This is better than keeping the backslash
+                return acronym
+
+        # Replace all LaTeX commands with their expansions
+        value = re.sub(latex_command_pattern, replace_macro, value)
+
+        return value
+
+    @staticmethod
     def _remove_nested_braces(value: str) -> str:
         """Remove nested curly braces and clean LaTeX escapes from BibTeX field values.
 
@@ -487,13 +540,17 @@ class BibtexParser:
             "{{{CLOUD}}}" -> "CLOUD"
             "Computers \\& Security" -> "Computers & Security"
             "Normal text" -> "Normal text"
+            "\\pasp" -> "PASP" (or full name if in cache)
         """
         import re
 
-        # First, clean LaTeX escape sequences
+        # First, expand LaTeX journal macros (e.g., \pasp -> PASP or full name)
+        value = BibtexParser._expand_latex_journal_macros(value)
+
+        # Then, clean LaTeX escape sequences
         value = BibtexParser._clean_latex_escapes(value)
 
-        # Then remove nested curly braces iteratively until none remain
+        # Finally, remove nested curly braces iteratively until none remain
         # This handles multiple levels like {{{text}}} -> {{text}} -> {text} -> text
         while re.search(r"\{[^{}]*\}", value):
             value = re.sub(r"\{([^{}]*)\}", r"\1", value)
