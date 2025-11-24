@@ -1047,15 +1047,17 @@ class TestBibtexParser:
         test_file = tmp_path / "test_arxiv.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        entries, skipped_count, arxiv_count = BibtexParser.parse_bibtex_file(test_file)
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
 
         # Should only get the regular journal entry
         assert len(entries) == 1
         assert entries[0].key == "regular_journal"
         assert entries[0].journal_name == "Journal of Important Research"
 
-        # Should have skipped 3 arXiv entries
-        assert arxiv_count == 3
+        # Should have skipped 3 arXiv preprint entries
+        assert preprint_count == 3
         assert skipped_count == 0
 
     def test_venue_type_detection_journals(self, tmp_path):
@@ -1441,3 +1443,231 @@ class TestBibtexParser:
 
         result = BibtexParser._detect_venue_type(book_entry, "Any Book Name")
         assert result == VenueType.BOOK
+
+    def test_preprint_repository_detection_comprehensive(self, tmp_path):
+        """Test comprehensive detection of legitimate preprint repositories to prevent false positives."""
+        bibtex_content = """
+@article{arxiv_standard,
+    title={Standard arXiv Entry},
+    journal={arXiv preprint arXiv:2301.12345},
+    author={Author One},
+    year={2023}
+}
+
+@article{arxiv_subject_classification,
+    title={arXiv with Subject Classification},
+    journal={arXiv [cs.LG]},
+    author={Author Two},
+    year={2023}
+}
+
+@article{biorxiv_standard,
+    title={bioRxiv Preprint},
+    journal={bioRxiv},
+    author={Author Three},
+    year={2023}
+}
+
+@article{biorxiv_url,
+    title={bioRxiv with URL},
+    journal={bioRxiv},
+    url={https://www.biorxiv.org/content/10.1101/2023.01.01.522613v1},
+    author={Author Four},
+    year={2023}
+}
+
+@article{ssrn_electronic,
+    title={SSRN Electronic Journal},
+    journal={SSRN Electronic Journal},
+    author={Author Five},
+    year={2023}
+}
+
+@article{ssrn_full_name,
+    title={Social Science Research Network},
+    journal={Social Science Research Network},
+    author={Author Six},
+    year={2023}
+}
+
+@article{medrxiv_entry,
+    title={Medical Preprint},
+    journal={medRxiv},
+    author={Author Seven},
+    year={2023}
+}
+
+@article{zenodo_repository,
+    title={Research in Zenodo},
+    journal={Zenodo},
+    author={Author Eight},
+    year={2023}
+}
+
+@article{zenodo_url,
+    title={Zenodo with URL},
+    journal={Repository},
+    url={https://zenodo.org/record/1234567},
+    author={Author Nine},
+    year={2023}
+}
+
+@article{psyarxiv_entry,
+    title={Psychology Preprint},
+    journal={PsyArXiv},
+    author={Author Ten},
+    year={2023}
+}
+
+@article{techrxiv_entry,
+    title={IEEE TechRxiv Preprint},
+    journal={TechRxiv},
+    author={Author Eleven},
+    year={2023}
+}
+
+@article{research_square,
+    title={Research Square Preprint},
+    journal={Research Square},
+    author={Author Twelve},
+    year={2023}
+}
+
+@misc{osf_preprint,
+    title={OSF Preprint},
+    url={https://osf.io/preprints/abc123},
+    author={Author Thirteen},
+    year={2023}
+}
+
+@article{regular_journal,
+    title={This Should Be Processed},
+    journal={Journal of Important Research},
+    author={Regular Author},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_comprehensive_preprints.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
+
+        # Should only get the regular journal entry
+        assert len(entries) == 1
+        assert entries[0].key == "regular_journal"
+        assert entries[0].journal_name == "Journal of Important Research"
+
+        # Should have skipped all 13 preprint entries
+        assert preprint_count == 13
+        assert skipped_count == 0
+
+    def test_preprint_detection_with_mixed_content(self, tmp_path):
+        """Test that preprint detection works with mixed legitimate and suspicious venues."""
+        bibtex_content = """
+@article{arxiv_legitimate,
+    title={Legitimate arXiv Paper},
+    journal={arXiv:2301.12345},
+    author={Good Author},
+    year={2023}
+}
+
+@article{suspicious_journal,
+    title={Paper in Unknown Journal},
+    journal={Unknown Predatory Journal},
+    author={Another Author},
+    year={2023}
+}
+
+@article{biorxiv_legitimate,
+    title={Legitimate bioRxiv Paper},
+    journal={bioRxiv},
+    author={Bio Author},
+    year={2023}
+}
+
+@article{legitimate_journal,
+    title={Paper in Real Journal},
+    journal={Nature Communications},
+    author={Real Author},
+    year={2023}
+}
+
+@article{ssrn_legitimate,
+    title={Legitimate SSRN Paper},
+    journal={SSRN Electronic Journal},
+    author={Social Author},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_mixed_content.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
+
+        # Should process 2 journal entries (1 suspicious, 1 legitimate)
+        assert len(entries) == 2
+        processed_journals = {entry.journal_name for entry in entries}
+        assert "Unknown Predatory Journal" in processed_journals
+        assert "Nature Communications" in processed_journals
+
+        # Should have skipped 3 preprint entries
+        assert preprint_count == 3
+        assert skipped_count == 0
+
+    def test_arxiv_subject_classification_variants(self, tmp_path):
+        """Test that arXiv subject classification variants are properly detected and normalized."""
+        bibtex_content = """
+@article{arxiv_cs_lg,
+    title={Computer Science Machine Learning},
+    journal={arXiv [cs.LG]},
+    author={CS Author},
+    year={2023}
+}
+
+@article{arxiv_eess_sp,
+    title={Signal Processing Paper},
+    journal={arXiv [eess.SP]},
+    author={SP Author},
+    year={2023}
+}
+
+@article{arxiv_stat_ml,
+    title={Statistics Machine Learning},
+    journal={arXiv [stat.ML]},
+    author={Stat Author},
+    year={2023}
+}
+
+@article{arxiv_cornell,
+    title={Cornell University arXiv},
+    journal={arXiv (Cornell University)},
+    author={Cornell Author},
+    year={2023}
+}
+
+@inproceedings{regular_conference,
+    title={Regular Conference Paper},
+    booktitle={Proceedings of Important Conference},
+    author={Conf Author},
+    year={2023}
+}
+"""
+        test_file = tmp_path / "test_arxiv_variants.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file
+        )
+
+        # Should only process the regular conference
+        assert len(entries) == 1
+        assert entries[0].key == "regular_conference"
+        assert "Important Conference" in entries[0].journal_name
+
+        # Should have skipped 4 arXiv variant entries
+        assert preprint_count == 4
+        assert skipped_count == 0

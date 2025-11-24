@@ -81,17 +81,17 @@ class BibtexBatchAssessor:
 
         # Parse the BibTeX file to extract journal entries
         try:
-            bibtex_entries, skipped_count, arxiv_count = BibtexParser.parse_bibtex_file(
-                file_path, relax_bibtex
+            bibtex_entries, skipped_count, preprint_count = (
+                BibtexParser.parse_bibtex_file(file_path, relax_bibtex)
             )
             detail_logger.debug(
-                f"Successfully parsed {len(bibtex_entries)} entries, skipped {skipped_count}, found {arxiv_count} arXiv entries"
+                f"Successfully parsed {len(bibtex_entries)} entries, skipped {skipped_count}, found {preprint_count} preprint entries"
             )
         except Exception as e:
             detail_logger.error(f"Failed to parse BibTeX file: {e}")
             raise ValueError(f"Failed to parse BibTeX file: {e}") from e
 
-        total_entries = len(bibtex_entries) + skipped_count + arxiv_count
+        total_entries = len(bibtex_entries) + skipped_count + preprint_count
         status_logger.info(
             f"Found {len(bibtex_entries)} entries with journal information"
         )
@@ -101,7 +101,7 @@ class BibtexBatchAssessor:
             file_path=str(file_path),
             total_entries=total_entries,
             entries_with_journals=len(bibtex_entries),
-            arxiv_entries_count=arxiv_count,
+            preprint_entries_count=preprint_count,
             skipped_entries_count=skipped_count,
             predatory_count=0,
             legitimate_count=0,
@@ -285,10 +285,8 @@ class BibtexBatchAssessor:
         summary_lines.append(f"File: {result.file_path}")
         summary_lines.append(f"Total entries in file: {result.total_entries}")
         summary_lines.append(f"Entries assessed: {result.entries_with_journals}")
-        if result.arxiv_entries_count > 0:
-            summary_lines.append(
-                f"Skipped arXiv preprints: {result.arxiv_entries_count}"
-            )
+        if result.preprint_entries_count > 0:
+            summary_lines.append(f"Skipped preprints: {result.preprint_entries_count}")
         if result.skipped_entries_count > 0:
             summary_lines.append(
                 f"Skipped other entries: {result.skipped_entries_count}"

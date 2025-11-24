@@ -92,15 +92,15 @@ class BibtexParser:
 
                     entries = []
                     skipped_entries = 0
-                    arxiv_entries = 0
+                    preprint_entries = 0
 
                     for entry_key, entry in bib_data.entries.items():
                         try:
-                            # First, check for arXiv entries to correctly categorize skipped entries
-                            if BibtexParser._is_arxiv_entry(entry):
-                                arxiv_entries += 1
+                            # First, check for preprint entries to correctly categorize skipped entries
+                            if BibtexParser._is_preprint_entry(entry):
+                                preprint_entries += 1
                                 detail_logger.debug(
-                                    f"Skipping arXiv entry: {entry_key}"
+                                    f"Skipping preprint entry: {entry_key}"
                                 )
                                 continue
 
@@ -125,10 +125,10 @@ class BibtexParser:
                         f"with {description}"
                     )
 
-                    # Inform user about arXiv preprints (if any)
-                    if arxiv_entries > 0:
+                    # Inform user about preprints (if any)
+                    if preprint_entries > 0:
                         status_logger.info(
-                            f"Skipped {arxiv_entries} arXiv preprint(s) - not publication venues"
+                            f"Skipped {preprint_entries} preprint(s) from legitimate repositories - not publication venues"
                         )
 
                     # Log other skipped entries
@@ -137,7 +137,7 @@ class BibtexParser:
                             f"Skipped {skipped_entries} other entries due to processing errors"
                         )
 
-                    return entries, skipped_entries, arxiv_entries
+                    return entries, skipped_entries, preprint_entries
 
                 except UnicodeDecodeError as e:
                     last_error = e
@@ -501,42 +501,74 @@ class BibtexParser:
         return value.strip()
 
     @staticmethod
-    def _is_arxiv_entry(entry: Entry) -> bool:
-        """Detects if a BibTeX entry is an arXiv preprint.
+    def _is_preprint_entry(entry: Entry) -> bool:
+        """Detects if a BibTeX entry is a preprint from a legitimate repository.
 
-        Checks the 'journal', 'booktitle', 'eprint', and 'title' fields
-        for common arXiv patterns.
+        Checks the 'journal', 'booktitle', 'eprint', 'url', and 'title' fields
+        for patterns from legitimate preprint repositories to prevent false positives.
 
         Args:
             entry: BibTeX entry object.
 
         Returns:
-            True if the entry is identified as an arXiv preprint, False otherwise.
+            True if the entry is identified as a legitimate preprint, False otherwise.
         """
         import re
 
-        # Patterns to identify arXiv entries
-        # - "arXiv preprint arXiv:XXXX.XXXXX"
-        # - "ArXiv e-prints"
-        # - "arXiv:XXXX.XXXXX" (bare arXiv identifier)
-        # - "e-print" field containing "arXiv"
-        # - Journal field containing only arXiv identifier
-
+        # Patterns for arXiv (existing patterns preserved)
         arxiv_patterns = [
             r"arxiv\s+preprint\s+arxiv:\d{4}\.\d{5}(v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
             r"arxiv\s+e-prints",  # ArXiv e-prints
             r"arxiv:\d{4}\.\d{5}(v\d+)?",  # bare arXiv identifier
             r"arxiv:\w+\.\w+(v\d+)?",  # arXiv:cs.AI/9901001 (old style)
             r"eprint:\s*arxiv",  # for entries where eprint field is "eprint = {arXiv}"
+            r"arxiv\s*\[[^\]]+\]",  # arXiv with subject classification (e.g., "arXiv [cs.LG]")
+            r"arxiv\s*\([^)]*\)",  # arXiv with parenthetical info (e.g., "arXiv (Cornell University)")
         ]
 
+        # Patterns for other legitimate preprint repositories
+        preprint_patterns = [
+            # bioRxiv - biology preprints
+            r"biorxiv",
+            r"bio\s*rxiv",
+            r"www\.biorxiv\.org",
+            r"doi\.org/10\.1101/",
+            # SSRN - social sciences preprints
+            r"ssrn\s*electronic\s*journal",
+            r"social\s*science\s*research\s*network",
+            r"ssrn\.com",
+            r"\bssrn\b",
+            # medRxiv - medical preprints
+            r"medrxiv",
+            r"med\s*rxiv",
+            r"www\.medrxiv\.org",
+            # Zenodo - multidisciplinary repository
+            r"\bzenodo\b",
+            r"zenodo\.org",
+            r"doi\.org/10\.5281/zenodo",
+            # Other legitimate preprint repositories
+            r"psyarxiv",  # Psychology preprints
+            r"socarxiv",  # Social sciences preprints
+            r"eartharxiv",  # Earth sciences preprints
+            r"engrxiv",  # Engineering preprints
+            r"techrxiv",  # IEEE preprints
+            r"preprints\.org",  # MDPI preprints
+            r"research\s*square",  # Research Square preprints
+            r"researchsquare\.com",
+            r"osf\.io/preprints",  # Open Science Framework preprints
+            r"chemrxiv",  # Chemistry preprints
+            r"authorea\.com",  # Authorea preprints platform
+        ]
+
+        # Combine all patterns
+        all_patterns = arxiv_patterns + preprint_patterns
+
         # Combine all relevant fields into a single string for pattern matching
-        # Prioritize 'journal' and 'booktitle' as they are often used for venue names
-        # 'eprint' is a direct indicator, 'title' might contain it if poorly formatted
         fields_to_check = [
             BibtexParser._get_field_safely(entry, "journal"),
             BibtexParser._get_field_safely(entry, "booktitle"),
             BibtexParser._get_field_safely(entry, "eprint"),
+            BibtexParser._get_field_safely(entry, "url"),
             BibtexParser._get_field_safely(entry, "title"),
         ]
 
@@ -545,20 +577,39 @@ class BibtexParser:
             [f.lower() for f in fields_to_check if f is not None]
         )
 
-        for pattern in arxiv_patterns:
+        for pattern in all_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
                 detail_logger.debug(
-                    f"Detected arXiv pattern '{pattern}' in entry: {entry.key}"
+                    f"Detected preprint pattern '{pattern}' in entry: {entry.key}"
                 )
                 return True
 
-        # Additionally, check if the entry type itself is 'misc' and contains 'arxiv' in title/journal
+        # Additionally, check if the entry type itself is 'misc' and contains preprint indicators
         if entry.type.lower() == "misc":
-            if re.search(r"arxiv", checked_content, re.IGNORECASE):
-                detail_logger.debug(f"Detected arXiv in 'misc' type entry: {entry.key}")
-                return True
+            misc_preprint_patterns = [
+                r"arxiv",
+                r"biorxiv",
+                r"ssrn",
+                r"medrxiv",
+                r"zenodo",
+            ]
+            for pattern in misc_preprint_patterns:
+                if re.search(pattern, checked_content, re.IGNORECASE):
+                    detail_logger.debug(
+                        f"Detected preprint in 'misc' type entry: {entry.key}"
+                    )
+                    return True
 
         return False
+
+    @staticmethod
+    def _is_arxiv_entry(entry: Entry) -> bool:
+        """Legacy method for backward compatibility. Use _is_preprint_entry instead.
+
+        This method is maintained for any existing code that might call it directly,
+        but internally delegates to the more comprehensive preprint detection.
+        """
+        return BibtexParser._is_preprint_entry(entry)
 
     @staticmethod
     def _detect_venue_type(entry: Entry, venue_name: str) -> VenueType:
@@ -586,8 +637,9 @@ class BibtexParser:
         venue_name_lower = venue_name.lower()
         entry_type_lower = entry.type.lower()
 
-        # Check for arXiv/preprints first (highest priority)
-        if BibtexParser._is_arxiv_entry(entry):
+        # Check for preprints first (highest priority)
+        # This includes arXiv, bioRxiv, SSRN, medRxiv, Zenodo, and other legitimate repositories
+        if BibtexParser._is_preprint_entry(entry):
             return VenueType.PREPRINT
 
         # Symposium patterns (check first since they should have highest priority)

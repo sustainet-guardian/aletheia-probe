@@ -215,8 +215,9 @@ class BibtexAssessmentResult(BaseModel):
     entries_with_journals: int = Field(
         ..., description="Number of entries with identifiable journals"
     )
-    arxiv_entries_count: int = Field(
-        0, description="Number of entries identified as arXiv preprints"
+    preprint_entries_count: int = Field(
+        0,
+        description="Number of entries identified as legitimate preprints (arXiv, bioRxiv, SSRN, etc.)",
     )
     skipped_entries_count: int = Field(
         0, description="Number of entries skipped for other reasons"
