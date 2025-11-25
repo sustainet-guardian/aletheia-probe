@@ -18,8 +18,8 @@ from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
-from .models import BackendStatus
 from .normalizer import input_normalizer
+from .output_formatter import output_formatter
 from .updater import data_updater  # Global updater instance from updater package
 
 
@@ -538,55 +538,11 @@ async def _async_assess_publication(
         if output_format == "json":
             print(json.dumps(result.model_dump(), indent=2, default=str))
         else:
-            # Determine display label based on publication type
-            if publication_type == "conference":
-                label = "Conference"
-            else:  # journal
-                label = "Journal"
-
-            print(f"{label}: {result.input_query}")
-
-            # Show acronym expansion note if applicable
-            if result.acronym_expansion_used and result.acronym_expanded_from:
-                print(
-                    f"Note: Expanded acronym '{result.acronym_expanded_from}' using cached mapping"
-                )
-
-            print(f"Assessment: {result.assessment.upper()}")
-            print(f"Confidence: {result.confidence:.2f}")
-            print(f"Overall Score: {result.overall_score:.2f}")
-            print(f"Processing Time: {result.processing_time:.2f}s")
-
-            if verbose and result.backend_results:
-                print(f"\nBackend Results ({len(result.backend_results)}):")
-                for backend_result in result.backend_results:
-                    status_emoji = (
-                        "✓"
-                        if backend_result.status == BackendStatus.FOUND
-                        else (
-                            "✗"
-                            if backend_result.status == BackendStatus.NOT_FOUND
-                            else "⚠"
-                        )
-                    )
-                    cache_indicator = " [cached]" if backend_result.cached else ""
-                    timing_info = ""
-                    if backend_result.execution_time_ms is not None:
-                        timing_info = f" ({backend_result.execution_time_ms:.2f}ms)"
-                    print(
-                        f"  {status_emoji} {backend_result.backend_name}: {backend_result.status}{cache_indicator}{timing_info}"
-                    )
-                    if backend_result.assessment:
-                        print(
-                            f"    → {backend_result.assessment} (confidence: {backend_result.confidence:.2f})"
-                        )
-                    if backend_result.error_message:
-                        print(f"    → Error: {backend_result.error_message}")
-
-            if result.reasoning:
-                print("\nReasoning:")
-                for reason in result.reasoning:
-                    print(f"  • {reason}")
+            # Use enhanced formatter for text output
+            formatted_output = output_formatter.format_text_output(
+                result, publication_type, verbose
+            )
+            print(formatted_output)
 
     except ValueError as e:
         status_logger.error(f"Error: {e}")
