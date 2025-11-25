@@ -61,6 +61,9 @@ run_check "Example execution" python scripts/check-examples.py || true
 # 8. Markdown link check
 run_check "Markdown link check" python scripts/check-markdown-links.py || true
 
+# 9. Import organization check
+run_check "Import organization" python scripts/find_middle_imports.py
+
 # Final summary
 echo -e "${BLUE}========================================${NC}"
 if [ $FAILED -eq 0 ]; then

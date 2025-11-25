@@ -7,6 +7,30 @@ import sys
 from pathlib import Path
 
 
+def has_explanatory_comment(lines: list[str], import_line: int) -> bool:
+    """Check if import has an explanatory comment (for circular dependency workarounds).
+
+    Args:
+        lines: All lines in the file
+        import_line: Line number of the import (1-indexed)
+
+    Returns:
+        True if there's a comment on the same line or immediately before
+    """
+    # Check same line (inline comment)
+    import_line_content = lines[import_line - 1]
+    if "#" in import_line_content:
+        return True
+
+    # Check line immediately before
+    if import_line > 1:
+        prev_line = lines[import_line - 2].strip()
+        if prev_line.startswith("#"):
+            return True
+
+    return False
+
+
 def check_file_for_middle_imports(filepath: Path) -> list[tuple[int, str]]:
     """Check if a file has imports after actual code statements.
 
@@ -14,12 +38,15 @@ def check_file_for_middle_imports(filepath: Path) -> list[tuple[int, str]]:
     come after real code like class definitions, function definitions, or
     executable statements.
 
+    Also ignores imports with explanatory comments (for circular import workarounds).
+
     Returns list of (line_number, import_statement) tuples for middle imports.
     """
     try:
         with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
+        lines = content.split('\n')
         tree = ast.parse(content, filename=str(filepath))
 
         # Skip the module docstring if present
@@ -38,11 +65,14 @@ def check_file_for_middle_imports(filepath: Path) -> list[tuple[int, str]]:
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 # This is an import
                 if seen_real_code:
-                    # We've seen real code before this import - this is problematic
+                    # We've seen real code before this import
                     import_line = node.lineno
-                    lines = content.split('\n')
-                    import_text = lines[import_line - 1].strip()
-                    middle_imports.append((import_line, import_text))
+
+                    # Check if this import has an explanatory comment
+                    if not has_explanatory_comment(lines, import_line):
+                        # No comment - this is problematic
+                        import_text = lines[import_line - 1].strip()
+                        middle_imports.append((import_line, import_text))
             else:
                 # This is actual code (class, function, assignment, etc.)
                 # Mark that we've seen real code
