@@ -99,6 +99,26 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
                 # Route to appropriate assessment based on publication type
                 source_type = openalex_data.get("source_type", "").lower()
+                display_name = openalex_data.get("display_name", "").lower()
+
+                # Override OpenAlex misclassification if display_name suggests conference
+                # OpenAlex sometimes incorrectly classifies conference proceedings as journals
+                # Detect conferences by common keywords in the display name
+                conference_keywords = [
+                    "proceedings",
+                    "conference",
+                    "symposium",
+                    "workshop",
+                ]
+                if source_type != "conference" and any(
+                    keyword in display_name for keyword in conference_keywords
+                ):
+                    self.detail_logger.info(
+                        f"OpenAlex: Overriding source_type '{source_type}' to 'conference' "
+                        f"based on display_name: '{openalex_data.get('display_name')}'"
+                    )
+                    source_type = "conference"
+
                 if source_type == "conference":
                     analysis = self._analyze_conference_patterns(openalex_data)
                 else:
@@ -116,7 +136,8 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                         "metrics": analysis["metrics"],
                         "red_flags": analysis["red_flags"],
                         "green_flags": analysis["green_flags"],
-                        "publication_type": source_type or "journal",
+                        "publication_type": source_type
+                        or "journal",  # Use corrected source_type
                     },
                     sources=[
                         "https://api.openalex.org",
