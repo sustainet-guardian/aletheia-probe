@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Basic integration tests for the journal assessment tool."""
 
+import asyncio
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -230,8 +231,6 @@ backends:
     @pytest.mark.asyncio
     async def test_concurrent_assessments(self):
         """Test that concurrent assessments work properly."""
-        import asyncio
-
         with (
             patch(
                 "aletheia_probe.dispatcher.get_config_manager"

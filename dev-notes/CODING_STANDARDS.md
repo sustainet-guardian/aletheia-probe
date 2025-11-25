@@ -74,6 +74,9 @@ def is_empty(text: str) -> bool:
 
 ## Project-Specific Conventions
 
+### Import Organization
+All imports must be at the top of the file (per PEP 8). Do not place imports inside functions or methods unless required to avoid circular dependencies (document with comment if needed).
+
 ### String Formatting: f-strings Only
 **All string formatting must use f-strings.** Do not use `.format()` or `%` formatting.
 

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """BibTeX parsing utilities for journal assessment."""
 
+import re
 from pathlib import Path
 
 from pybtex import errors as pybtex_errors  # type: ignore
@@ -329,8 +330,6 @@ class BibtexParser:
             "IEEE conference on computer vision"
             "Proceedings of Semantic Web" -> "Semantic Web"
         """
-        import re
-
         # Remove "Proceedings of the" prefix (case-insensitive)
         name = re.sub(r"^proceedings\s+of\s+the\s+", "", name, flags=re.IGNORECASE)
 
@@ -440,8 +439,6 @@ class BibtexParser:
             "Journal of \\"Research\\"" -> 'Journal of "Research"'
             "Test\\_Case" -> "Test_Case"
         """
-        import re
-
         # Map of LaTeX escape sequences to their actual characters
         # Handle both single and double backslash patterns
         escape_mappings = [
@@ -494,8 +491,6 @@ class BibtexParser:
             "\\ieee" -> "IEEE" -> (lookup in cache) -> full name or "IEEE"
             "\\unknownmacro" -> "UNKNOWNMACRO" (or removed if not in cache)
         """
-        import re
-
         from .cache import get_cache_manager
 
         # Find all LaTeX commands (backslash followed by letters)
@@ -542,8 +537,6 @@ class BibtexParser:
             "Normal text" -> "Normal text"
             "\\pasp" -> "PASP" (or full name if in cache)
         """
-        import re
-
         # First, expand LaTeX journal macros (e.g., \pasp -> PASP or full name)
         value = BibtexParser._expand_latex_journal_macros(value)
 
@@ -570,8 +563,6 @@ class BibtexParser:
         Returns:
             True if the entry is identified as a legitimate preprint, False otherwise.
         """
-        import re
-
         # Comprehensive patterns for arXiv (all variants from real-world data)
         arxiv_patterns = [
             # Standard arXiv patterns
@@ -675,8 +666,6 @@ class BibtexParser:
             "IEEE Transactions on Neural Networks" -> VenueType.JOURNAL
             "Proceedings of the IEEE conference on computer vision" -> VenueType.CONFERENCE
         """
-        import re
-
         # Convert venue name to lowercase for case-insensitive matching
         venue_name_lower = venue_name.lower()
         entry_type_lower = entry.type.lower()

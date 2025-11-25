@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache management module."""
 
+import logging
 import sqlite3
 import tempfile
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -485,7 +487,6 @@ class TestCacheManager:
 
     def test_concurrent_cache_access(self, temp_cache):
         """Test that cache handles concurrent access properly."""
-        import threading
 
         def add_entries(source_suffix):
             for i in range(10):
@@ -551,8 +552,6 @@ class TestAcronymMapping:
 
     def test_store_acronym_mapping_no_warn_on_year_variation(self, temp_cache, caplog):
         """Test that no warning is logged for year variations of same conference."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         # Store initial mapping with year
@@ -577,8 +576,6 @@ class TestAcronymMapping:
         self, temp_cache, caplog
     ):
         """Test that no warning is logged for ordinal variations."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         # Store with ordinal
@@ -602,8 +599,6 @@ class TestAcronymMapping:
         self, temp_cache, caplog
     ):
         """Test that warning is logged when acronym maps to truly different conferences."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         # Store first conference

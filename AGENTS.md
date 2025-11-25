@@ -138,11 +138,12 @@ Include:
 ✅ **DO:**
 1. Read all `dev-notes/` documentation first
 2. Run `bash scripts/run-quality-checks.sh` before committing
-3. Follow CODING_STANDARDS.md (simplicity, f-strings, type hints, enums, etc.)
+3. Follow CODING_STANDARDS.md (simplicity, f-strings, type hints, enums, imports at top, etc.)
 4. Follow LOGGING_USAGE.md (dual-logger system)
 5. Write tests for new functionality
 6. Add docstrings (Google style)
 7. Write clear commit messages explaining WHY
+8. Place all imports at the top of files per PEP 8 (unless needed for circular import workarounds)
 
 ❌ **DO NOT:**
 1. Commit code that fails quality checks

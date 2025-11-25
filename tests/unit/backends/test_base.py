@@ -2,6 +2,7 @@
 """Tests for the base backend functionality."""
 
 import asyncio
+import copy
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -372,8 +373,6 @@ class TestBackendRegistry:
     @pytest.fixture(autouse=True)
     def save_and_restore_registry(self):
         """Save and restore backend registry state for each test."""
-        import copy
-
         registry = get_backend_registry()
         # Save current state
         saved_factories = copy.copy(registry._factories)
