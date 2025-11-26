@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Kscien hijacked journals backend for predatory journal assessment."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -14,7 +15,7 @@ class KscienHijackedJournalsBackend(CachedBackend):
         """
         super().__init__(
             source_name="kscien_hijacked_journals",
-            list_type="hijacked",  # Different assessment type for hijacked journals
+            list_type=AssessmentType.HIJACKED,
             cache_ttl_hours=24 * 7,  # Weekly cache for curated lists
         )
 

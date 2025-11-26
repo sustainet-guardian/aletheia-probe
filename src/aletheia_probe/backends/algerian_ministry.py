@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Algerian Ministry backend for predatory journal verification."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -14,7 +15,7 @@ class AlgerianMinistryBackend(CachedBackend):
         """
         super().__init__(
             source_name="algerian_ministry",
-            list_type="predatory",
+            list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=48,  # Cache for 48 hours due to less frequent updates
         )
 

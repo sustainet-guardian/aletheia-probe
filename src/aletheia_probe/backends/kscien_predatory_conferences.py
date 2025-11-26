@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Kscien Predatory Conferences backend for conference assessment."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -14,7 +15,7 @@ class KscienPredatoryConferencesBackend(CachedBackend):
         """
         super().__init__(
             source_name="kscien_predatory_conferences",
-            list_type="predatory",
+            list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=24 * 7,  # Weekly cache for conference lists
         )
 

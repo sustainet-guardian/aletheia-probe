@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..cache import get_cache_manager
+from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
 
 
@@ -19,8 +20,8 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
-    def get_list_type(self) -> str:
-        """Return the list type: 'predatory', 'legitimate', or 'unknown'."""
+    def get_list_type(self) -> AssessmentType:
+        """Return the list type as AssessmentType enum member."""
         pass
 
     @abstractmethod
@@ -56,7 +57,7 @@ class DataUpdater:
         return None
 
     def add_custom_list(
-        self, file_path: Path, list_type: str, source_name: str
+        self, file_path: Path, list_type: AssessmentType, source_name: str
     ) -> None:
         """Add a custom list file as a data source."""
         from .sources.custom import CustomListSource

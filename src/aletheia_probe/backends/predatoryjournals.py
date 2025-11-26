@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Predatory Journals database backend for journal assessment."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -18,7 +19,7 @@ class PredatoryJournalsBackend(CachedBackend):
         """
         super().__init__(
             source_name="predatoryjournals",
-            list_type="predatory",
+            list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=24 * 30,  # Monthly cache for community-maintained lists
         )
 

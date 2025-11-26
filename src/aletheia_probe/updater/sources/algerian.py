@@ -10,6 +10,7 @@ from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
 from ...config import get_config_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
 from .algerian_helpers import PDFTextExtractor, RARDownloader, RARExtractor
@@ -45,8 +46,8 @@ class AlgerianMinistrySource(DataSource):
     def get_name(self) -> str:
         return "algerian_ministry"
 
-    def get_list_type(self) -> str:
-        return "predatory"
+    def get_list_type(self) -> AssessmentType:
+        return AssessmentType.PREDATORY
 
     def should_update(self) -> bool:
         """Check if we should update (monthly checks for new year data)."""

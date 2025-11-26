@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Scopus backend for legitimate journal verification."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -19,7 +20,7 @@ class ScopusBackend(CachedBackend):
         """
         super().__init__(
             source_name="scopus",
-            list_type="legitimate",
+            list_type=AssessmentType.LEGITIMATE,
             cache_ttl_hours=24 * 30,  # Monthly cache for static file
         )
 

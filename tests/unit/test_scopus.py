@@ -22,9 +22,11 @@ class TestScopusSource:
         assert source.get_name() == "scopus"
 
     def test_get_list_type(self):
-        """Test get_list_type returns 'legitimate'."""
+        """Test get_list_type returns AssessmentType.LEGITIMATE."""
+        from src.aletheia_probe.enums import AssessmentType
+
         source = ScopusSource()
-        assert source.get_list_type() == "legitimate"
+        assert source.get_list_type() == AssessmentType.LEGITIMATE
 
     def test_should_update_no_file(self):
         """Test should_update returns False when file doesn't exist."""
@@ -290,9 +292,11 @@ class TestScopusBackend:
 
     def test_backend_configuration(self):
         """Test backend is configured correctly."""
+        from src.aletheia_probe.enums import AssessmentType
+
         backend = ScopusBackend()
         assert backend.source_name == "scopus"
-        assert backend.list_type == "legitimate"
+        assert backend.list_type == AssessmentType.LEGITIMATE
         assert backend.cache_ttl_hours == 24 * 30  # Monthly cache
 
     @pytest.mark.asyncio

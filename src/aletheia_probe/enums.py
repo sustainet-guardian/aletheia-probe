@@ -24,6 +24,7 @@ class AssessmentType(str, Enum):
     UNKNOWN = "unknown"
     QUESTIONABLE = "questionable"
     QUALITY_INDICATOR = "quality_indicator"
+    HIJACKED = "hijacked"
 
 
 class BackendType(str, Enum):

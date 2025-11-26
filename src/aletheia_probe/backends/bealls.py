@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Beall's List backend for predatory journal assessment."""
 
+from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -14,7 +15,7 @@ class BeallsListBackend(CachedBackend):
         """
         super().__init__(
             source_name="bealls",
-            list_type="predatory",
+            list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=24 * 7,  # Weekly cache for static lists
         )
 

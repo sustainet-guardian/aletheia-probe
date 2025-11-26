@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Kscien publishers data source."""
 
+from ...enums import AssessmentType
 from .kscien_generic import KscienGenericSource
 
 
@@ -14,7 +15,9 @@ class KscienPublishersSource(KscienGenericSource):
 
     def __init__(self) -> None:
         """Initialize the Kscien publishers data source."""
-        super().__init__(publication_type="publishers", list_type="predatory")
+        super().__init__(
+            publication_type="publishers", list_type=AssessmentType.PREDATORY
+        )
 
     def get_name(self) -> str:
         """Return the data source identifier."""
