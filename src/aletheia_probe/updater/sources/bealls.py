@@ -8,6 +8,7 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
 from .bealls_helpers import BeallsHTMLParser
@@ -32,8 +33,8 @@ class BeallsListSource(DataSource):
     def get_name(self) -> str:
         return "bealls"
 
-    def get_list_type(self) -> str:
-        return "predatory"
+    def get_list_type(self) -> AssessmentType:
+        return AssessmentType.PREDATORY
 
     def should_update(self) -> bool:
         """Check if we should update (weekly for static lists)."""

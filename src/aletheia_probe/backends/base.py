@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..cache import get_cache_manager
-from ..enums import EvidenceType
+from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
 
@@ -92,16 +92,18 @@ class Backend(ABC):
 class CachedBackend(Backend):
     """Base class for backends that use local cached data."""
 
-    def __init__(self, source_name: str, list_type: str, cache_ttl_hours: int = 24):
+    def __init__(
+        self, source_name: str, list_type: AssessmentType, cache_ttl_hours: int = 24
+    ):
         super().__init__(cache_ttl_hours)
         self.source_name = source_name
         self.list_type = list_type
 
     def get_evidence_type(self) -> EvidenceType:
         """Return evidence type based on list type."""
-        if self.list_type == "predatory":
+        if self.list_type == AssessmentType.PREDATORY:
             return EvidenceType.PREDATORY_LIST
-        elif self.list_type == "legitimate":
+        elif self.list_type == AssessmentType.LEGITIMATE:
             return EvidenceType.LEGITIMATE_LIST
         else:
             # Default to heuristic for unknown list types

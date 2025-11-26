@@ -254,8 +254,11 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
         status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
         status_logger.info(f"List type: {list_type}")
 
+        # Convert string to AssessmentType enum
+        assessment_type = AssessmentType(list_type)
+
         # Add the custom list to the updater
-        data_updater.add_custom_list(file_path_obj, list_type, list_name)
+        data_updater.add_custom_list(file_path_obj, assessment_type, list_name)
 
         # Trigger immediate sync to load the data
         status_logger.info("Loading custom list data...")

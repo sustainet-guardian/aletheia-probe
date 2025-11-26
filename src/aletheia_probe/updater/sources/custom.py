@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ...cache import get_cache_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
@@ -20,7 +21,7 @@ status_logger = get_status_logger()
 class CustomListSource(DataSource):
     """Data source for custom CSV/JSON journal lists."""
 
-    def __init__(self, file_path: Path, list_type: str, source_name: str):
+    def __init__(self, file_path: Path, list_type: AssessmentType, source_name: str):
         self.file_path = file_path
         self.list_type = list_type
         self.source_name = source_name
@@ -28,7 +29,7 @@ class CustomListSource(DataSource):
     def get_name(self) -> str:
         return self.source_name
 
-    def get_list_type(self) -> str:
+    def get_list_type(self) -> AssessmentType:
         return self.list_type
 
     def should_update(self) -> bool:

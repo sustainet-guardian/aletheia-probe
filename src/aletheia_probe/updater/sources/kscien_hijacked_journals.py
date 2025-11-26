@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Kscien hijacked journals data source."""
 
+from ...enums import AssessmentType
 from .kscien_generic import KscienGenericSource
 
 
@@ -16,7 +17,7 @@ class KscienHijackedJournalsSource(KscienGenericSource):
         """Initialize the Kscien hijacked journals data source."""
         super().__init__(
             publication_type="hijacked-journals",
-            list_type="hijacked",  # Different assessment type
+            list_type=AssessmentType.HIJACKED,
         )
 
     def get_name(self) -> str:

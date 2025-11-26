@@ -13,6 +13,7 @@ from typing import Any
 
 from ...cache import get_cache_manager
 from ...config import get_config_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
@@ -36,8 +37,8 @@ class RetractionWatchSource(DataSource):
     def get_name(self) -> str:
         return "retraction_watch"
 
-    def get_list_type(self) -> str:
-        return "quality_indicator"
+    def get_list_type(self) -> AssessmentType:
+        return AssessmentType.QUALITY_INDICATOR
 
     def should_update(self) -> bool:
         """Check if we should update (weekly for retraction data)."""

@@ -11,6 +11,7 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
@@ -56,13 +57,13 @@ class PredatoryJournalsSource(DataSource):
         """
         return "predatoryjournals"
 
-    def get_list_type(self) -> str:
+    def get_list_type(self) -> AssessmentType:
         """Return the list type.
 
         Returns:
-            List type identifier ('predatory')
+            List type identifier (AssessmentType.PREDATORY)
         """
-        return "predatory"
+        return AssessmentType.PREDATORY
 
     def should_update(self) -> bool:
         """Check if we should update (monthly for community-maintained lists).

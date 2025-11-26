@@ -10,6 +10,7 @@ from typing import Any
 from openpyxl import load_workbook
 
 from ...cache import get_cache_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ...validation import validate_issn
@@ -38,8 +39,8 @@ class ScopusSource(DataSource):
     def get_name(self) -> str:
         return "scopus"
 
-    def get_list_type(self) -> str:
-        return "legitimate"
+    def get_list_type(self) -> AssessmentType:
+        return AssessmentType.LEGITIMATE
 
     def should_update(self) -> bool:
         """Check if we should update (monthly for static file)."""

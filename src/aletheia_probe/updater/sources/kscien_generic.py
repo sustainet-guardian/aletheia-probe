@@ -7,6 +7,7 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
 from .kscien_helpers import (
@@ -32,13 +33,15 @@ class KscienGenericSource(DataSource):
     """
 
     def __init__(
-        self, publication_type: PublicationType, list_type: str = "predatory"
+        self,
+        publication_type: PublicationType,
+        list_type: AssessmentType = AssessmentType.PREDATORY,
     ) -> None:
         """Initialize the Kscien generic data source.
 
         Args:
             publication_type: Type of publications to fetch
-            list_type: Assessment type ("predatory" or "hijacked")
+            list_type: Assessment type (e.g., PREDATORY or HIJACKED)
         """
         self.publication_type = publication_type
         self.list_type = list_type
@@ -53,7 +56,7 @@ class KscienGenericSource(DataSource):
         """Return the data source identifier."""
         return f"kscien_{self.publication_type.replace('-', '_')}"
 
-    def get_list_type(self) -> str:
+    def get_list_type(self) -> AssessmentType:
         """Return the list type (predatory, hijacked, etc.)."""
         return self.list_type
 
