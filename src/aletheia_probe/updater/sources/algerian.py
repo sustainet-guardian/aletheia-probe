@@ -135,7 +135,7 @@ class AlgerianMinistrySource(DataSource):
             )
 
             # Extract RAR contents
-            extract_dir = self._extract_rar(rar_path, temp_dir)
+            extract_dir = await self._extract_rar(rar_path, temp_dir)
             if not extract_dir:
                 detail_logger.warning("Algerian Ministry: RAR extraction failed")
                 status_logger.warning(f"    {self.get_name()}: RAR extraction failed")
@@ -164,7 +164,7 @@ class AlgerianMinistrySource(DataSource):
             )
             return result
 
-    def _extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
+    async def _extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
         """Extract RAR file using command line tool.
 
         Args:
@@ -174,7 +174,7 @@ class AlgerianMinistrySource(DataSource):
         Returns:
             Path to extraction directory, or None if failed
         """
-        return self.extractor.extract_rar(rar_path, temp_dir)
+        return await self.extractor.extract_rar(rar_path, temp_dir)
 
     def _process_pdf_files(self, extract_dir: str, year: int) -> list[dict[str, Any]]:
         """Process PDF files to extract journal and publisher lists from the target year only.

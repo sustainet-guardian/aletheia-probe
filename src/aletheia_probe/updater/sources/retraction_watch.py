@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Retraction Watch database data source from GitLab."""
 
+import asyncio
 import csv
 import json
 import sqlite3
@@ -110,12 +111,15 @@ class RetractionWatchSource(DataSource):
 
             # Use depth=1 for faster cloning (we only need latest)
             # Use absolute path to prevent command injection
-            result = subprocess.run(
-                ["git", "clone", "--depth", "1", self.repo_url, str(repo_path)],
-                capture_output=True,
-                text=True,
-                timeout=300,  # 5 minute timeout
-            )
+            def _run_git_clone() -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    ["git", "clone", "--depth", "1", self.repo_url, str(repo_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,  # 5 minute timeout
+                )
+
+            result = await asyncio.to_thread(_run_git_clone)
 
             if result.returncode == 0:
                 detail_logger.info(f"Successfully cloned repository to {repo_path}")
@@ -154,104 +158,110 @@ class RetractionWatchSource(DataSource):
         article_batch = []  # Batch for article retractions
         batch_size = 1000  # Commit every 1000 articles
 
-        try:
+        def _read_csv_sync() -> list[dict[str, Any]]:
+            """Read CSV file synchronously."""
+            rows = []
             with open(csv_path, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-
                 for row in reader:
-                    records_processed += 1
+                    rows.append(dict(row))
+            return rows
 
-                    # Log progress every 5000 records
-                    if records_processed % 5000 == 0:
-                        status_logger.info(
-                            f"    Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
-                        )
+        try:
+            csv_rows = await asyncio.to_thread(_read_csv_sync)
 
-                    journal = row.get("Journal", "").strip()
-                    publisher = row.get("Publisher", "").strip()
-                    retraction_date_str = row.get("RetractionDate", "")
-                    retraction_nature = row.get("RetractionNature", "").strip()
-                    reason = row.get("Reason", "").strip()
-                    original_paper_doi = row.get("OriginalPaperDOI", "").strip()
-                    retraction_doi = row.get("RetractionDOI", "").strip()
+            for row in csv_rows:
+                records_processed += 1
 
-                    # Collect article retraction for batch insert
-                    if original_paper_doi:
-                        article_batch.append(
-                            {
-                                "doi": original_paper_doi,
-                                "retraction_date_str": retraction_date_str,
-                                "retraction_nature": retraction_nature,
-                                "reason": reason,
-                                "retraction_doi": retraction_doi,
-                            }
-                        )
-                        articles_cached += 1
+                # Log progress every 5000 records
+                if records_processed % 5000 == 0:
+                    status_logger.info(
+                        f"    Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
+                    )
 
-                        # Batch insert every batch_size articles
-                        if len(article_batch) >= batch_size:
-                            await self._batch_cache_article_retractions(article_batch)
-                            article_batch = []
+                journal = row.get("Journal", "").strip()
+                publisher = row.get("Publisher", "").strip()
+                retraction_date_str = row.get("RetractionDate", "")
+                retraction_nature = row.get("RetractionNature", "").strip()
+                reason = row.get("Reason", "").strip()
+                original_paper_doi = row.get("OriginalPaperDOI", "").strip()
+                retraction_doi = row.get("RetractionDOI", "").strip()
 
-                    if not journal:
-                        continue
+                # Collect article retraction for batch insert
+                if original_paper_doi:
+                    article_batch.append(
+                        {
+                            "doi": original_paper_doi,
+                            "retraction_date_str": retraction_date_str,
+                            "retraction_nature": retraction_nature,
+                            "reason": reason,
+                            "retraction_doi": retraction_doi,
+                        }
+                    )
+                    articles_cached += 1
 
-                    # Normalize journal name
-                    try:
-                        normalized_input = input_normalizer.normalize(journal)
-                        normalized_journal = normalized_input.normalized_name
-                        if not normalized_journal:
-                            detail_logger.debug(
-                                f"Failed to normalize journal '{journal}': normalized name is empty"
-                            )
-                            continue
-                    except Exception as e:
+                    # Batch insert every batch_size articles
+                    if len(article_batch) >= batch_size:
+                        await self._batch_cache_article_retractions(article_batch)
+                        article_batch = []
+
+                if not journal:
+                    continue
+
+                # Normalize journal name
+                try:
+                    normalized_input = input_normalizer.normalize(journal)
+                    normalized_journal = normalized_input.normalized_name
+                    if not normalized_journal:
                         detail_logger.debug(
-                            f"Failed to normalize journal '{journal}': {e}"
+                            f"Failed to normalize journal '{journal}': normalized name is empty"
                         )
                         continue
+                except Exception as e:
+                    detail_logger.debug(f"Failed to normalize journal '{journal}': {e}")
+                    continue
 
-                    # Parse retraction date
-                    retraction_date = self._parse_date(retraction_date_str)
+                # Parse retraction date
+                retraction_date = self._parse_date(retraction_date_str)
 
-                    # Update journal stats
-                    stats = journal_stats[normalized_journal]
-                    stats["total_retractions"] += 1
-                    stats["original_names"].add(journal)
+                # Update journal stats
+                stats = journal_stats[normalized_journal]
+                stats["total_retractions"] += 1
+                stats["original_names"].add(journal)
 
-                    if retraction_date:
-                        stats["retraction_dates"].append(retraction_date)
+                if retraction_date:
+                    stats["retraction_dates"].append(retraction_date)
 
-                        # Update first/last dates
-                        if (
-                            stats["first_date"] is None
-                            or retraction_date < stats["first_date"]
-                        ):
-                            stats["first_date"] = retraction_date
-                        if (
-                            stats["last_date"] is None
-                            or retraction_date > stats["last_date"]
-                        ):
-                            stats["last_date"] = retraction_date
+                    # Update first/last dates
+                    if (
+                        stats["first_date"] is None
+                        or retraction_date < stats["first_date"]
+                    ):
+                        stats["first_date"] = retraction_date
+                    if (
+                        stats["last_date"] is None
+                        or retraction_date > stats["last_date"]
+                    ):
+                        stats["last_date"] = retraction_date
 
-                        # Count recent retractions
-                        years_ago = current_year - retraction_date.year
-                        if years_ago <= 2:
-                            stats["recent_retractions"] += 1
-                        if years_ago <= 1:
-                            stats["very_recent_retractions"] += 1
+                    # Count recent retractions
+                    years_ago = current_year - retraction_date.year
+                    if years_ago <= 2:
+                        stats["recent_retractions"] += 1
+                    if years_ago <= 1:
+                        stats["very_recent_retractions"] += 1
 
-                    # Retraction type
-                    if retraction_nature:
-                        stats["retraction_types"][retraction_nature] += 1
+                # Retraction type
+                if retraction_nature:
+                    stats["retraction_types"][retraction_nature] += 1
 
-                    # Reasons
-                    if reason:
-                        stats["reasons"].append(reason)
+                # Reasons
+                if reason:
+                    stats["reasons"].append(reason)
 
-                    # Publisher
-                    if publisher:
-                        stats["publishers"].add(publisher)
+                # Publisher
+                if publisher:
+                    stats["publishers"].add(publisher)
 
             # Insert any remaining articles in the batch
             if article_batch:
