@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Custom CSV/JSON journal list data source."""
 
+import asyncio
 import csv
 import json
 from datetime import datetime
@@ -63,8 +64,12 @@ class CustomListSource(DataSource):
 
     async def _load_json(self) -> list[dict[str, Any]]:
         """Load from JSON file."""
-        with open(self.file_path, encoding="utf-8") as f:
-            data = json.load(f)
+
+        def _load_file_sync() -> Any:
+            with open(self.file_path, encoding="utf-8") as f:
+                return json.load(f)
+
+        data: list[dict[str, Any]] = await asyncio.to_thread(_load_file_sync)
 
         journals = []
         for item in data:
@@ -103,41 +108,45 @@ class CustomListSource(DataSource):
 
     async def _load_csv(self) -> list[dict[str, Any]]:
         """Load from CSV file."""
-        journals = []
 
-        with open(self.file_path, encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    journal_name = (
-                        row.get("name") or row.get("journal_name") or row.get("title")
-                    )
-                    if journal_name:
-                        normalized_input = input_normalizer.normalize(journal_name)
-                        journals.append(
-                            {
-                                "journal_name": journal_name,
-                                "normalized_name": normalized_input.normalized_name,
-                                "issn": row.get("issn"),
-                                "eissn": row.get("eissn"),
-                                "publisher": row.get("publisher"),
-                                "metadata": {
-                                    k: v
-                                    for k, v in row.items()
-                                    if k
-                                    not in [
-                                        "name",
-                                        "journal_name",
-                                        "title",
-                                        "issn",
-                                        "eissn",
-                                        "publisher",
-                                    ]
-                                    and v.strip()
-                                },
-                            }
+        def _read_csv_sync() -> list[dict[str, Any]]:
+            journals = []
+            with open(self.file_path, encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        journal_name = (
+                            row.get("name")
+                            or row.get("journal_name")
+                            or row.get("title")
                         )
-                except Exception as e:
-                    detail_logger.debug(f"Failed to process CSV row: {e}")
+                        if journal_name:
+                            normalized_input = input_normalizer.normalize(journal_name)
+                            journals.append(
+                                {
+                                    "journal_name": journal_name,
+                                    "normalized_name": normalized_input.normalized_name,
+                                    "issn": row.get("issn"),
+                                    "eissn": row.get("eissn"),
+                                    "publisher": row.get("publisher"),
+                                    "metadata": {
+                                        k: v
+                                        for k, v in row.items()
+                                        if k
+                                        not in [
+                                            "name",
+                                            "journal_name",
+                                            "title",
+                                            "issn",
+                                            "eissn",
+                                            "publisher",
+                                        ]
+                                        and v.strip()
+                                    },
+                                }
+                            )
+                    except Exception as e:
+                        detail_logger.debug(f"Failed to process CSV row: {e}")
+            return journals
 
-        return journals
+        return await asyncio.to_thread(_read_csv_sync)

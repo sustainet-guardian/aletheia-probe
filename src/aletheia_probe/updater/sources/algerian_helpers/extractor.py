@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """RAR file extraction utilities."""
 
+import asyncio
 import subprocess
 from pathlib import Path
 
@@ -14,7 +15,7 @@ status_logger = get_status_logger()
 class RARExtractor:
     """Extracts RAR archives using command line tool."""
 
-    def extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
+    async def extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
         """Extract RAR file using command line tool.
 
         Args:
@@ -63,12 +64,15 @@ class RARExtractor:
 
         try:
             # Use command line unrar tool with validated absolute paths
-            result = subprocess.run(
-                ["unrar", "x", str(rar_file), str(extract_dir) + "/"],
-                capture_output=True,
-                text=True,
-                timeout=120,  # 2 minute timeout
-            )
+            def _run_unrar() -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    ["unrar", "x", str(rar_file), str(extract_dir) + "/"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,  # 2 minute timeout
+                )
+
+            result = await asyncio.to_thread(_run_unrar)
 
             if result.returncode == 0:
                 detail_logger.info("Successfully extracted RAR archive")
