@@ -17,7 +17,3 @@ class KscienStandaloneJournalsSource(KscienGenericSource):
         super().__init__(
             publication_type="standalone-journals", list_type=AssessmentType.PREDATORY
         )
-
-    def get_name(self) -> str:
-        """Return the data source identifier."""
-        return "kscien_standalone_journals"

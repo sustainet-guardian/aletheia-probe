@@ -18,7 +18,3 @@ class KscienPublishersSource(KscienGenericSource):
         super().__init__(
             publication_type="publishers", list_type=AssessmentType.PREDATORY
         )
-
-    def get_name(self) -> str:
-        """Return the data source identifier."""
-        return "kscien_publishers"
