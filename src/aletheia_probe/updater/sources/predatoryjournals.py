@@ -15,6 +15,7 @@ from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ..core import DataSource
+from ..utils import deduplicate_journals
 
 
 detail_logger = get_detail_logger()
@@ -133,7 +134,7 @@ class PredatoryJournalsSource(DataSource):
                 )
 
         # Remove duplicates based on normalized name
-        unique_entries = self._deduplicate_entries(all_entries)
+        unique_entries = deduplicate_journals(all_entries)
         status_logger.info(
             f"Total unique entries after deduplication: {len(unique_entries)}"
         )
@@ -378,26 +379,3 @@ class PredatoryJournalsSource(DataSource):
             entry["publisher"] = publisher
 
         return entry
-
-    def _deduplicate_entries(
-        self, entries: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Remove duplicate entries based on normalized names.
-
-        Args:
-            entries: List of journal/publisher entries
-
-        Returns:
-            Deduplicated list of entries
-        """
-        seen_names = set()
-        unique_entries = []
-
-        for entry in entries:
-            normalized_name = entry.get("normalized_name", "").lower()
-
-            if normalized_name and normalized_name not in seen_names:
-                seen_names.add(normalized_name)
-                unique_entries.append(entry)
-
-        return unique_entries
