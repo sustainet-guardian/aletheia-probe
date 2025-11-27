@@ -13,6 +13,7 @@ from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
+from ..utils import deduplicate_journals
 from .algerian_helpers import PDFTextExtractor, RARDownloader, RARExtractor
 
 
@@ -106,7 +107,7 @@ class AlgerianMinistrySource(DataSource):
                 f"    {self.get_name()}: Failed to fetch data for any year"
             )
 
-        return self._deduplicate_journals(all_journals)
+        return deduplicate_journals(all_journals)
 
     async def _fetch_year_data(self, year: int) -> list[dict[str, Any]]:
         """Fetch and process data for a specific year.
@@ -245,25 +246,3 @@ class AlgerianMinistrySource(DataSource):
                     )
 
         return all_entries
-
-    def _deduplicate_journals(
-        self, journals: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Remove duplicate journals based on normalized name.
-
-        Args:
-            journals: List of journal entries
-
-        Returns:
-            Deduplicated list
-        """
-        seen_names = set()
-        unique_journals = []
-
-        for journal in journals:
-            normalized_name = journal.get("normalized_name")
-            if normalized_name and normalized_name not in seen_names:
-                seen_names.add(normalized_name)
-                unique_journals.append(journal)
-
-        return unique_journals

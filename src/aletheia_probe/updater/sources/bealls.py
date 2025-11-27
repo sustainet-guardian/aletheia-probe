@@ -11,6 +11,7 @@ from ...cache import get_cache_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
+from ..utils import deduplicate_journals
 from .bealls_helpers import BeallsHTMLParser
 
 
@@ -69,7 +70,7 @@ class BeallsListSource(DataSource):
                     )
 
         # Remove duplicates based on normalized name
-        unique_journals = self._deduplicate_journals(all_journals)
+        unique_journals = deduplicate_journals(all_journals)
         detail_logger.info(
             f"Total unique journals after deduplication: {len(unique_journals)}"
         )
@@ -105,26 +106,3 @@ class BeallsListSource(DataSource):
             status_logger.error(f"    {self.get_name()}: Error - {e}")
 
         return journals
-
-    def _deduplicate_journals(
-        self, journals: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Remove duplicate journals based on normalized names.
-
-        Args:
-            journals: List of journal entries
-
-        Returns:
-            Deduplicated list of journal entries
-        """
-        seen_names = set()
-        unique_journals = []
-
-        for journal in journals:
-            normalized_name = journal.get("normalized_name", "").lower()
-
-            if normalized_name and normalized_name not in seen_names:
-                seen_names.add(normalized_name)
-                unique_journals.append(journal)
-
-        return unique_journals
