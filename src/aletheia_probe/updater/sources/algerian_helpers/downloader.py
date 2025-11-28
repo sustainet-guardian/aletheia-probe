@@ -24,6 +24,13 @@ class RARDownloader:
 
         Returns:
             SSL context if available, False if SSL must be disabled
+
+        Security Note:
+            This method attempts to create a secure SSL context with certificate
+            validation. If SSL context creation fails, the method returns False,
+            which signals the download method to fall back to disabled SSL
+            verification. This fallback is a deliberate design decision with
+            security implications (see download_rar method for details).
         """
         try:
             # Create SSL context with proper certificate validation
@@ -107,12 +114,61 @@ class RARDownloader:
                     raise ssl.SSLError("SSL context creation failed")
 
             except (ssl.SSLError, ClientError) as ssl_error:
-                # Fall back to disabled SSL with enhanced monitoring
+                # SECURITY WARNING: SSL Verification Fallback
+                # ============================================
+                # This fallback disables SSL certificate verification, which opens
+                # the door to man-in-the-middle (MITM) attacks. This is a deliberate
+                # design decision based on the following considerations:
+                #
+                # WHY THIS FALLBACK EXISTS:
+                # 1. The Algerian Ministry website may have certificate configuration
+                #    issues that prevent proper SSL validation
+                # 2. The data being downloaded is public academic journal listings,
+                #    not sensitive personal or authentication data
+                # 3. Complete failure to download would prevent assessment of journals
+                #    from this geographic region
+                #
+                # SECURITY IMPLICATIONS:
+                # - Potential MITM attack: An attacker could intercept the connection
+                #   and substitute malicious data for the authentic journal list
+                # - Data integrity risk: Downloaded data could be tampered with during
+                #   transmission without detection
+                # - Impact: Compromised data could lead to incorrect journal assessments
+                #   (marking legitimate journals as predatory or vice versa)
+                #
+                # RISK MITIGATION:
+                # - This is public, non-sensitive data (journal listings)
+                # - Data is validated after download (RAR extraction, JSON parsing)
+                # - Tampering would be detectable through data format validation
+                # - The impact is limited to journal assessment accuracy, not system
+                #   security or personal data exposure
+                #
+                # ALTERNATIVES CONSIDERED:
+                # - Certificate pinning: Too brittle for government websites that may
+                #   change certificates
+                # - Fail completely: Would prevent assessment of Algerian journals
+                # - User confirmation: Not practical for automated sync operations
+                #
+                # ACCEPTABLE USE:
+                # This fallback is acceptable because:
+                # 1. The data is public and non-sensitive
+                # 2. The risk is limited to journal assessment accuracy
+                # 3. The alternative (no data) is worse for the tool's purpose
+                # 4. Users are warned about the SSL bypass in logs
+                #
+                # FUTURE IMPROVEMENTS:
+                # - Consider adding a configuration option to disable this fallback
+                # - Implement additional data integrity checks (checksums, signatures)
+                # - Monitor for certificate issues and report to data source maintainers
+
                 detail_logger.warning(
-                    f"Algerian downloader: SSL verification failed: {ssl_error}, falling back to disabled SSL"
+                    f"Algerian downloader: SSL verification failed: {ssl_error}, "
+                    "falling back to disabled SSL verification"
                 )
-                status_logger.info(
-                    "    algerian_ministry: SSL verification failed, retrying without SSL..."
+                status_logger.warning(
+                    "    algerian_ministry: SSL verification failed - "
+                    "SECURITY WARNING: Proceeding without SSL verification. "
+                    "Connection is vulnerable to MITM attacks."
                 )
 
                 # Check if file exists without SSL first
@@ -123,6 +179,11 @@ class RARDownloader:
                         )
                         return None
 
+                # Download without SSL verification (security risk documented above)
+                detail_logger.warning(
+                    "Algerian downloader: Downloading without SSL verification - "
+                    "connection is not secure and vulnerable to MITM attacks"
+                )
                 async with session.get(
                     url, ssl=False, timeout=300
                 ) as response:  # 5 minutes for large files
