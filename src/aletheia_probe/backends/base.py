@@ -284,46 +284,6 @@ class HybridBackend(Backend):
         key_string = "|".join(key_parts)
         return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()  # nosec B324 - MD5 used for cache key, not security
 
-    async def query_with_timeout(
-        self, query_input: QueryInput, timeout: int = 10
-    ) -> BackendResult:
-        """Query with timeout handling.
-
-        Args:
-            query_input: Query input data
-            timeout: Timeout in seconds
-
-        Returns:
-            BackendResult, with status TIMEOUT if the query times out
-        """
-        start_time = time.time()
-
-        try:
-            result = await asyncio.wait_for(self.query(query_input), timeout=timeout)
-            return result
-        except asyncio.TimeoutError:
-            response_time = time.time() - start_time
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.TIMEOUT,
-                confidence=0.0,
-                assessment=None,
-                error_message=f"Query timed out after {timeout} seconds",
-                response_time=response_time,
-                cached=False,  # Timeout from query (cache or API)
-            )
-        except Exception as e:
-            response_time = time.time() - start_time
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=response_time,
-                cached=False,  # Error from query (cache or API)
-            )
-
 
 class BackendRegistry:
     """Registry for managing available backends with factory-based creation."""

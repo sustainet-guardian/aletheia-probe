@@ -19,7 +19,3 @@ class KscienHijackedJournalsSource(KscienGenericSource):
             publication_type="hijacked-journals",
             list_type=AssessmentType.HIJACKED,
         )
-
-    def get_name(self) -> str:
-        """Return the data source identifier."""
-        return "kscien_hijacked_journals"
