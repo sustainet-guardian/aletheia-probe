@@ -77,6 +77,51 @@ class DataSourceUrlConfig(BaseModel):
     retraction_watch_csv_filename: str = Field(
         "retraction_watch.csv", description="CSV filename in Retraction Watch repo"
     )
+    bealls_publishers_url: str = Field(
+        "https://beallslist.net/",
+        description="URL for Beall's List publishers page",
+    )
+    bealls_standalone_url: str = Field(
+        "https://beallslist.net/standalone-journals/",
+        description="URL for Beall's List standalone journals page",
+    )
+    predatory_journals_fallback_url: str = Field(
+        "https://www.predatoryjournals.org/the-list/journals",
+        description="Fallback URL for predatory journals list",
+    )
+    predatory_publishers_fallback_url: str = Field(
+        "https://www.predatoryjournals.org/the-list/publishers",
+        description="Fallback URL for predatory publishers list",
+    )
+
+
+class DataSourceProcessingConfig(BaseModel):
+    """Configuration for data source processing parameters."""
+
+    rar_extraction_timeout: int = Field(
+        120, ge=10, description="Timeout in seconds for RAR extraction"
+    )
+    download_chunk_size: int = Field(
+        8192, ge=1024, description="Chunk size in bytes for file downloads"
+    )
+    url_extraction_pattern: str = Field(
+        r"https?://[^\s]+",
+        description="Regex pattern for extracting URLs from text",
+    )
+    scopus_column_mappings: dict[str, list[str]] = Field(
+        default_factory=lambda: {
+            "title": ["source title", "title"],
+            "issn": ["issn"],
+            "eissn": ["eissn", "e-issn"],
+            "publisher": ["publisher"],
+            "status": ["active or inactive"],
+            "quality_flag": ["discontinued", "quality"],
+            "source_type": ["source type"],
+            "coverage": ["coverage"],
+            "open_access": ["open access"],
+        },
+        description="Column header mappings for Scopus Excel files",
+    )
 
 
 class AppConfig(BaseModel):
@@ -89,6 +134,7 @@ class AppConfig(BaseModel):
     output: OutputConfig = OutputConfig()
     cache: CacheConfig = CacheConfig()
     data_source_urls: DataSourceUrlConfig = DataSourceUrlConfig()
+    data_source_processing: DataSourceProcessingConfig = DataSourceProcessingConfig()
 
 
 class ConfigManager:

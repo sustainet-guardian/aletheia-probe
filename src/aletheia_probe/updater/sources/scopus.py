@@ -10,6 +10,7 @@ from typing import Any
 from openpyxl import load_workbook
 
 from ...cache import get_cache_manager
+from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
@@ -35,6 +36,10 @@ class ScopusSource(DataSource):
             data_dir = Path.cwd() / ".aletheia-probe" / "scopus"
         self.data_dir = data_dir
         self.file_path: Path | None = None
+
+        # Load column mappings from configuration
+        config = get_config_manager().load_config()
+        self.column_mappings = config.data_source_processing.scopus_column_mappings
 
     def get_name(self) -> str:
         return "scopus"
@@ -129,29 +134,29 @@ class ScopusSource(DataSource):
             header_row = next(rows_iter)
             headers = [cell.value for cell in header_row]
 
-            # Find column indices
+            # Find column indices using configured mappings
             col_indices = {}
             for i, header in enumerate(headers):
                 if header:
                     header_lower = str(header).lower()
-                    if "source title" in header_lower or header_lower == "title":
-                        col_indices["title"] = i
-                    elif header_lower == "issn":
-                        col_indices["issn"] = i
-                    elif header_lower == "eissn" or header_lower == "e-issn":
-                        col_indices["eissn"] = i
-                    elif "publisher" in header_lower:
-                        col_indices["publisher"] = i
-                    elif "active or inactive" in header_lower:
-                        col_indices["status"] = i
-                    elif "discontinued" in header_lower and "quality" in header_lower:
-                        col_indices["quality_flag"] = i
-                    elif "source type" in header_lower:
-                        col_indices["source_type"] = i
-                    elif "coverage" in header_lower:
-                        col_indices["coverage"] = i
-                    elif "open access" in header_lower:
-                        col_indices["open_access"] = i
+                    # Check each configured mapping
+                    for field_name, possible_headers in self.column_mappings.items():
+                        # Skip if we've already found this field
+                        if field_name in col_indices:
+                            continue
+
+                        if field_name == "quality_flag":
+                            # Special case: quality_flag needs both "discontinued" AND "quality"
+                            if all(
+                                keyword in header_lower for keyword in possible_headers
+                            ):
+                                col_indices[field_name] = i
+                        else:
+                            # Regular case: match any of the possible headers
+                            for possible_header in possible_headers:
+                                if possible_header in header_lower:
+                                    col_indices[field_name] = i
+                                    break
 
             # Validate required columns exist
             if "title" not in col_indices:

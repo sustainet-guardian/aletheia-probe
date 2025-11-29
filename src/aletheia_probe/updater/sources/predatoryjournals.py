@@ -11,6 +11,7 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
+from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
@@ -34,18 +35,20 @@ class PredatoryJournalsSource(DataSource):
 
         Sets up URLs for both journals and publishers Google Sheets exports.
         """
+        # Load URLs from configuration
+        config = get_config_manager().load_config()
         # Google Sheets CSV export URLs
         # Format: https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID}
         self.sources = {
             "journals": {
                 "name": "Predatory Journals List 2025",
                 "url": None,  # Will be set after discovering the sheet
-                "fallback_url": "https://www.predatoryjournals.org/the-list/journals",
+                "fallback_url": config.data_source_urls.predatory_journals_fallback_url,
             },
             "publishers": {
                 "name": "Predatory Publishers List 2025",
                 "url": None,  # Will be set after discovering the sheet
-                "fallback_url": "https://www.predatoryjournals.org/the-list/publishers",
+                "fallback_url": config.data_source_urls.predatory_publishers_fallback_url,
             },
         }
         self.timeout = ClientTimeout(total=60)
