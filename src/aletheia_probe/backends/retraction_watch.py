@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: MIT
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
+import asyncio
 import json
 import time
 from typing import Any
+
+import aiohttp
 
 from ..cache import get_cache_manager
 from ..logging_config import get_detail_logger, get_status_logger
@@ -185,7 +188,13 @@ class RetractionWatchBackend(HybridBackend):
                     response_time=response_time,
                 )
 
-        except Exception as e:
+        except (
+            ValueError,
+            KeyError,
+            OSError,
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+        ) as e:
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -228,7 +237,13 @@ class RetractionWatchBackend(HybridBackend):
 
             return openalex_data
 
-        except Exception as e:
+        except (
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+            ValueError,
+            KeyError,
+            OSError,
+        ) as e:
             status_logger.warning(
                 f"Failed to fetch OpenAlex data for {journal_name}: {e}"
             )

@@ -47,7 +47,14 @@ def handle_cli_errors(func: F) -> F:
 
         try:
             return func(*args, **kwargs)
-        except Exception as e:
+        except (
+            ValueError,
+            OSError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            Exception,
+        ) as e:
             if verbose:
                 status_logger.error(f"Error in {func.__name__}: {e}")
                 traceback.print_exc()
@@ -164,7 +171,7 @@ def sync(force: bool, backend_names: tuple[str, ...]) -> None:
                 if backend_result.get("status") in ["error", "failed"]:
                     sys.exit(1)
 
-    except Exception as e:
+    except (ValueError, OSError, KeyError, RuntimeError, Exception) as e:
         status_logger = get_status_logger()
         status_logger.error(f"Error during sync: {e}")
         sys.exit(1)
@@ -504,7 +511,14 @@ async def _async_bibtex_main(
     except ValueError as e:
         status_logger.error(f"Error: {e}")
         sys.exit(1)
-    except Exception as e:
+    except (
+        OSError,
+        KeyError,
+        RuntimeError,
+        AttributeError,
+        UnicodeDecodeError,
+        Exception,
+    ) as e:
         if verbose:
             status_logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
@@ -554,7 +568,7 @@ async def _async_assess_publication(
     except ValueError as e:
         status_logger.error(f"Error: {e}")
         sys.exit(1)
-    except Exception as e:
+    except (OSError, KeyError, RuntimeError, AttributeError, Exception) as e:
         if verbose:
             status_logger.error(f"Unexpected error: {e}")
             traceback.print_exc()

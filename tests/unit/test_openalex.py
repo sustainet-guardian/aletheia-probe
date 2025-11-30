@@ -199,7 +199,7 @@ class TestOpenAlexClient:
 
             with patch(
                 "aletheia_probe.normalizer.input_normalizer.extract_conference_series",
-                side_effect=Exception("Test error"),
+                side_effect=ValueError("Test error"),
             ):
                 async with OpenAlexClient() as client:
                     result = await client.enrich_journal_data("Some Conference")
@@ -255,7 +255,7 @@ class TestOpenAlexClient:
     async def test_get_publication_stats_client_error(self):
         """Test get_publication_stats with client error."""
         with patch("aletheia_probe.openalex.OpenAlexClient") as mock_client_class:
-            mock_client_class.side_effect = Exception("Client error")
+            mock_client_class.side_effect = ValueError("Client error")
 
             result = await get_publication_stats("Test Journal")
 
