@@ -167,6 +167,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         Args:
             openalex_data: Raw data from OpenAlex API
         """
+        from ..cache import get_cache_manager
         from ..normalizer import InputNormalizer
 
         display_name = openalex_data.get("display_name")
@@ -178,8 +179,17 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         acronyms = normalizer._extract_acronyms(display_name)
 
         if acronyms:
-            # Store the mapping for each extracted acronym
-            normalizer._store_acronym_mappings_from_text(display_name, acronyms)
+            # Extract acronym mappings
+            mappings = normalizer._extract_acronym_mappings_from_text(
+                display_name, acronyms
+            )
+
+            # Store each mapping in the cache
+            cache = get_cache_manager()
+            for acronym, full_name in mappings.items():
+                cache.store_acronym_mapping(
+                    acronym, full_name, source="openalex_response"
+                )
 
     def _analyze_journal_patterns(
         self, openalex_data: dict[str, Any]

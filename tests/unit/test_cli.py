@@ -385,6 +385,7 @@ class TestAsyncMain:
                 raw_input="Test Journal",
                 normalized_name="test journal",
                 identifiers={"issn": "1234-5678"},
+                extracted_acronym_mappings={},
             )
             mock_dispatcher.assess_journal = AsyncMock(
                 return_value=mock_assessment_result
@@ -414,7 +415,10 @@ class TestAsyncMain:
             patch("builtins.print") as mock_print,
         ):
             mock_normalizer.normalize.return_value = Mock(
-                raw_input="Test Journal", normalized_name="test journal", identifiers={}
+                raw_input="Test Journal",
+                normalized_name="test journal",
+                identifiers={},
+                extracted_acronym_mappings={},
             )
             mock_dispatcher.assess_journal = AsyncMock(
                 return_value=mock_assessment_result
@@ -447,6 +451,7 @@ class TestAsyncMain:
                 raw_input="Test Journal",
                 normalized_name="test journal",
                 identifiers={"issn": "1234-5678"},
+                extracted_acronym_mappings={},
             )
             mock_normalizer.normalize.return_value = mock_query_input
             mock_dispatcher.assess_journal = AsyncMock(

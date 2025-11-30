@@ -522,11 +522,20 @@ async def _async_assess_publication(
     publication_name: str, publication_type: str, verbose: bool, output_format: str
 ) -> None:
     """Async function for assessing publications with type specification."""
+    from .cache import get_cache_manager
+
     status_logger = get_status_logger()
+    cache = get_cache_manager()
 
     try:
-        # Normalize the input
-        query_input = input_normalizer.normalize(publication_name)
+        # Normalize the input with acronym lookup from cache
+        query_input = input_normalizer.normalize(
+            publication_name, acronym_lookup=cache.get_full_name_for_acronym
+        )
+
+        # Store any extracted acronym mappings in cache
+        for acronym, full_name in query_input.extracted_acronym_mappings.items():
+            cache.store_acronym_mapping(acronym, full_name, source="user_input")
 
         if verbose:
             status_logger.info(f"Publication type: {publication_type}")
