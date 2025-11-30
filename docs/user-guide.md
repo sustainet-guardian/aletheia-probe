@@ -128,6 +128,9 @@ aletheia-probe bibtex --format json references.bib
 
 The tool can process entire BibTeX files, making it ideal for checking manuscript bibliographies, research databases, or academic collections.
 
+#### Why Assess BibTeX Files?
+Aletheia-Probe helps answer a critical question for researchers: **Are the journal entries in my bibtex file valid?**
+
 #### Basic BibTeX Commands
 
 ```bash

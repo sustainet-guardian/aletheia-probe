@@ -10,9 +10,7 @@ Aletheia-Probe is a comprehensive command-line tool for evaluating the legitimac
 
 **Setting Realistic Expectations**: If you are an honest researcher using established, well-known journals and conferences through major search engines and databases, you will likely never encounter predatory venues. This tool functions like a virus scanner for academic publishing—you should have it installed and running, but hopefully never receive any warnings. It's designed to catch the edge cases and protect against the less obvious threats that might slip through normal research workflows.
 
-### About the Name
-
-The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones.
+**About the Name**: The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones.
 
 ## TL;DR
 
@@ -22,7 +20,7 @@ Aletheia-Probe helps answer two critical questions for researchers:
     ```bash
     aletheia-probe journal "Journal of Computer Science"
     ```
-2.  **Are the references in my paper legitimate?** (Are the journal entries in my bibtex file valid?)
+2.  **Are the references in my paper legitimate?**
     ```bash
     aletheia-probe bibtex references.bib
     ```
@@ -107,7 +105,7 @@ These provide authoritative yes/no decisions for journals they cover:
 | **DOAJ** | Legitimate OA journals | 22,000+ journals | Gold standard for open access legitimacy |
 | **Scopus** (optional) | Legitimate indexed journals | 30,000+ journals | Major subscription and OA journals |
 | **Beall's List** | Predatory journal archives | ~2,900 entries | Historically identified predatory publishers |
-| **PredatoryJournals.org** | Predatory journals/publishers | Community-maintained | Curated lists from predatoryjournals.org |
+| **PredatoryJournals.org** | Predatory journals/publishers | 15,000+ entries | Curated lists from predatoryjournals.org |
 | **Algerian Ministry** | Predatory journal list | ~3,300 entries | Ministry of Higher Education predatory journals |
 | **Kscien Standalone Journals** | Predatory journals | 1,400+ entries | Individual predatory journals identified by Kscien |
 | **Kscien Publishers** | Predatory publishers | 1,200+ entries | Known predatory publishers |
@@ -252,26 +250,6 @@ To enhance coverage with Scopus data:
 - [Configuration Reference](docs/configuration.md) - All configuration options
 - [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-
-## AI-Assisted Development
-
-This project explicitly encourages and welcomes the use of AI coding agents as part of the development workflow. AI tools are valuable for:
-
-- Code generation and refactoring
-- Writing tests and documentation
-- Code review and quality improvement
-- Problem-solving and debugging
-- Learning and exploring the codebase
-
-**Guidelines for AI-Assisted Contributions:**
-
-1. **Review and Verify**: All AI-generated code must be thoroughly reviewed, tested, and understood before submission
-2. **Quality Standards**: AI-assisted code must meet the same quality standards as manually written code (see [AGENTS.md](AGENTS.md))
-3. **Transparency**: Contributors may optionally indicate AI assistance in commit messages or PR descriptions using tags like `[AI-assisted]` for transparency
-4. **Responsibility**: Contributors remain fully responsible for all submitted code, regardless of how it was generated
-5. **Security**: Extra attention should be paid to security implications of AI-generated code
-
-For detailed guidelines on using AI coding agents with this project, see [AGENTS.md](AGENTS.md).
 
 ## Funding Acknowledgment
 
