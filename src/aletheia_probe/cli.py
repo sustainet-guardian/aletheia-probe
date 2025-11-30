@@ -2,11 +2,13 @@
 """Command-line interface for the journal assessment tool."""
 
 import asyncio
+import functools
 import json
-import sqlite3
 import sys
 import traceback
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, TypeVar
 
 import click
 
@@ -21,6 +23,39 @@ from .logging_config import get_status_logger, setup_logging
 from .normalizer import input_normalizer
 from .output_formatter import output_formatter
 from .updater import data_updater  # Global updater instance from updater package
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def handle_cli_errors(func: F) -> F:
+    """Decorator to handle common CLI error patterns.
+
+    Wraps CLI command functions with consistent error handling, logging,
+    and exit behavior. Catches exceptions and logs them appropriately
+    based on verbosity, then exits with status code 1.
+
+    This decorator should be applied to Click command functions to reduce
+    boilerplate try-except blocks throughout the CLI module.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        status_logger = get_status_logger()
+        # Extract verbose flag if present in kwargs for error reporting
+        verbose = kwargs.get("verbose", False)
+
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            if verbose:
+                status_logger.error(f"Error in {func.__name__}: {e}")
+                traceback.print_exc()
+            else:
+                status_logger.error(f"Error: {e}")
+            sys.exit(1)
+
+    return wrapper  # type: ignore
 
 
 def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> None:
@@ -90,15 +125,11 @@ def conference(conference_name: str, verbose: bool, output_format: str) -> None:
 
 
 @main.command()
+@handle_cli_errors
 def config() -> None:
     """Show the complete current configuration."""
-    status_logger = get_status_logger()
-    try:
-        config_output = get_config_manager().show_config()
-        print(config_output)
-    except Exception as e:
-        status_logger.error(f"Error displaying configuration: {e}")
-        exit(1)
+    config_output = get_config_manager().show_config()
+    print(config_output)
 
 
 @main.command()
@@ -125,22 +156,23 @@ def sync(force: bool, backend_names: tuple[str, ...]) -> None:
 
         # Check for errors and exit accordingly
         if result.get("status") == "error":
-            exit(1)
+            sys.exit(1)
 
         # Check if any backend had an error
         for backend_result in result.values():
             if isinstance(backend_result, dict):
                 if backend_result.get("status") in ["error", "failed"]:
-                    exit(1)
+                    sys.exit(1)
 
     except Exception as e:
         status_logger = get_status_logger()
         status_logger.error(f"Error during sync: {e}")
-        exit(1)
+        sys.exit(1)
 
 
 @main.command()
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+@handle_cli_errors
 def clear_cache(confirm: bool) -> None:
     """Clear the assessment cache.
 
@@ -154,75 +186,62 @@ def clear_cache(confirm: bool) -> None:
             "This will clear all cached assessment results. Continue?", abort=True
         )
 
-    try:
-        cache_manager = get_cache_manager()
+    cache_manager = get_cache_manager()
 
-        # Clear assessment cache
-        with sqlite3.connect(cache_manager.db_path) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM assessment_cache")
-            count = cursor.fetchone()[0]
+    # Get count before clearing
+    count = cache_manager.get_assessment_cache_count()
 
-            if count == 0:
-                status_logger.info("Cache is already empty.")
-                return
+    if count == 0:
+        status_logger.info("Cache is already empty.")
+        return
 
-            conn.execute("DELETE FROM assessment_cache")
-            conn.commit()
+    # Clear assessment cache using CacheManager method
+    cache_manager.clear_assessment_cache()
 
-        status_logger.info(f"Cleared {count} cached assessment(s).")
-
-    except Exception as e:
-        status_logger.error(f"Error clearing cache: {e}")
-        exit(1)
+    status_logger.info(f"Cleared {count} cached assessment(s).")
 
 
 @main.command()
+@handle_cli_errors
 def status() -> None:
     """Show cache synchronization status for all backends."""
     status_logger = get_status_logger()
 
-    try:
-        status = cache_sync_manager.get_sync_status()
+    status = cache_sync_manager.get_sync_status()
 
-        status_logger.info("Cache Synchronization Status")
-        status_logger.info("=" * 40)
+    status_logger.info("Cache Synchronization Status")
+    status_logger.info("=" * 40)
 
-        if status["sync_in_progress"]:
-            status_logger.info("⚠️  Sync in progress...")
-        else:
-            status_logger.info("✅ No sync in progress")
+    if status["sync_in_progress"]:
+        status_logger.info("⚠️  Sync in progress...")
+    else:
+        status_logger.info("✅ No sync in progress")
 
-        status_logger.info("\nBackend Status:")
-        for backend_name, backend_info in status["backends"].items():
-            if "error" in backend_info:
-                status_logger.info(
-                    f"  ❌ {backend_name}: Error - {backend_info['error']}"
-                )
-                continue
+    status_logger.info("\nBackend Status:")
+    for backend_name, backend_info in status["backends"].items():
+        if "error" in backend_info:
+            status_logger.info(f"  ❌ {backend_name}: Error - {backend_info['error']}")
+            continue
 
-            enabled = backend_info.get("enabled", False)
-            has_data = backend_info.get("has_data", False)
-            backend_type = backend_info.get("type", "unknown")
-            last_updated = backend_info.get("last_updated")
-            entry_count = backend_info.get("entry_count")
+        enabled = backend_info.get("enabled", False)
+        has_data = backend_info.get("has_data", False)
+        backend_type = backend_info.get("type", "unknown")
+        last_updated = backend_info.get("last_updated")
+        entry_count = backend_info.get("entry_count")
 
-            status_icon = "✅" if enabled else "❌"
-            data_icon = "📊" if has_data else "📭"
+        status_icon = "✅" if enabled else "❌"
+        data_icon = "📊" if has_data else "📭"
 
-            status_text = f"{status_icon} {backend_name} ({'enabled' if enabled else 'disabled'}, {backend_type})"
+        status_text = f"{status_icon} {backend_name} ({'enabled' if enabled else 'disabled'}, {backend_type})"
 
-            if backend_type == "cached":
-                status_text += f" {data_icon} {'has data' if has_data else 'no data'}"
-                if entry_count is not None and entry_count > 0:
-                    status_text += f" ({entry_count:,} entries)"
-                if last_updated:
-                    status_text += f" (updated: {last_updated})"
+        if backend_type == "cached":
+            status_text += f" {data_icon} {'has data' if has_data else 'no data'}"
+            if entry_count is not None and entry_count > 0:
+                status_text += f" ({entry_count:,} entries)"
+            if last_updated:
+                status_text += f" (updated: {last_updated})"
 
-            status_logger.info(f"  {status_text}")
-
-    except Exception as e:
-        status_logger.error(f"Error getting status: {e}")
-        exit(1)
+        status_logger.info(f"  {status_text}")
 
 
 @main.command()
@@ -241,6 +260,7 @@ def status() -> None:
     help="Type of journals in the list",
 )
 @click.option("--list-name", required=True, help="Name for the custom list source")
+@handle_cli_errors
 def add_list(file_path: str, list_type: str, list_name: str) -> None:
     """Add a custom journal list from a file.
 
@@ -248,27 +268,22 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
     """
     status_logger = get_status_logger()
 
-    try:
-        file_path_obj = Path(file_path)
+    file_path_obj = Path(file_path)
 
-        status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
-        status_logger.info(f"List type: {list_type}")
+    status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
+    status_logger.info(f"List type: {list_type}")
 
-        # Convert string to AssessmentType enum
-        assessment_type = AssessmentType(list_type)
+    # Convert string to AssessmentType enum
+    assessment_type = AssessmentType(list_type)
 
-        # Add the custom list to the updater
-        data_updater.add_custom_list(file_path_obj, assessment_type, list_name)
+    # Add the custom list to the updater
+    data_updater.add_custom_list(file_path_obj, assessment_type, list_name)
 
-        # Trigger immediate sync to load the data
-        status_logger.info("Loading custom list data...")
-        asyncio.run(cache_sync_manager.sync_cache_with_config(force=True))
+    # Trigger immediate sync to load the data
+    status_logger.info("Loading custom list data...")
+    asyncio.run(cache_sync_manager.sync_cache_with_config(force=True))
 
-        status_logger.info(f"Successfully added custom list '{list_name}'")
-
-    except Exception as e:
-        status_logger.error(f"Error adding custom list: {e}")
-        exit(1)
+    status_logger.info(f"Successfully added custom list '{list_name}'")
 
 
 @main.command()
@@ -307,113 +322,102 @@ def conference_acronym() -> None:
 
 
 @conference_acronym.command(name="status")
+@handle_cli_errors
 def acronym_status() -> None:
     """Show conference acronym database status."""
     status_logger = get_status_logger()
 
-    try:
-        cache_manager = get_cache_manager()
-        stats = cache_manager.get_acronym_stats()
-        count = stats.get("total_count", 0)
+    cache_manager = get_cache_manager()
+    stats = cache_manager.get_acronym_stats()
+    count = stats.get("total_count", 0)
 
-        status_logger.info("Conference Acronym Database Status")
-        status_logger.info("=" * 40)
+    status_logger.info("Conference Acronym Database Status")
+    status_logger.info("=" * 40)
 
-        if count == 0:
-            status_logger.info("Database is empty (no acronyms stored)")
-        else:
-            status_logger.info(f"Total acronyms: {count:,}")
-
-    except Exception as e:
-        status_logger.error(f"Error getting acronym database status: {e}")
-        exit(1)
+    if count == 0:
+        status_logger.info("Database is empty (no acronyms stored)")
+    else:
+        status_logger.info(f"Total acronyms: {count:,}")
 
 
 @conference_acronym.command()
+@handle_cli_errors
 def stats() -> None:
     """Show detailed statistics about the acronym database."""
     status_logger = get_status_logger()
 
-    try:
-        cache_manager = get_cache_manager()
-        stats = cache_manager.get_acronym_stats()
+    cache_manager = get_cache_manager()
+    stats = cache_manager.get_acronym_stats()
 
-        status_logger.info("Conference Acronym Database Statistics")
-        status_logger.info("=" * 40)
+    status_logger.info("Conference Acronym Database Statistics")
+    status_logger.info("=" * 40)
 
-        total = stats.get("total_count", 0)
+    total = stats.get("total_count", 0)
 
-        if total == 0:
-            status_logger.info("Database is empty (no acronyms stored)")
-            return
+    if total == 0:
+        status_logger.info("Database is empty (no acronyms stored)")
+        return
 
-        status_logger.info(f"Total acronyms: {total:,}")
+    status_logger.info(f"Total acronyms: {total:,}")
 
-        if "most_recent_acronym" in stats:
-            # Apply title casing for display
-            normalized_name = str(stats["most_recent_normalized_name"])
-            display_name = input_normalizer._normalize_case(normalized_name)
-            status_logger.info("\nMost Recently Used:")
-            status_logger.info(f"  Acronym: {stats['most_recent_acronym']}")
-            status_logger.info(f"  Conference: {display_name}")
-            status_logger.info(f"  Last Used: {stats['most_recent_used']}")
+    if "most_recent_acronym" in stats:
+        # Apply title casing for display
+        normalized_name = str(stats["most_recent_normalized_name"])
+        display_name = input_normalizer._normalize_case(normalized_name)
+        status_logger.info("\nMost Recently Used:")
+        status_logger.info(f"  Acronym: {stats['most_recent_acronym']}")
+        status_logger.info(f"  Conference: {display_name}")
+        status_logger.info(f"  Last Used: {stats['most_recent_used']}")
 
-        if "oldest_acronym" in stats:
-            # Apply title casing for display
-            normalized_name = str(stats["oldest_normalized_name"])
-            display_name = input_normalizer._normalize_case(normalized_name)
-            status_logger.info("\nOldest Entry:")
-            status_logger.info(f"  Acronym: {stats['oldest_acronym']}")
-            status_logger.info(f"  Conference: {display_name}")
-            status_logger.info(f"  Created: {stats['oldest_created']}")
-
-    except Exception as e:
-        status_logger.error(f"Error getting acronym statistics: {e}")
-        exit(1)
+    if "oldest_acronym" in stats:
+        # Apply title casing for display
+        normalized_name = str(stats["oldest_normalized_name"])
+        display_name = input_normalizer._normalize_case(normalized_name)
+        status_logger.info("\nOldest Entry:")
+        status_logger.info(f"  Acronym: {stats['oldest_acronym']}")
+        status_logger.info(f"  Conference: {display_name}")
+        status_logger.info(f"  Created: {stats['oldest_created']}")
 
 
 @conference_acronym.command()
 @click.option("--limit", type=int, help="Maximum number of entries to display")
 @click.option("--offset", type=int, default=0, help="Number of entries to skip")
+@handle_cli_errors
 def list(limit: int | None, offset: int) -> None:
     """List all acronym mappings in the database."""
     status_logger = get_status_logger()
 
-    try:
-        cache_manager = get_cache_manager()
-        acronyms = cache_manager.list_all_acronyms(limit=limit, offset=offset)
+    cache_manager = get_cache_manager()
+    acronyms = cache_manager.list_all_acronyms(limit=limit, offset=offset)
 
-        if not acronyms:
-            status_logger.info("No acronyms found in the database.")
-            return
+    if not acronyms:
+        status_logger.info("No acronyms found in the database.")
+        return
 
-        status_logger.info("Conference Acronym Mappings")
-        status_logger.info("=" * 80)
+    status_logger.info("Conference Acronym Mappings")
+    status_logger.info("=" * 80)
 
-        for entry in acronyms:
-            # Apply title casing for display
-            display_name = input_normalizer._normalize_case(entry["normalized_name"])
+    for entry in acronyms:
+        # Apply title casing for display
+        display_name = input_normalizer._normalize_case(entry["normalized_name"])
 
-            status_logger.info(f"\nAcronym: {entry['acronym']}")
-            status_logger.info(f"  Conference: {display_name}")
-            status_logger.info(f"  Normalized: {entry['normalized_name']}")
-            status_logger.info(f"  Source: {entry['source']}")
-            status_logger.info(f"  Created: {entry['created_at']}")
-            status_logger.info(f"  Last Used: {entry['last_used_at']}")
+        status_logger.info(f"\nAcronym: {entry['acronym']}")
+        status_logger.info(f"  Conference: {display_name}")
+        status_logger.info(f"  Normalized: {entry['normalized_name']}")
+        status_logger.info(f"  Source: {entry['source']}")
+        status_logger.info(f"  Created: {entry['created_at']}")
+        status_logger.info(f"  Last Used: {entry['last_used_at']}")
 
-        total_count = cache_manager.get_acronym_stats()["total_count"]
-        shown = len(acronyms)
+    total_count = cache_manager.get_acronym_stats()["total_count"]
+    shown = len(acronyms)
 
-        if limit is not None or offset > 0:
-            status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
-
-    except Exception as e:
-        status_logger.error(f"Error listing acronyms: {e}")
-        exit(1)
+    if limit is not None or offset > 0:
+        status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
 
 
 @conference_acronym.command()
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+@handle_cli_errors
 def clear(confirm: bool) -> None:
     """Clear all entries from the acronym database."""
     status_logger = get_status_logger()
@@ -423,18 +427,13 @@ def clear(confirm: bool) -> None:
             "This will delete all conference acronym mappings. Continue?", abort=True
         )
 
-    try:
-        cache_manager = get_cache_manager()
-        count = cache_manager.clear_acronym_database()
+    cache_manager = get_cache_manager()
+    count = cache_manager.clear_acronym_database()
 
-        if count == 0:
-            status_logger.info("Acronym database is already empty.")
-        else:
-            status_logger.info(f"Cleared {count:,} acronym mapping(s).")
-
-    except Exception as e:
-        status_logger.error(f"Error clearing acronym database: {e}")
-        exit(1)
+    if count == 0:
+        status_logger.info("Acronym database is already empty.")
+    else:
+        status_logger.info(f"Cleared {count:,} acronym mapping(s).")
 
 
 @conference_acronym.command()
@@ -445,6 +444,7 @@ def clear(confirm: bool) -> None:
     default="manual",
     help="Source of the mapping (default: manual)",
 )
+@handle_cli_errors
 def add(acronym: str, full_name: str, source: str) -> None:
     """Manually add an acronym mapping to the database.
 
@@ -453,16 +453,11 @@ def add(acronym: str, full_name: str, source: str) -> None:
     """
     status_logger = get_status_logger()
 
-    try:
-        cache_manager = get_cache_manager()
-        cache_manager.store_acronym_mapping(acronym, full_name, source)
+    cache_manager = get_cache_manager()
+    cache_manager.store_acronym_mapping(acronym, full_name, source)
 
-        status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
-        status_logger.info(f"Source: {source}")
-
-    except Exception as e:
-        status_logger.error(f"Error adding acronym mapping: {e}")
-        exit(1)
+    status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
+    status_logger.info(f"Source: {source}")
 
 
 async def _async_bibtex_main(
