@@ -15,7 +15,7 @@ from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
-from ..core import DataSource
+from ..core import DataSource, get_update_source_registry
 from ..utils import deduplicate_journals
 
 
@@ -382,3 +382,9 @@ class PredatoryJournalsSource(DataSource):
             entry["publisher"] = publisher
 
         return entry
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "predatoryjournals", lambda: PredatoryJournalsSource(), default_config={}
+)

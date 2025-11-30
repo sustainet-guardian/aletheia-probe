@@ -2,6 +2,7 @@
 """Kscien publishers data source."""
 
 from ...enums import AssessmentType
+from ..core import get_update_source_registry
 from .kscien_generic import KscienGenericSource
 
 
@@ -18,3 +19,9 @@ class KscienPublishersSource(KscienGenericSource):
         super().__init__(
             publication_type="publishers", list_type=AssessmentType.PREDATORY
         )
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "kscien_publishers", lambda: KscienPublishersSource(), default_config={}
+)

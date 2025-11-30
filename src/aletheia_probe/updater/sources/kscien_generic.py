@@ -117,3 +117,7 @@ class KscienGenericSource(DataSource):
         )
 
         return unique_publications
+
+
+# Note: KscienGenericSource is registered with specific parameters in updater/__init__.py
+# because it requires a publication_type parameter

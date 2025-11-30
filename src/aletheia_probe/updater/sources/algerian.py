@@ -12,7 +12,7 @@ from ...cache import get_cache_manager
 from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
-from ..core import DataSource
+from ..core import DataSource, get_update_source_registry
 from ..utils import deduplicate_journals
 from .algerian_helpers import PDFTextExtractor, RARDownloader, RARExtractor
 
@@ -246,3 +246,9 @@ class AlgerianMinistrySource(DataSource):
                     )
 
         return all_entries
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "algerian_ministry", lambda: AlgerianMinistrySource(), default_config={}
+)

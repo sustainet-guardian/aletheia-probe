@@ -5,7 +5,7 @@
 from ..cache import get_cache_manager
 from ..normalizer import input_normalizer
 from ..validation import extract_issn_from_text, validate_issn
-from .core import DataSource, DataUpdater
+from .core import DataSource, DataUpdater, get_update_source_registry
 from .sources import (
     AlgerianMinistrySource,
     BeallsListSource,
@@ -29,25 +29,27 @@ from .utils import (
 )
 
 
+# Register KscienGenericSource with specific configuration for predatory-conferences
+# This is registered here because it requires a specific publication_type parameter
+get_update_source_registry().register_factory(
+    "kscien_predatory_conferences",
+    lambda: KscienGenericSource(publication_type="predatory-conferences"),
+    default_config={},
+)
+
 # Global data updater instance
 data_updater = DataUpdater()
 
-# Register default sources
-data_updater.add_source(BeallsListSource())
-data_updater.add_source(AlgerianMinistrySource())
-data_updater.add_source(PredatoryJournalsSource())
-data_updater.add_source(KscienGenericSource(publication_type="predatory-conferences"))
-data_updater.add_source(KscienStandaloneJournalsSource())
-data_updater.add_source(KscienHijackedJournalsSource())
-data_updater.add_source(KscienPublishersSource())
-data_updater.add_source(RetractionWatchSource())
-data_updater.add_source(ScopusSource())  # Optional - only active if file exists
+# Register default sources from the registry
+for source in get_update_source_registry().get_all_sources():
+    data_updater.add_source(source)
 
 __all__ = [
     # Core classes
     "DataSource",
     "DataUpdater",
     "data_updater",
+    "get_update_source_registry",
     # Source implementations
     "AlgerianMinistrySource",
     "BeallsListSource",
