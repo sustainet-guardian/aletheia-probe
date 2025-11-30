@@ -171,7 +171,7 @@ def sync(force: bool, backend_names: tuple[str, ...]) -> None:
                 if backend_result.get("status") in ["error", "failed"]:
                     sys.exit(1)
 
-    except (ValueError, OSError, KeyError, RuntimeError, Exception) as e:
+    except (ValueError, OSError, KeyError, RuntimeError) as e:
         status_logger = get_status_logger()
         status_logger.error(f"Error during sync: {e}")
         sys.exit(1)
@@ -517,7 +517,6 @@ async def _async_bibtex_main(
         RuntimeError,
         AttributeError,
         UnicodeDecodeError,
-        Exception,
     ) as e:
         if verbose:
             status_logger.error(f"Unexpected error: {e}")
@@ -568,7 +567,7 @@ async def _async_assess_publication(
     except ValueError as e:
         status_logger.error(f"Error: {e}")
         sys.exit(1)
-    except (OSError, KeyError, RuntimeError, AttributeError, Exception) as e:
+    except (OSError, KeyError, RuntimeError, AttributeError) as e:
         if verbose:
             status_logger.error(f"Unexpected error: {e}")
             traceback.print_exc()

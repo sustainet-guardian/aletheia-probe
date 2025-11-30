@@ -104,7 +104,7 @@ class TestDataUpdater:
 
         class ErrorDataSource(MockDataSource):
             async def fetch_data(self):
-                raise Exception("Fetch failed")
+                raise OSError("Fetch failed")
 
         updater = DataUpdater()
         source = ErrorDataSource("error_source")

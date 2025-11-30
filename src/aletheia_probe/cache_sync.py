@@ -93,7 +93,7 @@ class AsyncDBWriter:
                         f"    DBWriter: Completed {source_name} - {unique_journals} unique journals"
                     )
 
-            except (sqlite3.Error, KeyError, ValueError, TypeError, Exception) as e:
+            except (sqlite3.Error, KeyError, ValueError, TypeError) as e:
                 self.status_logger.error(f"Database write error: {e}")
 
     def _batch_write_journals(
@@ -305,7 +305,7 @@ class AsyncDBWriter:
                     "duplicates": total_input_records - unique_journals,
                 }
 
-            except (sqlite3.Error, KeyError, ValueError, TypeError, Exception) as e:
+            except (sqlite3.Error, KeyError, ValueError, TypeError) as e:
                 conn.execute("ROLLBACK")
                 self.status_logger.error(f"Batch write error: {e}")
                 raise
@@ -656,7 +656,7 @@ class CacheSyncManager:
                     "status": UpdateStatus.ERROR.value,
                     "error": str(e),
                 }
-            except (sqlite3.Error, KeyError, AttributeError, OSError, Exception) as e:
+            except (sqlite3.Error, KeyError, AttributeError, OSError) as e:
                 self.detail_logger.exception(
                     f"Unexpected error syncing backend {backend_name}: {e}"
                 )
@@ -753,7 +753,7 @@ class CacheSyncManager:
             )
             return {"status": "cleaned", "records_removed": deleted_count}
 
-        except (sqlite3.Error, ValueError, KeyError, Exception) as e:
+        except (sqlite3.Error, ValueError, KeyError) as e:
             self.detail_logger.error(f"Failed to cleanup data for {backend_name}: {e}")
             get_cache_manager().log_update(
                 source_name, "cleanup", "failed", 0, error_message=str(e)
