@@ -130,7 +130,7 @@ class ArticleRetractionChecker:
                 result.checked_sources = checked_sources
                 self._cache_result(result, "crossref")
                 return result
-        except Exception as e:
+        except (aiohttp.ClientError, ValueError, KeyError, AttributeError) as e:
             detail_logger.warning(
                 f"Crossref API check failed for {normalized_doi}: {e}"
             )
@@ -240,7 +240,7 @@ class ArticleRetractionChecker:
             except asyncio.TimeoutError:
                 detail_logger.warning(f"Crossref API timeout for {doi}")
                 return ArticleRetractionResult(doi=doi, is_retracted=False)
-            except Exception as e:
+            except (aiohttp.ClientError, ValueError, KeyError, AttributeError) as e:
                 detail_logger.warning(f"Error checking Crossref for {doi}: {e}")
                 return ArticleRetractionResult(doi=doi, is_retracted=False)
 
