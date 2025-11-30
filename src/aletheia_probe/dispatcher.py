@@ -126,7 +126,18 @@ class QueryDispatcher:
                     # Create new query input with expanded name
                     from .normalizer import input_normalizer
 
-                    expanded_query = input_normalizer.normalize(expanded_name)
+                    expanded_query = input_normalizer.normalize(
+                        expanded_name, acronym_lookup=cache.get_full_name_for_acronym
+                    )
+
+                    # Store any new acronym mappings discovered during expansion
+                    for (
+                        acronym,
+                        full_name,
+                    ) in expanded_query.extracted_acronym_mappings.items():
+                        cache.store_acronym_mapping(
+                            acronym, full_name, source="dispatcher_expansion"
+                        )
 
                     # Re-query backends with expanded name
                     retry_results = await self._query_backends(

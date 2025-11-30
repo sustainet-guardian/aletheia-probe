@@ -60,6 +60,10 @@ class QueryInput(BaseModel):
     venue_type: VenueType = Field(
         VenueType.UNKNOWN, description="Detected venue type (journal, conference, etc.)"
     )
+    extracted_acronym_mappings: dict[str, str] = Field(
+        default_factory=dict,
+        description="Acronym to full name mappings extracted during normalization",
+    )
 
 
 class BackendResult(BaseModel):

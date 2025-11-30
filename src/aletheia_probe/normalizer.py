@@ -3,6 +3,7 @@
 
 import html
 import re
+from collections.abc import Callable
 
 from .models import QueryInput
 
@@ -130,11 +131,15 @@ class InputNormalizer:
             # Gracefully handle any unexpected errors in series extraction
             return None
 
-    def normalize(self, raw_input: str) -> QueryInput:
+    def normalize(
+        self, raw_input: str, acronym_lookup: Callable[[str], str | None] | None = None
+    ) -> QueryInput:
         """Normalize input and extract identifiers.
 
         Args:
             raw_input: Raw user input string
+            acronym_lookup: Optional function to look up acronym expansions.
+                           Should accept acronym (str) and return full name (str | None).
 
         Returns:
             QueryInput with normalized data and extracted identifiers
@@ -151,9 +156,11 @@ class InputNormalizer:
         # Extract conference/journal acronyms from parentheses before cleaning
         extracted_acronyms = self._extract_acronyms(raw_input)
 
-        # Store acronym mappings from parenthetical references
-        # e.g., "International Conference on Machine Learning (ICML)" -> store ICML mapping
-        self._store_acronym_mappings_from_text(raw_input, extracted_acronyms)
+        # Extract acronym mappings from parenthetical references for caller to persist
+        # e.g., "International Conference on Machine Learning (ICML)" -> extract ICML mapping
+        acronym_mappings = self._extract_acronym_mappings_from_text(
+            raw_input, extracted_acronyms
+        )
 
         # Clean and normalize the text
         normalized = self._clean_text(raw_input)
@@ -168,8 +175,8 @@ class InputNormalizer:
 
         # Check if input looks like a standalone acronym and try to expand it
         acronym_expanded_from = None
-        if self._is_standalone_acronym(raw_input.strip()):
-            expanded_name = self._lookup_acronym_expansion(raw_input.strip())
+        if self._is_standalone_acronym(raw_input.strip()) and acronym_lookup:
+            expanded_name = acronym_lookup(raw_input.strip())
             if expanded_name:
                 # Add expanded name as an alias
                 aliases.append(expanded_name)
@@ -190,6 +197,7 @@ class InputNormalizer:
             identifiers=identifiers,
             aliases=aliases,
             acronym_expanded_from=acronym_expanded_from,
+            extracted_acronym_mappings=acronym_mappings,
         )
 
     def _extract_identifiers(self, text: str) -> dict[str, str]:
@@ -481,38 +489,25 @@ class InputNormalizer:
         # Must be at least 50% uppercase to be considered an acronym
         return uppercase_ratio >= 0.5
 
-    def _lookup_acronym_expansion(self, acronym: str) -> str | None:
-        """Look up the full name for an acronym in the cache.
-
-        Args:
-            acronym: The acronym to look up
-
-        Returns:
-            Full name if found, None otherwise
-        """
-        from .cache import get_cache_manager
-
-        cache = get_cache_manager()
-        return cache.get_full_name_for_acronym(acronym)
-
-    def _store_acronym_mappings_from_text(
+    def _extract_acronym_mappings_from_text(
         self, text: str, extracted_acronyms: list[str]
-    ) -> None:
-        """Store acronym mappings when text contains both full name and acronym.
+    ) -> dict[str, str]:
+        """Extract acronym mappings when text contains both full name and acronym.
 
         For example: "International Conference on Machine Learning (ICML)"
-        will store: ICML -> International Conference on Machine Learning
+        will return: {"ICML": "International Conference on Machine Learning"}
 
         Args:
             text: Original text that may contain acronyms in parentheses
             extracted_acronyms: List of acronyms extracted from the text
+
+        Returns:
+            Dictionary mapping acronyms to their full names
         """
+        mappings: dict[str, str] = {}
+
         if not extracted_acronyms:
-            return
-
-        from .cache import get_cache_manager
-
-        cache = get_cache_manager()
+            return mappings
 
         # For each acronym, try to extract the full name before the parentheses
         for acronym in extracted_acronyms:
@@ -532,11 +527,11 @@ class InputNormalizer:
                     # Clean up the text (remove extra whitespace, quotes, etc.)
                     full_name = text_before.strip("'\"").strip()
 
-                    # Only store if we have a reasonable full name (longer than the acronym)
+                    # Only include if we have a reasonable full name (longer than the acronym)
                     if full_name and len(full_name) > len(acronym) * 2:
-                        cache.store_acronym_mapping(
-                            acronym, full_name, source="bibtex_extraction"
-                        )
+                        mappings[acronym] = full_name
+
+        return mappings
 
 
 # Global normalizer instance
