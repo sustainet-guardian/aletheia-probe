@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Aletheia-Probe"
+abstract: "Automated assessment tool for identifying predatory journals and conferences using multi-source data aggregation and confidence scoring"
+authors:
+  - family-names: Florath
+    given-names: Andreas
+    email: Andreas.Florath@telekom.de
+    orcid: https://orcid.org/0009-0001-6471-7372
+repository-code: "https://github.com/sustainet-guardian/aletheia-probe"
+license: MIT
+version: 0.5.0
+keywords:
+  - predatory-journals
+  - academic-integrity
+  - research-integrity
+  - bibliometrics
+  - scholarly-publishing
+  - open-access
+  - conference-assessment
+  - data-aggregation
+  - metadata-quality
