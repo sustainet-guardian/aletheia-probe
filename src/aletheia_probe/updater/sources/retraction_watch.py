@@ -17,7 +17,7 @@ from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
-from ..core import DataSource
+from ..core import DataSource, get_update_source_registry
 
 
 detail_logger = get_detail_logger()
@@ -473,3 +473,9 @@ class RetractionWatchSource(DataSource):
                     records,
                 )
                 conn.commit()
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "retraction_watch", lambda: RetractionWatchSource(), default_config={}
+)

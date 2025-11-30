@@ -15,7 +15,7 @@ from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 from ...validation import validate_issn
-from ..core import DataSource
+from ..core import DataSource, get_update_source_registry
 
 
 detail_logger = get_detail_logger()
@@ -311,3 +311,9 @@ class ScopusSource(DataSource):
                 f"    {self.get_name()}: Error loading journal list - {e}"
             )
             return []
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "scopus", lambda: ScopusSource(), default_config={}
+)

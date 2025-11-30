@@ -2,6 +2,7 @@
 """Kscien standalone journals data source."""
 
 from ...enums import AssessmentType
+from ..core import get_update_source_registry
 from .kscien_generic import KscienGenericSource
 
 
@@ -17,3 +18,11 @@ class KscienStandaloneJournalsSource(KscienGenericSource):
         super().__init__(
             publication_type="standalone-journals", list_type=AssessmentType.PREDATORY
         )
+
+
+# Register the update source factory
+get_update_source_registry().register_factory(
+    "kscien_standalone_journals",
+    lambda: KscienStandaloneJournalsSource(),
+    default_config={},
+)
