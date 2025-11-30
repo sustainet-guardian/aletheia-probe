@@ -794,6 +794,24 @@ class CacheManager:
             )
             return cursor.rowcount
 
+    def get_assessment_cache_count(self) -> int:
+        """Get the count of assessment cache entries."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM assessment_cache")
+            result = cursor.fetchone()
+            return int(result[0]) if result else 0
+
+    def clear_assessment_cache(self) -> int:
+        """Clear all assessment cache entries.
+
+        Returns:
+            The number of entries that were cleared.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("DELETE FROM assessment_cache")
+            conn.commit()
+            return cursor.rowcount
+
     def log_update(
         self,
         source_name: str,
