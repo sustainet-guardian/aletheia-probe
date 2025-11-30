@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache synchronization module."""
 
+import sqlite3
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -374,7 +375,7 @@ class TestCacheSyncManager:
             mock_cache_manager = Mock()
             mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = True
-            mock_cache_manager.remove_source_data.side_effect = Exception(
+            mock_cache_manager.remove_source_data.side_effect = sqlite3.Error(
                 "Cleanup failed"
             )
             mock_cache_manager.log_update = Mock()

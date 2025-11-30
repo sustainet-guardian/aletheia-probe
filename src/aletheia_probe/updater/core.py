@@ -342,7 +342,6 @@ class DataUpdater:
             KeyError,
             AttributeError,
             TypeError,
-            Exception,
         ) as e:
             detail_logger.error(f"Failed to update source {source_name}: {e}")
             status_logger.error(f"    {source_name}: Error - {e}")

@@ -88,7 +88,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for ISSN {issn}")
-            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
+            except (aiohttp.ClientError, ValueError, KeyError) as e:
                 detail_logger.error(
                     f"Error fetching OpenAlex data for ISSN {issn}: {e}"
                 )
@@ -236,7 +236,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for name '{journal_name}'")
-            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
+            except (aiohttp.ClientError, ValueError, KeyError) as e:
                 detail_logger.error(
                     f"Error fetching OpenAlex data for name '{journal_name}': {e}"
                 )
@@ -303,7 +303,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for source {source_id}")
-            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
+            except (aiohttp.ClientError, ValueError, KeyError) as e:
                 detail_logger.error(
                     f"Error fetching works count for source {source_id}: {e}"
                 )
@@ -368,7 +368,6 @@ class OpenAlexClient:
                     ValueError,
                     TypeError,
                     aiohttp.ClientError,
-                    Exception,
                 ) as e:
                     detail_logger.warning(
                         f"Error during conference series extraction for '{journal_name}': {e}"
@@ -492,7 +491,7 @@ async def get_publication_stats(
     try:
         async with OpenAlexClient() as client:
             return await client.enrich_journal_data(journal_name, issn, eissn)
-    except (aiohttp.ClientError, ValueError, KeyError, AttributeError, Exception) as e:
+    except (aiohttp.ClientError, ValueError, KeyError, AttributeError) as e:
         detail_logger.error(f"Error getting publication stats: {e}")
         return None
 
