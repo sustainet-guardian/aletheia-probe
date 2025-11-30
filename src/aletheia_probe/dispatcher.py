@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from .backends.base import Backend, get_backend_registry
+from .cache import get_cache_manager
 from .config import get_config_manager
 from .constants import (
     AGREEMENT_BONUS_AMOUNT,
@@ -14,6 +15,7 @@ from .constants import (
 from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
+from .normalizer import InputNormalizer, input_normalizer
 
 
 class QueryDispatcher:
@@ -107,9 +109,6 @@ class QueryDispatcher:
         # Acronym fallback: If initial query yields no confident results and input looks
         # like an acronym with a cached expansion, retry with the expanded name
         if self._should_try_acronym_fallback(assessment_result, query_input):
-            from .cache import get_cache_manager
-            from .normalizer import InputNormalizer
-
             normalizer = InputNormalizer()
             cache = get_cache_manager()
 
@@ -124,8 +123,6 @@ class QueryDispatcher:
                     )
 
                     # Create new query input with expanded name
-                    from .normalizer import input_normalizer
-
                     expanded_query = input_normalizer.normalize(
                         expanded_name, acronym_lookup=cache.get_full_name_for_acronym
                     )
