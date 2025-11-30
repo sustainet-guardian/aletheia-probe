@@ -9,6 +9,7 @@ import pypdf
 
 from aletheia_probe.normalizer import input_normalizer
 
+from ....config import get_config_manager
 from ....logging_config import get_detail_logger, get_status_logger
 
 
@@ -18,6 +19,11 @@ status_logger = get_status_logger()
 
 class PDFTextExtractor:
     """Extracts and parses text from PDF files."""
+
+    def __init__(self) -> None:
+        """Initialize the PDFTextExtractor with configuration."""
+        config = get_config_manager().load_config()
+        self.url_pattern = config.data_source_processing.url_extraction_pattern
 
     def parse_pdf_file(
         self, pdf_path: Path, year: int, entry_type: str = "journal"
@@ -137,11 +143,10 @@ class PDFTextExtractor:
             return None
 
         # Extract URLs (multiple URLs can be present)
-        url_pattern = r"https?://[^\s]+"
-        urls = re.findall(url_pattern, entry_text)
+        urls = re.findall(self.url_pattern, entry_text)
 
         # Remove URLs to get clean name
-        name_text = re.sub(url_pattern, "", entry_text).strip()
+        name_text = re.sub(self.url_pattern, "", entry_text).strip()
 
         # Clean up extra spaces
         name_text = re.sub(r"\s+", " ", name_text).strip()

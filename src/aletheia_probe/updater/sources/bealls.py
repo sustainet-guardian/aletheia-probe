@@ -8,6 +8,7 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import get_cache_manager
+from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
@@ -23,10 +24,11 @@ class BeallsListSource(DataSource):
     """Data source for Beall's predatory journal list from archived sources."""
 
     def __init__(self) -> None:
-        # URLs for different sources of Beall's archived list
+        # Load URLs from configuration
+        config = get_config_manager().load_config()
         self.sources = {
-            "beallslist_publishers": "https://beallslist.net/",
-            "beallslist_standalone": "https://beallslist.net/standalone-journals/",
+            "beallslist_publishers": config.data_source_urls.bealls_publishers_url,
+            "beallslist_standalone": config.data_source_urls.bealls_standalone_url,
         }
         self.timeout = ClientTimeout(total=30)
         self.parser = BeallsHTMLParser()

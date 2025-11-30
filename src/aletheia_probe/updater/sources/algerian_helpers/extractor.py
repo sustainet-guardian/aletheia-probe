@@ -5,6 +5,7 @@ import asyncio
 import subprocess
 from pathlib import Path
 
+from ....config import get_config_manager
 from ....logging_config import get_detail_logger, get_status_logger
 
 
@@ -14,6 +15,11 @@ status_logger = get_status_logger()
 
 class RARExtractor:
     """Extracts RAR archives using command line tool."""
+
+    def __init__(self) -> None:
+        """Initialize the RARExtractor with configuration."""
+        config = get_config_manager().load_config()
+        self.extraction_timeout = config.data_source_processing.rar_extraction_timeout
 
     async def extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
         """Extract RAR file using command line tool.
@@ -69,7 +75,7 @@ class RARExtractor:
                     ["unrar", "x", str(rar_file), str(extract_dir) + "/"],
                     capture_output=True,
                     text=True,
-                    timeout=120,  # 2 minute timeout
+                    timeout=self.extraction_timeout,
                 )
 
             result = await asyncio.to_thread(_run_unrar)

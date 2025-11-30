@@ -8,6 +8,7 @@ from pathlib import Path
 
 from aiohttp import ClientError, ClientResponse, ClientSession, ServerTimeoutError
 
+from aletheia_probe.config import get_config_manager
 from aletheia_probe.logging_config import get_detail_logger, get_status_logger
 from aletheia_probe.retry_utils import async_retry_with_backoff
 
@@ -18,6 +19,11 @@ status_logger = get_status_logger()
 
 class RARDownloader:
     """Downloads RAR files from Algerian Ministry website."""
+
+    def __init__(self) -> None:
+        """Initialize the RARDownloader with configuration."""
+        config = get_config_manager().load_config()
+        self.chunk_size = config.data_source_processing.download_chunk_size
 
     def _create_ssl_context(self) -> ssl.SSLContext | bool:
         """Create SSL context for secure downloads.
@@ -237,7 +243,7 @@ class RARDownloader:
             bytes_written = 0
             last_log_mb = 0
             with open(rar_path, "wb") as f:
-                async for chunk in response.content.iter_chunked(8192):
+                async for chunk in response.content.iter_chunked(self.chunk_size):
                     f.write(chunk)
                     bytes_written += len(chunk)
                     current_mb = bytes_written // (1024 * 1024)
