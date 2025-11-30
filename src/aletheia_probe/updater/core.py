@@ -109,7 +109,7 @@ class UpdateSourceRegistry:
             }
 
             return filtered_config
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             # If signature inspection fails, return original config
             # This ensures backward compatibility
             return config
@@ -130,7 +130,7 @@ class UpdateSourceRegistry:
             factory = self._factories[name]
             sig = inspect.signature(factory)
             return set(sig.parameters.keys())
-        except Exception:
+        except (KeyError, AttributeError, ValueError, TypeError):
             # If signature inspection fails, return empty set
             return set()
 
@@ -146,7 +146,7 @@ class UpdateSourceRegistry:
         for name in self._factories:
             try:
                 sources.append(self.create_source(name))
-            except Exception:
+            except (ValueError, TypeError, AttributeError, OSError):
                 # Skip sources that fail to create with default config
                 pass
 
@@ -336,7 +336,14 @@ class DataUpdater:
                 "processing_time": (datetime.now() - start_time).total_seconds(),
             }
 
-        except Exception as e:
+        except (
+            ValueError,
+            OSError,
+            KeyError,
+            AttributeError,
+            TypeError,
+            Exception,
+        ) as e:
             detail_logger.error(f"Failed to update source {source_name}: {e}")
             status_logger.error(f"    {source_name}: Error - {e}")
             get_cache_manager().log_update(

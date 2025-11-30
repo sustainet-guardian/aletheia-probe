@@ -88,7 +88,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for ISSN {issn}")
-            except Exception as e:
+            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
                 detail_logger.error(
                     f"Error fetching OpenAlex data for ISSN {issn}: {e}"
                 )
@@ -236,7 +236,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for name '{journal_name}'")
-            except Exception as e:
+            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
                 detail_logger.error(
                     f"Error fetching OpenAlex data for name '{journal_name}': {e}"
                 )
@@ -303,7 +303,7 @@ class OpenAlexClient:
 
             except asyncio.TimeoutError:
                 detail_logger.warning(f"OpenAlex API timeout for source {source_id}")
-            except Exception as e:
+            except (aiohttp.ClientError, ValueError, KeyError, Exception) as e:
                 detail_logger.error(
                     f"Error fetching works count for source {source_id}: {e}"
                 )
@@ -363,7 +363,13 @@ class OpenAlexClient:
                             f"Skipping series fallback for '{journal_name}': "
                             f"series name {'not extractable' if not series_name else 'identical'}"
                         )
-                except Exception as e:
+                except (
+                    AttributeError,
+                    ValueError,
+                    TypeError,
+                    aiohttp.ClientError,
+                    Exception,
+                ) as e:
                     detail_logger.warning(
                         f"Error during conference series extraction for '{journal_name}': {e}"
                     )
@@ -486,7 +492,7 @@ async def get_publication_stats(
     try:
         async with OpenAlexClient() as client:
             return await client.enrich_journal_data(journal_name, issn, eissn)
-    except Exception as e:
+    except (aiohttp.ClientError, ValueError, KeyError, AttributeError, Exception) as e:
         detail_logger.error(f"Error getting publication stats: {e}")
         return None
 

@@ -93,7 +93,7 @@ class AsyncDBWriter:
                         f"    DBWriter: Completed {source_name} - {unique_journals} unique journals"
                     )
 
-            except Exception as e:
+            except (sqlite3.Error, KeyError, ValueError, TypeError, Exception) as e:
                 self.status_logger.error(f"Database write error: {e}")
 
     def _batch_write_journals(
@@ -305,7 +305,7 @@ class AsyncDBWriter:
                     "duplicates": total_input_records - unique_journals,
                 }
 
-            except Exception as e:
+            except (sqlite3.Error, KeyError, ValueError, TypeError, Exception) as e:
                 conn.execute("ROLLBACK")
                 self.status_logger.error(f"Batch write error: {e}")
                 raise
@@ -429,7 +429,15 @@ class CacheSyncManager:
                             "status": "skipped",
                             "reason": "not_cached_backend",
                         }
-                except Exception as e:
+                except (
+                    KeyError,
+                    AttributeError,
+                    ValueError,
+                    TypeError,
+                    ImportError,
+                    RuntimeError,
+                    Exception,
+                ) as e:
                     # If we can't get the backend, mark as error and skip
                     self.detail_logger.exception(
                         f"Error getting backend {backend_name}: {e}"
@@ -583,7 +591,13 @@ class CacheSyncManager:
                         backend, show_progress
                     )
                     return result
-                except Exception as e:
+                except (
+                    sqlite3.Error,
+                    ValueError,
+                    KeyError,
+                    AttributeError,
+                    Exception,
+                ) as e:
                     self.detail_logger.exception(
                         f"Error cleaning up {backend_name}: {e}"
                     )
@@ -642,7 +656,7 @@ class CacheSyncManager:
                     "status": UpdateStatus.ERROR.value,
                     "error": str(e),
                 }
-            except Exception as e:
+            except (sqlite3.Error, KeyError, AttributeError, OSError, Exception) as e:
                 self.detail_logger.exception(
                     f"Unexpected error syncing backend {backend_name}: {e}"
                 )
@@ -739,7 +753,7 @@ class CacheSyncManager:
             )
             return {"status": "cleaned", "records_removed": deleted_count}
 
-        except Exception as e:
+        except (sqlite3.Error, ValueError, KeyError, Exception) as e:
             self.detail_logger.error(f"Failed to cleanup data for {backend_name}: {e}")
             get_cache_manager().log_update(
                 source_name, "cleanup", "failed", 0, error_message=str(e)
@@ -772,7 +786,14 @@ class CacheSyncManager:
                         f"Successfully fetched data for {source_name}: {result}"
                     )
                     return result
-                except Exception as e:
+                except (
+                    OSError,
+                    ValueError,
+                    KeyError,
+                    AttributeError,
+                    sqlite3.Error,
+                    Exception,
+                ) as e:
                     self.detail_logger.error(
                         f"Failed to update source {source_name}: {e}"
                     )
@@ -858,7 +879,13 @@ class CacheSyncManager:
 
                 status["backends"][backend_name] = backend_status
 
-            except Exception as e:
+            except (
+                AttributeError,
+                KeyError,
+                ValueError,
+                sqlite3.Error,
+                Exception,
+            ) as e:
                 status["backends"][backend_name] = {"error": str(e)}
 
         return status

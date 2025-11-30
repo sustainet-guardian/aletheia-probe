@@ -87,7 +87,7 @@ class BibtexBatchAssessor:
             detail_logger.debug(
                 f"Successfully parsed {len(bibtex_entries)} entries, skipped {skipped_count}, found {preprint_count} preprint entries"
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, UnicodeDecodeError) as e:
             detail_logger.error(f"Failed to parse BibTeX file: {e}")
             raise ValueError(f"Failed to parse BibTeX file: {e}") from e
 
@@ -242,7 +242,7 @@ class BibtexBatchAssessor:
                     f"    → {assessment.assessment.upper()} (confidence: {confidence_str})"
                 )
 
-            except Exception as e:
+            except (ValueError, KeyError, AttributeError, TypeError) as e:
                 status_logger.warning(f"    → ERROR: {e}")
                 detail_logger.exception(f"Error assessing {entry.journal_name}: {e}")
                 # Create a mock assessment result for errors

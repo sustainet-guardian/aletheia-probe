@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
+import aiohttp
+
 from ..cache import get_cache_manager
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
@@ -76,7 +78,13 @@ class Backend(ABC):
                 response_time=response_time,
                 cached=False,  # Timeout from live query
             )
-        except Exception as e:
+        except (
+            ValueError,
+            OSError,
+            aiohttp.ClientError,
+            AttributeError,
+            KeyError,
+        ) as e:
             response_time = time.time() - start_time
             return BackendResult(
                 backend_name=self.get_name(),
@@ -170,7 +178,7 @@ class CachedBackend(Backend):
                     cached=True,  # Still searched local cache, just no match
                 )
 
-        except Exception as e:
+        except (ValueError, OSError, KeyError, AttributeError) as e:
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -353,7 +361,7 @@ class BackendRegistry:
             }
 
             return filtered_config
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             # If signature inspection fails, return original config
             # This ensures backward compatibility
             return config
@@ -374,7 +382,7 @@ class BackendRegistry:
             factory = self._factories[name]
             sig = inspect.signature(factory)
             return set(sig.parameters.keys())
-        except Exception:
+        except (KeyError, AttributeError, ValueError, TypeError):
             # If signature inspection fails, return empty set
             return set()
 
@@ -390,7 +398,7 @@ class BackendRegistry:
         for name in self._factories:
             try:
                 backends.append(self.create_backend(name))
-            except Exception:
+            except (ValueError, TypeError, AttributeError, OSError):
                 # Skip backends that fail to create with default config
                 pass
 

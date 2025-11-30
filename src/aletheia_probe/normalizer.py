@@ -5,6 +5,7 @@ import html
 import re
 from collections.abc import Callable
 
+from .logging_config import get_detail_logger
 from .models import QueryInput
 
 
@@ -12,6 +13,7 @@ class InputNormalizer:
     """Normalizes and validates journal names and identifiers."""
 
     def __init__(self) -> None:
+        self.detail_logger = get_detail_logger()
         # Common journal name cleaning patterns
         self.cleanup_patterns = [
             (r"[^\w\s\-&().,:]", " "),  # Replace special characters with space
@@ -127,8 +129,11 @@ class InputNormalizer:
 
         try:
             return self._extract_conference_series(conference_name.strip())
-        except Exception:
-            # Gracefully handle any unexpected errors in series extraction
+        except (AttributeError, ValueError, TypeError) as e:
+            # Gracefully handle type errors and value errors in series extraction
+            self.detail_logger.debug(
+                f"Failed to extract conference series from '{conference_name}': {e}"
+            )
             return None
 
     def normalize(

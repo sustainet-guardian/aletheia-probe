@@ -113,7 +113,7 @@ class BibtexParser:
                                 entries.append(processed_entry)
                             else:
                                 skipped_entries += 1
-                        except Exception as e:
+                        except (KeyError, AttributeError, ValueError, TypeError) as e:
                             status_logger.warning(
                                 f"Skipping entry '{entry_key}' due to processing error: {e}"
                             )
@@ -193,7 +193,7 @@ class BibtexParser:
 
             # Parse from the string content
             return parse_string(content, bib_format="bibtex")
-        except Exception as e:
+        except (OSError, UnicodeError, ValueError, AttributeError) as e:
             raise PybtexError(f"Error parsing with error handling: {e}") from e
 
     @staticmethod
@@ -234,7 +234,7 @@ class BibtexParser:
                 organization=BibtexParser._get_field_safely(entry, "organization"),
                 raw_entry=entry,
             )
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError, TypeError) as e:
             detail_logger.debug(f"Error processing entry {entry_key}: {e}")
             return None
 
@@ -376,7 +376,7 @@ class BibtexParser:
 
             # Fallback to raw field value
             return BibtexParser._get_field_safely(entry, "author")
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError, TypeError) as e:
             detail_logger.debug(f"Error extracting authors: {e}")
             return None
 
@@ -412,11 +412,11 @@ class BibtexParser:
                             )
                             cleaned = safe_value.strip("{}").strip()
                             return cleaned if cleaned else None
-                        except Exception:
+                        except (UnicodeError, AttributeError, ValueError):
                             # Last resort: return a safe representation
                             return repr(value).strip("'\"")
             return None
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError, TypeError) as e:
             detail_logger.debug(f"Error getting field '{field_name}': {e}")
             return None
 
