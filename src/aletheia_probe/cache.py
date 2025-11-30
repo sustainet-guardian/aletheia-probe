@@ -342,7 +342,12 @@ class CacheManager:
             if not isinstance(entry, JournalEntryData):
                 raise TypeError("entry must be a JournalEntryData instance")
             source_name = entry.source_name
-            assessment = entry.assessment
+            # Convert AssessmentType enum to string
+            assessment = (
+                entry.assessment.value
+                if hasattr(entry.assessment, "value")
+                else entry.assessment
+            )
             journal_name = entry.journal_name
             normalized_name = entry.normalized_name
             confidence = entry.confidence

@@ -1,57 +1,53 @@
 # SPDX-License-Identifier: MIT
 """Data models and dataclasses for journal assessment tool."""
 
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field, field_validator
+
+from .enums import AssessmentType
 from .validation import validate_issn
 
 
-@dataclass
-class JournalEntryData:
+class JournalEntryData(BaseModel):
     """Data for adding a journal entry to the normalized cache."""
 
-    source_name: str
-    assessment: str
-    journal_name: str
-    normalized_name: str
-    confidence: float = 1.0
-    issn: str | None = None
-    eissn: str | None = None
-    publisher: str | None = None
-    urls: list[str] | None = field(default_factory=list)
-    metadata: dict[str, Any] | None = field(default_factory=dict)
-    aliases: list[str] | None = field(default_factory=list)
+    source_name: str = Field(..., min_length=1, description="Data source name")
+    assessment: AssessmentType = Field(..., description="Assessment type")
+    journal_name: str = Field(..., min_length=1, description="Display journal name")
+    normalized_name: str = Field(
+        ..., min_length=1, description="Normalized journal name for deduplication"
+    )
+    confidence: float = Field(
+        1.0, ge=0.0, le=1.0, description="Confidence score (0.0 to 1.0)"
+    )
+    issn: str | None = Field(None, description="Print ISSN")
+    eissn: str | None = Field(None, description="Electronic ISSN")
+    publisher: str | None = Field(None, description="Publisher name")
+    urls: list[str] = Field(default_factory=list, description="List of URLs")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+    aliases: list[str] = Field(
+        default_factory=list, description="List of journal name aliases"
+    )
 
-    def __post_init__(self) -> None:
-        """Validate data after initialization."""
-        # Validate required fields
-        if not self.source_name or not self.source_name.strip():
-            raise ValueError("source_name is required and cannot be empty")
-        if not self.assessment or not self.assessment.strip():
-            raise ValueError("assessment is required and cannot be empty")
-        if not self.journal_name or not self.journal_name.strip():
-            raise ValueError("journal_name is required and cannot be empty")
-        if not self.normalized_name or not self.normalized_name.strip():
-            raise ValueError("normalized_name is required and cannot be empty")
+    @field_validator("source_name", "journal_name", "normalized_name", mode="after")
+    @classmethod
+    def strip_strings(cls, v: str) -> str:
+        """Strip whitespace from string fields."""
+        return v.strip()
 
-        # Validate confidence
-        if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"confidence must be between 0.0 and 1.0, got {self.confidence}"
-            )
+    @field_validator("publisher", mode="after")
+    @classmethod
+    def strip_publisher(cls, v: str | None) -> str | None:
+        """Strip whitespace from publisher field."""
+        return v.strip() if v else v
 
-        # Clean data
-        self.source_name = self.source_name.strip()
-        self.assessment = self.assessment.strip()
-        self.journal_name = self.journal_name.strip()
-        self.normalized_name = self.normalized_name.strip()
-        if self.publisher:
-            self.publisher = self.publisher.strip()
-
-        # Validate ISSNs if provided
-        if self.issn or self.eissn:
-            if self.issn and not validate_issn(self.issn):
-                raise ValueError(f"Invalid ISSN format: {self.issn}")
-            if self.eissn and not validate_issn(self.eissn):
-                raise ValueError(f"Invalid e-ISSN format: {self.eissn}")
+    @field_validator("issn", "eissn", mode="after")
+    @classmethod
+    def validate_issn_format(cls, v: str | None) -> str | None:
+        """Validate ISSN format."""
+        if v and not validate_issn(v):
+            raise ValueError(f"Invalid ISSN format: {v}")
+        return v
