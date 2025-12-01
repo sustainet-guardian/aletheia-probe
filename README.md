@@ -4,8 +4,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-> **🚧 Beta Release** - This tool is currently in beta testing. We welcome feedback and bug reports from early adopters. See [BETA-TESTING.md](BETA-TESTING.md) for how to help test and provide feedback.
-
 Aletheia-Probe is a comprehensive command-line tool for evaluating the legitimacy of academic journals and conferences. By aggregating data from authoritative sources and applying advanced pattern analysis, it helps researchers, librarians, and institutions detect predatory venues and ensure the integrity of scholarly publishing.
 
 **Setting Realistic Expectations**: If you are an honest researcher using established, well-known journals and conferences through major search engines and databases, you will likely never encounter predatory venues. This tool functions like a virus scanner for academic publishing—you should have it installed and running, but hopefully never receive any warnings. It's designed to catch the edge cases and protect against the less obvious threats that might slip through normal research workflows.
@@ -26,9 +24,9 @@ Aletheia-Probe helps answer two critical questions for researchers:
     ```
 
 ```bash
-# Beta release - Install from PyPI or source
+# Install from PyPI or source
 
-# Option 1: Install from PyPI (recommended for beta testing)
+# Option 1: Install from PyPI (recommended)
 pip install aletheia-probe
 
 # Option 2: Install from source (for development)
