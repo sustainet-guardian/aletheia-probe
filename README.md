@@ -245,11 +245,19 @@ To enhance coverage with Scopus data:
 
 ## Documentation
 
+### User Documentation
 - [Quick Start Guide](docs/quick-start.md) - Installation and basic usage
 - [User Guide](docs/user-guide.md) - Comprehensive usage examples and features
 - [Configuration Reference](docs/configuration.md) - All configuration options
-- [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+
+### Developer Documentation
+- [API Reference](docs/api-reference/) - Backend API and data models
+  - [Backend API](docs/api-reference/backends.md) - Creating custom backends
+  - [Data Models](docs/api-reference/models.md) - Core data structures
+  - [Extending Guide](docs/api-reference/extending-guide.md) - Extension patterns
+- [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
+- [Coding Standards](dev-notes/CODING_STANDARDS.md) - Code quality requirements
 
 ## Funding Acknowledgment
 
