@@ -81,13 +81,13 @@ class TestAssessmentIntegration:
 
         # Assertions
         assert result is not None, "Assessment should return a result"
-        # Note: This journal may actually be legitimate based on real data sources,
-        # even though the name pattern appears suspicious
+        # Note: This journal is actually classified as legitimate based on real data sources,
+        # even though the name pattern appears suspicious. Real data trumps pattern matching.
         assert result.assessment in [
             AssessmentType.PREDATORY,
             AssessmentType.QUESTIONABLE,
             AssessmentType.UNKNOWN,
-            AssessmentType.LEGITIMATE,  # May be found as legitimate in real data
+            AssessmentType.LEGITIMATE,  # Actually found as legitimate in real data
         ], f"Should be assessed based on real data, got: {result.assessment}"
 
         # Should have processed

@@ -23,7 +23,8 @@ class CacheManager:
             local_dir.mkdir(exist_ok=True)
             self.db_path = local_dir / "cache.db"
         else:
-            self.db_path = db_path
+            # Ensure db_path is always a Path object
+            self.db_path = Path(db_path)
 
         # Ensure data directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

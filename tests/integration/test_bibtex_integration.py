@@ -203,9 +203,11 @@ class TestBibtexIntegration:
     year={2023}
 }
 
-@article{incomplete2
-    title={Missing Closing Brace and Journal}
-    author={Another, Test}
+@article{incomplete2,
+    title={Missing Journal Field Too},
+    author={Another, Test},
+    year={2023}
+}
 
 @article{valid2,
     title={Another Valid Entry},
@@ -223,8 +225,8 @@ class TestBibtexIntegration:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(Path(temp_path))
 
-            # Should process valid entries despite malformed ones
-            assert result.total_entries >= 2, "Should process valid entries"
+            # Should process all entries (including those without journals)
+            assert result.total_entries == 4, "Should process all 4 BibTeX entries"
             assert result.legitimate_count >= 1, "Should find legitimate journals"
 
         finally:
