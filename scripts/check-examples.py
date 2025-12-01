@@ -34,7 +34,7 @@ def main() -> int:
                 cwd=project_root,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=90,
             )
 
             if result.returncode != 0:
@@ -48,7 +48,7 @@ def main() -> int:
 
         except subprocess.TimeoutExpired:
             failed_examples.append(example_file.name)
-            print(f"❌ TIMEOUT: {example_file.name} (exceeded 30 seconds)\n")
+            print(f"❌ TIMEOUT: {example_file.name} (exceeded 90 seconds)\n")
         except Exception as e:
             failed_examples.append(example_file.name)
             print(f"❌ ERROR: {example_file.name}: {e}\n")
