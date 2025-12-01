@@ -98,10 +98,14 @@ run_check "Example execution" python scripts/check-examples.py
 # 8. Mypy type checking (slower)
 run_check "Mypy type checking" mypy src/ --strict
 
-# 9. Pytest with coverage (slowest)
-run_check "Pytest with coverage" pytest --cov=src --cov-report=term-missing tests/
+# 9. Pytest with coverage (slowest - now parallelized)
+# Use -n auto to automatically detect CPU cores and run tests in parallel
+# Exclude performance tests to avoid pytest-xdist conflicts with benchmarks
+# Note: Coverage collection works correctly with pytest-xdist
+run_check "Pytest with coverage" pytest -n auto --cov=src --cov-report=term-missing tests/ --ignore=tests/performance/
 
-# 10. Performance benchmarks (mandatory)
+# 10. Performance benchmarks (mandatory - run without parallelization)
+# Benchmark tests should run sequentially for accurate timing
 run_check "Performance benchmarks" pytest tests/performance/ --benchmark-only
 
 # Final summary
