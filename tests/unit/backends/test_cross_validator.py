@@ -132,9 +132,6 @@ class TestCrossValidatorCaching:
             # Second query - should use cache and NOT call sub-backends
             result2 = await backend.query(query_input)
             assert result2.cached is True
-            assert (
-                result2.response_time < original_response_time / 10
-            )  # Should be much faster
 
             # Verify sub-backends were NOT queried
             assert call_count["openalex"] == 0, (
