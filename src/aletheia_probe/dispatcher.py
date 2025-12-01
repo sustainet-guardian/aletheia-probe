@@ -3,6 +3,7 @@
 
 import asyncio
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from .backends.base import Backend, get_backend_registry
@@ -16,6 +17,15 @@ from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from .normalizer import InputNormalizer, input_normalizer
+
+
+@dataclass
+class EvidenceClassification:
+    """Classification of evidence by type from backend results."""
+
+    predatory_list: list[BackendResult]
+    legitimate_list: list[BackendResult]
+    heuristic: list[BackendResult]
 
 
 class QueryDispatcher:
@@ -539,23 +549,17 @@ class QueryDispatcher:
             "legitimate_count": len(legitimate_results),
         }
 
-    def _make_final_assessment(
-        self,
-        query_input: QueryInput,
-        backend_results: list[BackendResult],
-        successful_results: list[BackendResult],
-        score_data: dict[str, Any],
-        retraction_info: dict[str, Any],
-        reasoning: list[str],
-        processing_time: float,
-    ) -> AssessmentResult:
-        """Make the final assessment decision based on all available data."""
-        total_predatory_weight = score_data["predatory_weight"]
-        total_legitimate_weight = score_data["legitimate_weight"]
-        total_weight = score_data["total_weight"]
-        retraction_risk_level = retraction_info.get("risk_level")
+    def _classify_evidence_by_type(
+        self, successful_results: list[BackendResult]
+    ) -> EvidenceClassification:
+        """Extract and categorize evidence types from backend results.
 
-        # Analyze evidence types to determine classification
+        Args:
+            successful_results: List of successful backend results
+
+        Returns:
+            EvidenceClassification containing categorized evidence
+        """
         predatory_list_evidence = []
         legitimate_list_evidence = []
         heuristic_evidence = []
@@ -574,125 +578,286 @@ class QueryDispatcher:
             elif result.evidence_type == EvidenceType.HEURISTIC.value:
                 heuristic_evidence.append(result)
 
-        # Decision logic based on issue #65 requirements
-        if total_weight == 0:
-            assessment = AssessmentType.UNKNOWN
-            confidence = 0.1
-            overall_score = 0.0
-            reasoning.insert(0, "No assessment data available")
+        return EvidenceClassification(
+            predatory_list=predatory_list_evidence,
+            legitimate_list=legitimate_list_evidence,
+            heuristic=heuristic_evidence,
+        )
 
-        elif len(predatory_list_evidence) > 0:
-            # Rule: If ANY predatory list evidence exists, can be PREDATORY
-            if total_predatory_weight > total_legitimate_weight:
-                assessment = AssessmentType.PREDATORY
-                confidence = min(0.95, total_predatory_weight / total_weight)
-                overall_score = total_predatory_weight / total_weight
-                reasoning.insert(
-                    0,
-                    f"Classified as predatory based on {len(predatory_list_evidence)} predatory list(s)",
+    def _assess_from_predatory_evidence(
+        self,
+        evidence: EvidenceClassification,
+        total_predatory_weight: float,
+        total_legitimate_weight: float,
+        total_weight: float,
+        retraction_risk_level: str | None,
+        reasoning: list[str],
+    ) -> tuple[str, float, float]:
+        """Determine assessment when predatory list evidence exists.
+
+        Compares predatory vs legitimate weights to make final determination.
+
+        Returns:
+            Tuple of (assessment, confidence, overall_score)
+        """
+        # Compare weights to determine if predatory or legitimate
+        if total_predatory_weight > total_legitimate_weight:
+            assessment = AssessmentType.PREDATORY
+            confidence = min(0.95, total_predatory_weight / total_weight)
+            overall_score = total_predatory_weight / total_weight
+            reasoning.insert(
+                0,
+                f"Classified as predatory based on {len(evidence.predatory_list)} predatory list(s)",
+            )
+
+            # Cross-validate with retraction data
+            if retraction_risk_level in ["critical", "high"]:
+                confidence = min(
+                    CONFIDENCE_THRESHOLD_HIGH, confidence + AGREEMENT_BONUS_AMOUNT
                 )
-
-                # Cross-validate with retraction data
-                if retraction_risk_level in ["critical", "high"]:
-                    confidence = min(
-                        CONFIDENCE_THRESHOLD_HIGH, confidence + AGREEMENT_BONUS_AMOUNT
-                    )
-                    reasoning.append(
-                        "⚠️ High retraction rate corroborates predatory classification"
-                    )
-            else:
-                # Predatory list evidence exists but legitimate evidence is stronger
-                assessment = AssessmentType.LEGITIMATE
-                confidence = min(0.9, total_legitimate_weight / total_weight)
-                overall_score = total_legitimate_weight / total_weight
-                reasoning.insert(
-                    0,
-                    "Classified as legitimate despite predatory list match - stronger legitimate evidence",
+                reasoning.append(
+                    "⚠️ High retraction rate corroborates predatory classification"
                 )
-
-        elif total_legitimate_weight > 0:
-            # Only legitimate evidence (list or heuristic)
+        else:
+            # Predatory list evidence exists but legitimate evidence is stronger
             assessment = AssessmentType.LEGITIMATE
             confidence = min(0.9, total_legitimate_weight / total_weight)
             overall_score = total_legitimate_weight / total_weight
             reasoning.insert(
                 0,
-                f"Classified as legitimate based on {score_data['legitimate_count']} source(s)",
+                "Classified as legitimate despite predatory list match - stronger legitimate evidence",
             )
 
-            # Flag if legitimate journal has concerning retraction patterns
-            if retraction_risk_level in ["critical", "high"]:
-                reasoning.append(
-                    "⚠️ WARNING: High retraction rate despite legitimate classification"
-                )
-            elif retraction_risk_level == "moderate":
-                reasoning.append(
-                    "⚠️ NOTE: Moderate retraction rate - quality concerns exist"
-                )
+        return (assessment, confidence, overall_score)
 
-        elif total_predatory_weight > 0:
-            # Rule: Predatory assessment based ONLY on heuristics = SUSPICIOUS
-            assessment = AssessmentType.SUSPICIOUS
-            confidence = min(
-                0.85, total_predatory_weight / total_weight
-            )  # Lower confidence for heuristic-only
-            overall_score = total_predatory_weight / total_weight
-            reasoning.insert(
-                0,
-                f"Classified as suspicious based on heuristic analysis only ({score_data['predatory_count']} source(s))",
+    def _assess_from_legitimate_evidence(
+        self,
+        total_legitimate_weight: float,
+        total_weight: float,
+        legitimate_count: int,
+        retraction_risk_level: str | None,
+        reasoning: list[str],
+    ) -> tuple[str, float, float]:
+        """Determine assessment when only legitimate evidence exists.
+
+        Args:
+            total_legitimate_weight: Weighted legitimate score
+            total_weight: Total weight from all backends
+            legitimate_count: Number of legitimate sources
+            retraction_risk_level: Risk level from retraction data
+            reasoning: List to append reasoning messages to
+
+        Returns:
+            Tuple of (assessment, confidence, overall_score)
+        """
+        assessment = AssessmentType.LEGITIMATE
+        confidence = min(0.9, total_legitimate_weight / total_weight)
+        overall_score = total_legitimate_weight / total_weight
+        reasoning.insert(
+            0,
+            f"Classified as legitimate based on {legitimate_count} source(s)",
+        )
+
+        # Flag if legitimate journal has concerning retraction patterns
+        if retraction_risk_level in ["critical", "high"]:
+            reasoning.append(
+                "⚠️ WARNING: High retraction rate despite legitimate classification"
+            )
+        elif retraction_risk_level == "moderate":
+            reasoning.append(
+                "⚠️ NOTE: Moderate retraction rate - quality concerns exist"
             )
 
-            # Retraction data supports suspicious classification
-            if retraction_risk_level in ["critical", "high"]:
-                confidence = min(0.95, confidence + AGREEMENT_BONUS_AMOUNT)
-                reasoning.append(
-                    "⚠️ High retraction rate supports suspicious classification"
-                )
+        return (assessment, confidence, overall_score)
 
-        else:
-            assessment = AssessmentType.UNKNOWN
-            confidence = 0.3
-            overall_score = 0.0
-            reasoning.insert(0, "Found in databases but assessment unclear")
+    def _assess_from_heuristic_evidence(
+        self,
+        total_predatory_weight: float,
+        total_weight: float,
+        predatory_count: int,
+        retraction_risk_level: str | None,
+        reasoning: list[str],
+    ) -> tuple[str, float, float]:
+        """Determine assessment when only heuristic evidence exists.
 
-            # Use retraction data as a warning flag when no clear classification
-            if retraction_risk_level in ["critical", "high"]:
-                reasoning.insert(
-                    0, "⚠️ WARNING: High retraction rate detected - proceed with caution"
-                )
+        Args:
+            total_predatory_weight: Weighted predatory score
+            total_weight: Total weight from all backends
+            predatory_count: Number of predatory sources
+            retraction_risk_level: Risk level from retraction data
+            reasoning: List to append reasoning messages to
 
-        # Boost confidence if multiple backends agree (no disagreement)
-        # Only apply bonus if all sources agree on the same assessment
+        Returns:
+            Tuple of (assessment, confidence, overall_score)
+        """
+        assessment = AssessmentType.SUSPICIOUS
+        confidence = min(
+            0.85, total_predatory_weight / total_weight
+        )  # Lower confidence for heuristic-only
+        overall_score = total_predatory_weight / total_weight
+        reasoning.insert(
+            0,
+            f"Classified as suspicious based on heuristic analysis only ({predatory_count} source(s))",
+        )
+
+        # Retraction data supports suspicious classification
+        if retraction_risk_level in ["critical", "high"]:
+            confidence = min(0.95, confidence + AGREEMENT_BONUS_AMOUNT)
+            reasoning.append(
+                "⚠️ High retraction rate supports suspicious classification"
+            )
+
+        return (assessment, confidence, overall_score)
+
+    def _apply_agreement_bonus(
+        self,
+        assessment: str,
+        confidence: float,
+        successful_results: list[BackendResult],
+        score_data: dict[str, Any],
+        reasoning: list[str],
+    ) -> float:
+        """Apply confidence bonus when multiple backends agree.
+
+        Only applies bonus if all sources agree on the same assessment (no disagreement).
+
+        Returns:
+            Updated confidence score
+        """
+        # Exclude retraction_watch from agreement calculation
         non_retraction_results = [
             r for r in successful_results if r.backend_name != "retraction_watch"
         ]
 
-        if len(non_retraction_results) > 1:
-            # Check if there's any disagreement
-            predatory_sources = score_data["predatory_count"]
-            legitimate_sources = score_data["legitimate_count"]
+        if len(non_retraction_results) <= 1:
+            return confidence
 
-            # Only boost if sources agree (no contradiction)
-            if predatory_sources > 0 and legitimate_sources == 0:
-                # All sources agree it's predatory
-                agreement_bonus = min(0.1, predatory_sources * 0.05)
-                confidence = min(1.0, confidence + agreement_bonus)
-                reasoning.append(
-                    "Confidence boosted by agreement across multiple backends"
-                )
-            elif legitimate_sources > 0 and predatory_sources == 0:
-                # All sources agree it's legitimate
-                agreement_bonus = min(0.1, legitimate_sources * 0.05)
-                confidence = min(1.0, confidence + agreement_bonus)
-                reasoning.append(
-                    "Confidence boosted by agreement across multiple backends"
-                )
-            elif predatory_sources > 0 and legitimate_sources > 0:
-                # Sources disagree - note the disagreement
-                reasoning.append(
-                    f"⚠️ NOTE: Sources disagree ({predatory_sources} predatory, "
-                    f"{legitimate_sources} legitimate) - review carefully"
-                )
+        predatory_sources = score_data["predatory_count"]
+        legitimate_sources = score_data["legitimate_count"]
+
+        # Only boost if sources agree (no contradiction)
+        if predatory_sources > 0 and legitimate_sources == 0:
+            # All sources agree it's predatory
+            agreement_bonus = min(0.1, predatory_sources * 0.05)
+            confidence = min(1.0, confidence + agreement_bonus)
+            reasoning.append("Confidence boosted by agreement across multiple backends")
+        elif legitimate_sources > 0 and predatory_sources == 0:
+            # All sources agree it's legitimate
+            agreement_bonus = min(0.1, legitimate_sources * 0.05)
+            confidence = min(1.0, confidence + agreement_bonus)
+            reasoning.append("Confidence boosted by agreement across multiple backends")
+        elif predatory_sources > 0 and legitimate_sources > 0:
+            # Sources disagree - note the disagreement
+            reasoning.append(
+                f"⚠️ NOTE: Sources disagree ({predatory_sources} predatory, "
+                f"{legitimate_sources} legitimate) - review carefully"
+            )
+
+        return confidence
+
+    def _determine_assessment_from_evidence(
+        self,
+        evidence: EvidenceClassification,
+        score_data: dict[str, Any],
+        retraction_risk_level: str | None,
+        reasoning: list[str],
+    ) -> tuple[str, float, float]:
+        """Determine assessment classification from evidence.
+
+        Decision logic based on issue #65 requirements:
+        - Predatory list evidence takes precedence
+        - Legitimate evidence is second priority
+        - Heuristic-only evidence results in SUSPICIOUS
+        - No evidence results in UNKNOWN
+
+        Args:
+            evidence: Classified evidence by type
+            score_data: Dictionary with weights and counts
+            retraction_risk_level: Risk level from retraction data
+            reasoning: List to append reasoning messages to
+
+        Returns:
+            Tuple of (assessment, confidence, overall_score)
+        """
+        total_predatory_weight = score_data["predatory_weight"]
+        total_legitimate_weight = score_data["legitimate_weight"]
+        total_weight = score_data["total_weight"]
+
+        if total_weight == 0:
+            reasoning.insert(0, "No assessment data available")
+            return (AssessmentType.UNKNOWN, 0.1, 0.0)
+
+        if len(evidence.predatory_list) > 0:
+            # Rule: If ANY predatory list evidence exists, can be PREDATORY
+            return self._assess_from_predatory_evidence(
+                evidence,
+                total_predatory_weight,
+                total_legitimate_weight,
+                total_weight,
+                retraction_risk_level,
+                reasoning,
+            )
+
+        if total_legitimate_weight > 0:
+            # Only legitimate evidence (list or heuristic)
+            return self._assess_from_legitimate_evidence(
+                total_legitimate_weight,
+                total_weight,
+                score_data["legitimate_count"],
+                retraction_risk_level,
+                reasoning,
+            )
+
+        if total_predatory_weight > 0:
+            # Rule: Predatory assessment based ONLY on heuristics = SUSPICIOUS
+            return self._assess_from_heuristic_evidence(
+                total_predatory_weight,
+                total_weight,
+                score_data["predatory_count"],
+                retraction_risk_level,
+                reasoning,
+            )
+
+        # Unknown case - use retraction data as warning flag
+        reasoning.insert(0, "Found in databases but assessment unclear")
+        if retraction_risk_level in ["critical", "high"]:
+            reasoning.insert(
+                0, "⚠️ WARNING: High retraction rate detected - proceed with caution"
+            )
+        return (AssessmentType.UNKNOWN, 0.3, 0.0)
+
+    def _make_final_assessment(
+        self,
+        query_input: QueryInput,
+        backend_results: list[BackendResult],
+        successful_results: list[BackendResult],
+        score_data: dict[str, Any],
+        retraction_info: dict[str, Any],
+        reasoning: list[str],
+        processing_time: float,
+    ) -> AssessmentResult:
+        """Make the final assessment decision based on all available data.
+
+        This method orchestrates the final assessment by:
+        1. Classifying evidence by type
+        2. Determining base assessment from evidence
+        3. Applying agreement bonuses
+        4. Building final result
+        """
+        # Classify evidence by type
+        evidence = self._classify_evidence_by_type(successful_results)
+
+        # Determine base assessment from evidence
+        assessment, confidence, overall_score = (
+            self._determine_assessment_from_evidence(
+                evidence, score_data, retraction_info.get("risk_level"), reasoning
+            )
+        )
+
+        # Apply agreement bonuses
+        confidence = self._apply_agreement_bonus(
+            assessment, confidence, successful_results, score_data, reasoning
+        )
 
         return AssessmentResult(
             input_query=query_input.raw_input,
