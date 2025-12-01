@@ -101,6 +101,9 @@ run_check "Mypy type checking" mypy src/ --strict
 # 9. Pytest with coverage (slowest)
 run_check "Pytest with coverage" pytest --cov=src --cov-report=term-missing tests/
 
+# 10. Performance benchmarks (mandatory)
+run_check "Performance benchmarks" pytest tests/performance/ --benchmark-only
+
 # Final summary
 echo ""
 echo -e "${BLUE}========================================${NC}"

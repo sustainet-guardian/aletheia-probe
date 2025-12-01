@@ -399,7 +399,7 @@ jobs:
   performance-tests:
     name: Performance Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    needs: [lint-and-type-check, test]
 
     steps:
     - uses: actions/checkout@v4
@@ -412,11 +412,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[dev] pytest-benchmark
+        pip install -e .[dev]
 
     - name: Run performance benchmarks
       run: |
-        pytest tests/ -k "benchmark" --benchmark-only --benchmark-json=benchmark.json || true
+        pytest tests/performance/ --benchmark-only --benchmark-json=benchmark.json
 
     - name: Archive benchmark results
       uses: actions/upload-artifact@v4
@@ -430,16 +430,16 @@ jobs:
     name: Notify
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint-and-type-check, test, security-scan, build, integration-tests, cross-platform-integration]
+    needs: [lint-and-type-check, test, security-scan, build, integration-tests, cross-platform-integration, performance-tests]
 
     steps:
     - name: Notify on success
-      if: ${{ needs.lint-and-type-check.result == 'success' && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.build.result == 'success' && needs.cross-platform-integration.result == 'success' }}
+      if: ${{ needs.lint-and-type-check.result == 'success' && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.build.result == 'success' && needs.cross-platform-integration.result == 'success' && needs.performance-tests.result == 'success' }}
       run: |
         echo "✅ All checks passed!"
 
     - name: Notify on failure
-      if: ${{ needs.lint-and-type-check.result == 'failure' || needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.build.result == 'failure' || needs.cross-platform-integration.result == 'failure' }}
+      if: ${{ needs.lint-and-type-check.result == 'failure' || needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.build.result == 'failure' || needs.cross-platform-integration.result == 'failure' || needs.performance-tests.result == 'failure' }}
       run: |
         echo "❌ Some checks failed!"
         exit 1
