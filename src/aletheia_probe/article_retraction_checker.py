@@ -57,7 +57,7 @@ class ArticleRetractionResult:
 class ArticleRetractionChecker:
     """Checks individual articles (by DOI) for retraction status using multiple sources."""
 
-    def __init__(self, email: str = "noreply.aletheia-probe.org"):
+    def __init__(self, email: str = "noreply@aletheia-probe.org"):
         """
         Initialize the article retraction checker.
 

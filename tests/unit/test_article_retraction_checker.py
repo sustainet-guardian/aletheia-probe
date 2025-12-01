@@ -94,11 +94,12 @@ class TestArticleRetractionCheckerInit:
         """Test ArticleRetractionChecker initialization with default email."""
         checker = ArticleRetractionChecker()
 
-        assert checker.email == "noreply.aletheia-probe.org"
+        assert checker.email == "noreply@aletheia-probe.org"
         assert checker.crossref_base_url == "https://api.crossref.org"
         assert "User-Agent" in checker.headers
-        assert "AletheiaProbe" in checker.headers["User-Agent"]
-        assert "noreply.aletheia-probe.org" in checker.headers["User-Agent"]
+        # Verify exact User-Agent format instead of substring matching
+        expected_user_agent = "AletheiaProbe/1.0 (mailto:noreply@aletheia-probe.org)"
+        assert checker.headers["User-Agent"] == expected_user_agent
 
     def test_init_custom_email(self):
         """Test ArticleRetractionChecker initialization with custom email."""
@@ -106,7 +107,9 @@ class TestArticleRetractionCheckerInit:
         checker = ArticleRetractionChecker(email=custom_email)
 
         assert checker.email == custom_email
-        assert custom_email in checker.headers["User-Agent"]
+        # Verify exact User-Agent format instead of substring matching
+        expected_user_agent = f"AletheiaProbe/1.0 (mailto:{custom_email})"
+        assert checker.headers["User-Agent"] == expected_user_agent
 
 
 class TestArticleRetractionCheckerDOIValidation:
