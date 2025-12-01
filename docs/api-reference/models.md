@@ -12,16 +12,9 @@ All models are defined in `src/aletheia_probe/models.py` using Pydantic for vali
 
 Normalized query input passed to backends.
 
-**Source:** `src/aletheia_probe/models.py`
-
 **Concept:** Contains normalized journal information extracted from user input, including identifiers (ISSN, DOI), alternative names, and venue type detection.
 
-**Key Fields:**
-- `raw_input` - Original user input
-- `normalized_name` - Normalized journal name
-- `identifiers` - Dict of ISSN, DOI, etc.
-- `aliases` - Alternative names
-- `venue_type` - Journal, conference, workshop, etc.
+**Key Fields:** `raw_input`, `normalized_name`, `identifiers` (dict), `aliases` (list), `venue_type`
 
 ## Result Models
 
@@ -29,15 +22,9 @@ Normalized query input passed to backends.
 
 Individual backend query result.
 
-**Concept:** Contains assessment from a single backend, including status, confidence score, and evidence metadata.
+**Concept:** Contains assessment from a single backend, including status (FOUND/NOT_FOUND/ERROR/TIMEOUT/RATE_LIMITED), confidence score (0.0-1.0, validated), assessment type, response timing, and cache indicator.
 
-**Key Fields:**
-- `backend_name` - Backend identifier
-- `status` - FOUND, NOT_FOUND, ERROR, TIMEOUT, RATE_LIMITED
-- `confidence` - Score 0.0-1.0 (validated)
-- `assessment` - "predatory", "legitimate", "suspicious", or None
-- `response_time` - Query timing
-- `cached` - Cache hit indicator
+**Key Fields:** `backend_name`, `status`, `confidence`, `assessment`, `response_time`, `cached`
 
 ### AssessmentResult
 
@@ -45,12 +32,7 @@ Final aggregated assessment.
 
 **Concept:** Combines all backend results with weighted scoring, reasoning, and metadata.
 
-**Key Fields:**
-- `assessment` - Final classification
-- `confidence` - Overall confidence
-- `backend_results` - Individual backend results
-- `reasoning` - Human-readable explanations
-- `metadata` - Journal metadata if available
+**Key Fields:** `assessment`, `confidence`, `backend_results` (list), `reasoning` (list), `metadata`, `processing_time`
 
 ## Metadata Models
 
@@ -60,7 +42,7 @@ Journal metadata collected during assessment.
 
 **Concept:** Optional metadata about journal characteristics like publisher, subject areas, founding year, and peer review status.
 
-**Key Fields:** `name`, `issn`, `eissn`, `publisher`, `subject_areas`, `founding_year`, `open_access`, `peer_reviewed`
+**Fields:** `name`, `issn`, `eissn`, `publisher`, `subject_areas`, `founding_year`, `open_access`, `peer_reviewed`
 
 ## Configuration Models
 
@@ -70,12 +52,7 @@ Backend configuration.
 
 **Concept:** Defines backend behavior including enable/disable, weighting, timeout, rate limiting, and backend-specific parameters.
 
-**Key Fields:**
-- `enabled` - Whether backend is active
-- `weight` - Assessment weight (≥ 0.0)
-- `timeout` - Query timeout in seconds
-- `email` - API contact email (validated with regex)
-- `config` - Backend-specific settings dict
+**Key Fields:** `enabled`, `weight` (≥ 0.0), `timeout`, `email` (validated with regex), `config` (dict)
 
 ## BibTeX Models
 
@@ -85,7 +62,7 @@ Single BibTeX entry representation.
 
 **Concept:** Extracted venue information from BibTeX entries with retraction status tracking.
 
-**Key Fields:** `key`, `journal_name`, `entry_type`, `venue_type`, `doi`, `issn`, `is_retracted`, `retraction_info`
+**Fields:** `key`, `journal_name`, `entry_type`, `venue_type`, `doi`, `issn`, `is_retracted`, `retraction_info`
 
 ### BibtexAssessmentResult
 
@@ -93,13 +70,13 @@ Aggregated BibTeX file assessment.
 
 **Concept:** Statistics and results from assessing all venues in a BibTeX file, broken down by venue type and assessment category.
 
-**Key Fields:** Entry counts, assessment counts (predatory/legitimate/suspicious), venue type breakdowns, retraction counts, processing time.
+**Fields:** Entry counts, assessment counts (predatory/legitimate/suspicious), venue type breakdowns, retraction counts, processing time
 
 ## Enumerations
 
-**VenueType** (`src/aletheia_probe/models.py`): JOURNAL, CONFERENCE, WORKSHOP, SYMPOSIUM, PROCEEDINGS, BOOK, PREPRINT, UNKNOWN
+**VenueType:** JOURNAL, CONFERENCE, WORKSHOP, SYMPOSIUM, PROCEEDINGS, BOOK, PREPRINT, UNKNOWN
 
-**BackendStatus** (`src/aletheia_probe/models.py`): FOUND, NOT_FOUND, ERROR, RATE_LIMITED, TIMEOUT
+**BackendStatus:** FOUND, NOT_FOUND, ERROR, RATE_LIMITED, TIMEOUT
 
 **AssessmentType** (`src/aletheia_probe/enums.py`): PREDATORY, LEGITIMATE, SUSPICIOUS, UNKNOWN
 
@@ -107,27 +84,9 @@ Aggregated BibTeX file assessment.
 
 ## Working with Models
 
-### Serialization
+**Serialization:** Pydantic provides `model_dump()` (to dict), `model_dump_json()` (to JSON), `model_validate_json()` (from JSON).
 
-```python
-# To dict/JSON
-data = model.model_dump()
-json_str = model.model_dump_json(indent=2)
-
-# From dict/JSON
-obj = ModelClass(**data_dict)
-obj = ModelClass.model_validate_json(json_string)
-```
-
-### Validation
-
-Pydantic automatically validates:
-- Required fields
-- Type correctness
-- Constraints (e.g., confidence in 0.0-1.0 range)
-- Email format (for ConfigBackend)
-
-Raises `ValidationError` on invalid data.
+**Validation:** Automatic validation of required fields, type correctness, constraints (e.g., confidence in 0.0-1.0), and email format. Raises `ValidationError` on invalid data.
 
 ## Related Documentation
 
