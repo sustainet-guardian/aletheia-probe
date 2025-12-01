@@ -1,32 +1,7 @@
 # SPDX-License-Identifier: MIT
-import os
-import sqlite3
-from pathlib import Path
-
 import pytest
 
-from aletheia_probe.cache import (
-    CacheManager,
-    get_cache_manager,
-    reset_cache_manager,
-    set_cache_manager,
-)
 from aletheia_probe.normalizer import InputNormalizer
-
-
-@pytest.fixture(autouse=True)
-def setup_cache_for_testing():
-    """Set up a temporary cache database for testing."""
-    test_db_path = Path("./test_cache.db")
-    if test_db_path.exists():
-        test_db_path.unlink()  # Ensure a clean slate
-
-    test_cache = CacheManager(db_path=test_db_path)
-    set_cache_manager(test_cache)
-    yield test_cache
-    reset_cache_manager()
-    if test_db_path.exists():
-        test_db_path.unlink()
 
 
 @pytest.fixture
@@ -53,18 +28,18 @@ def test_clean_text_html_unescape(normalizer):
     )
 
 
-def test_are_conference_names_equivalent_basic_match(setup_cache_for_testing):
+def test_are_conference_names_equivalent_basic_match(isolated_test_cache):
     """Test _are_conference_names_equivalent with basic equivalent names."""
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     assert cache._are_conference_names_equivalent(
         "Journal of Science", "Journal of Science"
     )
     assert cache._are_conference_names_equivalent("The Conference", "The Conference")
 
 
-def test_are_conference_names_equivalent_stop_words(setup_cache_for_testing):
+def test_are_conference_names_equivalent_stop_words(isolated_test_cache):
     """Test _are_conference_names_equivalent with stop words variations."""
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     # "and" vs "new" issue from logs
     name1 = "journal of process management and new technologies international"
     name2 = "journal of process management new technologies international"
@@ -76,18 +51,18 @@ def test_are_conference_names_equivalent_stop_words(setup_cache_for_testing):
 
 
 def test_are_conference_names_equivalent_case_and_html_entities(
-    setup_cache_for_testing,
+    isolated_test_cache,
 ):
     """Test _are_conference_names_equivalent with case and HTML entities."""
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     name1 = "International Journal of Scientific Research &#038; Management Studies"
     name2 = "international journal of scientific research & management studies"
     assert cache._are_conference_names_equivalent(name1, name2)
 
 
-def test_are_conference_names_equivalent_year_and_ordinal(setup_cache_for_testing):
+def test_are_conference_names_equivalent_year_and_ordinal(isolated_test_cache):
     """Test _are_conference_names_equivalent with year and ordinal variations."""
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     name1 = "2023 IEEE Conference on Computer Vision"
     name2 = "IEEE Conference on Computer Vision"
     assert cache._are_conference_names_equivalent(name1, name2)
@@ -97,9 +72,9 @@ def test_are_conference_names_equivalent_year_and_ordinal(setup_cache_for_testin
     assert cache._are_conference_names_equivalent(name3, name4)
 
 
-def test_are_conference_names_equivalent_substrings(setup_cache_for_testing):
+def test_are_conference_names_equivalent_substrings(isolated_test_cache):
     """Test _are_conference_names_equivalent with substring matches for longer names."""
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     name1 = "Advances in Neural Information Processing Systems"
     name2 = "Neural Information Processing Systems"
     assert cache._are_conference_names_equivalent(name1, name2)
@@ -108,11 +83,11 @@ def test_are_conference_names_equivalent_substrings(setup_cache_for_testing):
     assert not cache._are_conference_names_equivalent("AI", "AAAI")
 
 
-def test_store_acronym_mapping_with_equivalent_names(setup_cache_for_testing):
+def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
     """
     Test that store_acronym_mapping does not log a warning when overwriting with an equivalent name.
     """
-    cache = setup_cache_for_testing
+    cache = isolated_test_cache
     acronym = "IJSRMS"
     full_name1 = "international journal of scientific research & management studies"
     full_name2 = (
