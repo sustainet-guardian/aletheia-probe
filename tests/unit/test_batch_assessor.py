@@ -17,7 +17,6 @@ from aletheia_probe.models import (
 )
 
 
-@pytest.mark.asyncio
 class TestBibtexBatchAssessor:
     """Test suite for BibtexBatchAssessor functionality."""
 
@@ -127,6 +126,7 @@ class TestBibtexBatchAssessor:
             mock_class.return_value = mock_instance
             yield mock_instance
 
+    @pytest.mark.asyncio
     async def test_assess_empty_bibtex_file(
         self, empty_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -141,6 +141,7 @@ class TestBibtexBatchAssessor:
         assert not result.has_predatory_journals
         assert result.processing_time >= 0
 
+    @pytest.mark.asyncio
     async def test_assess_valid_bibtex_file(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -155,6 +156,7 @@ class TestBibtexBatchAssessor:
         assert not result.has_predatory_journals
         assert len(result.assessment_results) == 2
 
+    @pytest.mark.asyncio
     async def test_assess_bibtex_with_predatory_journals(
         self, predatory_bibtex_file: Path, mock_retraction_checker
     ):
@@ -186,6 +188,7 @@ class TestBibtexBatchAssessor:
             exit_code = BibtexBatchAssessor.get_exit_code(result)
             assert exit_code == 1
 
+    @pytest.mark.asyncio
     async def test_assess_bibtex_legitimate_journals_only(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -201,6 +204,7 @@ class TestBibtexBatchAssessor:
         exit_code = BibtexBatchAssessor.get_exit_code(result)
         assert exit_code == 0
 
+    @pytest.mark.asyncio
     async def test_assess_nonexistent_file(self, tmp_path: Path, mock_dispatcher):
         """Test file not found scenarios."""
         nonexistent_file = tmp_path / "does_not_exist.bib"
@@ -208,6 +212,7 @@ class TestBibtexBatchAssessor:
         with pytest.raises(ValueError, match="Failed to parse BibTeX file"):
             await BibtexBatchAssessor.assess_bibtex_file(nonexistent_file)
 
+    @pytest.mark.asyncio
     async def test_assess_malformed_bibtex(
         self, malformed_bibtex_file: Path, mock_dispatcher
     ):
@@ -215,6 +220,7 @@ class TestBibtexBatchAssessor:
         with pytest.raises(ValueError, match="Failed to parse BibTeX file"):
             await BibtexBatchAssessor.assess_bibtex_file(malformed_bibtex_file)
 
+    @pytest.mark.asyncio
     async def test_concurrent_assessment_failures(
         self, sample_bibtex_file: Path, mock_retraction_checker
     ):
@@ -252,6 +258,7 @@ class TestBibtexBatchAssessor:
             assert result.insufficient_data_count == 1
             assert result.legitimate_count == 1
 
+    @pytest.mark.asyncio
     async def test_format_assessment_summary(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -267,6 +274,7 @@ class TestBibtexBatchAssessor:
         assert f"Legitimate: {result.legitimate_count}" in summary
         assert "No predatory journals" in summary
 
+    @pytest.mark.asyncio
     async def test_format_summary_verbose(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -282,6 +290,7 @@ class TestBibtexBatchAssessor:
             entry.journal_name in summary for entry, _ in result.assessment_results
         )
 
+    @pytest.mark.asyncio
     async def test_retracted_article_detection(self, tmp_path: Path, mock_dispatcher):
         """Test detection of retracted articles via DOI."""
         bibtex_content = """
@@ -326,6 +335,7 @@ class TestBibtexBatchAssessor:
             summary = BibtexBatchAssessor.format_summary(result)
             assert "Retracted articles" in summary
 
+    @pytest.mark.asyncio
     async def test_mixed_assessment_results(
         self, tmp_path: Path, mock_retraction_checker
     ):
@@ -389,6 +399,7 @@ class TestBibtexBatchAssessor:
             assert result.suspicious_count == 1
             assert result.total_entries == 3
 
+    @pytest.mark.asyncio
     async def test_venue_type_counting(self, tmp_path: Path, mock_retraction_checker):
         """Test venue type counting for conferences and journals."""
         bibtex_content = """
@@ -445,6 +456,7 @@ class TestBibtexBatchAssessor:
                 or VenueType.WORKSHOP in result.venue_type_counts
             )
 
+    @pytest.mark.asyncio
     async def test_cache_usage_for_duplicate_journals(
         self, tmp_path: Path, mock_retraction_checker
     ):
@@ -498,6 +510,7 @@ class TestBibtexBatchAssessor:
             # But only call the dispatcher once for "Nature" (case-insensitive cache)
             assert mock_dispatcher.assess_journal.call_count == 1
 
+    @pytest.mark.asyncio
     async def test_preprint_entries_skipped(
         self, tmp_path: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -526,6 +539,7 @@ class TestBibtexBatchAssessor:
         assert result.preprint_entries_count == 1
         assert result.entries_with_journals == 1
 
+    @pytest.mark.asyncio
     async def test_verbose_output_flag(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -537,6 +551,7 @@ class TestBibtexBatchAssessor:
         assert isinstance(result, BibtexAssessmentResult)
         # Verbose flag doesn't affect the result structure, just logging
 
+    @pytest.mark.asyncio
     async def test_relax_bibtex_flag(
         self, tmp_path: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -558,6 +573,7 @@ class TestBibtexBatchAssessor:
 
         assert isinstance(result, BibtexAssessmentResult)
 
+    @pytest.mark.asyncio
     async def test_processing_time_recorded(
         self, sample_bibtex_file: Path, mock_dispatcher, mock_retraction_checker
     ):
@@ -567,6 +583,7 @@ class TestBibtexBatchAssessor:
         assert result.processing_time > 0
         assert isinstance(result.processing_time, float)
 
+    @pytest.mark.asyncio
     async def test_exit_code_with_retracted_articles(
         self, tmp_path: Path, mock_dispatcher
     ):
@@ -605,6 +622,7 @@ class TestBibtexBatchAssessor:
             exit_code = BibtexBatchAssessor.get_exit_code(result)
             assert exit_code == 1
 
+    @pytest.mark.asyncio
     async def test_exit_code_combined_issues(
         self, tmp_path: Path, mock_retraction_checker
     ):
