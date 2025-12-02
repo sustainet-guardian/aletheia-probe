@@ -1,30 +1,30 @@
-# Beta Testing Guide
+# Providing Feedback
 
-Thank you for participating in the beta testing of the Journal Assessment Tool! Your feedback is invaluable in helping us improve the tool before the stable 1.0 release.
+Thank you for using Aletheia-Probe! Your feedback is invaluable in helping us improve the tool and ensure it meets the needs of the research community.
 
-## Current Status: Beta v0.1.0
+## Current Features
 
-This is a **pre-release version** intended for testing and feedback. The core functionality is working and tested, but there may be edge cases, platform-specific issues, or usability concerns we haven't discovered yet.
+Aletheia-Probe provides comprehensive journal and conference assessment capabilities. The core functionality is stable and well-tested, but we continuously work to improve accuracy, performance, and usability based on user feedback.
 
-## What to Expect
+## Tool Capabilities
 
-### What Works Well
-- ✅ Core journal assessment functionality
+### Core Features
+- ✅ Comprehensive journal assessment functionality
+- ✅ Conference assessment capabilities
 - ✅ Multiple data source integration (DOAJ, Beall's List, Retraction Watch, OpenAlex, etc.)
 - ✅ BibTeX file batch processing
-- ✅ JSON and text output formats
-- ✅ Configuration management
-- ✅ Cache synchronization
-- ✅ Comprehensive documentation
-- ✅ All 179 unit and integration tests passing
+- ✅ Multiple output formats (JSON, text, verbose)
+- ✅ Flexible configuration management
+- ✅ Automatic data source synchronization
+- ✅ Extensive documentation and examples
 
-### Known Limitations
+### Current Limitations
 - ⚠️ **First sync takes time**: Initial data download can take 5-10 minutes depending on your connection
-- ⚠️ **Coverage gaps**: Some edge cases in batch processing and OpenAlex integration may not be fully tested
 - ⚠️ **Regional journals**: Journals from non-Western regions may have limited coverage in data sources
 - ⚠️ **New journals**: Very recently launched journals (< 1 year) may return "insufficient_data"
+- ⚠️ **Conference coverage**: Limited compared to journal assessment due to fewer comprehensive conference databases
 
-### What We Need Feedback On
+## Areas Where We Value Your Feedback
 1. **Installation experience** - Any issues or confusion during setup?
 2. **Real-world usage** - Does it work with your actual reference files?
 3. **Performance** - How long do assessments take for your use cases?
@@ -33,58 +33,15 @@ This is a **pre-release version** intended for testing and feedback. The core fu
 6. **Platform issues** - Any problems on your OS (Linux/macOS/Windows)?
 7. **Error handling** - How does it behave with malformed inputs?
 
-## Installation
+## Getting Started
 
-### Prerequisites
-- Python 3.10 or higher
-- Internet connection (for data source access)
+For installation instructions and basic usage, please see:
+- [Quick Start Guide](quick-start.md) - Installation and first steps
+- [User Guide](user-guide.md) - Comprehensive usage examples
 
-### Installation Methods
+## Common Usage Scenarios
 
-#### Option 1: Install from PyPI (Recommended)
-
-```bash
-# 1. Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 2. Install from PyPI
-pip install aletheia-probe
-
-# 3. Verify installation
-aletheia-probe --version
-# Should output: aletheia-probe version 0.1.0
-
-# 4. Initial data synchronization (takes 3-5 minutes)
-aletheia-probe sync
-```
-
-#### Option 2: Install from Source (For Development)
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/sustainet-guardian/aletheia-probe.git
-cd aletheia-probe
-
-# 2. Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 3. Install in development mode
-pip install -e .
-
-# 4. Verify installation
-aletheia-probe --version
-
-# 5. Initial data synchronization (takes 3-5 minutes)
-aletheia-probe sync
-```
-
-**Note**: The first `sync` command downloads and processes data from multiple sources. This is a one-time setup, though you should periodically run `aletheia-probe sync` to update data.
-
-## Testing Scenarios
-
-Please try to test as many of these scenarios as possible and report any issues:
+Here are typical use cases you might encounter. If you experience issues with any of these, please let us know:
 
 ### 1. Basic Single Journal Assessment
 
@@ -181,10 +138,10 @@ time aletheia-probe bibtex large_references.bib
 ## Reporting Issues
 
 ### Before Reporting
-1. Check the [Troubleshooting Guide](docs/troubleshooting.md)
+1. Check the [Troubleshooting Guide](troubleshooting.md)
 2. Search [existing issues](https://github.com/sustainet-guardian/aletheia-probe/issues)
 3. Try with `--verbose` flag for more details
-4. Test with latest version from `main` branch
+4. Ensure you're using the latest version
 
 ### How to Report
 
@@ -224,7 +181,7 @@ When creating issues, please suggest appropriate labels:
 - `documentation` - Documentation issues or improvements
 - `question` - Questions about usage or behavior
 - `performance` - Performance-related issues
-- `beta-feedback` - General beta testing feedback
+- `feedback` - General user feedback
 
 ## Expected Behavior vs. Bugs
 
@@ -267,19 +224,19 @@ Beyond bug reports, we welcome general feedback on:
    - What's missing for your needs?
 
 Please share feedback by:
-- Creating a GitHub issue with the `beta-feedback` label
+- Creating a GitHub issue with the `feedback` label
 - Discussing in GitHub Discussions (if enabled)
 - Emailing maintainers (check CONTRIBUTING.md for contacts)
 
-## Testing Checklist
+## Feedback Checklist
 
-Use this checklist to guide your testing:
+Use this checklist to help provide comprehensive feedback:
 
 **Installation & Setup**
-- [ ] Successfully installed from PyPI OR from source
-- [ ] `aletheia-probe --version` shows correct version (0.1.0)
+- [ ] Installation process was straightforward
+- [ ] `aletheia-probe --version` shows expected version
 - [ ] First `sync` completed without errors
-- [ ] `aletheia-probe status` shows data synced
+- [ ] `aletheia-probe status` shows data properly synced
 
 **Basic Functionality**
 - [ ] Assess a well-known journal with `journal` command (e.g., "Nature")
@@ -312,21 +269,13 @@ Use this checklist to guide your testing:
 - [ ] Troubleshooting guide helped resolve issues
 - [ ] No major gaps in documentation
 
-## Beta Testing Timeline
-
-- **Beta Start**: November 2025
-- **Feedback Collection**: 2-4 weeks
-- **Bug Fixes & Improvements**: Based on feedback
-- **Release Candidate**: After addressing major feedback
-- **Stable 1.0 Release**: Target Q1 2026
-
 ## Thank You!
 
-Your participation in beta testing helps ensure the Journal Assessment Tool is reliable, accurate, and useful for the research community. We greatly appreciate your time and feedback!
+Your feedback helps ensure Aletheia-Probe remains reliable, accurate, and useful for the research community. We greatly appreciate your time and input in making this tool better for everyone!
 
 ## Questions?
 
-- Check the [User Guide](docs/user-guide.md)
-- Review [Troubleshooting](docs/troubleshooting.md)
+- Check the [User Guide](user-guide.md)
+- Review [Troubleshooting](troubleshooting.md)
 - Create an issue with the `question` label
-- See [CONTRIBUTING.md](.github/community/CONTRIBUTING.md) for development questions
+- See [CONTRIBUTING.md](../.github/community/CONTRIBUTING.md) for development questions
