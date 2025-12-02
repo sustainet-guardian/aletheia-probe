@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache management module."""
 
+import hashlib
+import json
 import logging
 import sqlite3
 import tempfile
@@ -1131,8 +1133,6 @@ class TestCacheManagerErrorHandling:
         assert temp_cache.get_assessment_cache_count() == 0
 
         # Add an assessment
-        import hashlib
-
         query_hash = hashlib.md5(b"Test Journal").hexdigest()
         temp_cache.cache_assessment_result(
             query_hash=query_hash,
@@ -1145,8 +1145,6 @@ class TestCacheManagerErrorHandling:
 
     def test_clear_assessment_cache(self, temp_cache, sample_assessment_result):
         """Test clearing assessment cache."""
-        import hashlib
-
         # Add some assessments
         query_hash1 = hashlib.md5(b"Test Journal 1").hexdigest()
         temp_cache.cache_assessment_result(
