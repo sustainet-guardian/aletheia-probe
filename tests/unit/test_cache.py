@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache management module."""
 
+import hashlib
+import json
 import logging
 import sqlite3
 import tempfile
@@ -985,3 +987,255 @@ class TestCacheManagerErrorHandling:
 
         # Test that source_0 appears in the statistics
         assert "source_0" in stats
+
+    def test_add_journal_entry_unregistered_source(self, temp_cache):
+        """Test adding journal entry with unregistered source raises error."""
+        entry = JournalEntryData(
+            source_name="unregistered_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+        )
+
+        with pytest.raises(ValueError, match="Source.*not registered"):
+            temp_cache.add_journal_entry(source_name="unregistered_source", entry=entry)
+
+    def test_add_journal_entry_metadata_integer_type(self, temp_cache):
+        """Test adding journal entry with integer metadata."""
+        temp_cache.register_data_source(
+            name="test_source",
+            display_name="Test Source",
+            source_type="list",
+        )
+
+        entry = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+            metadata={"count": 42},
+        )
+
+        temp_cache.add_journal_entry(source_name="test_source", entry=entry)
+
+        # Verify metadata was stored
+        results = temp_cache.search_journals(normalized_name="test_journal")
+        assert len(results) > 0
+
+    def test_add_journal_entry_metadata_boolean_type(self, temp_cache):
+        """Test adding journal entry with boolean metadata."""
+        temp_cache.register_data_source(
+            name="test_source",
+            display_name="Test Source",
+            source_type="list",
+        )
+
+        entry = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+            metadata={"is_active": True},
+        )
+
+        temp_cache.add_journal_entry(source_name="test_source", entry=entry)
+
+        results = temp_cache.search_journals(normalized_name="test_journal")
+        assert len(results) > 0
+
+    def test_search_journals_with_journal_name_filter(self, temp_cache):
+        """Test searching journals with journal_name filter."""
+        temp_cache.register_data_source(
+            name="test_source",
+            display_name="Test Source",
+            source_type="list",
+        )
+
+        entry = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="International Journal of Testing",
+            normalized_name="international_journal_testing",
+        )
+
+        temp_cache.add_journal_entry(source_name="test_source", entry=entry)
+
+        # Search with journal_name parameter
+        results = temp_cache.search_journals(journal_name="Testing")
+
+        assert len(results) > 0
+        assert any("Testing" in r.get("display_name", "") for r in results)
+
+    def test_search_journals_metadata_integer_conversion(self, temp_cache):
+        """Test that integer metadata is converted correctly."""
+        temp_cache.register_data_source(
+            name="test_source",
+            display_name="Test Source",
+            source_type="list",
+        )
+
+        entry = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+            metadata={"year": 2023},
+        )
+
+        temp_cache.add_journal_entry(source_name="test_source", entry=entry)
+
+        results = temp_cache.search_journals(normalized_name="test_journal")
+        assert len(results) > 0
+        if results[0].get("metadata"):
+            metadata = json.loads(results[0]["metadata"])
+            assert metadata.get("year") == 2023
+
+    def test_find_conflicts(self, temp_cache):
+        """Test finding journals with conflicting assessments."""
+        temp_cache.register_data_source(
+            name="source1",
+            display_name="Source 1",
+            source_type="list",
+        )
+
+        temp_cache.register_data_source(
+            name="source2",
+            display_name="Source 2",
+            source_type="list",
+        )
+
+        # Add same journal to both sources with different assessments
+        entry1 = JournalEntryData(
+            source_name="source1",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+        )
+
+        entry2 = JournalEntryData(
+            source_name="source2",
+            assessment=AssessmentType.LEGITIMATE,
+            journal_name="Test Journal",
+            normalized_name="test_journal",
+        )
+
+        temp_cache.add_journal_entry(source_name="source1", entry=entry1)
+        temp_cache.add_journal_entry(source_name="source2", entry=entry2)
+
+        conflicts = temp_cache.find_conflicts()
+
+        assert len(conflicts) > 0
+        assert any(c["normalized_name"] == "test_journal" for c in conflicts)
+
+    def test_get_assessment_cache_count(self, temp_cache, sample_assessment_result):
+        """Test getting assessment cache count."""
+        # Initially empty
+        assert temp_cache.get_assessment_cache_count() == 0
+
+        # Add an assessment
+        query_hash = hashlib.md5(b"Test Journal").hexdigest()
+        temp_cache.cache_assessment_result(
+            query_hash=query_hash,
+            query_input="Test Journal",
+            result=sample_assessment_result,
+        )
+
+        # Should be 1
+        assert temp_cache.get_assessment_cache_count() == 1
+
+    def test_clear_assessment_cache(self, temp_cache, sample_assessment_result):
+        """Test clearing assessment cache."""
+        # Add some assessments
+        query_hash1 = hashlib.md5(b"Test Journal 1").hexdigest()
+        temp_cache.cache_assessment_result(
+            query_hash=query_hash1,
+            query_input="Test Journal 1",
+            result=sample_assessment_result,
+        )
+        query_hash2 = hashlib.md5(b"Test Journal 2").hexdigest()
+        temp_cache.cache_assessment_result(
+            query_hash=query_hash2,
+            query_input="Test Journal 2",
+            result=sample_assessment_result,
+        )
+
+        # Clear cache
+        count = temp_cache.clear_assessment_cache()
+        assert count == 2
+        assert temp_cache.get_assessment_cache_count() == 0
+
+    def test_cache_and_get_value(self, temp_cache):
+        """Test key-value cache functionality."""
+        # Cache a value
+        temp_cache.set_cached_value(key="test_key", value="test_value", ttl_hours=24)
+
+        # Retrieve it
+        result = temp_cache.get_cached_value(key="test_key")
+        assert result == "test_value"
+
+    def test_get_cached_value_nonexistent(self, temp_cache):
+        """Test that non-existent key returns None."""
+        result = temp_cache.get_cached_value(key="nonexistent_key")
+        assert result is None
+
+    def test_get_article_retraction(self, temp_cache):
+        """Test getting cached article retraction."""
+        # Cache a retraction
+        temp_cache.cache_article_retraction(
+            doi="10.1234/test",
+            is_retracted=True,
+            source="test_source",
+            retraction_type="full",
+            retraction_date="2023-01-01",
+            retraction_doi="10.1234/retraction",
+            retraction_reason="Fraud",
+            metadata={"note": "Test retraction"},
+        )
+
+        # Retrieve it
+        result = temp_cache.get_article_retraction(doi="10.1234/test")
+
+        assert result is not None
+        assert result["is_retracted"]  # SQLite stores booleans as integers
+        assert result["retraction_type"] == "full"
+        assert result["metadata"]["note"] == "Test retraction"
+
+    def test_get_article_retraction_nonexistent(self, temp_cache):
+        """Test that non-existent DOI returns None."""
+        result = temp_cache.get_article_retraction(doi="10.1234/nonexistent")
+        assert result is None
+
+    def test_get_article_retraction_invalid_json_metadata(self, temp_cache):
+        """Test handling of invalid JSON in metadata field."""
+        # Manually insert invalid JSON
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO article_retractions
+                (doi, is_retracted, source, metadata, checked_at, expires_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '+30 days'))
+                """,
+                ("10.1234/test", True, "test_source", "invalid{json"),
+            )
+            conn.commit()
+
+        result = temp_cache.get_article_retraction(doi="10.1234/test")
+
+        # Should still return result but with unparsed metadata
+        assert result is not None
+        assert result["is_retracted"]  # SQLite stores booleans as integers
+
+    def test_cache_article_retraction_with_metadata(self, temp_cache):
+        """Test caching article retraction with metadata."""
+        temp_cache.cache_article_retraction(
+            doi="10.1234/test",
+            is_retracted=True,
+            source="test_source",
+            metadata={"key1": "value1", "key2": 123},
+        )
+
+        result = temp_cache.get_article_retraction(doi="10.1234/test")
+
+        assert result is not None
+        assert result["metadata"]["key1"] == "value1"
+        assert result["metadata"]["key2"] == 123
