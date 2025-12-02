@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-02
+
+### Added
+- **Performance Testing Suite**: Mandatory performance testing infrastructure (MVP for #172) (#188)
+  - Benchmark tests for critical operations
+  - Performance regression detection
+  - Automated performance validation in CI/CD pipeline
+- **Comprehensive Integration Tests**: Full test coverage for integration scenarios (#170) (#189)
+  - End-to-end workflow testing
+  - Backend integration validation
+  - Realistic usage scenario coverage
+- **API Documentation**: Comprehensive documentation for backend developers (#184)
+  - Detailed backend architecture documentation
+  - Integration guide for new backends
+  - API reference and usage examples
+- **CITATION.cff**: Citation metadata file for academic references (#160)
+  - Standardized citation format
+  - Easy integration with reference managers
+  - Improved academic attribution support
+
+### Changed
+- **JournalEntryData Migration**: Migrated from dataclass to Pydantic BaseModel (#163)
+  - Enhanced data validation
+  - Better type safety and serialization
+  - Improved integration with modern Python tooling
+- **CLI Architecture**: Improved maintainability and consistency (#162)
+  - More maintainable command structure
+  - Consistent error handling across commands
+  - Better separation of concerns
+- **UpdateSourceRegistry Pattern**: Implemented for better extensibility (#159)
+  - More flexible source registration
+  - Easier addition of new data sources
+  - Improved configuration management
+- **Configuration Externalization**: Moved hardcoded values to config.py (#156)
+  - Centralized configuration management
+  - Easier customization and deployment
+  - Better maintainability
+- **Async I/O Operations**: Wrapped blocking operations with asyncio.to_thread() (#153)
+  - Improved async/await compliance
+  - Better performance in concurrent operations
+  - Proper non-blocking I/O handling
+- **Deduplication Logic**: Centralized across all data sources (#152)
+  - Consistent deduplication behavior
+  - Reduced code duplication
+  - Improved maintainability
+- **Type Safety**: Replaced magic strings with AssessmentType enum (#151)
+  - Better type checking and IDE support
+  - Reduced risk of typos and errors
+  - More maintainable code
+
+### Fixed
+- **Email Format and User-Agent Validation**: Corrected default formats and improved validation (#182) (#187)
+  - Proper email format in API requests
+  - Better User-Agent string construction
+  - Improved API compatibility
+- **Exception Handling**: Complete removal of bare exception handlers (#165, #174, #176)
+  - More specific exception catching
+  - Better error messages and debugging
+  - Strict compliance with coding standards
+- **Import Organization**: Moved mid-function imports to top of files (#180)
+  - PEP 8 compliance
+  - Improved code organization
+  - Better static analysis support
+- **Example Script Timeout**: Increased from 30 to 90 seconds (#192)
+  - More reliable example execution
+  - Better handling of slow network conditions
+  - Improved user experience with examples
+- **Flaky Test Assertions**: Removed timing-dependent test assertions (#183)
+  - More reliable test suite
+  - Eliminated intermittent test failures
+  - Improved CI/CD stability
+
+### Refactored
+- **_make_final_assessment Method**: Broke down from 113 to 29 code lines (#181)
+  - Improved readability and maintainability
+  - Better testability through smaller functions
+  - Reduced complexity
+- **InputNormalizer Decoupling**: Separated from CacheManager (#158)
+  - Better separation of concerns
+  - More testable components
+  - Improved modularity
+- **HybridBackend and Kscien**: Removed redundant code (#154)
+  - Cleaner codebase
+  - Reduced maintenance burden
+  - Improved clarity
+
+### Documentation
+- **Security Documentation**: Comprehensive SSL verification fallback documentation (#155)
+  - Clear security considerations
+  - Fallback behavior explanation
+  - Risk mitigation guidance
+- **README Improvements**: Reorganized AI-Assisted Development section (#161)
+  - Better documentation structure
+  - Clearer guidance for contributors
+  - Improved accessibility
+
+### Testing & Quality
+- **Test Coverage Improvements**: Significant coverage increases across multiple modules
+  - article_retraction_checker: 98% coverage (#167) (#179)
+  - batch_assessor.py: 9% → 93% coverage (#177)
+  - CrossrefAnalyzerBackend: Improved coverage (#196)
+  - General test coverage for issue #6 (#195, #197)
+- **Parallel Test Execution**: Added parallel testing to speed up quality checks (#186) (#190)
+  - Faster CI/CD pipeline
+  - Improved developer experience
+  - More efficient resource utilization
+- **Pytest Warnings**: Removed warnings for non-async test functions (#194)
+  - Cleaner test output
+  - Better test suite hygiene
+  - Improved debugging experience
+
+### Development Workflow
+- **Release Preparation**: Infrastructure for first official 1.0.0 release (#191)
+  - Version management improvements
+  - Release process documentation
+  - Quality assurance enhancements
+
 ## [0.5.0] - 2025-11-24
 
 ### Added
