@@ -650,19 +650,24 @@ class TestAsyncDBWriter:
                 "normalized_name": "test_journal_1",
                 "issn": "1234-5678",
                 "eissn": "1234-5679",
-                "publisher": "Test Publisher"
+                "publisher": "Test Publisher",
             }
         ]
 
-        with patch.object(
-            db_writer, '_batch_write_journals', return_value={
-                "total_records": 1,
-                "unique_journals": 1,
-                "duplicates": 0
-            }
-        ) as mock_batch_write, patch(
-            'aletheia_probe.cache_sync.get_cache_manager'
-        ) as mock_get_cache_manager:
+        with (
+            patch.object(
+                db_writer,
+                "_batch_write_journals",
+                return_value={
+                    "total_records": 1,
+                    "unique_journals": 1,
+                    "duplicates": 0,
+                },
+            ) as mock_batch_write,
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+        ):
             mock_cache_manager = Mock()
             mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.log_update = Mock()
@@ -680,7 +685,9 @@ class TestAsyncDBWriter:
             await db_writer.stop_writer()
 
             # Verify batch write was called
-            mock_batch_write.assert_called_once_with("test_source", "predatory", test_journals)
+            mock_batch_write.assert_called_once_with(
+                "test_source", "predatory", test_journals
+            )
             mock_cache_manager.log_update.assert_called_once()
 
     @pytest.mark.asyncio
@@ -689,7 +696,9 @@ class TestAsyncDBWriter:
         test_journals = [{"journal_name": "Test", "normalized_name": "test"}]
 
         with patch.object(
-            db_writer, '_batch_write_journals', side_effect=sqlite3.Error("Database error")
+            db_writer,
+            "_batch_write_journals",
+            side_effect=sqlite3.Error("Database error"),
         ):
             # Start writer
             await db_writer.start_writer()
@@ -714,19 +723,22 @@ class TestAsyncDBWriter:
                 "normalized_name": "test_journal_1",
                 "issn": "1234-5678",
                 "eissn": "1234-5679",
-                "publisher": "Test Publisher"
+                "publisher": "Test Publisher",
             },
             {
                 "journal_name": "Test Journal 2",
                 "normalized_name": "test_journal_2",
                 "issn": "2345-6789",
-                "publisher": "Another Publisher"
-            }
+                "publisher": "Another Publisher",
+            },
         ]
 
-        with patch('aletheia_probe.cache_sync.get_cache_manager') as mock_get_cache_manager, \
-             patch('sqlite3.connect') as mock_connect:
-
+        with (
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+            patch("sqlite3.connect") as mock_connect,
+        ):
             # Mock cache manager
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
@@ -742,11 +754,16 @@ class TestAsyncDBWriter:
             # Mock existing source
             mock_cursor.fetchone.side_effect = [
                 (1,),  # source_row exists
-                *[(i, f"test_journal_{i}") for i in range(1, 3)]  # journal IDs
+                *[(i, f"test_journal_{i}") for i in range(1, 3)],  # journal IDs
             ]
-            mock_cursor.fetchall.return_value = [(1, "test_journal_1"), (2, "test_journal_2")]
+            mock_cursor.fetchall.return_value = [
+                (1, "test_journal_1"),
+                (2, "test_journal_2"),
+            ]
 
-            result = db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            result = db_writer._batch_write_journals(
+                "test_source", "predatory", test_journals
+            )
 
             assert result["total_records"] == 2
             assert result["unique_journals"] == 2
@@ -764,13 +781,16 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678"
+                "issn": "1234-5678",
             }
         ]
 
-        with patch('aletheia_probe.cache_sync.get_cache_manager') as mock_get_cache_manager, \
-             patch('sqlite3.connect') as mock_connect:
-
+        with (
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+            patch("sqlite3.connect") as mock_connect,
+        ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
             mock_cache_manager.register_data_source = Mock()
@@ -786,7 +806,9 @@ class TestAsyncDBWriter:
             mock_cursor.fetchone.side_effect = [None, (1,)]
             mock_cursor.fetchall.return_value = [(1, "test_journal")]
 
-            result = db_writer._batch_write_journals("new_source", "predatory", test_journals)
+            result = db_writer._batch_write_journals(
+                "new_source", "predatory", test_journals
+            )
 
             # Verify source was registered
             mock_cache_manager.register_data_source.assert_called_once_with(
@@ -800,18 +822,21 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678"
+                "issn": "1234-5678",
             },
             {
                 "journal_name": "Test Journal Same",  # Different name but same normalized
-                "normalized_name": "test_journal",   # Same normalized name
-                "issn": "1234-5679"
-            }
+                "normalized_name": "test_journal",  # Same normalized name
+                "issn": "1234-5679",
+            },
         ]
 
-        with patch('aletheia_probe.cache_sync.get_cache_manager') as mock_get_cache_manager, \
-             patch('sqlite3.connect') as mock_connect:
-
+        with (
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+            patch("sqlite3.connect") as mock_connect,
+        ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
             mock_get_cache_manager.return_value = mock_cache_manager
@@ -825,7 +850,9 @@ class TestAsyncDBWriter:
             mock_cursor.fetchone.side_effect = [(1,)]  # source exists
             mock_cursor.fetchall.return_value = [(1, "test_journal")]
 
-            result = db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            result = db_writer._batch_write_journals(
+                "test_source", "predatory", test_journals
+            )
 
             # Should have 2 total records but only 1 unique journal
             assert result["total_records"] == 2
@@ -839,18 +866,21 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Valid Journal",
                 "normalized_name": "valid_journal",
-                "issn": "1234-5678"
+                "issn": "1234-5678",
             },
             {
                 "journal_name": "Invalid Journal",
                 # Missing normalized_name
-                "issn": "2345-6789"
-            }
+                "issn": "2345-6789",
+            },
         ]
 
-        with patch('aletheia_probe.cache_sync.get_cache_manager') as mock_get_cache_manager, \
-             patch('sqlite3.connect') as mock_connect:
-
+        with (
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+            patch("sqlite3.connect") as mock_connect,
+        ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
             mock_get_cache_manager.return_value = mock_cache_manager
@@ -864,7 +894,9 @@ class TestAsyncDBWriter:
             mock_cursor.fetchone.side_effect = [(1,)]
             mock_cursor.fetchall.return_value = [(1, "valid_journal")]
 
-            result = db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            result = db_writer._batch_write_journals(
+                "test_source", "predatory", test_journals
+            )
 
             # Should only process the valid journal
             assert result["total_records"] == 1
@@ -877,19 +909,24 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
-                "issn": "1234-5678"
+                "issn": "1234-5678",
             }
         ]
 
-        with patch.object(
-            db_writer, '_batch_write_journals', return_value={
-                "total_records": 5,
-                "unique_journals": 3,
-                "duplicates": 2  # This will trigger the duplicates > 0 branch
-            }
-        ) as mock_batch_write, patch(
-            'aletheia_probe.cache_sync.get_cache_manager'
-        ) as mock_get_cache_manager:
+        with (
+            patch.object(
+                db_writer,
+                "_batch_write_journals",
+                return_value={
+                    "total_records": 5,
+                    "unique_journals": 3,
+                    "duplicates": 2,  # This will trigger the duplicates > 0 branch
+                },
+            ) as mock_batch_write,
+            patch(
+                "aletheia_probe.cache_sync.get_cache_manager"
+            ) as mock_get_cache_manager,
+        ):
             mock_cache_manager = Mock()
             mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.log_update = Mock()

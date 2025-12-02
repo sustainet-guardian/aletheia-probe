@@ -12,6 +12,8 @@ from unittest.mock import patch
 import pytest
 
 from aletheia_probe.cache import CacheManager
+from aletheia_probe.data_models import JournalEntryData
+from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -734,3 +736,218 @@ class TestAcronymMapping:
         # Both normalize to the same generic form (years stripped)
         result = temp_cache.get_full_name_for_acronym("TEST")
         assert result == "test conference"
+
+
+class TestCacheManagerWithJournalEntryData:
+    """Test CacheManager functionality using JournalEntryData dataclass."""
+
+    def test_add_journal_entry_with_journal_entry_data(self, temp_cache):
+        """Test adding journal entry using JournalEntryData object."""
+        entry_data = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.PREDATORY,
+            journal_name="Test Predatory Journal",
+            normalized_name="test_predatory_journal",
+            confidence=0.9,
+            issn="1234-5678",
+            eissn="1234-5679",
+            publisher="Sketchy Publisher",
+            urls=["http://fake-journal.com"],
+            metadata={"impact_factor": "unknown"},
+            aliases=["TPJ", "Test Predatory"],
+        )
+
+        # This should exercise lines 343-360 (JournalEntryData handling)
+        temp_cache.add_journal_entry(entry=entry_data)
+
+        # Verify the entry was added correctly
+        journals = temp_cache.search_journals(query="test_predatory_journal")
+        assert len(journals) == 1
+        journal = journals[0]
+        assert journal["journal_name"] == "Test Predatory Journal"
+        assert journal["issn"] == "1234-5678"
+        assert journal["publisher"] == "Sketchy Publisher"
+
+    def test_add_journal_entry_with_invalid_entry_type(self, temp_cache):
+        """Test that invalid entry type raises TypeError."""
+        # This should exercise line 343-344 (type checking)
+        with pytest.raises(
+            TypeError, match="entry must be a JournalEntryData instance"
+        ):
+            temp_cache.add_journal_entry(entry="invalid_entry")
+
+    def test_add_journal_entry_validation_errors(self, temp_cache):
+        """Test validation error handling for required fields."""
+        # Test missing source_name (lines 363-364)
+        with pytest.raises(ValueError, match="source_name is required"):
+            temp_cache.add_journal_entry(
+                source_name="",
+                assessment="predatory",
+                journal_name="Test Journal",
+                normalized_name="test_journal",
+            )
+
+        # Test missing assessment (lines 365-366)
+        with pytest.raises(ValueError, match="assessment is required"):
+            temp_cache.add_journal_entry(
+                source_name="test_source",
+                assessment="",
+                journal_name="Test Journal",
+                normalized_name="test_journal",
+            )
+
+        # Test missing journal_name (lines 367-368)
+        with pytest.raises(ValueError, match="journal_name is required"):
+            temp_cache.add_journal_entry(
+                source_name="test_source",
+                assessment="predatory",
+                journal_name="",
+                normalized_name="test_journal",
+            )
+
+        # Test missing normalized_name (lines 369+)
+        with pytest.raises(ValueError, match="normalized_name is required"):
+            temp_cache.add_journal_entry(
+                source_name="test_source",
+                assessment="predatory",
+                journal_name="Test Journal",
+                normalized_name="",
+            )
+
+    def test_add_journal_entry_with_assessment_enum(self, temp_cache):
+        """Test handling of AssessmentType enum values."""
+        entry_data = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.LEGITIMATE,  # Enum with .value attribute
+            journal_name="Legitimate Journal",
+            normalized_name="legitimate_journal",
+            confidence=0.95,
+        )
+
+        # This exercises lines 347-351 (enum value handling)
+        temp_cache.add_journal_entry(entry=entry_data)
+
+        journals = temp_cache.search_journals(query="legitimate_journal")
+        assert len(journals) == 1
+
+    def test_cache_manager_default_db_path(self):
+        """Test CacheManager with default database path."""
+        # This should exercise lines 22-24 (default path creation)
+        with patch("pathlib.Path.cwd") as mock_cwd:
+            mock_cwd.return_value = Path("/tmp/test")
+            with patch("pathlib.Path.mkdir") as mock_mkdir:
+                cache = CacheManager(db_path=None)
+                expected_path = Path("/tmp/test/.aletheia-probe/cache.db")
+                assert cache.db_path == expected_path
+                mock_mkdir.assert_called()
+
+    def test_cache_manager_with_path_conversion(self):
+        """Test CacheManager converts string paths to Path objects."""
+        # This exercises line 27 (Path conversion)
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            cache_path_str = f.name
+
+        cache = CacheManager(db_path=cache_path_str)
+        assert isinstance(cache.db_path, Path)
+        assert str(cache.db_path) == cache_path_str
+
+        # Cleanup
+        Path(cache_path_str).unlink(missing_ok=True)
+
+
+class TestCacheManagerErrorHandling:
+    """Test error handling and edge cases for improved coverage."""
+
+    def test_search_journals_with_complex_filters(self, temp_cache):
+        """Test complex search scenarios to cover more code paths."""
+        # Add some test data first
+        temp_cache.add_journal_entry(
+            source_name="source1",
+            assessment="predatory",
+            journal_name="Test Journal 1",
+            normalized_name="test_journal_1",
+            issn="1111-1111",
+            list_type="blacklist",
+        )
+
+        temp_cache.add_journal_entry(
+            source_name="source2",
+            assessment="legitimate",
+            journal_name="Test Journal 2",
+            normalized_name="test_journal_2",
+            issn="2222-2222",
+            list_type="whitelist",
+        )
+
+        # Test search by ISSN with different patterns
+        results = temp_cache.search_journals(issn="1111-1111")
+        assert len(results) == 1
+
+        # Test search by source
+        results = temp_cache.search_journals(source_name="source1")
+        assert len(results) == 1
+
+        # Test search by list_type
+        results = temp_cache.search_journals(list_type="blacklist")
+        assert len(results) == 1
+
+        # Test combined filters
+        results = temp_cache.search_journals(
+            source_name="source2", list_type="whitelist"
+        )
+        assert len(results) == 1
+
+    def test_database_operations_edge_cases(self, temp_cache):
+        """Test database operations edge cases."""
+        # Test duplicate normalized names handling
+        temp_cache.add_journal_entry(
+            source_name="source1",
+            assessment="predatory",
+            journal_name="Journal Name 1",
+            normalized_name="same_normalized_name",
+        )
+
+        temp_cache.add_journal_entry(
+            source_name="source2",
+            assessment="legitimate",
+            journal_name="Journal Name 2",
+            normalized_name="same_normalized_name",
+        )
+
+        # Should handle duplicates gracefully
+        results = temp_cache.search_journals(query="same_normalized_name")
+        assert len(results) >= 1
+
+    def test_metadata_and_url_handling(self, temp_cache):
+        """Test metadata and URL handling to improve coverage."""
+        # Test with complex metadata and URLs
+        temp_cache.add_journal_entry(
+            source_name="complex_source",
+            assessment="predatory",
+            journal_name="Complex Journal",
+            normalized_name="complex_journal",
+            urls=["http://example1.com", "http://example2.com"],
+            metadata={"key1": "value1", "key2": {"nested": "value"}},
+            aliases=["CJ", "Complex J", "The Complex Journal"],
+        )
+
+        results = temp_cache.search_journals(query="complex_journal")
+        assert len(results) == 1
+
+    def test_get_source_statistics_comprehensive(self, temp_cache):
+        """Test comprehensive source statistics functionality."""
+        # Add data from multiple sources
+        for i in range(5):
+            temp_cache.add_journal_entry(
+                source_name=f"source_{i}",
+                assessment="predatory",
+                journal_name=f"Journal {i}",
+                normalized_name=f"journal_{i}",
+            )
+
+        stats = temp_cache.get_source_statistics()
+        assert len(stats) >= 5
+
+        # Test individual source stats
+        source_stats = temp_cache.get_source_statistics("source_0")
+        assert "source_0" in source_stats

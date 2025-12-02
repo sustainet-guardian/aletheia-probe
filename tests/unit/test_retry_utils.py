@@ -89,7 +89,9 @@ class TestRetryWithBackoff:
         """Test that delays are capped at max_delay."""
         call_times = []
 
-        @retry_with_backoff(max_retries=3, initial_delay=1.0, max_delay=1.5, exponential_base=5.0)
+        @retry_with_backoff(
+            max_retries=3, initial_delay=1.0, max_delay=1.5, exponential_base=5.0
+        )
         def capped_delay_func():
             call_times.append(time.time())
             raise ValueError("Always fails")
@@ -125,7 +127,9 @@ class TestRetryWithBackoff:
         """Test that multiple exception types can be specified for retry."""
         call_count = 0
 
-        @retry_with_backoff(max_retries=3, initial_delay=0.01, exceptions=(ValueError, TypeError))
+        @retry_with_backoff(
+            max_retries=3, initial_delay=0.01, exceptions=(ValueError, TypeError)
+        )
         def multi_exception_func():
             nonlocal call_count
             call_count += 1
@@ -155,7 +159,7 @@ class TestRetryWithBackoff:
         assert result == "a-b-c"
         assert call_count == 2
 
-    @patch('aletheia_probe.retry_utils.detail_logger')
+    @patch("aletheia_probe.retry_utils.detail_logger")
     def test_logging_on_retry(self, mock_logger):
         """Test that retry attempts are logged correctly."""
         call_count = 0
@@ -180,9 +184,10 @@ class TestRetryWithBackoff:
         assert "failed (attempt 2/2)" in calls[1][0][0]
         assert "Retrying in" in calls[0][0][0]
 
-    @patch('aletheia_probe.retry_utils.detail_logger')
+    @patch("aletheia_probe.retry_utils.detail_logger")
     def test_logging_on_final_failure(self, mock_logger):
         """Test that final failure is logged correctly."""
+
         @retry_with_backoff(max_retries=1, initial_delay=0.01)
         def final_failure_func():
             raise ValueError("Always fails")
@@ -254,7 +259,9 @@ class TestAsyncRetryWithBackoff:
         """Test that async exponential backoff timing works correctly."""
         call_times = []
 
-        @async_retry_with_backoff(max_retries=3, initial_delay=0.1, exponential_base=2.0)
+        @async_retry_with_backoff(
+            max_retries=3, initial_delay=0.1, exponential_base=2.0
+        )
         async def async_timing_func():
             call_times.append(time.time())
             raise ValueError("Always fails")
@@ -295,7 +302,7 @@ class TestAsyncRetryWithBackoff:
         assert call_count == 2
 
     @pytest.mark.asyncio
-    @patch('aletheia_probe.retry_utils.detail_logger')
+    @patch("aletheia_probe.retry_utils.detail_logger")
     async def test_async_logging_on_retry(self, mock_logger):
         """Test that async retry attempts are logged correctly."""
         call_count = 0
@@ -320,9 +327,10 @@ class TestAsyncRetryWithBackoff:
         assert "failed (attempt 2/2)" in calls[1][0][0]
 
     @pytest.mark.asyncio
-    @patch('aletheia_probe.retry_utils.detail_logger')
+    @patch("aletheia_probe.retry_utils.detail_logger")
     async def test_async_logging_on_final_failure(self, mock_logger):
         """Test that async final failure is logged correctly."""
+
         @async_retry_with_backoff(max_retries=1, initial_delay=0.01)
         async def async_final_failure_func():
             raise ValueError("Always fails async")
@@ -342,7 +350,9 @@ class TestAsyncRetryWithBackoff:
         """Test that only specified exception types are retried for async functions."""
         call_count = 0
 
-        @async_retry_with_backoff(max_retries=2, initial_delay=0.01, exceptions=(ValueError,))
+        @async_retry_with_backoff(
+            max_retries=2, initial_delay=0.01, exceptions=(ValueError,)
+        )
         async def async_selective_retry_func():
             nonlocal call_count
             call_count += 1
