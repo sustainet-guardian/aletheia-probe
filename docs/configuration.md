@@ -69,7 +69,7 @@ backends:
 
 Several backends (crossref_analyzer, openalex_analyzer, cross_validator) use the `email` parameter for API identification and rate limiting. These APIs follow "polite pool" access patterns and require contact information for higher rate limits.
 
-**Default Behavior**: If no email is configured, backends use `noreply.aletheia-probe.org` as a default contact address.
+**Default Behavior**: If no email is configured, backends use `noreply@aletheia-probe.org` as a default contact address.
 
 **Recommended Configuration**: Configure your own email address to:
 - Comply with API provider policies
@@ -243,9 +243,9 @@ backends:
 - `cache_ttl_hours`: How long cached list data remains valid. Default is 168 hours (7 days). Kscien lists are updated weekly, so weekly cache refresh is recommended. Increase for more stable environments, decrease if you need the latest additions.
 
 **Backend Descriptions**:
-- `kscien_standalone_journals`: Checks against 1476+ standalone predatory journals
-- `kscien_publishers`: Checks against 1271+ predatory publishers
-- `kscien_hijacked_journals`: Identifies 234+ hijacked journals (clones of legitimate journals)
+- `kscien_standalone_journals`: Checks against standalone predatory journals
+- `kscien_publishers`: Checks against predatory publishers
+- `kscien_hijacked_journals`: Identifies hijacked journals (clones of legitimate journals)
 - `kscien_predatory_conferences`: Checks against predatory conference lists
 
 See backend implementations in `src/aletheia_probe/backends/kscien_*.py`
@@ -286,7 +286,7 @@ backends:
 ```
 
 **Configuration**:
-- `email`: Contact email for API identification (OpenAlex and Crossref). Default is `noreply.aletheia-probe.org`. Configure your own email for better rate limits and API compliance.
+- `email`: Contact email for API identification (OpenAlex and Crossref). Default is `noreply@aletheia-probe.org`. Configure your own email for better rate limits and API compliance.
 - `cache_ttl_hours`: How long individual query results are cached. Default is 24 hours. Cross-validator performs API queries to both OpenAlex and Crossref, so caching reduces API load.
 
 **Purpose**:
