@@ -12,9 +12,10 @@ This comprehensive guide covers all aspects of using the Journal Assessment Tool
 6. [Understanding Results](#understanding-results)
 7. [Configuration](#configuration)
 8. [Conference Acronym Management](#conference-acronym-management)
-9. [Data Sources](#data-sources)
-10. [Best Practices](#best-practices)
-11. [Troubleshooting](#troubleshooting)
+9. [Article Retraction Checking](#article-retraction-checking)
+10. [Data Sources](#data-sources)
+11. [Best Practices](#best-practices)
+12. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -24,6 +25,8 @@ The Journal Assessment Tool helps researchers and institutions evaluate whether 
 
 - **Multi-source verification**: Combines DOAJ, Beall's List, Retraction Watch, and institutional data
 - **BibTeX batch processing**: Assess entire bibliographies from BibTeX files with automated exit codes
+- **Article retraction checking**: Identifies retracted publications by DOI with detailed statistics
+- **Conference acronym expansion**: Automatically expands abbreviations like "ICSE" to full conference names
 - **Intelligent matching**: Handles name variations, ISSNs, and publisher information
 - **Confidence scoring**: Provides probabilistic assessments with clear reasoning
 - **Fast performance**: Local caching reduces API calls and improves speed
@@ -552,18 +555,47 @@ backends:
 
 ## Conference Acronym Management
 
-The conference acronym management feature helps expand conference abbreviations to their full names. This is particularly useful when processing bibliographic data where conferences may be referenced by common acronyms like "ICSE" (International Conference on Software Engineering) or "NIPS" (Neural Information Processing Systems).
+The conference acronym expansion system automatically expands conference abbreviations to their full names during assessment. This improves matching accuracy when processing bibliographic data where conferences may be referenced by common acronyms like "ICSE" (International Conference on Software Engineering) or "NIPS" (Neural Information Processing Systems).
 
-### Concept
+### How Acronym Expansion Works
 
-Conference acronyms are stored in a local database that maps short forms to their full conference names. The system automatically builds this mapping as it encounters conference data during journal assessments, and also allows manual management of acronym mappings.
+When you query a journal or conference name, the system automatically:
 
-### Purpose
+1. **Detects acronyms**: Identifies when input appears to be an acronym (short, mostly uppercase)
+2. **Database lookup**: Searches the local acronym database for known expansions
+3. **Expands for matching**: Uses the full conference name for better backend matching
+4. **Preserves original**: Tracks the original acronym in `acronym_expanded_from` field
+5. **Auto-learns**: Extracts new acronym mappings from text like "International Conference on Software Engineering (ICSE)"
 
-- **Standardization**: Ensure consistent conference naming across bibliographic data
-- **Expansion**: Convert acronyms to full names for better readability and processing
-- **Data Quality**: Maintain a curated database of conference name mappings
-- **Automation**: Reduce manual effort in processing conference references
+**Example workflow:**
+```bash
+# User queries an acronym
+aletheia-probe conference "ICSE"
+
+# System automatically expands to "International Conference on Software Engineering"
+# Backend searches use the full name for better results
+# Output shows: acronym_expanded_from: "ICSE"
+```
+
+### Automatic vs Manual Acronym Management
+
+**Automatic expansion** happens during assessment:
+- Input normalization checks if query looks like an acronym
+- Local database provides expansions for better matching
+- Parenthetical text like "(ICML)" automatically creates new mappings
+
+**Manual management** allows database control:
+- Pre-populate common acronyms for your field
+- Correct automatic mappings
+- Add institution-specific abbreviations
+- View and clear stored mappings
+
+### Benefits
+
+- **Better Matching**: Full names improve backend search accuracy
+- **Standardization**: Consistent conference naming across bibliographic data
+- **Automation**: Reduces manual effort in processing conference references
+- **Transparency**: Original acronyms preserved in assessment results
 
 ### Available Commands
 
@@ -671,6 +703,153 @@ aletheia-probe conference-acronym clear --confirm
 The acronym database integrates automatically with journal assessment workflows. When processing bibliographic data, the tool uses stored mappings to expand conference acronyms, improving the accuracy of conference name matching and assessment.
 
 For implementation details, see `src/aletheia_probe/cli.py`.
+
+## Article Retraction Checking
+
+The article retraction checking system identifies retracted academic publications by their DOI and integrates retraction data into assessment results. This helps users identify potentially problematic articles in their bibliographies and provides journal-level retraction statistics as quality indicators.
+
+### What Retraction Checking Does
+
+The system performs two levels of retraction analysis:
+
+1. **Article-level checking**: Identifies individual retracted articles by DOI
+2. **Journal-level statistics**: Calculates retraction rates and risk levels for journals
+
+When processing BibTeX files, any articles with DOIs are automatically checked against retraction databases. Retracted articles are flagged with clear warnings and detailed retraction information.
+
+### How It Works
+
+#### Data Sources (Three-Tier Lookup)
+
+The system checks multiple sources in priority order:
+
+1. **Local Retraction Watch Database** (fastest)
+   - Pre-populated from Retraction Watch CSV dataset during sync
+   - Contains ~50,000+ retracted articles indexed by DOI
+   - Checked first for immediate results
+
+2. **Crossref API** (real-time)
+   - Queries Crossref metadata for retraction notices
+   - Looks for 'update-by' and 'update-to' fields
+   - Used as fallback when local database doesn't have the article
+
+3. **Intelligent Caching**
+   - 30-day cache for all retraction checks
+   - Negative results (non-retracted) also cached
+   - Prevents redundant API calls
+
+#### Retraction Detection Process
+
+```bash
+# For each article with a DOI:
+1. Check cache (30-day TTL) → Return if found
+2. Check local database → Cache result if retracted
+3. Query Crossref API → Cache result if retracted
+4. Cache negative result → Mark as not retracted
+```
+
+### Retraction Information Provided
+
+For retracted articles, the system provides:
+
+- **Retraction status**: Whether the article has been retracted
+- **Retraction type**: Misconduct, error, plagiarism, etc.
+- **Retraction date**: When the retraction was issued
+- **Retraction DOI**: DOI of the retraction notice (if available)
+- **Retraction reason**: Human-readable explanation
+- **Source**: Where the retraction data was found
+
+### Journal-Level Retraction Statistics
+
+The system calculates comprehensive statistics for journals:
+
+#### Risk Level Classification
+
+Risk levels are calculated using rate-based thresholds when publication data is available, otherwise absolute count thresholds:
+
+**Rate-Based Risk Levels** (preferred):
+
+| Level | Overall Rate | Recent Rate | Meaning |
+|-------|--------------|-------------|---------|
+| **critical** | ≥3.0% | ≥4.0% | Very high (25x+ normal rate) |
+| **high** | ≥1.5% | ≥2.5% | High (10x+ normal rate) |
+| **moderate** | ≥0.8% | ≥1.2% | Concerning (5x+ normal rate) |
+| **low** | ≥0.1% | ≥0.2% | Elevated (2-3x normal rate) |
+| **note** | <0.1% | <0.2% | Within normal range |
+| **none** | 0 | 0 | No retractions |
+
+**Count-Based Fallback** (when publication data unavailable):
+
+| Level | Total Count | Recent Count |
+|-------|------------|--------------|
+| **critical** | ≥21 | ≥10 |
+| **high** | ≥11 | ≥5 |
+| **moderate** | ≥6 | ≥3 |
+| **low** | ≥2 | ≥2 |
+
+**Baseline for comparison**: Research literature average is 0.02-0.04% retraction rate (1 per 2,500-5,000 articles).
+
+#### Statistics Meaning
+
+- **total_retractions**: Cumulative retracted articles (all time)
+- **recent_retractions**: Retractions in last 2 years (quality trend)
+- **very_recent_retractions**: Retractions in last 1 year (current trend)
+- **retraction_rate**: Percentage of all articles retracted
+- **recent_retraction_rate**: Percentage of recent articles retracted
+
+### Retraction Information in Output
+
+#### BibTeX Assessment Output
+
+Retracted articles are clearly marked in batch assessments:
+
+```
+❌ Journal Name (predatory, confidence: 0.85) 🚫 RETRACTED
+    🚫 RETRACTED: type=misconduct, date=2023-01-15
+       Reason: Data fabrication and falsification
+```
+
+#### Journal Assessment Output
+
+Journal-level retraction risk appears in reasoning:
+
+```
+⚠️ CRITICAL retraction risk: 45 retractions (18 recent) = 1.23% rate (3,654 publications)
+⚠️ Moderate retraction risk: 8 retractions (2 recent) = 0.15% rate (5,300 publications)
+📊 3 retraction(s): 0.05% rate (within normal range for 6,000 publications)
+```
+
+#### Summary Statistics
+
+For BibTeX files, summary includes:
+- Count of retracted articles found
+- Number of articles checked (those with DOIs)
+- Example: "3 retracted articles found (of 47 articles with DOIs checked)"
+
+### Integration with Assessment Results
+
+**BibtexEntry fields**:
+- `is_retracted`: Boolean flag indicating retraction status
+- `retraction_info`: Complete retraction details if retracted
+
+**BibtexAssessmentResult fields**:
+- `retracted_articles_count`: Number of retracted articles found
+- `articles_checked_for_retraction`: Number of articles with DOIs
+
+**Journal assessment**:
+- Retraction statistics influence confidence scores
+- High retraction rates trigger warnings in reasoning
+- Risk level affects overall journal assessment
+
+### Data Management
+
+Retraction data is kept current through:
+
+- **Weekly sync**: Updates local Retraction Watch database
+- **On-demand queries**: Real-time Crossref API checks
+- **Intelligent caching**: Reduces API load while maintaining accuracy
+
+For implementation details, see `src/aletheia_probe/article_retraction_checker.py` and `src/aletheia_probe/backends/retraction_watch.py`.
 
 ## Data Sources
 
