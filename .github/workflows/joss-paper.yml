@@ -1,0 +1,114 @@
+name: Build JOSS Paper
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/JOSS/**'
+      - '.github/workflows/joss-paper.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/JOSS/**'
+      - '.github/workflows/joss-paper.yml'
+  workflow_dispatch:
+
+jobs:
+  build-paper:
+    name: Build JOSS Paper
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Pandoc and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc texlive-latex-base texlive-latex-extra texlive-fonts-recommended
+
+    - name: Build PDF from Markdown
+      run: |
+        cd docs/JOSS
+        pandoc paper.md \
+          --from=markdown \
+          --to=pdf \
+          --bibliography=paper.bib \
+          --citeproc \
+          --output=paper.pdf \
+          --pdf-engine=pdflatex \
+          -V geometry:margin=1in \
+          -V fontsize=11pt
+
+    - name: Validate paper.md structure
+      run: |
+        cd docs/JOSS
+        # Check for required YAML fields
+        echo "Checking YAML header..."
+        grep -q "^title:" paper.md || (echo "Missing title field" && exit 1)
+        grep -q "^tags:" paper.md || (echo "Missing tags field" && exit 1)
+        grep -q "^authors:" paper.md || (echo "Missing authors field" && exit 1)
+        grep -q "^affiliations:" paper.md || (echo "Missing affiliations field" && exit 1)
+        grep -q "^date:" paper.md || (echo "Missing date field" && exit 1)
+        grep -q "^bibliography:" paper.md || (echo "Missing bibliography field" && exit 1)
+
+        # Check for required sections
+        echo "Checking required sections..."
+        grep -q "# Summary" paper.md || (echo "Missing Summary section" && exit 1)
+        grep -q "# Statement of Need" paper.md || (echo "Missing Statement of Need section" && exit 1)
+        grep -q "# References" paper.md || (echo "Missing References section" && exit 1)
+
+        echo "✅ Paper structure validation passed"
+
+    - name: Validate bibliography
+      run: |
+        cd docs/JOSS
+        # Check that paper.bib exists and is valid BibTeX
+        if [ ! -f paper.bib ]; then
+          echo "❌ paper.bib not found"
+          exit 1
+        fi
+
+        # Check for basic BibTeX structure
+        if ! grep -q "@" paper.bib; then
+          echo "❌ paper.bib appears to be empty or invalid"
+          exit 1
+        fi
+
+        echo "✅ Bibliography validation passed"
+
+    - name: Upload paper PDF artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: joss-paper-pdf
+        path: docs/JOSS/paper.pdf
+
+    - name: Check paper length
+      run: |
+        cd docs/JOSS
+        # Count words in paper (excluding YAML front matter and references)
+        word_count=$(sed '/^---$/,/^---$/d' paper.md | sed '/^# References/,$d' | wc -w)
+        echo "Paper word count (excluding YAML and references): $word_count"
+
+        # JOSS papers are typically 250-1000 words
+        if [ "$word_count" -lt 250 ]; then
+          echo "⚠️  Warning: Paper might be too short (< 250 words)"
+        elif [ "$word_count" -gt 1500 ]; then
+          echo "⚠️  Warning: Paper might be too long (> 1500 words)"
+        else
+          echo "✅ Paper length is appropriate"
+        fi
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## JOSS Paper Build Summary"
+        echo ""
+        echo "📄 Paper location: docs/JOSS/paper.md"
+        echo "📚 Bibliography: docs/JOSS/paper.bib"
+        echo "📦 PDF artifact uploaded: joss-paper-pdf"
+        echo ""
+        echo "Next steps for JOSS submission:"
+        echo "1. Review the generated PDF"
+        echo "2. Ensure all author ORCID IDs are correct"
+        echo "3. Create a Zenodo release with DOI"
+        echo "4. Submit to JOSS at https://joss.theoj.org/papers/new"
