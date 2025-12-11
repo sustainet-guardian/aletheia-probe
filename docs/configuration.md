@@ -187,6 +187,118 @@ backends:
 - `blacklist_file`: CSV file with disapproved journals
 - `category_weights`: Weights for different journal categories
 
+### PredatoryJournals.com Backend
+
+```yaml
+backends:
+  predatoryjournals:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - monthly cache for community lists
+```
+
+**Configuration**:
+- `cache_ttl_hours`: How long cached predatory journal list data remains valid before requiring re-sync. Default is 720 hours (30 days). The predatoryjournals.org lists are community-maintained and updated monthly, so longer cache periods are appropriate.
+
+See `src/aletheia_probe/backends/predatoryjournals.py`
+
+### Kscien Backends
+
+The Kscien suite provides curated lists of predatory journals, publishers, hijacked journals, and conferences. All Kscien backends share the same configuration pattern.
+
+```yaml
+backends:
+  kscien_standalone_journals:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 168  # 7 days - weekly cache
+
+  kscien_publishers:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 168  # 7 days - weekly cache
+
+  kscien_hijacked_journals:
+    enabled: true
+    weight: 1.0
+    timeout: 5
+    config:
+      cache_ttl_hours: 168  # 7 days - weekly cache
+
+  kscien_predatory_conferences:
+    enabled: true
+    weight: 0.8
+    timeout: 5
+    config:
+      cache_ttl_hours: 168  # 7 days - weekly cache
+```
+
+**Configuration**:
+- `cache_ttl_hours`: How long cached list data remains valid. Default is 168 hours (7 days). Kscien lists are updated weekly, so weekly cache refresh is recommended. Increase for more stable environments, decrease if you need the latest additions.
+
+**Backend Descriptions**:
+- `kscien_standalone_journals`: Checks against 1476+ standalone predatory journals
+- `kscien_publishers`: Checks against 1271+ predatory publishers
+- `kscien_hijacked_journals`: Identifies 234+ hijacked journals (clones of legitimate journals)
+- `kscien_predatory_conferences`: Checks against predatory conference lists
+
+See backend implementations in `src/aletheia_probe/backends/kscien_*.py`
+
+### Scopus Backend
+
+```yaml
+backends:
+  scopus:
+    enabled: true
+    weight: 1.2
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - monthly cache
+```
+
+**Configuration**:
+- `cache_ttl_hours`: How long cached Scopus data remains valid. Default is 720 hours (30 days). Since Scopus uses user-provided static files, longer cache periods are appropriate.
+
+**Important Notes**:
+- Scopus backend requires manual setup - users must download and place Scopus journal list Excel file in `~/.aletheia-probe/scopus/`
+- This backend identifies legitimate journals indexed in Scopus
+- Backend remains inactive until Scopus data file is provided
+
+See `src/aletheia_probe/backends/scopus.py`
+
+### Cross-Validator Backend
+
+```yaml
+backends:
+  cross_validator:
+    enabled: true
+    weight: 1.3
+    timeout: 20
+    email: "your.email@institution.org"
+    config:
+      cache_ttl_hours: 24  # Cache query results for 24 hours
+```
+
+**Configuration**:
+- `email`: Contact email for API identification (OpenAlex and Crossref). Default is `noreply.aletheia-probe.org`. Configure your own email for better rate limits and API compliance.
+- `cache_ttl_hours`: How long individual query results are cached. Default is 24 hours. Cross-validator performs API queries to both OpenAlex and Crossref, so caching reduces API load.
+
+**Purpose**:
+Cross-validator combines and cross-validates data from OpenAlex and Crossref backends. It performs consistency checks on publisher names, publication volumes, DOAJ listings, and activity timelines across both sources. When backends agree, confidence is boosted; when they disagree, confidence is reduced.
+
+**When to Adjust**:
+- Set shorter `cache_ttl_hours` (1-6 hours) when assessing newly published journals or during active research
+- Set longer `cache_ttl_hours` (48-168 hours) for batch processing or when API rate limits are a concern
+- Configure `email` to comply with API polite pool policies and get better rate limits
+
+See `src/aletheia_probe/backends/cross_validator.py`
+
 ## Assessment Heuristics
 
 Configuration for the assessment algorithm:
