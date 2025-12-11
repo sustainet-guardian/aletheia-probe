@@ -118,9 +118,13 @@ Aggregated BibTeX file assessment.
 
 **BackendStatus:** FOUND, NOT_FOUND, ERROR, RATE_LIMITED, TIMEOUT
 
-**AssessmentType** (`src/aletheia_probe/enums.py`): PREDATORY, LEGITIMATE, SUSPICIOUS, UNKNOWN
+**AssessmentType** (`src/aletheia_probe/enums.py`): Classification results from backend assessments. Core values PREDATORY, LEGITIMATE, SUSPICIOUS, UNKNOWN represent standard assessment outcomes. QUESTIONABLE indicates venues requiring closer scrutiny. QUALITY_INDICATOR represents positive quality signals. HIJACKED identifies legitimate venues compromised by predatory operators. Used by aggregation logic to determine final assessment confidence.
 
 **EvidenceType** (`src/aletheia_probe/enums.py`): PREDATORY_LIST, LEGITIMATE_LIST, HEURISTIC, QUALITY_INDICATOR
+
+**UpdateStatus** (`src/aletheia_probe/enums.py`): Tracks data source synchronization outcomes. SUCCESS indicates completed updates, FAILED represents synchronization errors, SKIPPED shows intentionally bypassed updates, IN_PROGRESS tracks active sync operations, CURRENT indicates data is already up-to-date, ERROR represents unexpected failures. Used by cache systems to manage backend data freshness and sync reliability.
+
+**RiskLevel** (`src/aletheia_probe/enums.py`): Categorizes risk assessment severity for retraction analysis. NONE indicates no risk detected, NOTE represents informational findings, LOW/MODERATE/HIGH represent increasing risk levels, CRITICAL indicates severe risk requiring immediate attention. Used by retraction checking systems to prioritize and classify findings based on severity and impact.
 
 ## Working with Models
 
