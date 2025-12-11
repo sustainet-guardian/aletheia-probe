@@ -97,6 +97,41 @@ YAML structure:
 - **HybridBackend with API:** `src/aletheia_probe/backends/doaj.py`
 - **Complex patterns:** `src/aletheia_probe/backends/kscien_publishers.py`
 
+## Available Backends
+
+### Predatory Lists
+
+| Backend | Purpose | Source |
+|---------|---------|--------|
+| **bealls** | Beall's List archive | `src/aletheia_probe/backends/bealls.py` |
+| **predatoryjournals** | PredatoryJournals.com database | `src/aletheia_probe/backends/predatoryjournals.py` |
+| **algerian_ministry** | Algerian Ministry predatory list | `src/aletheia_probe/backends/algerian_ministry.py` |
+| **kscien_standalone_journals** | Kscien standalone journals | `src/aletheia_probe/backends/kscien_standalone_journals.py` |
+| **kscien_publishers** | Kscien publishers | `src/aletheia_probe/backends/kscien_publishers.py` |
+| **kscien_hijacked_journals** | Kscien hijacked journals | `src/aletheia_probe/backends/kscien_hijacked_journals.py` |
+| **kscien_predatory_conferences** | Kscien predatory conferences | `src/aletheia_probe/backends/kscien_predatory_conferences.py` |
+
+### Legitimate Lists
+
+| Backend | Purpose | Source |
+|---------|---------|--------|
+| **doaj** | Directory of Open Access Journals | `src/aletheia_probe/backends/doaj.py` |
+
+### Quality Indicators
+
+| Backend | Purpose | Source |
+|---------|---------|--------|
+| **scopus** | Scopus indexing status | `src/aletheia_probe/backends/scopus.py` |
+| **retraction_watch** | Retraction Watch database | `src/aletheia_probe/backends/retraction_watch.py` |
+
+### Heuristic Analysis
+
+| Backend | Purpose | Source |
+|---------|---------|--------|
+| **openalex_analyzer** | OpenAlex metadata patterns | `src/aletheia_probe/backends/openalex_analyzer.py` |
+| **crossref_analyzer** | Crossref metadata quality | `src/aletheia_probe/backends/crossref_analyzer.py` |
+| **cross_validator** | Cross-source validation | `src/aletheia_probe/backends/cross_validator.py` |
+
 ## Related Documentation
 
 - [Data Models Reference](models.md) - Model specifications
