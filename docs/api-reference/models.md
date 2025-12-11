@@ -12,9 +12,16 @@ All models are defined in `src/aletheia_probe/models.py` using Pydantic for vali
 
 Normalized query input passed to backends.
 
-**Concept:** Contains normalized journal information extracted from user input, including identifiers (ISSN, DOI), alternative names, and venue type detection.
+**Concept:** Contains normalized journal information extracted from user input, including identifiers (ISSN, DOI), alternative names, venue type detection, and acronym expansion tracking.
 
-**Key Fields:** `raw_input`, `normalized_name`, `identifiers` (dict), `aliases` (list), `venue_type`
+**Key Fields:**
+- `raw_input` - Original user input
+- `normalized_name` - Processed journal/conference name
+- `identifiers` - Dictionary of ISSN, DOI, etc.
+- `aliases` - Alternative names discovered
+- `venue_type` - Detected venue classification
+- `acronym_expanded_from` - Original acronym if expansion was applied (e.g., "ICSE" → "International Conference on Software Engineering"). Populated when acronym expansion feature resolves conference abbreviations.
+- `extracted_acronym_mappings` - Dictionary of acronym-to-full-name mappings discovered during normalization. Tracks what expansions were found and applied.
 
 ## Result Models
 
@@ -22,17 +29,33 @@ Normalized query input passed to backends.
 
 Individual backend query result.
 
-**Concept:** Contains assessment from a single backend, including status (FOUND/NOT_FOUND/ERROR/TIMEOUT/RATE_LIMITED), confidence score (0.0-1.0, validated), assessment type, response timing, and cache indicator.
+**Concept:** Contains assessment from a single backend, including status, confidence score, assessment type, response timing, evidence classification, and execution metrics.
 
-**Key Fields:** `backend_name`, `status`, `confidence`, `assessment`, `response_time`, `cached`
+**Key Fields:**
+- `backend_name` - Name of the backend that produced this result
+- `status` - Query result status (FOUND/NOT_FOUND/ERROR/TIMEOUT/RATE_LIMITED)
+- `confidence` - Confidence score (0.0-1.0, validated)
+- `assessment` - Assessment classification (predatory/legitimate/suspicious/unknown)
+- `response_time` - Query response time in seconds
+- `cached` - Whether result was retrieved from cache
+- `execution_time_ms` - Backend execution time in milliseconds. Measures actual backend processing time separate from network/cache overhead.
+- `evidence_type` - Type of evidence used: "predatory_list", "legitimate_list", or "heuristic". Indicates the source and nature of the assessment evidence.
 
 ### AssessmentResult
 
 Final aggregated assessment.
 
-**Concept:** Combines all backend results with weighted scoring, reasoning, and metadata.
+**Concept:** Combines all backend results with weighted scoring, reasoning, metadata, and acronym expansion tracking.
 
-**Key Fields:** `assessment`, `confidence`, `backend_results` (list), `reasoning` (list), `metadata`, `processing_time`
+**Key Fields:**
+- `assessment` - Final classification (predatory/legitimate/suspicious/insufficient_data)
+- `confidence` - Overall confidence score (0.0-1.0)
+- `backend_results` - List of individual backend results
+- `reasoning` - Human-readable explanations
+- `metadata` - Journal metadata if available
+- `processing_time` - Total assessment duration
+- `acronym_expanded_from` - Original acronym if assessment used acronym expansion (e.g., "ICSE" → full conference name). Tracks when expansion influenced results.
+- `acronym_expansion_used` - Boolean indicating whether acronym expansion was applied. Distinguishes direct name queries from acronym-based queries.
 
 ## Metadata Models
 
@@ -60,17 +83,34 @@ Backend configuration.
 
 Single BibTeX entry representation.
 
-**Concept:** Extracted venue information from BibTeX entries with retraction status tracking.
+**Concept:** Extracted venue information from BibTeX entries with comprehensive metadata and retraction status tracking.
 
-**Fields:** `key`, `journal_name`, `entry_type`, `venue_type`, `doi`, `issn`, `is_retracted`, `retraction_info`
+**Key Fields:**
+- `key` - BibTeX entry key identifier
+- `journal_name` - Extracted journal or conference name
+- `entry_type` - BibTeX entry type (article, inproceedings, etc.)
+- `venue_type` - Detected venue classification (journal/conference/etc.)
+- `doi` - Digital Object Identifier if available
+- `issn` - International Standard Serial Number if available
+- `is_retracted` - Boolean indicating whether the article has been retracted. Determined by checking retraction databases for articles with DOIs.
+- `retraction_info` - Dictionary containing retraction details when `is_retracted` is true. Includes retraction reason, date, and source information.
 
 ### BibtexAssessmentResult
 
 Aggregated BibTeX file assessment.
 
-**Concept:** Statistics and results from assessing all venues in a BibTeX file, broken down by venue type and assessment category.
+**Concept:** Comprehensive statistics and results from assessing all venues in a BibTeX file, with detailed breakdowns by venue type, assessment category, and retraction analysis.
 
-**Fields:** Entry counts, assessment counts (predatory/legitimate/suspicious), venue type breakdowns, retraction counts, processing time
+**Key Fields:**
+- `total_entries` - Total number of entries processed
+- `entries_with_journals` - Number of entries with identifiable venues
+- `assessment_results` - List of (entry, assessment) pairs for detailed results
+- `predatory_count` / `legitimate_count` / `suspicious_count` - Assessment category counts
+- `conference_entries` / `journal_entries` - Venue type breakdowns with specific counters
+- `venue_type_counts` - Dictionary mapping venue types to counts
+- `retracted_articles_count` - Number of retracted articles discovered. Populated by checking articles with DOIs against retraction databases.
+- `articles_checked_for_retraction` - Number of articles that were checked for retraction status. Indicates how many articles had DOIs available for retraction checking.
+- `processing_time` - Total assessment duration in seconds
 
 ## Enumerations
 
