@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-11
+
+### Added
+- **JOSS Paper**: Complete Journal of Open Source Software submission document (#210)
+  - Comprehensive paper for academic publication
+  - Bibliography with academic references
+  - Automated PDF generation and validation
+- **Zenodo DOI Integration**: Added DOI badge for improved citation support (#200)
+  - Enhanced academic attribution
+  - Improved research reproducibility
+  - Better integration with citation managers
+
+### Changed
+- **Documentation Completeness**: Comprehensive documentation improvements
+  - Backend-specific configuration documentation (#217)
+  - Complete enumeration documentation in models.md (#216)
+  - High-level Python API documentation (#215)
+  - Complete field descriptions in models.md (#214)
+  - Backend catalog documentation (#213)
+  - Retraction checking and acronym expansion documentation (#212)
+  - CLI flags documentation (#211)
+  - Conference acronym CLI command documentation (#209)
+
+### Improved
+- **Release Infrastructure**: Enhanced for stable releases and academic publishing
+  - JOSS-ready documentation structure
+  - Automated paper validation in CI/CD
+  - Complete API reference documentation
+  - Enhanced installation and usage guides
+
 ## [0.6.0] - 2025-12-02
 
 ### Added
