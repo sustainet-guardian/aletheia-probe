@@ -611,7 +611,7 @@ aletheia-probe conference-acronym clear --confirm
 
 The acronym database integrates automatically with journal assessment workflows. When processing bibliographic data, the tool uses stored mappings to expand conference acronyms, improving the accuracy of conference name matching and assessment.
 
-For implementation details, see `src/aletheia_probe/cli.py:325-467`.
+For implementation details, see `src/aletheia_probe/cli.py`.
 
 ## Data Sources
 
