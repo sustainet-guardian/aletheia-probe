@@ -179,6 +179,26 @@ submit: check-refs
 	submit-manuscript.sh
 ```
 
+#### Handling Malformed BibTeX Files
+
+When working with BibTeX files from various sources, you may encounter files with non-standard formatting or syntax issues. The `--relax-bibtex` flag enables relaxed parsing mode to handle these cases:
+
+```bash
+# Enable relaxed parsing for malformed BibTeX files
+aletheia-probe bibtex --relax-bibtex references.bib
+
+# Combine with other options
+aletheia-probe bibtex --relax-bibtex --format json references.bib
+```
+
+**When to use `--relax-bibtex`:**
+- Processing BibTeX files from different bibliography managers
+- Handling files with non-standard formatting
+- Working with legacy or auto-generated BibTeX files
+- Troubleshooting parsing errors
+
+This flag allows the parser to be more forgiving of common BibTeX syntax issues while still extracting journal information for assessment. See `src/aletheia_probe/cli.py` for implementation details.
+
 #### BibTeX Output Examples
 
 **Text format:**
@@ -271,13 +291,52 @@ cat journals.txt | xargs -I {} aletheia-probe journal --format json "{}" > resul
 
 ### Data Management
 
+#### Syncing Backend Data
+
+Update local cache with fresh data from configured backends:
+
 ```bash
-# Update backend data
+# Sync all backends
 aletheia-probe sync
 
-# Clear local cache
+# Sync specific backends only
+aletheia-probe sync scopus
+aletheia-probe sync bealls doaj
+
+# Force sync even if data appears fresh
+aletheia-probe sync --force
+```
+
+**Backend filtering** allows selective synchronization of data sources rather than updating all backends. This is useful for:
+- Testing specific backend configurations
+- Reducing sync time when only certain data needs updating
+- Troubleshooting individual backend connections
+
+To see available backend names, use `aletheia-probe status`. For implementation details, see `src/aletheia_probe/cli.py`.
+
+#### Clearing the Cache
+
+Remove all cached assessment results to force fresh queries:
+
+```bash
+# Clear cache with confirmation prompt
 aletheia-probe clear-cache
 
+# Clear cache without confirmation (for automation)
+aletheia-probe clear-cache --confirm
+```
+
+The `--confirm` flag skips the interactive confirmation prompt, making it suitable for:
+- Automated scripts and workflows
+- CI/CD pipelines
+- Scheduled maintenance tasks
+- Non-interactive environments
+
+**Note:** Clearing the cache does not remove backend data from sync operations, only assessment result caches.
+
+#### Configuration
+
+```bash
 # Show configuration
 aletheia-probe config
 ```
