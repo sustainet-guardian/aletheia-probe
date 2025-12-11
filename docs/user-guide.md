@@ -11,9 +11,10 @@ This comprehensive guide covers all aspects of using the Journal Assessment Tool
 5. [Output Formats](#output-formats)
 6. [Understanding Results](#understanding-results)
 7. [Configuration](#configuration)
-8. [Data Sources](#data-sources)
-9. [Best Practices](#best-practices)
-10. [Troubleshooting](#troubleshooting)
+8. [Conference Acronym Management](#conference-acronym-management)
+9. [Data Sources](#data-sources)
+10. [Best Practices](#best-practices)
+11. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -489,6 +490,128 @@ backends:
       gitlab_base_url: "https://gitlab.com"
       project_id: "your_project_id"
 ```
+
+## Conference Acronym Management
+
+The conference acronym management feature helps expand conference abbreviations to their full names. This is particularly useful when processing bibliographic data where conferences may be referenced by common acronyms like "ICSE" (International Conference on Software Engineering) or "NIPS" (Neural Information Processing Systems).
+
+### Concept
+
+Conference acronyms are stored in a local database that maps short forms to their full conference names. The system automatically builds this mapping as it encounters conference data during journal assessments, and also allows manual management of acronym mappings.
+
+### Purpose
+
+- **Standardization**: Ensure consistent conference naming across bibliographic data
+- **Expansion**: Convert acronyms to full names for better readability and processing
+- **Data Quality**: Maintain a curated database of conference name mappings
+- **Automation**: Reduce manual effort in processing conference references
+
+### Available Commands
+
+The `aletheia-probe conference-acronym` command group provides the following subcommands:
+
+#### Show Database Status
+
+```bash
+# Check if acronym database has entries
+aletheia-probe conference-acronym status
+```
+
+Displays basic information about the acronym database, including total count of stored mappings.
+
+#### Display Statistics
+
+```bash
+# Show detailed database statistics
+aletheia-probe conference-acronym stats
+```
+
+Provides detailed statistics including:
+- Total number of acronym mappings
+- Most recently used acronym
+- Oldest entry in database
+- Usage timestamps
+
+#### List All Mappings
+
+```bash
+# List all acronym mappings
+aletheia-probe conference-acronym list
+
+# List with pagination
+aletheia-probe conference-acronym list --limit 10
+aletheia-probe conference-acronym list --limit 20 --offset 50
+```
+
+Shows all stored acronym mappings with details:
+- Acronym and full conference name
+- Source of the mapping (automatic detection vs. manual entry)
+- Creation and last-used timestamps
+- Normalized name for internal processing
+
+#### Add Manual Mapping
+
+```bash
+# Add a new acronym mapping
+aletheia-probe conference-acronym add "ICSE" "International Conference on Software Engineering"
+
+# Add with custom source attribution
+aletheia-probe conference-acronym add "NIPS" "Neural Information Processing Systems" --source "manual-2024"
+```
+
+Manually adds acronym mappings to the database. Useful for:
+- Pre-populating common acronyms
+- Correcting automatic mappings
+- Adding institution-specific acronyms
+
+#### Clear Database
+
+```bash
+# Clear all mappings (with confirmation prompt)
+aletheia-probe conference-acronym clear
+
+# Clear without confirmation prompt
+aletheia-probe conference-acronym clear --confirm
+```
+
+Removes all acronym mappings from the database. Use with caution as this action cannot be undone.
+
+### Usage Examples
+
+**Building an acronym database:**
+```bash
+# Start with empty database
+aletheia-probe conference-acronym status
+
+# Add common computer science conferences
+aletheia-probe conference-acronym add "ICSE" "International Conference on Software Engineering"
+aletheia-probe conference-acronym add "FSE" "Foundations of Software Engineering"
+aletheia-probe conference-acronym add "ASE" "Automated Software Engineering"
+
+# Check what was added
+aletheia-probe conference-acronym list --limit 5
+
+# View statistics
+aletheia-probe conference-acronym stats
+```
+
+**Managing existing mappings:**
+```bash
+# See current database size
+aletheia-probe conference-acronym status
+
+# List recent entries
+aletheia-probe conference-acronym list --limit 10
+
+# Clear outdated mappings if needed
+aletheia-probe conference-acronym clear --confirm
+```
+
+### Integration with Assessment
+
+The acronym database integrates automatically with journal assessment workflows. When processing bibliographic data, the tool uses stored mappings to expand conference acronyms, improving the accuracy of conference name matching and assessment.
+
+For implementation details, see `src/aletheia_probe/cli.py:325-467`.
 
 ## Data Sources
 
