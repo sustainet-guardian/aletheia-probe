@@ -140,7 +140,41 @@ Aletheia-Probe supports the screening phase by:
 - Generating audit trails for PRISMA flowchart documentation
 - Enabling reproducible source validation methodology
 
-See [Example 1](#example-1-systematic-review-with-482-references) below for a detailed workflow.
+**Example: Systematic Review with 482 References**
+
+A research team conducting a PRISMA-guideline systematic review on climate change mitigation strategies. After database searches (Web of Science, Scopus, IEEE Xplore), 482 unique references were collected.
+
+```bash
+# Step 1: Export from reference manager to BibTeX
+# (Done via Zotero/Mendeley/EndNote)
+
+# Step 2: Run batch validation
+aletheia-probe bibtex climate-mitigation-refs.bib --format json > validation.json
+
+# Step 3: Extract flagged entries for review
+jq '.assessment_results[] | select(.assessment.assessment == "predatory" and .assessment.confidence >= 0.75) | {key: .entry.key, journal: .entry.journal_name, confidence: .assessment.confidence}' validation.json > predatory-high-confidence.json
+
+# Step 4: Extract low-confidence entries for manual review
+jq '.assessment_results[] | select(.assessment.confidence < 0.50) | {key: .entry.key, journal: .entry.journal_name, assessment: .assessment.assessment, confidence: .assessment.confidence}' validation.json > uncertain-entries.json
+
+# Step 5: Summary statistics
+jq -r '.assessment_results[].assessment.assessment' validation.json | sort | uniq -c
+```
+
+Results:
+- 7 journals flagged as predatory (confidence >0.75)
+- 12 journals with insufficient data (confidence <0.50)
+- 463 journals assessed as legitimate (confidence >0.75)
+
+Follow-up actions: Excluded 7 predatory journals immediately. Two reviewers independently assessed 12 uncertain cases, resulting in 3 additional exclusions and 9 retained (regional journals with limited international indexing but legitimate practices).
+
+**PRISMA Documentation Example**
+
+In flowchart:
+> "Records excluded: Predatory journal (n=10)"
+
+In methods:
+> "Source quality validation: All references were validated using Aletheia-Probe v0.7.0 to identify potential predatory journals. The tool cross-references journals against DOAJ, Beall's List historical archives, Kscien databases, and publication pattern analysis from OpenAlex and Crossref. Journals flagged as predatory with confidence ≥0.75 were excluded (n=7). Journals with confidence 0.50-0.75 underwent independent review by two authors (n=12), resulting in 3 additional exclusions. This process ensures the review dataset comprises publications from legitimate scholarly venues."
 
 ### Scientometric Studies
 
@@ -156,7 +190,59 @@ Key considerations:
 - Archive complete assessment results for peer review
 - Use manual review for uncertain cases (low confidence scores)
 
-See [Example 2](#example-2-bibliometric-analysis-of-3200-computer-science-journals) below for a detailed workflow.
+**Example: Bibliometric Analysis of 3,200 Computer Science Journals**
+
+A scientometrician studying citation patterns and collaboration networks in computer science needed to ensure dataset quality before analysis.
+
+```python
+from aletheia_probe import JournalAssessor
+import pandas as pd
+
+# Load journal list from Web of Science CS category
+df = pd.read_csv('cs-journals.csv')  # 3,200 journals
+
+assessor = JournalAssessor()
+
+# Batch assessment
+results = []
+for idx, journal in df.iterrows():
+    assessment = assessor.assess(journal['Journal'], journal['ISSN'])
+    results.append({
+        'journal': journal['Journal'],
+        'issn': journal['ISSN'],
+        'classification': assessment.classification,
+        'confidence': assessment.confidence,
+        'sources': ', '.join([s.name for s in assessment.sources])
+    })
+
+    if idx % 100 == 0:
+        print(f"Processed {idx}/3200...")
+
+results_df = pd.DataFrame(results)
+
+# Quality control thresholds
+legitimate = results_df[
+    (results_df['classification'] == 'legitimate') &
+    (results_df['confidence'] > 0.80)
+]  # n=2,847
+
+predatory = results_df[
+    (results_df['classification'] == 'predatory') &
+    (results_df['confidence'] > 0.75)
+]  # n=127
+
+uncertain = results_df[
+    results_df['confidence'] <= 0.70
+]  # n=226
+```
+
+Manual review process: Two domain experts independently reviewed 226 uncertain journals with agreement on 198 (88%). Disagreements resolved by third reviewer. Final: 186 included, 40 excluded.
+
+**Final Dataset**: 3,033 journals included (2,847 automated + 186 manual), 167 excluded (127 automated + 40 manual). Inclusion rate: 94.8%.
+
+**Methods Documentation Example**:
+
+> "Dataset quality control employed Aletheia-Probe for systematic journal classification. Journals classified as 'legitimate' with confidence ≥0.80 were included automatically (n=2,847). Journals classified as 'predatory' with confidence ≥0.75 were excluded (n=127). The remaining 226 journals with confidence <0.70 underwent independent review by two computer science domain experts, with a third reviewer resolving disagreements (κ=0.89). Final dataset: 3,033 journals. Complete classification data and inter-rater reliability statistics are provided in supplementary materials."
 
 ### Reproducibility Considerations
 
@@ -256,128 +342,13 @@ Include in methods or supplementary materials:
 
 The tool's JSON output preserves all evidence at the time of assessment, providing an auditable record even when external sources evolve.
 
-## Practical Examples from Research Contexts
+### Meta-Research Studies
 
-### Example 1: Systematic Review with 482 References
+For researchers studying predatory publishing patterns, the tool enables large-scale systematic classification with uncertainty quantification.
 
-**Context**: Research team conducting PRISMA-guideline systematic review on climate change mitigation strategies. After database searches (Web of Science, Scopus, IEEE Xplore), 482 unique references were collected.
+**Example: Meta-Research on Predatory Publishing Patterns**
 
-**Validation Workflow**
-
-```bash
-# Step 1: Export from reference manager to BibTeX
-# (Done via Zotero/Mendeley/EndNote)
-
-# Step 2: Run batch validation
-aletheia-probe bibtex climate-mitigation-refs.bib --format json > validation.json
-
-# Step 3: Extract flagged entries for review
-jq '.assessment_results[] | select(.assessment.assessment == "predatory" and .assessment.confidence >= 0.75) | {key: .entry.key, journal: .entry.journal_name, confidence: .assessment.confidence}' validation.json > predatory-high-confidence.json
-
-# Step 4: Extract low-confidence entries for manual review
-jq '.assessment_results[] | select(.assessment.confidence < 0.50) | {key: .entry.key, journal: .entry.journal_name, assessment: .assessment.assessment, confidence: .assessment.confidence}' validation.json > uncertain-entries.json
-
-# Step 5: Summary statistics
-jq -r '.assessment_results[].assessment.assessment' validation.json | sort | uniq -c
-```
-
-**Results**
-- 7 journals flagged as predatory (confidence >0.75)
-- 12 journals with insufficient data (confidence <0.50)
-- 463 journals assessed as legitimate (confidence >0.75)
-
-**Follow-up Actions**
-1. Exclude 7 predatory journals immediately
-2. Two reviewers independently assessed 12 uncertain cases:
-   - 3 excluded after manual review
-   - 9 retained (regional journals with limited international indexing but legitimate practices)
-
-**PRISMA Documentation**
-
-In flowchart:
-> "Records excluded: Predatory journal (n=10)"
-
-In methods:
-> "Journal legitimacy validation employed Aletheia-Probe v0.7.0, cross-referencing journals against DOAJ, Beall's List, Kscien databases, and OpenAlex publication patterns. Seven journals were automatically excluded (predatory classification, confidence >0.75). Twelve journals with confidence <0.50 underwent independent review by two authors, resulting in three additional exclusions."
-
-### Example 2: Bibliometric Analysis of 3,200 Computer Science Journals
-
-**Context**: Scientometrician studying citation patterns and collaboration networks in computer science needed to ensure dataset quality before analysis.
-
-**Dataset Preparation**
-
-```python
-from aletheia_probe import JournalAssessor
-import pandas as pd
-
-# Load journal list from Web of Science CS category
-df = pd.read_csv('cs-journals.csv')  # 3,200 journals
-
-assessor = JournalAssessor()
-
-# Batch assessment
-results = []
-for idx, journal in df.iterrows():
-    assessment = assessor.assess(journal['Journal'], journal['ISSN'])
-    results.append({
-        'journal': journal['Journal'],
-        'issn': journal['ISSN'],
-        'classification': assessment.classification,
-        'confidence': assessment.confidence,
-        'sources': ', '.join([s.name for s in assessment.sources])
-    })
-
-    if idx % 100 == 0:
-        print(f"Processed {idx}/3200...")
-
-results_df = pd.DataFrame(results)
-```
-
-**Quality Control Thresholds**
-
-```python
-# High confidence legitimate (include in analysis)
-legitimate = results_df[
-    (results_df['classification'] == 'legitimate') &
-    (results_df['confidence'] > 0.80)
-]  # n=2,847
-
-# High confidence predatory (exclude)
-predatory = results_df[
-    (results_df['classification'] == 'predatory') &
-    (results_df['confidence'] > 0.75)
-]  # n=127
-
-# Uncertain (manual review)
-uncertain = results_df[
-    results_df['confidence'] <= 0.70
-]  # n=226
-```
-
-**Manual Review Process**
-
-Two domain experts independently reviewed 226 uncertain journals:
-- Agreement on 198 journals (88%)
-- Disagreement on 28 journals → third reviewer consulted
-- Final: 186 included, 40 excluded
-
-**Final Dataset Composition**
-
-- Total included: 3,033 journals (2,847 automated + 186 manual)
-- Total excluded: 167 journals (127 automated + 40 manual)
-- Inclusion rate: 94.8%
-
-**Methods Documentation**
-
-> "Dataset quality control employed Aletheia-Probe for systematic journal classification. Journals classified as 'legitimate' with confidence ≥0.80 were included automatically (n=2,847). Journals classified as 'predatory' with confidence ≥0.75 were excluded (n=127). The remaining 226 journals with confidence <0.70 underwent independent review by two computer science domain experts, with a third reviewer resolving disagreements (κ=0.89). Final dataset: 3,033 journals. Complete classification data and inter-rater reliability statistics are provided in supplementary materials."
-
-**Outcome**: Defensible, documented quality control methodology that peer reviewers can evaluate and reproduce.
-
-### Example 3: Meta-Research on Predatory Publishing (Generalized)
-
-**Context**: Researchers studying patterns in predatory publishing across academic disciplines used Aletheia-Probe for systematic classification at scale.
-
-**Research Design**
+Researchers studying predatory publishing patterns across disciplines use Aletheia-Probe's multi-source aggregation to classify journals and analyze trends.
 
 ```python
 import pandas as pd
@@ -405,13 +376,8 @@ for _, journal in journals.iterrows():
     })
 
 df_results = pd.DataFrame(results)
-```
 
-**Example Analytical Questions**
-
-The classified dataset enables investigations such as:
-
-```python
+# Example analytical questions
 # 1. Disciplinary distribution
 discipline_counts = df_results.groupby(['discipline', 'classification']).size()
 
@@ -426,37 +392,13 @@ publisher_classifications = df_results.groupby('publisher')['classification'].va
 # 4. Geographic patterns
 country_stats = df_results.groupby(['country', 'classification']).size()
 
-# 5. Confidence distribution analysis (methodological)
-conf_stats = df_results.groupby('classification')['confidence'].describe()
-```
-
-**Sensitivity Analysis**
-
-```python
-# Test robustness across confidence thresholds
+# 5. Sensitivity analysis
 for threshold in [0.70, 0.75, 0.80, 0.85]:
     subset = df_results[df_results['confidence'] > threshold]
-    # Recompute key statistics
-    print(f"Threshold {threshold}:")
-    print(f"  Dataset size: {len(subset)}")
-    print(f"  Predatory %: {subset['classification'].value_counts(normalize=True)}")
+    print(f"Threshold {threshold}: Dataset size={len(subset)}")
 ```
 
-**Value for Meta-Research**
-
-- **Scale**: Classification automation enables analysis of 1000s of journals
-- **Uncertainty quantification**: Confidence scores enable sensitivity analysis
-- **Multi-source evidence**: Reduces single-source bias
-- **Reproducibility**: Documented methodology supports peer review
-
-**Important Note**: This tool provides the classification infrastructure. The research contribution comes from:
-- Formulating meaningful research questions
-- Selecting appropriate datasets and scopes
-- Interpreting patterns with domain expertise
-- Situating findings in theoretical frameworks
-- Drawing valid conclusions from evidence
-
-The tool facilitates the technical process of systematic classification; the research insight requires human expertise.
+**Important**: The tool provides classification infrastructure. Research contributions come from formulating meaningful questions, selecting appropriate datasets, interpreting patterns with domain expertise, and situating findings in theoretical frameworks.
 
 ## When This Tool is Appropriate
 
