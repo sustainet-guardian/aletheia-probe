@@ -39,7 +39,7 @@ The tool provides systematic, reproducible source validation through:
 - **Reproducible workflow**: Same inputs produce same outputs (deterministic)
 - **Audit trails**: JSON export preserves full assessment history for methods documentation
 
-See [Example 1: Systematic Review with 482 References](#example-1-systematic-review-with-482-references) for a detailed workflow including BibTeX processing, flagged entry extraction using `jq`, and PRISMA documentation templates.
+See detailed workflow example in [PRISMA-Guideline Systematic Reviews](#prisma-guideline-systematic-reviews) section below, including BibTeX processing, flagged entry extraction using `jq`, and PRISMA documentation templates.
 
 ### 2. Dataset Quality Control in Bibliometric Analysis
 
@@ -71,7 +71,7 @@ The tool enables principled, documented quality control through:
 - **Programmatic access**: Python API integrates with data analysis pipelines
 - **Export capabilities**: Full assessment data supports reproducible workflows
 
-See [Example 2: Bibliometric Analysis of 3,200 Computer Science Journals](#example-2-bibliometric-analysis-of-3200-computer-science-journals) for a detailed workflow including Python API usage, confidence-based thresholds, manual review protocols, and methods section documentation.
+See detailed workflow example in [Scientometric Studies](#scientometric-studies) section below, including Python API usage, confidence-based thresholds, manual review protocols, and methods section documentation.
 
 ### 3. Meta-Research on Predatory Publishing Patterns
 
@@ -122,7 +122,7 @@ The tool can support meta-research investigations such as:
 
 **Important Note**: This tool provides classification infrastructure for such studies. Interpreting patterns, establishing causality, and making policy recommendations require domain expertise, theoretical frameworks, and additional research beyond what the tool provides.
 
-See [Example 3: Meta-Research on Predatory Publishing](#example-3-meta-research-on-predatory-publishing-generalized) for a generalized workflow demonstrating how the tool can support such investigations.
+See detailed workflow example in [Meta-Research Studies](#meta-research-studies) section below demonstrating how the tool can support such investigations.
 
 ## Integration with Research Methodologies
 
