@@ -247,6 +247,7 @@ To enhance coverage with Scopus data:
 ### User Documentation
 - [Quick Start Guide](docs/quick-start.md) - Installation and basic usage
 - [User Guide](docs/user-guide.md) - Comprehensive usage examples and features
+- [Research Applications](docs/research-applications.md) - Using the tool in research workflows (SLR, bibliometrics, meta-research)
 - [Configuration Reference](docs/configuration.md) - All configuration options
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 
