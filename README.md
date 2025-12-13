@@ -7,6 +7,8 @@
 
 Aletheia-Probe is a comprehensive command-line tool for evaluating the legitimacy of academic journals and conferences. By aggregating data from authoritative sources and applying advanced pattern analysis, it helps researchers, librarians, and institutions detect predatory venues and ensure the integrity of scholarly publishing.
 
+**Dual-Purpose Tool**: Aletheia-Probe serves both individual researchers checking publication venues and as research infrastructure for empirical studies on scholarly publishing. Beyond individual use, the tool supports systematic literature reviews, bibliometric analysis, and meta-research workflows leveraging 240M+ publication records. For detailed research applications, see the [Research Applications Guide](docs/research-applications.md).
+
 **Setting Realistic Expectations**: If you are an honest researcher using established, well-known journals and conferences through major search engines and databases, you will likely never encounter predatory venues. This tool functions like a virus scanner for academic publishing—you should have it installed and running, but hopefully never receive any warnings. It's designed to catch the edge cases and protect against the less obvious threats that might slip through normal research workflows.
 
 **About the Name**: The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones.
