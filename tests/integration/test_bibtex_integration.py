@@ -101,6 +101,10 @@ class TestBibtexIntegration:
         )
 
         # Should have some legitimate journals (Nature, Science, PLOS ONE)
+        # This test verifies the integration of components (parser → normalizer →
+        # dispatcher → assessor → formatter), NOT the correctness of individual
+        # assessments. External API calls can fail, so we check >= 2 out of 3 to
+        # confirm the integration works, not that all backends are available.
         assert result.legitimate_count >= 2, (
             "Should find at least 2 legitimate journals"
         )
