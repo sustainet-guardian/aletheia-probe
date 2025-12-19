@@ -233,11 +233,16 @@ class TestBibtexIntegration:
             temp_path.unlink()
 
     @pytest.mark.integration
-    async def test_large_bibtex_file_processing(self) -> None:
-        """Test processing of larger BibTeX files.
+    async def test_batch_processing_scalability(self) -> None:
+        """Test scalability of batch processing with larger BibTeX files.
 
-        Validates that batch processing can handle files with many entries
-        efficiently and without errors.
+        This test validates that the batch processor can handle files with many
+        entries without crashing or hanging. It is NOT testing the correctness
+        of individual journal assessments (which depends on external API availability),
+        but rather the ability to process large batches reliably.
+
+        Uses 50 entries with well-known legitimate journals to verify the system
+        can handle realistic workloads.
         """
         # Generate a larger BibTeX file
         large_bibtex_entries = []
@@ -279,7 +284,10 @@ class TestBibtexIntegration:
             assert result.total_entries == 50, "Should process all 50 entries"
             assert result.processing_time < 300, "Should complete within 5 minutes"
 
-            # Should find legitimate journals
+            # Note: We only verify that SOME assessments succeeded (> 0), not all 50,
+            # because this is an integration test with real backend API calls that may
+            # fail or timeout. This tests batch processing capability, not assessment
+            # correctness.
             assert result.legitimate_count > 0, "Should find legitimate journals"
 
         finally:
