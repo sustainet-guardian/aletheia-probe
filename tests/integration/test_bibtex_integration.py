@@ -95,9 +95,9 @@ class TestBibtexIntegration:
 
         # Assertions about the overall result
         assert result is not None, "Assessment result should not be None"
-        assert result.total_entries >= 4, "Should find at least 4 journal articles"
-        assert result.total_entries <= 5, (
-            "Should not find more than 4-5 entries (books excluded)"
+        # Fixture has 4 articles + 1 book = 5 total entries (parsing is deterministic)
+        assert result.total_entries == 5, (
+            "Should find exactly 5 total entries (4 articles + 1 book)"
         )
 
         # Should have some legitimate journals (Nature, Science, PLOS ONE)
