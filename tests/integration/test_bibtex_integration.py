@@ -13,12 +13,40 @@ journal extraction, batch assessment, and result formatting.
 """
 
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
 from aletheia_probe.enums import AssessmentType
+
+
+@contextmanager
+def temp_bibtex_file(content: str, encoding: str = "utf-8"):
+    """Context manager for creating temporary BibTeX files with automatic cleanup.
+
+    Args:
+        content: BibTeX content to write to the file
+        encoding: File encoding (default: utf-8)
+
+    Yields:
+        Path: Path to the temporary BibTeX file
+
+    Example:
+        with temp_bibtex_file("@article{...}") as path:
+            result = await assessor.assess_bibtex_file(path)
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".bib", delete=False, encoding=encoding
+    ) as f:
+        f.write(content)
+        temp_path = Path(f.name)
+
+    try:
+        yield temp_path
+    finally:
+        temp_path.unlink()
 
 
 class TestBibtexIntegration:
@@ -175,11 +203,7 @@ class TestBibtexIntegration:
 }
 """
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False) as f:
-            f.write(bibtex_with_issn)
-            temp_path = Path(f.name)
-
-        try:
+        with temp_bibtex_file(bibtex_with_issn) as temp_path:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(temp_path)
 
@@ -189,9 +213,6 @@ class TestBibtexIntegration:
             assert result.legitimate_count == 1, (
                 "Nature should be recognized as legitimate"
             )
-
-        finally:
-            temp_path.unlink()
 
     @pytest.mark.integration
     async def test_bibtex_malformed_entries_handling(self) -> None:
@@ -228,20 +249,13 @@ class TestBibtexIntegration:
 }
 """
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False) as f:
-            f.write(malformed_bibtex)
-            temp_path = Path(f.name)
-
-        try:
+        with temp_bibtex_file(malformed_bibtex) as temp_path:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(temp_path)
 
             # Should process all entries (including those without journals)
             assert result.total_entries == 4, "Should process all 4 BibTeX entries"
             assert result.legitimate_count >= 1, "Should find legitimate journals"
-
-        finally:
-            temp_path.unlink()
 
     @pytest.mark.integration
     async def test_batch_processing_scalability(self) -> None:
@@ -284,11 +298,7 @@ class TestBibtexIntegration:
 
         large_bibtex = "\n".join(large_bibtex_entries)
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False) as f:
-            f.write(large_bibtex)
-            temp_path = Path(f.name)
-
-        try:
+        with temp_bibtex_file(large_bibtex) as temp_path:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(temp_path)
 
@@ -300,9 +310,6 @@ class TestBibtexIntegration:
             # fail or timeout. This tests batch processing capability, not assessment
             # correctness.
             assert result.legitimate_count > 0, "Should find legitimate journals"
-
-        finally:
-            temp_path.unlink()
 
     @pytest.mark.integration
     async def test_bibtex_unicode_handling(self) -> None:
@@ -334,15 +341,9 @@ class TestBibtexIntegration:
 }
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".bib", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(unicode_bibtex)
-            temp_path = Path(f.name)
-
-        try:
+        with temp_bibtex_file(unicode_bibtex) as temp_path:
             assessor = BibtexBatchAssessor()
-            result = await assessor.assess_bibtex_file(Path(temp_path))
+            result = await assessor.assess_bibtex_file(temp_path)
 
             # Integration test: Use fuzzy assertion because assessment results depend
             # on external APIs that may be unavailable. We verify the system handles
@@ -377,6 +378,3 @@ class TestBibtexIntegration:
                 f"Should preserve at least one unicode string from test data. "
                 f"Expected any of {expected_unicode_strings}, found {unicode_strings_found}"
             )
-
-        finally:
-            temp_path.unlink()
