@@ -30,6 +30,7 @@ from aletheia_probe.models import QueryInput
 class TestEmailConfigurationIntegration:
     """Integration tests for email configuration with real backend creation."""
 
+    @pytest.mark.integration
     def test_cross_validator_email_propagation(self):
         """Test that CrossValidatorBackend properly propagates email to sub-backends."""
         registry = get_backend_registry()
@@ -75,6 +76,7 @@ backends:
         yield temp_name
         os.unlink(temp_name)
 
+    @pytest.mark.integration
     def test_dispatcher_with_email_config_file(self, temp_config_file):
         """Test that dispatcher correctly uses email from config file.
 
@@ -104,6 +106,7 @@ backends:
                         f"{backend_name} should have email from config"
                     )
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_end_to_end_assessment_with_email(self, temp_config_file):
         """Test complete assessment flow with email configuration.
