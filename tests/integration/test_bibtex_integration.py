@@ -351,21 +351,31 @@ class TestBibtexIntegration:
                 "Should process at least 2 out of 3 entries with unicode characters"
             )
 
-            # Unicode-specific check: Verify unicode characters are preserved correctly
-            # during parsing (not corrupted or stripped)
-            unicode_found = False
-            for entry, _ in result.assessment_results:
-                # Check if any field contains non-ASCII unicode characters
-                text_fields = [entry.title, entry.authors, entry.journal_name]
-                for field in text_fields:
-                    if field and any(ord(char) > 127 for char in field):
-                        unicode_found = True
-                        break
-                if unicode_found:
-                    break
+            # Unicode-specific check: Verify specific unicode strings from test data
+            # are preserved correctly during parsing (not corrupted or stripped)
+            expected_unicode_strings = [
+                "Résumé",  # French accent in title
+                "Müller",  # German umlaut in author
+                "González",  # Spanish accent in author
+                "学术研究进展",  # Chinese title
+                "Исследование",  # Russian/Cyrillic title
+            ]
 
-            assert unicode_found, (
-                "Should preserve unicode characters in parsed entries (not corrupt/strip)"
+            unicode_strings_found = []
+            for entry, _ in result.assessment_results:
+                text_fields = [
+                    entry.title or "",
+                    entry.authors or "",
+                    entry.journal_name or "",
+                ]
+                combined_text = " ".join(text_fields)
+                for unicode_str in expected_unicode_strings:
+                    if unicode_str in combined_text:
+                        unicode_strings_found.append(unicode_str)
+
+            assert len(unicode_strings_found) >= 1, (
+                f"Should preserve at least one unicode string from test data. "
+                f"Expected any of {expected_unicode_strings}, found {unicode_strings_found}"
             )
 
         finally:
