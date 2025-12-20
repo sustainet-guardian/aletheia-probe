@@ -101,15 +101,8 @@ class TestBibtexIntegration:
 }
 """
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False) as f:
-            f.write(bibtex_content.strip())
-            temp_path = Path(f.name)
-
-        yield temp_path
-
-        # Cleanup
-        if temp_path.exists():
-            temp_path.unlink()
+        with temp_bibtex_file(bibtex_content.strip()) as temp_path:
+            yield temp_path
 
     @pytest.mark.integration
     async def test_bibtex_file_processing_end_to_end(
