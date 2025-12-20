@@ -344,8 +344,39 @@ class TestBibtexIntegration:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(Path(temp_path))
 
-            assert result.total_entries >= 2, "Should process entries with unicode"
-            # Should handle unicode gracefully without errors
+            # Integration test: Use fuzzy assertion because assessment results depend
+            # on external APIs that may be unavailable. We verify the system handles
+            # unicode without crashing, not that all entries are successfully assessed.
+            assert result.total_entries >= 2, (
+                "Should process at least 2 out of 3 entries with unicode characters"
+            )
+
+            # Unicode-specific check: Verify specific unicode strings from test data
+            # are preserved correctly during parsing (not corrupted or stripped)
+            expected_unicode_strings = [
+                "Résumé",  # French accent in title
+                "Müller",  # German umlaut in author
+                "González",  # Spanish accent in author
+                "学术研究进展",  # Chinese title
+                "Исследование",  # Russian/Cyrillic title
+            ]
+
+            unicode_strings_found = []
+            for entry, _ in result.assessment_results:
+                text_fields = [
+                    entry.title or "",
+                    entry.authors or "",
+                    entry.journal_name or "",
+                ]
+                combined_text = " ".join(text_fields)
+                for unicode_str in expected_unicode_strings:
+                    if unicode_str in combined_text:
+                        unicode_strings_found.append(unicode_str)
+
+            assert len(unicode_strings_found) >= 1, (
+                f"Should preserve at least one unicode string from test data. "
+                f"Expected any of {expected_unicode_strings}, found {unicode_strings_found}"
+            )
 
         finally:
             temp_path.unlink()
