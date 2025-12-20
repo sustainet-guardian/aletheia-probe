@@ -69,15 +69,15 @@ class TestEmailConfigurationIntegration:
 
         # Test creating backends without explicit parameters (should use defaults)
         crossref_backend = registry.create_backend("crossref_analyzer")
-        assert crossref_backend.email == "noreply.aletheia-probe.org"
+        assert crossref_backend.email == "noreply@aletheia-probe.org"
         assert crossref_backend.cache_ttl_hours == 24
 
         openalex_backend = registry.create_backend("openalex_analyzer")
-        assert openalex_backend.email == "noreply.aletheia-probe.org"
+        assert openalex_backend.email == "noreply@aletheia-probe.org"
         assert openalex_backend.cache_ttl_hours == 24
 
         cross_validator_backend = registry.create_backend("cross_validator")
-        assert cross_validator_backend.email == "noreply.aletheia-probe.org"
+        assert cross_validator_backend.email == "noreply@aletheia-probe.org"
         assert cross_validator_backend.cache_ttl_hours == 24
 
     def test_backend_factory_partial_override(self):
@@ -93,7 +93,7 @@ class TestEmailConfigurationIntegration:
 
         # Test with only cache_ttl_hours override
         backend2 = registry.create_backend("openalex_analyzer", cache_ttl_hours=48)
-        assert backend2.email == "noreply.aletheia-probe.org"  # Should use default
+        assert backend2.email == "noreply@aletheia-probe.org"  # Should use default
         assert backend2.cache_ttl_hours == 48
 
     @pytest.mark.parametrize(

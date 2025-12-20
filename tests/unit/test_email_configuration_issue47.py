@@ -163,7 +163,7 @@ backends:
 
         # Test with only cache_ttl_hours (should use default email)
         backend2 = registry.create_backend("crossref_analyzer", cache_ttl_hours=48)
-        assert backend2.email == "noreply.aletheia-probe.org"  # Default value
+        assert backend2.email == "noreply@aletheia-probe.org"  # Default value
         assert backend2.cache_ttl_hours == 48
 
         # Test with both parameters
@@ -219,7 +219,7 @@ class TestEmailConfigurationValidation:
 
         # Test with default (no email parameter)
         backend1 = registry.create_backend("crossref_analyzer")
-        assert backend1.email == "noreply.aletheia-probe.org"
+        assert backend1.email == "noreply@aletheia-probe.org"
 
         # Test with explicit None - this should work and use None as the email value
         # The backend accepts None as a valid email value
