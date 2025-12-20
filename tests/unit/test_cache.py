@@ -1239,3 +1239,112 @@ class TestCacheManagerErrorHandling:
         assert result is not None
         assert result["metadata"]["key1"] == "value1"
         assert result["metadata"]["key2"] == 123
+
+    def test_cache_special_characters_handling(self, temp_cache):
+        """Test cache handles special characters in journal names.
+
+        Validates that journals with special characters, unicode,
+        and various encodings are properly stored and retrieved.
+        """
+        # Register test source first
+        temp_cache.register_data_source(
+            name="test",
+            display_name="Test Source",
+            source_type="test",
+        )
+
+        # Test journals with special characters
+        special_journals = [
+            "Journal of Test™ & Research®",
+            "学术期刊 (Academic Journal)",
+            "Журнал Науки",  # Russian
+            "مجلة العلوم",  # Arabic
+            "Journal with 'quotes' and \"double quotes\"",
+            "Journal with semicolons; and colons:",
+        ]
+
+        for i, journal in enumerate(special_journals):
+            temp_cache.add_journal_entry(
+                source_name="test",
+                assessment=AssessmentType.LEGITIMATE.value,
+                journal_name=journal,
+                normalized_name=f"special {i}",
+            )
+
+        # Verify all can be retrieved
+        for i, journal in enumerate(special_journals):
+            results = temp_cache.search_journals(normalized_name=f"special {i}")
+            assert len(results) > 0, (
+                f"Should find journal with special chars: {journal}"
+            )
+            assert results[0]["display_name"] == journal
+
+    def test_cache_large_dataset(self, temp_cache):
+        """Test cache performance with larger dataset.
+
+        Validates that cache operations remain functional with
+        a reasonable number of entries.
+        """
+        # Register test sources first
+        for j in range(10):
+            temp_cache.register_data_source(
+                name=f"source_{j}",
+                display_name=f"Source {j}",
+                source_type="test",
+            )
+
+        # Add 1000 journals
+        num_journals = 1000
+        for i in range(num_journals):
+            temp_cache.add_journal_entry(
+                source_name=f"source_{i % 10}",  # 10 different sources
+                assessment=(
+                    AssessmentType.LEGITIMATE.value
+                    if i % 3 == 0
+                    else AssessmentType.PREDATORY.value
+                ),
+                journal_name=f"Journal {i:04d}",
+                normalized_name=f"journal {i:04d}",
+            )
+
+        # Test searching still works
+        results = temp_cache.search_journals(normalized_name="journal 0500")
+        assert len(results) > 0, "Should find journal in large dataset"
+
+        # Test source filtering works
+        source_results = temp_cache.search_journals(source_name="source_5")
+        assert len(source_results) == 100, (
+            "Should find exactly 100 journals from source_5"
+        )
+
+    def test_cache_persistence(self, temp_cache):
+        """Test that cache data persists across manager instances.
+
+        Validates that data written to cache is properly persisted
+        to disk and can be read by new cache manager instances.
+        """
+        # Register test source first
+        temp_cache.register_data_source(
+            name="test",
+            display_name="Test Source",
+            source_type="test",
+        )
+
+        temp_cache.add_journal_entry(
+            source_name="test",
+            assessment=AssessmentType.LEGITIMATE.value,
+            journal_name="Persistent Journal",
+            normalized_name="persistent journal",
+        )
+
+        # Get the db path before deleting cache
+        db_path = temp_cache.db_path
+        del temp_cache  # Ensure it's closed
+
+        # Create new cache manager instance
+        cache2 = CacheManager(db_path=db_path)
+        results = cache2.search_journals(normalized_name="persistent journal")
+
+        # Verify data persisted
+        assert len(results) > 0, "Data should persist across cache instances"
+        assert results[0]["display_name"] == "Persistent Journal"
