@@ -19,7 +19,6 @@ from pathlib import Path
 import pytest
 
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
-from aletheia_probe.enums import AssessmentType
 
 
 @contextmanager
