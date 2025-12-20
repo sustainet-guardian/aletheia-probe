@@ -122,7 +122,9 @@ class TestBibtexIntegration:
         result = await assessor.assess_bibtex_file(sample_bibtex_file)
 
         # Assertions about the overall result
-        assert result is not None, "Assessment result should not be None"
+        assert result is not None, (
+            "BibtexBatchAssessor should return result object for valid BibTeX file"
+        )
         # Fixture has 4 articles + 1 book = 5 total entries (parsing is deterministic)
         assert result.total_entries == 5, (
             "Should find exactly 5 total entries (4 articles + 1 book)"
@@ -169,8 +171,12 @@ class TestBibtexIntegration:
         result = await assessor.assess_bibtex_file(sample_bibtex_file)
 
         # Verify that journal entries were processed
-        assert result is not None, "Assessment result should not be None"
-        assert result.total_entries > 0, "Should process some entries"
+        assert result is not None, (
+            "BibtexBatchAssessor should return result object when extracting entry details"
+        )
+        assert result.total_entries > 0, (
+            "Should process at least one journal entry from sample file"
+        )
 
         # The assessment should recognize well-known legitimate journals
         # (Nature, Science, PLOS ONE from our test data)
@@ -200,7 +206,9 @@ class TestBibtexIntegration:
             assessor = BibtexBatchAssessor()
             result = await assessor.assess_bibtex_file(temp_path)
 
-            assert result.total_entries == 1, "Should process one entry"
+            assert result.total_entries == 1, (
+                "Should process the single Nature entry from test file"
+            )
 
             # The journal should be processed (Nature should be recognized as legitimate)
             assert result.legitimate_count == 1, (
@@ -248,7 +256,10 @@ class TestBibtexIntegration:
 
             # Should process all entries (including those without journals)
             assert result.total_entries == 4, "Should process all 4 BibTeX entries"
-            assert result.legitimate_count >= 1, "Should find legitimate journals"
+            assert result.legitimate_count >= 1, (
+                "Should recognize at least one of Science/Nature as legitimate "
+                "despite some entries missing journal field"
+            )
 
     @pytest.mark.integration
     async def test_batch_processing_scalability(self) -> None:
@@ -302,7 +313,9 @@ class TestBibtexIntegration:
             # because this is an integration test with real backend API calls that may
             # fail or timeout. This tests batch processing capability, not assessment
             # correctness.
-            assert result.legitimate_count > 0, "Should find legitimate journals"
+            assert result.legitimate_count > 0, (
+                "Should recognize some of the 50 well-known journal entries as legitimate"
+            )
 
     @pytest.mark.integration
     async def test_bibtex_unicode_handling(self) -> None:
