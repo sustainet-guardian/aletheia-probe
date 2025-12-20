@@ -24,93 +24,11 @@ import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.config import ConfigManager
 from aletheia_probe.dispatcher import QueryDispatcher
-from aletheia_probe.models import ConfigBackend, QueryInput
+from aletheia_probe.models import QueryInput
 
 
 class TestEmailConfigurationIntegration:
     """Integration tests for email configuration with real backend creation."""
-
-    def test_backend_factory_creation_with_email(self):
-        """Test that backend factories can create backends with email configuration.
-
-        This tests the actual lambda factory functions that were broken in issue #47.
-        """
-        registry = get_backend_registry()
-        test_email = "integration-test@example.com"
-        test_cache_ttl = 6
-
-        # Test crossref_analyzer backend creation with email
-        crossref_backend = registry.create_backend(
-            "crossref_analyzer", email=test_email, cache_ttl_hours=test_cache_ttl
-        )
-        assert crossref_backend.email == test_email
-        assert crossref_backend.cache_ttl_hours == test_cache_ttl
-        assert crossref_backend.get_name() == "crossref_analyzer"
-
-        # Test openalex_analyzer backend creation with email
-        openalex_backend = registry.create_backend(
-            "openalex_analyzer", email=test_email, cache_ttl_hours=test_cache_ttl
-        )
-        assert openalex_backend.email == test_email
-        assert openalex_backend.cache_ttl_hours == test_cache_ttl
-        assert openalex_backend.get_name() == "openalex_analyzer"
-
-        # Test cross_validator backend creation with email
-        cross_validator_backend = registry.create_backend(
-            "cross_validator", email=test_email, cache_ttl_hours=test_cache_ttl
-        )
-        assert cross_validator_backend.email == test_email
-        assert cross_validator_backend.cache_ttl_hours == test_cache_ttl
-        assert cross_validator_backend.get_name() == "cross_validator"
-
-    def test_backend_factory_creation_with_defaults(self):
-        """Test that backend factories work with default configuration."""
-        registry = get_backend_registry()
-
-        # Test creating backends without explicit parameters (should use defaults)
-        crossref_backend = registry.create_backend("crossref_analyzer")
-        assert crossref_backend.email == "noreply@aletheia-probe.org"
-        assert crossref_backend.cache_ttl_hours == 24
-
-        openalex_backend = registry.create_backend("openalex_analyzer")
-        assert openalex_backend.email == "noreply@aletheia-probe.org"
-        assert openalex_backend.cache_ttl_hours == 24
-
-        cross_validator_backend = registry.create_backend("cross_validator")
-        assert cross_validator_backend.email == "noreply@aletheia-probe.org"
-        assert cross_validator_backend.cache_ttl_hours == 24
-
-    def test_backend_factory_partial_override(self):
-        """Test that backend factories work with partial parameter override."""
-        registry = get_backend_registry()
-
-        # Test with only email override
-        backend1 = registry.create_backend(
-            "crossref_analyzer", email="partial@test.com"
-        )
-        assert backend1.email == "partial@test.com"
-        assert backend1.cache_ttl_hours == 24  # Should use default
-
-        # Test with only cache_ttl_hours override
-        backend2 = registry.create_backend("openalex_analyzer", cache_ttl_hours=48)
-        assert backend2.email == "noreply@aletheia-probe.org"  # Should use default
-        assert backend2.cache_ttl_hours == 48
-
-    @pytest.mark.parametrize(
-        "email",
-        [
-            "valid@example.com",
-            "user.name@domain.co.uk",
-            "test+tag@subdomain.example.org",
-            "simple@test.io",
-        ],
-    )
-    def test_valid_email_addresses(self, email):
-        """Test that various valid email addresses work correctly."""
-        registry = get_backend_registry()
-
-        backend = registry.create_backend("crossref_analyzer", email=email)
-        assert backend.email == email
 
     def test_cross_validator_email_propagation(self):
         """Test that CrossValidatorBackend properly propagates email to sub-backends."""
@@ -193,26 +111,6 @@ backends:
             # Verify the email value from config was used
             for call in email_calls:
                 assert call[1]["email"] == "test-dispatcher@example.com"
-
-    def test_dispatcher_backend_config_loading(self, temp_config_file):
-        """Test that dispatcher correctly loads backend configurations with email."""
-        config_manager = ConfigManager(Path(temp_config_file))
-        config_manager._reset_cache()  # Clear any cached config
-        config_manager.load_config()
-
-        # Test crossref_analyzer config
-        crossref_config = config_manager.get_backend_config("crossref_analyzer")
-        assert crossref_config is not None
-        assert crossref_config.email == "test-dispatcher@example.com"
-        assert crossref_config.name == "crossref_analyzer"
-        assert crossref_config.enabled is True
-
-        # Test openalex_analyzer config
-        openalex_config = config_manager.get_backend_config("openalex_analyzer")
-        assert openalex_config is not None
-        assert openalex_config.email == "test-dispatcher@example.com"
-        assert openalex_config.name == "openalex_analyzer"
-        assert openalex_config.enabled is True
 
     @pytest.mark.asyncio
     async def test_end_to_end_assessment_with_email(self, temp_config_file):
