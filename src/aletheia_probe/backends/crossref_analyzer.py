@@ -20,7 +20,7 @@ class CrossrefAnalyzerBackend(HybridBackend):
     """Backend that analyzes Crossref metadata quality to assess journal legitimacy."""
 
     def __init__(
-        self, email: str = "noreply.aletheia-probe.org", cache_ttl_hours: int = 24
+        self, email: str = "noreply@aletheia-probe.org", cache_ttl_hours: int = 24
     ):
         """Initialize Crossref analyzer backend.
 
@@ -594,9 +594,9 @@ class CrossrefAnalyzerBackend(HybridBackend):
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "crossref_analyzer",
-    lambda email="noreply.aletheia-probe.org",
+    lambda email="noreply@aletheia-probe.org",
     cache_ttl_hours=24: CrossrefAnalyzerBackend(
         email=email, cache_ttl_hours=cache_ttl_hours
     ),
-    default_config={"email": "noreply.aletheia-probe.org", "cache_ttl_hours": 24},
+    default_config={"email": "noreply@aletheia-probe.org", "cache_ttl_hours": 24},
 )

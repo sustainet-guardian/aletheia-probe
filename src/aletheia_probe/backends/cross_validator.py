@@ -15,7 +15,7 @@ class CrossValidatorBackend(HybridBackend):
     """Backend that combines and cross-validates OpenAlex and Crossref data."""
 
     def __init__(
-        self, email: str = "noreply.aletheia-probe.org", cache_ttl_hours: int = 24
+        self, email: str = "noreply@aletheia-probe.org", cache_ttl_hours: int = 24
     ):
         """Initialize cross-validation backend.
 
@@ -455,9 +455,9 @@ class CrossValidatorBackend(HybridBackend):
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "cross_validator",
-    lambda email="noreply.aletheia-probe.org",
+    lambda email="noreply@aletheia-probe.org",
     cache_ttl_hours=24: CrossValidatorBackend(
         email=email, cache_ttl_hours=cache_ttl_hours
     ),
-    default_config={"email": "noreply.aletheia-probe.org", "cache_ttl_hours": 24},
+    default_config={"email": "noreply@aletheia-probe.org", "cache_ttl_hours": 24},
 )

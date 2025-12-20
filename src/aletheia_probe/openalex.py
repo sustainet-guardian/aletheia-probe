@@ -22,7 +22,7 @@ class OpenAlexClient:
     BASE_URL = "https://api.openalex.org"
 
     def __init__(
-        self, email: str = "noreply.aletheia-probe.org", max_concurrent: int = 10
+        self, email: str = "noreply@aletheia-probe.org", max_concurrent: int = 10
     ):
         """Initialize OpenAlex client.
 

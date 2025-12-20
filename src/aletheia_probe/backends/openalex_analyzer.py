@@ -21,7 +21,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
     """Backend that analyzes OpenAlex data patterns to assess journal legitimacy."""
 
     def __init__(
-        self, email: str = "noreply.aletheia-probe.org", cache_ttl_hours: int = 24
+        self, email: str = "noreply@aletheia-probe.org", cache_ttl_hours: int = 24
     ):
         """Initialize OpenAlex analyzer backend.
 
@@ -662,9 +662,9 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "openalex_analyzer",
-    lambda email="noreply.aletheia-probe.org",
+    lambda email="noreply@aletheia-probe.org",
     cache_ttl_hours=24: OpenAlexAnalyzerBackend(
         email=email, cache_ttl_hours=cache_ttl_hours
     ),
-    default_config={"email": "noreply.aletheia-probe.org", "cache_ttl_hours": 24},
+    default_config={"email": "noreply@aletheia-probe.org", "cache_ttl_hours": 24},
 )
