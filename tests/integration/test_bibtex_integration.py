@@ -157,7 +157,7 @@ class TestBibtexIntegration:
         )
 
     @pytest.mark.integration
-    async def test_bibtex_entry_details_extraction(
+    async def test_bibtex_entry_doi_and_metadata_preserved_in_assessment(
         self, sample_bibtex_file: Path
     ) -> None:
         """Test that BibTeX entry details are properly extracted.
@@ -170,18 +170,71 @@ class TestBibtexIntegration:
         # Process file (assessor processes all entries by default)
         result = await assessor.assess_bibtex_file(sample_bibtex_file)
 
-        # Verify that journal entries were processed
+        # Verify that journal entries were processed (deterministic)
         assert result is not None, (
             "BibtexBatchAssessor should return result object when extracting entry details"
         )
-        assert result.total_entries > 0, (
-            "Should process at least one journal entry from sample file"
+        assert result.total_entries == 5, (
+            "Should process exactly 5 total entries (4 articles + 1 book) from sample file"
         )
 
+        # Collect metadata from all assessment results (deterministic parsing)
+        dois_found = set()
+        authors_found = set()
+        titles_found = set()
+
+        for entry, _ in result.assessment_results:
+            if entry.doi:
+                dois_found.add(entry.doi)
+            if entry.authors:
+                authors_found.add(entry.authors)
+            if entry.title:
+                titles_found.add(entry.title)
+
+        # Verify exact DOI values are preserved (deterministic)
+        expected_dois = {
+            "10.1038/nature.2023.12345",  # nature2023
+            "10.1371/journal.pone.0123456",  # plosone2023
+        }
+        assert dois_found == expected_dois, (
+            f"Should preserve exact DOIs from sample file. "
+            f"Expected {expected_dois}, got {dois_found}"
+        )
+
+        # Verify exact author values are preserved (deterministic)
+        # Note: pybtex formats multiple authors with "; " separator
+        # Only journal/conference entries are assessed, so textbook2022 is not included
+        expected_authors = {
+            "Smith, John; Doe, Jane",  # nature2023 (multiple authors)
+            "Johnson, Alice",  # science2023
+            "Unknown, Author",  # questionable2023
+            "Researcher, Open",  # plosone2023
+            # textbook2022 is a @book without journal field - not in assessment results
+        }
+        assert authors_found == expected_authors, (
+            f"Should preserve exact authors from sample file. "
+            f"Expected {expected_authors}, got {authors_found}"
+        )
+
+        # Verify exact title values are preserved (deterministic)
+        # Only journal/conference entries are assessed, so textbook2022 is not included
+        expected_titles = {
+            "Breakthrough in DNA Research",  # nature2023
+            "Advances in Machine Learning",  # science2023
+            "Generic Research Paper",  # questionable2023
+            "Open Access Research",  # plosone2023
+            # textbook2022 is a @book without journal field - not in assessment results
+        }
+        assert titles_found == expected_titles, (
+            f"Should preserve exact titles from sample file. "
+            f"Expected {expected_titles}, got {titles_found}"
+        )
+
+        # Fuzzy assertion for unpredictable external API calls
         # The assessment should recognize well-known legitimate journals
         # (Nature, Science, PLOS ONE from our test data)
         assert result.legitimate_count >= 1, (
-            "Should find at least one legitimate journal"
+            "Should find at least one legitimate journal (depends on external APIs)"
         )
 
     @pytest.mark.integration
@@ -262,7 +315,7 @@ class TestBibtexIntegration:
             )
 
     @pytest.mark.integration
-    async def test_batch_processing_scalability(self) -> None:
+    async def test_batch_processing_completes_50_entries_within_5_minutes(self) -> None:
         """Test scalability of batch processing with larger BibTeX files.
 
         This test validates that the batch processor can handle files with many

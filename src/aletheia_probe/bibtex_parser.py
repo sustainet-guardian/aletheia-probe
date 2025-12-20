@@ -352,7 +352,9 @@ class BibtexParser:
             Formatted author string if found, None otherwise
         """
         try:
-            if "author" in entry.fields:
+            # Check if entry has persons attribute and author data
+            # Note: pybtex stores authors in entry.persons, NOT entry.fields
+            if hasattr(entry, "persons") and "author" in entry.persons:
                 try:
                     # Convert pybtex Person objects to string
                     persons = entry.persons.get("author", [])
