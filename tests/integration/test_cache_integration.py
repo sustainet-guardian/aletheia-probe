@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Integration tests for cache functionality.
 
+INTEGRATION TEST FILE: This file contains integration tests that verify
+component interactions and end-to-end workflows. These are NOT predictable
+unit tests - they may make real external API calls and use fuzzy assertions.
+
+See README.md in this directory for details on integration test characteristics
+and how to interpret test failures.
+
 These tests validate cache operations including population, retrieval,
 and synchronization workflows.
 """

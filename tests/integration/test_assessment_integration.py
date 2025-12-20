@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Integration tests for end-to-end journal assessment workflows.
 
+INTEGRATION TEST FILE: This file contains integration tests that verify
+component interactions and end-to-end workflows. These are NOT predictable
+unit tests - they may make real external API calls and use fuzzy assertions.
+
+See README.md in this directory for details on integration test characteristics
+and how to interpret test failures.
+
 These tests validate complete assessment flows with real backend interactions.
 They are marked as 'slow' because they may make real API calls.
 """

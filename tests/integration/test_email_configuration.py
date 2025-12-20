@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Integration tests for email configuration functionality.
 
+INTEGRATION TEST FILE: This file contains integration tests that verify
+component interactions and end-to-end workflows. These are NOT predictable
+unit tests - they may make real external API calls and use fuzzy assertions.
+
+See README.md in this directory for details on integration test characteristics
+and how to interpret test failures.
+
 This test module validates the email configuration feature end-to-end,
 testing actual backend creation with email parameters.
 Tests for issue #47: Configuration of email does not work.
