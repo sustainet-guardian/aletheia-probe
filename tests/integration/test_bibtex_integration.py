@@ -181,7 +181,7 @@ class TestBibtexIntegration:
 
         try:
             assessor = BibtexBatchAssessor()
-            result = await assessor.assess_bibtex_file(Path(temp_path))
+            result = await assessor.assess_bibtex_file(temp_path)
 
             assert result.total_entries == 1, "Should process one entry"
 
@@ -234,7 +234,7 @@ class TestBibtexIntegration:
 
         try:
             assessor = BibtexBatchAssessor()
-            result = await assessor.assess_bibtex_file(Path(temp_path))
+            result = await assessor.assess_bibtex_file(temp_path)
 
             # Should process all entries (including those without journals)
             assert result.total_entries == 4, "Should process all 4 BibTeX entries"
@@ -290,7 +290,7 @@ class TestBibtexIntegration:
 
         try:
             assessor = BibtexBatchAssessor()
-            result = await assessor.assess_bibtex_file(Path(temp_path))
+            result = await assessor.assess_bibtex_file(temp_path)
 
             assert result.total_entries == 50, "Should process all 50 entries"
             assert result.processing_time < 300, "Should complete within 5 minutes"
