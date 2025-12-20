@@ -16,7 +16,7 @@ Tests for issue #47: Configuration of email does not work.
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -76,7 +76,12 @@ backends:
         os.unlink(temp_name)
 
     def test_dispatcher_with_email_config_file(self, temp_config_file):
-        """Test that dispatcher correctly uses email from config file."""
+        """Test that dispatcher correctly uses email from config file.
+
+        This integration test uses real backends to verify email configuration
+        flows correctly through the dispatcher → backend registry → backend chain.
+        """
+        # Only mock get_config_manager to inject our test config
         with patch(
             "aletheia_probe.dispatcher.get_config_manager"
         ) as mock_get_config_manager:
@@ -85,32 +90,19 @@ backends:
             mock_get_config_manager.return_value = config_manager
             dispatcher = QueryDispatcher()
 
-        # Test that get_enabled_backends creates backends with correct email
-        with patch(
-            "aletheia_probe.dispatcher.get_backend_registry"
-        ) as mock_registry_func:
-            mock_registry = Mock()
-            mock_registry_func.return_value = mock_registry
-
-            # Mock create_backend to track calls
-            mock_backend = Mock()
-            mock_backend.get_name.return_value = "crossref_analyzer"
-            mock_registry.create_backend.return_value = mock_backend
-
-            # Call dispatcher method that should trigger backend creation
+            # Use REAL backend registry and REAL backends (not mocked)
             backends = dispatcher._get_enabled_backends()
 
-            # Verify create_backend was called with email from config
-            assert mock_registry.create_backend.call_count >= 1
+            # Verify real backends were created with correct email
+            assert len(backends) >= 1, "Should create at least one backend"
 
-            # Check that email was passed in the calls
-            calls = mock_registry.create_backend.call_args_list
-            email_calls = [call for call in calls if "email" in call[1]]
-            assert len(email_calls) > 0
-
-            # Verify the email value from config was used
-            for call in email_calls:
-                assert call[1]["email"] == "test-dispatcher@example.com"
+            # Check that backends have the email from config
+            for backend in backends:
+                backend_name = backend.get_name()
+                if backend_name in ["crossref_analyzer", "openalex_analyzer"]:
+                    assert backend.email == "test-dispatcher@example.com", (
+                        f"{backend_name} should have email from config"
+                    )
 
     @pytest.mark.asyncio
     async def test_end_to_end_assessment_with_email(self, temp_config_file):
