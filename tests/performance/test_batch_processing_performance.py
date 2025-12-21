@@ -88,7 +88,12 @@ class TestBatchProcessingPerformance:
 
     @pytest.mark.parametrize("entry_count", [10])
     def test_bibtex_processing_scaling(
-        self, benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+        self,
+        benchmark,
+        generated_bibtex_file,
+        mock_dispatcher,
+        performance_baseline,
+        entry_count,
     ):
         """
         Test performance scaling with minimal file size for fast feedback.
@@ -103,10 +108,22 @@ class TestBatchProcessingPerformance:
             benchmark, generated_bibtex_file, mock_dispatcher, entry_count
         )
 
+        # Assert timing requirements
+        mean_time = benchmark.stats["mean"]
+        max_time = performance_baseline["batch_entries_max_time"][entry_count]
+        assert mean_time < max_time, (
+            f"Mean processing time {mean_time:.2f}s exceeds baseline {max_time:.2f}s"
+        )
+
     @pytest.mark.benchmark_comprehensive
     @pytest.mark.parametrize("entry_count", [10, 50, 100, 200, 500])
     def test_bibtex_processing_scaling_comprehensive(
-        self, benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+        self,
+        benchmark,
+        generated_bibtex_file,
+        mock_dispatcher,
+        performance_baseline,
+        entry_count,
     ):
         """
         Comprehensive performance scaling test with multiple data points.
@@ -122,6 +139,14 @@ class TestBatchProcessingPerformance:
         self._run_scaling_test(
             benchmark, generated_bibtex_file, mock_dispatcher, entry_count
         )
+
+        # Assert timing requirements for entry counts with defined baselines
+        mean_time = benchmark.stats["mean"]
+        max_time = performance_baseline["batch_entries_max_time"].get(entry_count)
+        if max_time is not None:
+            assert mean_time < max_time, (
+                f"Mean processing time {mean_time:.2f}s exceeds baseline {max_time:.2f}s for {entry_count} entries"
+            )
 
     def test_batch_processing_memory_usage(
         self, benchmark, generated_bibtex_file, mock_dispatcher, performance_baseline
