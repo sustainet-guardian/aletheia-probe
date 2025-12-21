@@ -76,7 +76,20 @@ Follow this process for ALL development work:
 
 ---
 
-## 2. Before Making ANY Changes (MANDATORY)
+## 2. Issues / Code Review
+
+When creating issues, e.g. during a code review:
+
+- include the exact problem description
+- be short, be precise
+- only include one problem in one issue
+- do not include the solution
+- simple but technical language
+- always display the issue before it is posted to get human assessment
+
+---
+
+## 3. Before Making ANY Changes (MANDATORY)
 
 Read and follow ALL standards in:
 
@@ -93,7 +106,7 @@ Also:
 
 ---
 
-## 3. Pre-Commit Workflow (MANDATORY)
+## 4. Pre-Commit Workflow (MANDATORY)
 
 Before ANY commit, run:
 
@@ -109,7 +122,7 @@ bash scripts/run-quality-checks.sh
 
 ---
 
-## 4. Commit and PR Format
+## 5. Commit and PR Format
 
 ### Commits
 
@@ -133,7 +146,7 @@ Include:
 
 ---
 
-## 5. Summary Checklist
+## 6. Summary Checklist
 
 ✅ **DO:**
 1. Read all `dev-notes/` documentation first
@@ -156,7 +169,7 @@ Include:
 
 ---
 
-## 6. Git and Version Control Guidelines
+## 7. Git and Version Control Guidelines
 
 **IMPORTANT Git Rules:**
 - **ALWAYS** use specific filenames when adding to git, NEVER use patterns or directories
@@ -166,7 +179,7 @@ Include:
 
 ---
 
-## 7. GitHub PR Comment Replies
+## 8. GitHub PR Comment Replies
 
 To reply to PR review comments on GitHub:
 
