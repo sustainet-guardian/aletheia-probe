@@ -99,7 +99,7 @@ class TestBatchProcessingPerformance:
         assert result.entries_with_journals == entry_count
 
     def test_batch_processing_memory_usage(
-        self, generated_bibtex_file, mock_dispatcher, performance_baseline
+        self, benchmark, generated_bibtex_file, mock_dispatcher, performance_baseline
     ):
         """
         Monitor memory usage during batch processing.
@@ -114,9 +114,13 @@ class TestBatchProcessingPerformance:
         # Get initial memory usage
         initial_memory_mb = process.memory_info().rss / 1024 / 1024
 
-        # Process the file
-        assessor = BibtexBatchAssessor()
-        result = asyncio.run(assessor.assess_bibtex_file(bibtex_file))
+        def process_file():
+            """Process the BibTeX file."""
+            assessor = BibtexBatchAssessor()
+            return asyncio.run(assessor.assess_bibtex_file(bibtex_file))
+
+        # Run the benchmark and get the result
+        result = benchmark(process_file)
 
         # Get peak memory usage
         peak_memory_mb = process.memory_info().rss / 1024 / 1024
