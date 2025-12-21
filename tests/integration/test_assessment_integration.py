@@ -8,8 +8,9 @@ unit tests - they may make real external API calls and use fuzzy assertions.
 See README.md in this directory for details on integration test characteristics
 and how to interpret test failures.
 
-These tests validate complete assessment flows with real backend interactions.
-They are marked as 'slow' because they may make real API calls.
+These tests validate complete assessment flows and component integration.
+Tests that make real external API calls are marked as 'slow' and 'requires_network'.
+Other tests focus on component interaction without external dependencies.
 """
 
 import pytest
