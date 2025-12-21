@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Constants used throughout the journal assessment tool."""
 
+from dataclasses import dataclass
+
+
 # Assessment confidence thresholds
 CONFIDENCE_THRESHOLD_HIGH: float = 0.98
 CONFIDENCE_THRESHOLD_MEDIUM: float = 0.85
@@ -21,32 +24,42 @@ MIN_ABSTRACT_LENGTH: int = 50
 MIN_REFERENCE_COUNT: int = 10
 MIN_AUTHOR_INFO_COMPLETENESS: float = 0.8
 
-# Retraction Watch risk levels - Rate-based thresholds (percentage)
-# Research shows average retraction rate: ~0.02-0.04%
-# Unified thresholds balancing different implementations
-RETRACTION_RATE_CRITICAL: float = 3.0  # Very high rate
-RETRACTION_RATE_HIGH: float = 1.5  # High rate
-RETRACTION_RATE_MODERATE: float = 0.8  # Moderate rate
-RETRACTION_RATE_LOW: float = 0.1  # Elevated rate
 
-# Retraction Watch risk levels - Recent rate thresholds (percentage)
-RETRACTION_RECENT_RATE_CRITICAL: float = 4.0
-RETRACTION_RECENT_RATE_HIGH: float = 2.5
-RETRACTION_RECENT_RATE_MODERATE: float = 1.2
-RETRACTION_RECENT_RATE_LOW: float = 0.2
+@dataclass(frozen=True)
+class RetractionThresholds:
+    """Thresholds for assessing retraction risk levels.
 
-# Retraction Watch risk levels - Absolute count fallback thresholds
-# These are unified thresholds balancing the different implementations
-RETRACTION_COUNT_CRITICAL: int = 21
-RETRACTION_COUNT_HIGH: int = 11
-RETRACTION_COUNT_MODERATE: int = 6
-RETRACTION_COUNT_LOW: int = 2
+    Research shows average retraction rate: ~0.02-0.04%
+    Unified thresholds balancing different implementations.
+    """
 
-# Retraction Watch risk levels - Recent count fallback thresholds
-RETRACTION_RECENT_COUNT_CRITICAL: int = 10
-RETRACTION_RECENT_COUNT_HIGH: int = 5
-RETRACTION_RECENT_COUNT_MODERATE: int = 3
-RETRACTION_RECENT_COUNT_LOW: int = 2
+    # Rate-based thresholds (percentage)
+    rate_critical: float = 3.0  # Very high rate
+    rate_high: float = 1.5  # High rate
+    rate_moderate: float = 0.8  # Moderate rate
+    rate_low: float = 0.1  # Elevated rate
+
+    # Recent rate thresholds (percentage)
+    recent_rate_critical: float = 4.0
+    recent_rate_high: float = 2.5
+    recent_rate_moderate: float = 1.2
+    recent_rate_low: float = 0.2
+
+    # Absolute count fallback thresholds
+    count_critical: int = 21
+    count_high: int = 11
+    count_moderate: int = 6
+    count_low: int = 2
+
+    # Recent count fallback thresholds
+    recent_count_critical: int = 10
+    recent_count_high: int = 5
+    recent_count_moderate: int = 3
+    recent_count_low: int = 2
+
+
+# Instance for use throughout the application
+RETRACTION_THRESHOLDS = RetractionThresholds()
 
 # Cache TTL (seconds)
 ASSESSMENT_CACHE_TTL: int = 86400  # 24 hours

@@ -1,23 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Risk level calculation utilities for retraction data."""
 
-from .constants import (
-    RETRACTION_COUNT_CRITICAL,
-    RETRACTION_COUNT_HIGH,
-    RETRACTION_COUNT_LOW,
-    RETRACTION_COUNT_MODERATE,
-    RETRACTION_RATE_CRITICAL,
-    RETRACTION_RATE_HIGH,
-    RETRACTION_RATE_LOW,
-    RETRACTION_RATE_MODERATE,
-    RETRACTION_RECENT_COUNT_CRITICAL,
-    RETRACTION_RECENT_COUNT_HIGH,
-    RETRACTION_RECENT_COUNT_MODERATE,
-    RETRACTION_RECENT_RATE_CRITICAL,
-    RETRACTION_RECENT_RATE_HIGH,
-    RETRACTION_RECENT_RATE_LOW,
-    RETRACTION_RECENT_RATE_MODERATE,
-)
+from .constants import RETRACTION_THRESHOLDS
 
 
 def calculate_retraction_risk_level(
@@ -74,23 +58,23 @@ def calculate_retraction_risk_level(
         # Use either overall OR recent rate to flag issues
         # Thresholds are percentage values
         if (
-            overall_rate >= RETRACTION_RATE_CRITICAL
-            or recent_rate >= RETRACTION_RECENT_RATE_CRITICAL
+            overall_rate >= RETRACTION_THRESHOLDS.rate_critical
+            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_critical
         ):
             return "critical"  # Very high rate (25x+ normal)
         elif (
-            overall_rate >= RETRACTION_RATE_HIGH
-            or recent_rate >= RETRACTION_RECENT_RATE_HIGH
+            overall_rate >= RETRACTION_THRESHOLDS.rate_high
+            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_high
         ):
             return "high"  # High rate (10x normal)
         elif (
-            overall_rate >= RETRACTION_RATE_MODERATE
-            or recent_rate >= RETRACTION_RECENT_RATE_MODERATE
+            overall_rate >= RETRACTION_THRESHOLDS.rate_moderate
+            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_moderate
         ):
             return "moderate"  # Moderate rate (5x normal)
         elif (
-            overall_rate >= RETRACTION_RATE_LOW
-            or recent_rate >= RETRACTION_RECENT_RATE_LOW
+            overall_rate >= RETRACTION_THRESHOLDS.rate_low
+            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_low
         ):
             return "low"  # Elevated rate (2-3x normal)
         elif total_retractions > 0:
@@ -101,21 +85,21 @@ def calculate_retraction_risk_level(
     # Fallback to absolute counts if no publication data
     # Based on analysis of retraction data patterns
     if (
-        total_retractions >= RETRACTION_COUNT_CRITICAL
-        or recent_retractions >= RETRACTION_RECENT_COUNT_CRITICAL
+        total_retractions >= RETRACTION_THRESHOLDS.count_critical
+        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_critical
     ):
         return "critical"
     elif (
-        total_retractions >= RETRACTION_COUNT_HIGH
-        or recent_retractions >= RETRACTION_RECENT_COUNT_HIGH
+        total_retractions >= RETRACTION_THRESHOLDS.count_high
+        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_high
     ):
         return "high"
     elif (
-        total_retractions >= RETRACTION_COUNT_MODERATE
-        or recent_retractions >= RETRACTION_RECENT_COUNT_MODERATE
+        total_retractions >= RETRACTION_THRESHOLDS.count_moderate
+        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_moderate
     ):
         return "moderate"
-    elif total_retractions >= RETRACTION_COUNT_LOW:
+    elif total_retractions >= RETRACTION_THRESHOLDS.count_low:
         return "low"
     else:
         return "note"
