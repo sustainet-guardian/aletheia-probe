@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from aletheia_probe.config import AppConfig, ConfigManager
 from aletheia_probe.models import ConfigBackend
@@ -242,11 +243,11 @@ class TestConfigManager:
     def test_config_validation_errors(self):
         """Test configuration validation with invalid data."""
         # Test invalid confidence threshold
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AppConfig(heuristics={"confidence_threshold": 1.5})  # > 1.0
 
         # Test invalid timeout
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AppConfig(
                 backends={
                     "test": ConfigBackend(
@@ -293,11 +294,11 @@ class TestConfigModels:
         assert backend.weight == 0.8
 
         # Invalid weight (negative)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ConfigBackend(name="test", enabled=True, weight=-0.1, timeout=10)
 
         # Invalid timeout (zero)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ConfigBackend(name="test", enabled=True, weight=1.0, timeout=0)
 
     def test_app_config_defaults(self):
