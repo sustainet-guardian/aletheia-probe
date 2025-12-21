@@ -20,7 +20,7 @@ import pytest
 
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
 from aletheia_probe.enums import AssessmentType
-from aletheia_probe.models import AssessmentResult
+from aletheia_probe.models import AssessmentResult, BibtexAssessmentResult
 
 
 @pytest.mark.benchmark
@@ -66,7 +66,7 @@ class TestBatchProcessingPerformance:
         bibtex_file = generated_bibtex_file(entry_count)
         assessor = BibtexBatchAssessor()
 
-        def process_file():
+        def process_file() -> BibtexAssessmentResult:
             """Process the BibTeX file."""
             return asyncio.run(assessor.assess_bibtex_file(bibtex_file))
 
@@ -92,7 +92,7 @@ class TestBatchProcessingPerformance:
         # Get initial memory usage
         initial_memory_mb = process.memory_info().rss / 1024 / 1024
 
-        def process_file():
+        def process_file() -> BibtexAssessmentResult:
             """Process the BibTeX file."""
             assessor = BibtexBatchAssessor()
             return asyncio.run(assessor.assess_bibtex_file(bibtex_file))
