@@ -96,6 +96,7 @@ asyncio_mode = "auto"
 minversion = "6.0"
 markers = [
     "benchmark: marks tests as performance benchmarks (deselect with '-m \"not benchmark\"')",
+    "benchmark_comprehensive: marks tests as comprehensive performance benchmarks for weekly runs (deselect with '-m \"not benchmark_comprehensive\"')",
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "slow: marks tests as slow tests requiring real API calls (deselect with '-m \"not slow\"')",
     "requires_network: marks tests that require network access (deselect with '-m \"not requires_network\"')",

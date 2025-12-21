@@ -106,7 +106,8 @@ run_check "Pytest with coverage" pytest -n auto --cov=src --cov-report=term-miss
 
 # 10. Performance benchmarks (mandatory - run without parallelization)
 # Benchmark tests should run sequentially for accurate timing
-run_check "Performance benchmarks" pytest tests/performance/ --benchmark-only
+# Exclude comprehensive benchmarks to keep development cycle fast
+run_check "Performance benchmarks" pytest tests/performance/ --benchmark-only -m "not benchmark_comprehensive"
 
 # Final summary
 echo ""
