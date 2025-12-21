@@ -115,9 +115,14 @@ def performance_baseline():
         dict: Performance targets in seconds or MB
     """
     return {
-        # Batch Processing Targets
-        "batch_10_entries_max_time": 30.0,  # seconds
-        "batch_50_entries_max_time": 120.0,  # seconds
+        # Batch Processing Targets (seconds)
+        "batch_entries_max_time": {
+            10: 30.0,
+            50: 120.0,
+            100: 240.0,
+            200: 480.0,
+            500: 1200.0,
+        },
         # Cache Operation Targets
         "cache_search_max_time": 1.0,  # seconds
         "cache_insert_max_time": 0.1,  # seconds

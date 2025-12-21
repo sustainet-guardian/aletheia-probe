@@ -57,6 +57,7 @@ class TestBatchProcessingPerformance:
         benchmark,
         generated_bibtex_file,
         mock_dispatcher,
+        performance_baseline,
         entry_count: int,
     ) -> BibtexAssessmentResult:
         """
@@ -66,6 +67,7 @@ class TestBatchProcessingPerformance:
             benchmark: pytest-benchmark fixture
             generated_bibtex_file: Fixture for generating BibTeX files
             mock_dispatcher: Mock query dispatcher fixture
+            performance_baseline: Performance baseline targets
             entry_count: Number of BibTeX entries to process
 
         Returns:
@@ -84,11 +86,24 @@ class TestBatchProcessingPerformance:
         assert result.total_entries == entry_count
         assert result.entries_with_journals == entry_count
 
+        # Assert timing requirements
+        mean_time = benchmark.stats["mean"]
+        max_time = performance_baseline["batch_entries_max_time"].get(entry_count)
+        if max_time is not None:
+            assert mean_time < max_time, (
+                f"Mean processing time {mean_time:.2f}s exceeds baseline {max_time:.2f}s for {entry_count} entries"
+            )
+
         return result
 
     @pytest.mark.parametrize("entry_count", [10])
     def test_bibtex_processing_scaling(
-        self, benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+        self,
+        benchmark,
+        generated_bibtex_file,
+        mock_dispatcher,
+        performance_baseline,
+        entry_count,
     ):
         """
         Test performance scaling with minimal file size for fast feedback.
@@ -100,13 +115,22 @@ class TestBatchProcessingPerformance:
             entry_count: Number of BibTeX entries to process
         """
         self._run_scaling_test(
-            benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+            benchmark,
+            generated_bibtex_file,
+            mock_dispatcher,
+            performance_baseline,
+            entry_count,
         )
 
     @pytest.mark.benchmark_comprehensive
     @pytest.mark.parametrize("entry_count", [10, 50, 100, 200, 500])
     def test_bibtex_processing_scaling_comprehensive(
-        self, benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+        self,
+        benchmark,
+        generated_bibtex_file,
+        mock_dispatcher,
+        performance_baseline,
+        entry_count,
     ):
         """
         Comprehensive performance scaling test with multiple data points.
@@ -120,7 +144,11 @@ class TestBatchProcessingPerformance:
             entry_count: Number of BibTeX entries to process
         """
         self._run_scaling_test(
-            benchmark, generated_bibtex_file, mock_dispatcher, entry_count
+            benchmark,
+            generated_bibtex_file,
+            mock_dispatcher,
+            performance_baseline,
+            entry_count,
         )
 
     def test_batch_processing_memory_usage(
