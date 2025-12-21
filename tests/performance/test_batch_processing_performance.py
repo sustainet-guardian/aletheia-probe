@@ -11,6 +11,8 @@ Run them with:
 
 import asyncio
 import os
+import threading
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -128,7 +130,8 @@ class TestBatchProcessingPerformance:
         Monitor memory usage during batch processing.
 
         This test ensures memory usage remains within acceptable bounds
-        during batch processing operations.
+        during batch processing operations. It continuously monitors memory
+        to capture actual peak usage, not just before/after snapshots.
         """
         # Use a moderate file size for memory testing
         bibtex_file = generated_bibtex_file(50)
@@ -137,16 +140,36 @@ class TestBatchProcessingPerformance:
         # Get initial memory usage
         initial_memory_mb = process.memory_info().rss / 1024 / 1024
 
+        # Tracking for continuous memory monitoring
+        peak_memory_mb = initial_memory_mb
+        monitoring_active = threading.Event()
+        monitoring_active.set()
+
+        def monitor_memory() -> None:
+            """Continuously monitor memory usage in background thread."""
+            nonlocal peak_memory_mb
+            while monitoring_active.is_set():
+                current_memory_mb = process.memory_info().rss / 1024 / 1024
+                peak_memory_mb = max(peak_memory_mb, current_memory_mb)
+                time.sleep(0.05)  # Sample every 50ms
+
+        # Start memory monitoring thread
+        monitor_thread = threading.Thread(target=monitor_memory, daemon=True)
+        monitor_thread.start()
+
         def process_file() -> BibtexAssessmentResult:
             """Process the BibTeX file."""
             assessor = BibtexBatchAssessor()
             return asyncio.run(assessor.assess_bibtex_file(bibtex_file))
 
-        # Run the benchmark and get the result
-        result = benchmark(process_file)
+        try:
+            # Run the benchmark and get the result
+            result = benchmark(process_file)
+        finally:
+            # Stop memory monitoring
+            monitoring_active.clear()
+            monitor_thread.join(timeout=1.0)
 
-        # Get peak memory usage
-        peak_memory_mb = process.memory_info().rss / 1024 / 1024
         memory_increase_mb = peak_memory_mb - initial_memory_mb
 
         # Verify functionality
