@@ -27,6 +27,11 @@ from aletheia_probe.models import AssessmentResult, BibtexAssessmentResult
 # Conversion factor for bytes to megabytes
 BYTES_TO_MB = 1024 * 1024
 
+# Memory test configuration constants
+MEMORY_TEST_ENTRY_COUNT = 50  # Number of BibTeX entries to process in memory test
+MEMORY_SAMPLE_INTERVAL = 0.05  # Time in seconds between memory samples (50ms)
+MONITOR_THREAD_TIMEOUT = 1.0  # Timeout in seconds for joining monitor thread
+
 
 @pytest.fixture
 def mock_dispatcher():
@@ -166,7 +171,7 @@ class TestBatchProcessingPerformance:
         to capture actual peak usage, not just before/after snapshots.
         """
         # Use a moderate file size for memory testing
-        bibtex_file = generated_bibtex_file(50)
+        bibtex_file = generated_bibtex_file(MEMORY_TEST_ENTRY_COUNT)
         process = psutil.Process(os.getpid())
 
         # Get initial memory usage
@@ -183,7 +188,7 @@ class TestBatchProcessingPerformance:
             while monitoring_active.is_set():
                 current_memory_mb = process.memory_info().rss / BYTES_TO_MB
                 peak_memory_mb = max(peak_memory_mb, current_memory_mb)
-                time.sleep(0.05)  # Sample every 50ms
+                time.sleep(MEMORY_SAMPLE_INTERVAL)
 
         # Start memory monitoring thread
         monitor_thread = threading.Thread(target=monitor_memory, daemon=True)
@@ -200,13 +205,13 @@ class TestBatchProcessingPerformance:
         finally:
             # Stop memory monitoring
             monitoring_active.clear()
-            monitor_thread.join(timeout=1.0)
+            monitor_thread.join(timeout=MONITOR_THREAD_TIMEOUT)
 
         memory_increase_mb = peak_memory_mb - initial_memory_mb
 
         # Verify functionality
-        assert result.total_entries == 50
-        assert result.entries_with_journals == 50
+        assert result.total_entries == MEMORY_TEST_ENTRY_COUNT
+        assert result.entries_with_journals == MEMORY_TEST_ENTRY_COUNT
 
         # Memory usage should be reasonable
         assert (
