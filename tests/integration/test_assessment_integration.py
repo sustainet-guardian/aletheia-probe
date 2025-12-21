@@ -93,12 +93,12 @@ class TestAssessmentIntegration:
         assert result is not None, "Assessment should return a result"
         # Note: This journal is actually classified as legitimate based on real data sources,
         # even though the name pattern appears suspicious. Real data trumps pattern matching.
+        # Integration test: We verify component integration works, allowing UNKNOWN if backends
+        # are unavailable, but expect LEGITIMATE when data sources are accessible.
         assert result.assessment in [
-            AssessmentType.PREDATORY,
-            AssessmentType.QUESTIONABLE,
-            AssessmentType.UNKNOWN,
-            AssessmentType.LEGITIMATE,  # Actually found as legitimate in real data
-        ], f"Should be assessed based on real data, got: {result.assessment}"
+            AssessmentType.UNKNOWN,  # Acceptable if backends unavailable
+            AssessmentType.LEGITIMATE,  # Expected when data sources accessible
+        ], f"Should be legitimate or unknown, got: {result.assessment}"
 
         # Should have processed
         assert result.processing_time > 0, "Processing time should be positive"
