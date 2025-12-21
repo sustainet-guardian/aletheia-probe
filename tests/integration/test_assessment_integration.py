@@ -133,22 +133,6 @@ class TestAssessmentIntegration:
             assert isinstance(query.identifiers, dict)
 
     @pytest.mark.integration
-    async def test_assessment_with_issn(self) -> None:
-        """Test assessment with ISSN identifier.
-
-        Validates that ISSN identifiers are properly extracted and used
-        in the assessment process.
-        """
-        normalizer = InputNormalizer()
-
-        # Nature's ISSN
-        query = normalizer.normalize("Nature (ISSN: 0028-0836)")
-
-        # Verify ISSN was extracted
-        assert "issn" in query.identifiers
-        assert query.identifiers["issn"] == "0028-0836"
-
-    @pytest.mark.integration
     @pytest.mark.slow
     @pytest.mark.requires_network
     async def test_concurrent_assessments(self) -> None:
@@ -183,26 +167,3 @@ class TestAssessmentIntegration:
                 f"Input query mismatch for {i}"
             )
             assert result.processing_time > 0, f"Processing time invalid for {i}"
-
-    @pytest.mark.integration
-    async def test_assessment_error_handling(self) -> None:
-        """Test that assessment handles edge cases gracefully."""
-        normalizer = InputNormalizer()
-
-        # Test with very long journal name
-        long_name = "A" * 500
-        query = normalizer.normalize(long_name)
-        assert query.raw_input == long_name
-        assert query.normalized_name is not None
-
-        # Test with special characters
-        special_chars = "Journal of Test™ & Research® (Ω Edition)"
-        query = normalizer.normalize(special_chars)
-        assert query.raw_input == special_chars
-        assert query.normalized_name is not None
-
-        # Test with unicode
-        unicode_name = "学术期刊 (Academic Journal)"
-        query = normalizer.normalize(unicode_name)
-        assert query.raw_input == unicode_name
-        assert query.normalized_name is not None

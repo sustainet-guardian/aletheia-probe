@@ -382,3 +382,40 @@ class TestInputNormalizer:
         for case in no_change_cases:
             result = normalizer.extract_conference_series(case)
             assert result is None, f"Expected None for input '{case}', got '{result}'"
+
+    def test_issn_extraction_with_real_journal(self):
+        """Test ISSN extraction with a real journal identifier.
+
+        Validates that ISSN identifiers are properly extracted from
+        real journal names.
+        """
+        normalizer = InputNormalizer()
+
+        # Nature's ISSN
+        query = normalizer.normalize("Nature (ISSN: 0028-0836)")
+
+        # Verify ISSN was extracted
+        assert "issn" in query.identifiers
+        assert query.identifiers["issn"] == "0028-0836"
+
+    def test_edge_case_inputs(self):
+        """Test that normalization handles edge cases gracefully."""
+        normalizer = InputNormalizer()
+
+        # Test with very long journal name (but under the 1000 char limit)
+        long_name = "A" * 500
+        query = normalizer.normalize(long_name)
+        assert query.raw_input == long_name
+        assert query.normalized_name is not None
+
+        # Test with special characters
+        special_chars = "Journal of Test™ & Research® (Ω Edition)"
+        query = normalizer.normalize(special_chars)
+        assert query.raw_input == special_chars
+        assert query.normalized_name is not None
+
+        # Test with unicode
+        unicode_name = "学术期刊 (Academic Journal)"
+        query = normalizer.normalize(unicode_name)
+        assert query.raw_input == unicode_name
+        assert query.normalized_name is not None
