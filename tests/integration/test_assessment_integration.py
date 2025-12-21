@@ -12,6 +12,8 @@ These tests validate complete assessment flows with real backend interactions.
 They are marked as 'slow' because they may make real API calls.
 """
 
+import asyncio
+
 import pytest
 
 from aletheia_probe.dispatcher import QueryDispatcher
@@ -152,8 +154,6 @@ class TestAssessmentIntegration:
         Validates that multiple assessment requests can be processed
         concurrently without errors or data corruption.
         """
-        import asyncio
-
         dispatcher = QueryDispatcher()
         normalizer = InputNormalizer()
 
