@@ -148,6 +148,8 @@ class TestAssessmentIntegration:
         assert query.identifiers["issn"] == "0028-0836"
 
     @pytest.mark.integration
+    @pytest.mark.slow
+    @pytest.mark.requires_network
     async def test_concurrent_assessments(self) -> None:
         """Test that concurrent assessments work correctly.
 
