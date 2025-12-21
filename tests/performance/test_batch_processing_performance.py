@@ -179,6 +179,7 @@ class TestBatchProcessingPerformance:
 
         # Tracking for continuous memory monitoring
         peak_memory_mb = initial_memory_mb
+        peak_memory_lock = threading.Lock()
         monitoring_active = threading.Event()
         monitoring_active.set()
 
@@ -187,7 +188,8 @@ class TestBatchProcessingPerformance:
             nonlocal peak_memory_mb
             while monitoring_active.is_set():
                 current_memory_mb = process.memory_info().rss / BYTES_TO_MB
-                peak_memory_mb = max(peak_memory_mb, current_memory_mb)
+                with peak_memory_lock:
+                    peak_memory_mb = max(peak_memory_mb, current_memory_mb)
                 time.sleep(MEMORY_SAMPLE_INTERVAL)
 
         # Start memory monitoring thread
@@ -207,7 +209,8 @@ class TestBatchProcessingPerformance:
             monitoring_active.clear()
             monitor_thread.join(timeout=MONITOR_THREAD_TIMEOUT)
 
-        memory_increase_mb = peak_memory_mb - initial_memory_mb
+        with peak_memory_lock:
+            memory_increase_mb = peak_memory_mb - initial_memory_mb
 
         # Verify functionality
         assert result.total_entries == MEMORY_TEST_ENTRY_COUNT
