@@ -196,22 +196,24 @@ class TestRetractionWatchSource:
         """Test _calculate_risk_level without publication data."""
         # Test different retraction counts (based on constants.py)
         assert source._calculate_risk_level(0, 0) == "none"
-        assert source._calculate_risk_level(2, 1) == "low"  # RETRACTION_COUNT_LOW = 2
+        assert (
+            source._calculate_risk_level(2, 1) == "low"
+        )  # RETRACTION_THRESHOLDS.count_low = 2
         assert (
             source._calculate_risk_level(6, 2) == "moderate"
-        )  # RETRACTION_COUNT_MODERATE = 6
+        )  # RETRACTION_THRESHOLDS.count_moderate = 6
         assert (
             source._calculate_risk_level(11, 5) == "high"
-        )  # RETRACTION_COUNT_HIGH = 11
+        )  # RETRACTION_THRESHOLDS.count_high = 11
 
     def test_calculate_risk_level_with_publications(self, source):
         """Test _calculate_risk_level with publication data."""
         # Test with publication data - rates are calculated as percentages
-        # 5/1000 = 0.5%, which is > RETRACTION_RATE_LOW (0.1%) but < RETRACTION_RATE_MODERATE (0.8%)
+        # 5/1000 = 0.5%, which is > RETRACTION_THRESHOLDS.rate_low (0.1%) but < RETRACTION_THRESHOLDS.rate_moderate (0.8%)
         assert (
             source._calculate_risk_level(5, 2, 1000, 500) == "low"
         )  # 0.5% overall rate
-        # 20/1000 = 2.0%, which is > RETRACTION_RATE_HIGH (1.5%) but < RETRACTION_RATE_CRITICAL (3.0%)
+        # 20/1000 = 2.0%, which is > RETRACTION_THRESHOLDS.rate_high (1.5%) but < RETRACTION_THRESHOLDS.rate_critical (3.0%)
         assert (
             source._calculate_risk_level(20, 10, 1000, 500) == "high"
         )  # 2.0% overall rate
