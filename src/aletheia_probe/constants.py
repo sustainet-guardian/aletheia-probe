@@ -1,5 +1,16 @@
 # SPDX-License-Identifier: MIT
-"""Constants used throughout the journal assessment tool."""
+"""Constants used throughout the journal assessment tool.
+
+This module centralizes all configuration constants including:
+
+- **Assessment thresholds**: Confidence levels and agreement bonuses for quality scoring
+- **Pattern analysis limits**: Citation ratios, growth rates, and metadata quality standards
+- **Retraction risk thresholds**: Research-based values (avg. rate: 0.02-0.04%) for identifying
+  journals with concerning retraction patterns
+- **Cache settings**: TTL values for assessment and API response caching
+- **API rate limits**: Respectful request rates for external data sources (DOAJ, OpenAlex, Crossref)
+- **Default configurations**: Fallback values for backend weights, timeouts, and output formats
+"""
 
 from dataclasses import dataclass
 
