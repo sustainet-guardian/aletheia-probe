@@ -25,32 +25,33 @@ from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import AssessmentResult, BibtexAssessmentResult
 
 
+@pytest.fixture
+def mock_dispatcher():
+    """
+    Create a mock query dispatcher that simulates fast responses.
+
+    This allows us to test batch processing performance without
+    being limited by actual backend API response times.
+    """
+    with patch("aletheia_probe.batch_assessor.query_dispatcher") as mock:
+        # Configure mock to return results quickly
+        mock.assess_journal = AsyncMock(
+            return_value=AssessmentResult(
+                input_query="test",
+                assessment=AssessmentType.LEGITIMATE.value,
+                confidence=0.9,
+                overall_score=0.9,
+                venue_type="journal",
+                backend_results=[],
+                processing_time=0.01,
+            )
+        )
+        yield mock
+
+
 @pytest.mark.benchmark
 class TestBatchProcessingPerformance:
     """Performance benchmarks for batch BibTeX processing."""
-
-    @pytest.fixture
-    def mock_dispatcher(self):
-        """
-        Create a mock query dispatcher that simulates fast responses.
-
-        This allows us to test batch processing performance without
-        being limited by actual backend API response times.
-        """
-        with patch("aletheia_probe.batch_assessor.query_dispatcher") as mock:
-            # Configure mock to return results quickly
-            mock.assess_journal = AsyncMock(
-                return_value=AssessmentResult(
-                    input_query="test",
-                    assessment=AssessmentType.LEGITIMATE.value,
-                    confidence=0.9,
-                    overall_score=0.9,
-                    venue_type="journal",
-                    backend_results=[],
-                    processing_time=0.01,
-                )
-            )
-            yield mock
 
     def _run_scaling_test(
         self,
