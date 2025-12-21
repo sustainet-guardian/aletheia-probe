@@ -25,6 +25,10 @@ from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import AssessmentResult, BibtexAssessmentResult
 
 
+# Conversion factor for bytes to megabytes
+BYTES_TO_MB = 1024 * 1024
+
+
 @pytest.fixture
 def mock_dispatcher():
     """
@@ -167,7 +171,7 @@ class TestBatchProcessingPerformance:
         process = psutil.Process(os.getpid())
 
         # Get initial memory usage
-        initial_memory_mb = process.memory_info().rss / 1024 / 1024
+        initial_memory_mb = process.memory_info().rss / BYTES_TO_MB
 
         # Tracking for continuous memory monitoring
         peak_memory_mb = initial_memory_mb
@@ -178,7 +182,7 @@ class TestBatchProcessingPerformance:
             """Continuously monitor memory usage in background thread."""
             nonlocal peak_memory_mb
             while monitoring_active.is_set():
-                current_memory_mb = process.memory_info().rss / 1024 / 1024
+                current_memory_mb = process.memory_info().rss / BYTES_TO_MB
                 peak_memory_mb = max(peak_memory_mb, current_memory_mb)
                 time.sleep(0.05)  # Sample every 50ms
 
