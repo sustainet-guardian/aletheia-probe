@@ -50,28 +50,6 @@ class TestBatchProcessingPerformance:
             )
             yield mock
 
-    def test_small_bibtex_processing_performance(
-        self, benchmark, generated_bibtex_file, mock_dispatcher
-    ):
-        """
-        Benchmark processing of small BibTeX file (10 entries).
-
-        This test establishes a baseline for processing small bibliography files,
-        which is the most common use case.
-        """
-        bibtex_file = generated_bibtex_file(10)
-        assessor = BibtexBatchAssessor()
-
-        def process_file():
-            """Process the BibTeX file."""
-            return asyncio.run(assessor.assess_bibtex_file(bibtex_file))
-
-        result = benchmark(process_file)
-
-        # Verify functionality
-        assert result.total_entries == 10
-        assert result.entries_with_journals == 10
-
     @pytest.mark.parametrize("entry_count", [10, 50])
     def test_bibtex_processing_scaling(
         self, benchmark, generated_bibtex_file, mock_dispatcher, entry_count
