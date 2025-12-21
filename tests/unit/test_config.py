@@ -119,8 +119,8 @@ class TestConfigManager:
         config_data = {"output": {"format": "json", "verbose": False}}
 
         env_vars = {
-            "JOURNAL_ASSESSMENT_OUTPUT_VERBOSE": "true",
-            "JOURNAL_ASSESSMENT_OUTPUT_FORMAT": "yaml",
+            "ALETHEIA_PROBE_OUTPUT_VERBOSE": "true",
+            "ALETHEIA_PROBE_OUTPUT_FORMAT": "yaml",
         }
 
         with patch.dict(os.environ, env_vars, clear=False):

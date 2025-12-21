@@ -259,23 +259,82 @@ class ConfigManager:
         return result
 
     def _apply_env_overrides(self, config_data: dict[str, Any]) -> dict[str, Any]:
-        """Apply environment variable overrides to config."""
-        # Example: JOURNAL_ASSESSMENT_OUTPUT_VERBOSE=true
-        for key, value in os.environ.items():
-            if key.startswith("JOURNAL_ASSESSMENT_"):
-                config_key = key.replace("JOURNAL_ASSESSMENT_", "").lower()
-                parts = config_key.split("_")
+        """Apply environment variable overrides to config.
 
-                if len(parts) >= 2:
-                    if parts[0] == "output":
-                        if "output" not in config_data:
-                            config_data["output"] = {}
-                        if parts[1] == "verbose":
-                            config_data["output"]["verbose"] = value.lower() == "true"
-                        elif parts[1] == "format":
-                            config_data["output"]["format"] = value
+        Supports any config section and handles nested paths with automatic
+        type conversion. This is a general parser that works for all config
+        sections without hardcoded special cases.
+
+        Examples:
+            ALETHEIA_PROBE_OUTPUT_VERBOSE=true
+            ALETHEIA_PROBE_BACKENDS_DOAJ_ENABLED=false
+            ALETHEIA_PROBE_HEURISTICS_CONFIDENCE_THRESHOLD=0.8
+            ALETHEIA_PROBE_CACHE_UPDATE_THRESHOLD_DAYS=14
+
+        Args:
+            config_data: Configuration dictionary to apply overrides to
+
+        Returns:
+            Configuration dictionary with environment variable overrides applied
+        """
+        for key, value in os.environ.items():
+            if key.startswith("ALETHEIA_PROBE_"):
+                # Parse: ALETHEIA_PROBE_SECTION_SUBSECTION_FIELD
+                config_path = key.replace("ALETHEIA_PROBE_", "").lower().split("_")
+
+                if len(config_path) >= 2:
+                    # Navigate/create nested structure
+                    current = config_data
+                    for part in config_path[:-1]:
+                        if part not in current:
+                            current[part] = {}
+                        current = current[part]
+
+                    # Set the value with type conversion
+                    field = config_path[-1]
+                    current[field] = self._parse_env_value(value)
 
         return config_data
+
+    def _parse_env_value(self, value: str) -> str | bool | int | float:
+        """Parse environment variable string to appropriate type.
+
+        Automatically converts string values to the most appropriate type:
+        - "true"/"false" (case-insensitive) → bool
+        - Numeric strings with decimal point → float
+        - Numeric strings without decimal → int
+        - Everything else → str (unchanged)
+
+        Args:
+            value: Raw string value from environment variable
+
+        Returns:
+            Parsed value with appropriate type (bool, int, float, or str)
+
+        Examples:
+            >>> self._parse_env_value("true")
+            True
+            >>> self._parse_env_value("0.8")
+            0.8
+            >>> self._parse_env_value("14")
+            14
+            >>> self._parse_env_value("json")
+            'json'
+        """
+        # Boolean
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
+
+        # Try numeric conversions
+        try:
+            if "." in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            pass
+
+        # Keep as string
+        return value
 
     def get_enabled_backends(self) -> list[str]:
         """Get list of enabled backend names."""
