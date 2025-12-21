@@ -13,7 +13,6 @@ import asyncio
 import os
 import threading
 import time
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 # Performance testing dependencies (required in dev group)
