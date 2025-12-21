@@ -183,6 +183,13 @@ class ConfigManager:
         else:
             config_data = default_config
 
+        # Ensure backend configs have required 'name' field
+        # (handles new backends added via config that weren't in defaults)
+        if "backends" in config_data and isinstance(config_data["backends"], dict):
+            for backend_name, backend_config in config_data["backends"].items():
+                if isinstance(backend_config, dict) and "name" not in backend_config:
+                    backend_config["name"] = backend_name
+
         # Override with environment variables
         config_data = self._apply_env_overrides(config_data)
 
@@ -192,10 +199,11 @@ class ConfigManager:
     def _deep_merge_configs(
         self, default_config: dict[str, Any], override_config: dict[str, Any]
     ) -> dict[str, Any]:
-        """Deep merge override config into default config.
+        """Deep merge override config into default config recursively.
 
-        This method performs a recursive merge of configuration dictionaries,
-        with special handling for the 'backends' configuration section.
+        This method performs a true recursive merge of configuration dictionaries,
+        allowing users to override specific nested settings while preserving
+        defaults at any level of nesting.
 
         Args:
             default_config: Base configuration with all defaults
@@ -204,37 +212,35 @@ class ConfigManager:
         Returns:
             Merged configuration
 
-        Backend Special Handling:
-            The 'backends' section requires special treatment due to its nested
-            structure and merging requirements:
+        Recursive Merge Behavior:
+            When both default and override contain dictionaries for the same key,
+            they are recursively merged rather than replaced. This allows:
 
-            1. Nested Structure: Backends are stored as a two-level dictionary:
-               backends: {
-                 "backend_name": {"enabled": True, "weight": 0.8, ...}
-               }
+            1. Partial Overrides: Override individual fields in deeply nested
+               structures without specifying complete configurations.
 
-            2. Per-Backend Merging: Instead of replacing entire backend configs,
-               this method merges individual backend settings. This allows users
-               to override specific settings (e.g., "enabled": false) while
-               preserving other default settings (e.g., timeout, weight).
+            2. Any Nesting Level: Works consistently for any depth of nested
+               dictionaries (backends, backend configs, heuristics, etc.).
 
-            3. Dynamic Addition: New backends not in the default config can be
-               added. The method automatically ensures each backend has a 'name'
-               field matching its dictionary key.
-
-            4. Partial Overrides: Users can provide minimal overrides like:
-               backends:
-                 doaj:
-                   enabled: false
-               And the method preserves all other default settings for that backend.
-
-            Without this special handling, users would need to specify complete
-            backend configurations even for single setting changes.
+            3. Flexibility: Users can override a single backend setting while
+               preserving all other defaults, or add new backends entirely.
 
         Example:
-            Default: {"backends": {"doaj": {"name": "doaj", "enabled": True, "weight": 0.8}}}
-            Override: {"backends": {"doaj": {"enabled": False}}}
-            Result: {"backends": {"doaj": {"name": "doaj", "enabled": False, "weight": 0.8}}}
+            Default: {
+                "backends": {
+                    "doaj": {"enabled": True, "weight": 0.8, "config": {"api_key": "default"}}
+                }
+            }
+            Override: {
+                "backends": {
+                    "doaj": {"config": {"api_key": "custom"}}
+                }
+            }
+            Result: {
+                "backends": {
+                    "doaj": {"enabled": True, "weight": 0.8, "config": {"api_key": "custom"}}
+                }
+            }
         """
         result = copy.deepcopy(default_config)
 
@@ -244,26 +250,10 @@ class ConfigManager:
                 and isinstance(result[key], dict)
                 and isinstance(value, dict)
             ):
-                # For nested dicts, merge recursively
-                if key == "backends":
-                    # Special handling for backends - merge each backend config
-                    for backend_name, backend_config in value.items():
-                        if backend_name in result[key]:
-                            # Merge backend-specific config
-                            result[key][backend_name].update(backend_config)
-                        else:
-                            # New backend config - ensure 'name' field is present
-                            if "name" not in backend_config:
-                                backend_config = {
-                                    "name": backend_name,
-                                    **backend_config,
-                                }
-                            result[key][backend_name] = backend_config
-                else:
-                    # Regular dict merge
-                    result[key].update(value)
+                # Recursively merge ANY nested dict
+                result[key] = self._deep_merge_configs(result[key], value)
             else:
-                # Direct override for non-dict values
+                # Direct override for non-dict values or new keys
                 result[key] = value
 
         return result
