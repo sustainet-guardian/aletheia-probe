@@ -4,7 +4,7 @@ This project uses a dual-logger system to separate verbose technical logging fro
 
 ## Logger Types
 
-### 1. Detail Logger (`journal_assessment.detail`)
+### 1. Detail Logger (`aletheia_probe.detail`)
 - **Purpose**: Verbose technical logging for debugging and troubleshooting
 - **Output**: Log file only
 - **Level**: DEBUG and above
@@ -15,7 +15,7 @@ This project uses a dual-logger system to separate verbose technical logging fro
   - Internal state changes
   - Technical diagnostics
 
-### 2. Status Logger (`journal_assessment.status`)
+### 2. Status Logger (`aletheia_probe.status`)
 - **Purpose**: User-facing progress and status information
 - **Output**: Console (stderr) AND log file
 - **Level**: INFO and above
@@ -158,32 +158,32 @@ Synchronization completed
 
 **BibTeX Assessment Example:**
 ```
-2025-11-15 14:30:01 - journal_assessment.detail - INFO - Logging initialized. Log file: /home/user/.aletheia-probe/aletheia-probe.log
-2025-11-15 14:30:01 - journal_assessment.status - INFO - Parsing BibTeX file: references.bib
-2025-11-15 14:30:01 - journal_assessment.detail - DEBUG - Starting BibTeX file assessment: references.bib
-2025-11-15 14:30:01 - journal_assessment.detail - DEBUG - Successfully parsed 25 entries
-2025-11-15 14:30:01 - journal_assessment.status - INFO - Found 25 entries with journal information
-2025-11-15 14:30:01 - journal_assessment.status - INFO - [1/25] Assessing: IEEE Transactions on Software Engineering
-2025-11-15 14:30:01 - journal_assessment.detail - DEBUG - Processing entry 1/25: IEEE Transactions on Software Engineering (type: article)
-2025-11-15 14:30:01 - journal_assessment.detail - DEBUG - Normalized journal name: ieee transactions on software engineering
-2025-11-15 14:30:02 - journal_assessment.detail - DEBUG - Assessment result: legitimate, confidence: 0.95
-2025-11-15 14:30:02 - journal_assessment.status - INFO -     → LEGITIMATE (confidence: 0.95)
+2025-11-15 14:30:01 - aletheia_probe.detail - INFO - Logging initialized. Log file: /home/user/.aletheia-probe/aletheia-probe.log
+2025-11-15 14:30:01 - aletheia_probe.status - INFO - Parsing BibTeX file: references.bib
+2025-11-15 14:30:01 - aletheia_probe.detail - DEBUG - Starting BibTeX file assessment: references.bib
+2025-11-15 14:30:01 - aletheia_probe.detail - DEBUG - Successfully parsed 25 entries
+2025-11-15 14:30:01 - aletheia_probe.status - INFO - Found 25 entries with journal information
+2025-11-15 14:30:01 - aletheia_probe.status - INFO - [1/25] Assessing: IEEE Transactions on Software Engineering
+2025-11-15 14:30:01 - aletheia_probe.detail - DEBUG - Processing entry 1/25: IEEE Transactions on Software Engineering (type: article)
+2025-11-15 14:30:01 - aletheia_probe.detail - DEBUG - Normalized journal name: ieee transactions on software engineering
+2025-11-15 14:30:02 - aletheia_probe.detail - DEBUG - Assessment result: legitimate, confidence: 0.95
+2025-11-15 14:30:02 - aletheia_probe.status - INFO -     → LEGITIMATE (confidence: 0.95)
 ...
 ```
 
 **Sync Command Example:**
 ```
-2025-11-15 14:35:01 - journal_assessment.detail - INFO - Starting cache synchronization with backend configuration
-2025-11-15 14:35:01 - journal_assessment.status - INFO - Synchronizing cache with backend configuration...
-2025-11-15 14:35:01 - journal_assessment.detail - DEBUG - Syncing all backends: bealls, doaj, scopus, predatoryjournals
-2025-11-15 14:35:01 - journal_assessment.detail - DEBUG - Processing backend: bealls
-2025-11-15 14:35:02 - journal_assessment.detail - INFO - Data for bealls is stale, updating...
-2025-11-15 14:35:03 - journal_assessment.detail - INFO - Successfully fetched data for bealls: {'status': 'success', 'records_updated': 1234}
-2025-11-15 14:35:03 - journal_assessment.status - INFO -   bealls: Updated 1234 records
-2025-11-15 14:35:03 - journal_assessment.detail - DEBUG - Processing backend: doaj
-2025-11-15 14:35:03 - journal_assessment.detail - DEBUG - Data for doaj is fresh, no update needed
-2025-11-15 14:35:03 - journal_assessment.status - INFO -   doaj: Data is current
+2025-11-15 14:35:01 - aletheia_probe.detail - INFO - Starting cache synchronization with backend configuration
+2025-11-15 14:35:01 - aletheia_probe.status - INFO - Synchronizing cache with backend configuration...
+2025-11-15 14:35:01 - aletheia_probe.detail - DEBUG - Syncing all backends: bealls, doaj, scopus, predatoryjournals
+2025-11-15 14:35:01 - aletheia_probe.detail - DEBUG - Processing backend: bealls
+2025-11-15 14:35:02 - aletheia_probe.detail - INFO - Data for bealls is stale, updating...
+2025-11-15 14:35:03 - aletheia_probe.detail - INFO - Successfully fetched data for bealls: {'status': 'success', 'records_updated': 1234}
+2025-11-15 14:35:03 - aletheia_probe.status - INFO -   bealls: Updated 1234 records
+2025-11-15 14:35:03 - aletheia_probe.detail - DEBUG - Processing backend: doaj
+2025-11-15 14:35:03 - aletheia_probe.detail - DEBUG - Data for doaj is fresh, no update needed
+2025-11-15 14:35:03 - aletheia_probe.status - INFO -   doaj: Data is current
 ...
-2025-11-15 14:35:10 - journal_assessment.detail - INFO - Cache synchronization completed
-2025-11-15 14:35:10 - journal_assessment.status - INFO - Synchronization completed
+2025-11-15 14:35:10 - aletheia_probe.detail - INFO - Cache synchronization completed
+2025-11-15 14:35:10 - aletheia_probe.status - INFO - Synchronization completed
 ```
