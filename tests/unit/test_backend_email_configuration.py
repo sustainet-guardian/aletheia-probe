@@ -199,9 +199,9 @@ backends:
         assert scopus_backend is not None
         assert scopus_backend.get_name() == "scopus"
 
-        # These should not have email attributes and shouldn't cause errors
-        assert not hasattr(doaj_backend, "email") or doaj_backend.email is None
-        assert not hasattr(scopus_backend, "email") or scopus_backend.email is None
+        # These backends should not have email attributes
+        assert not hasattr(doaj_backend, "email")
+        assert not hasattr(scopus_backend, "email")
 
 
 class TestEmailConfigurationValidation:
