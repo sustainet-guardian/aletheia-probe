@@ -51,7 +51,7 @@ def temp_config_file():
 class TestConfigManager:
     """Test cases for ConfigManager functionality (loading, merging, caching, env overrides)."""
 
-    def test_load_config_from_file(self, temp_config_file):
+    def test_load_config_from_file(self, temp_config_file) -> None:
         """Test loading configuration from file."""
         manager = ConfigManager(temp_config_file)
         config = manager.load_config()
@@ -64,7 +64,7 @@ class TestConfigManager:
         assert config.output.format == "yaml"
         assert config.cache.auto_sync is False
 
-    def test_load_config_no_file(self, tmp_path):
+    def test_load_config_no_file(self, tmp_path) -> None:
         """Test loading default configuration when no file exists."""
         manager = ConfigManager(tmp_path / "nonexistent.yaml")
         config = manager.load_config()
@@ -76,7 +76,7 @@ class TestConfigManager:
         assert config.output.format == "json"  # Default
         assert config.cache.auto_sync is True  # Default
 
-    def test_load_config_caching(self, temp_config_file):
+    def test_load_config_caching(self, temp_config_file) -> None:
         """Test that configuration is cached after first load."""
         manager = ConfigManager(temp_config_file)
 
@@ -85,7 +85,7 @@ class TestConfigManager:
 
         assert config1 is config2  # Same object reference
 
-    def test_deep_merge_configs(self, temp_config_file):
+    def test_deep_merge_configs(self, temp_config_file) -> None:
         """Test deep merging of configuration dictionaries."""
         manager = ConfigManager(temp_config_file)
 
@@ -113,7 +113,7 @@ class TestConfigManager:
         assert result["backends"]["backend3"]["enabled"] is True  # Added
         assert result["heuristics"]["confidence_threshold"] == 0.8
 
-    def test_apply_env_overrides(self, temp_config_file):
+    def test_apply_env_overrides(self, temp_config_file) -> None:
         """Test environment variable overrides."""
         manager = ConfigManager(temp_config_file)
 
@@ -130,7 +130,7 @@ class TestConfigManager:
         assert result["output"]["verbose"] is True
         assert result["output"]["format"] == "yaml"
 
-    def test_get_enabled_backends(self, temp_config_file):
+    def test_get_enabled_backends(self, temp_config_file) -> None:
         """Test getting list of enabled backend names."""
         manager = ConfigManager(temp_config_file)
         enabled = manager.get_enabled_backends()
@@ -138,7 +138,7 @@ class TestConfigManager:
         assert "test_backend" in enabled
         assert all(isinstance(name, str) for name in enabled)
 
-    def test_get_backend_config(self, temp_config_file):
+    def test_get_backend_config(self, temp_config_file) -> None:
         """Test getting configuration for a specific backend."""
         manager = ConfigManager(temp_config_file)
         backend_config = manager.get_backend_config("test_backend")
@@ -149,14 +149,14 @@ class TestConfigManager:
         assert backend_config.weight == 0.8
         assert backend_config.timeout == 15
 
-    def test_get_backend_config_nonexistent(self, temp_config_file):
+    def test_get_backend_config_nonexistent(self, temp_config_file) -> None:
         """Test getting configuration for non-existent backend."""
         manager = ConfigManager(temp_config_file)
         backend_config = manager.get_backend_config("nonexistent_backend")
 
         assert backend_config is None
 
-    def test_get_complete_config_dict(self, temp_config_file):
+    def test_get_complete_config_dict(self, temp_config_file) -> None:
         """Test getting complete configuration as dictionary."""
         manager = ConfigManager(temp_config_file)
         config_dict = manager.get_complete_config_dict()
@@ -167,7 +167,7 @@ class TestConfigManager:
         assert "output" in config_dict
         assert "cache" in config_dict
 
-    def test_show_config(self, temp_config_file):
+    def test_show_config(self, temp_config_file) -> None:
         """Test showing configuration in YAML format."""
         manager = ConfigManager(temp_config_file)
         config_yaml = manager.show_config()
@@ -178,7 +178,7 @@ class TestConfigManager:
         assert isinstance(parsed, dict)
         assert "backends" in parsed
 
-    def test_find_config_file_priority(self, tmp_path):
+    def test_find_config_file_priority(self, tmp_path) -> None:
         """Test configuration file search priority."""
         # Create config files in different locations
         local_config = tmp_path / ".aletheia-probe" / "config.yaml"
@@ -197,7 +197,7 @@ class TestConfigManager:
             # Should find the highest priority file
             assert manager.config_path == local_config
 
-    def test_get_default_config_with_all_backends(self, temp_config_file):
+    def test_get_default_config_with_all_backends(self, temp_config_file) -> None:
         """Test getting default configuration with all available backends."""
         with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
             mock_registry = Mock()
@@ -221,7 +221,7 @@ class TestConfigManager:
                 assert backend_config["weight"] == 0.8
                 assert backend_config["timeout"] == 10
 
-    def test_create_default_config(self, tmp_path):
+    def test_create_default_config(self, tmp_path) -> None:
         """Test creating a default configuration file."""
         with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
             mock_registry = Mock()
@@ -240,7 +240,7 @@ class TestConfigManager:
             assert "backends" in config_data
             assert "test_backend" in config_data["backends"]
 
-    def test_partial_config_file(self, tmp_path):
+    def test_partial_config_file(self, tmp_path) -> None:
         """Test loading configuration with only partial data."""
         partial_config = {"backends": {"test": {"enabled": False}}}
         config_file = tmp_path / "partial.yaml"
@@ -260,7 +260,7 @@ class TestConfigManager:
 class TestConfigModels:
     """Test Pydantic model validation for AppConfig and ConfigBackend."""
 
-    def test_app_config_defaults(self):
+    def test_app_config_defaults(self) -> None:
         """Test AppConfig model with default values."""
         config = AppConfig()
 
@@ -269,13 +269,13 @@ class TestConfigModels:
         assert config.output.format == "json"
         assert config.cache.auto_sync is True
 
-    def test_app_config_validation(self):
+    def test_app_config_validation(self) -> None:
         """Test AppConfig validation with invalid heuristics data."""
         # Invalid confidence threshold (> 1.0)
         with pytest.raises(ValidationError):
             AppConfig(heuristics={"confidence_threshold": 1.5})
 
-    def test_config_backend_validation(self):
+    def test_config_backend_validation(self) -> None:
         """Test ConfigBackend model validation."""
         # Valid configuration
         backend = ConfigBackend(
