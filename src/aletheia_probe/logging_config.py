@@ -72,12 +72,8 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     status_logger.setLevel(logging.INFO)
     status_logger.handlers.clear()
 
-    # Console handler for status logger - outputs to stderr
-    # Ensure stderr is unbuffered for real-time output
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.INFO)
+    # Console formatter for status logger
     console_formatter = logging.Formatter("%(asctime)s %(message)s", datefmt="%H:%M:%S")
-    console_handler.setFormatter(console_formatter)
 
     # Force immediate flush after each log message
     class FlushingStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
