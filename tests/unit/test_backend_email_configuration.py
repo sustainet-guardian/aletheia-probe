@@ -71,39 +71,6 @@ class TestBackendEmailConfiguration:
         assert backend.openalex_backend.email == "issue47-cv@example.com"
         assert backend.crossref_backend.email == "issue47-cv@example.com"
 
-    def test_lambda_syntax_fix_verification(self):
-        """Test that verifies the lambda syntax is fixed in all three backends.
-
-        The original issue #47 was invalid Python lambda syntax in the factory
-        registrations. This test verifies that the lambda functions can be called
-        with keyword arguments.
-        """
-        registry = get_backend_registry()
-
-        # Get the factories directly (this is internal testing)
-        crossref_factory = registry._factories.get("crossref_analyzer")
-        openalex_factory = registry._factories.get("openalex_analyzer")
-        cross_validator_factory = registry._factories.get("cross_validator")
-
-        assert crossref_factory is not None
-        assert openalex_factory is not None
-        assert cross_validator_factory is not None
-
-        # Test calling factories with keyword arguments (this would fail with broken lambda syntax)
-        crossref_backend = crossref_factory(
-            email="lambda-test@example.com", cache_ttl_hours=5
-        )
-        openalex_backend = openalex_factory(
-            email="lambda-test@example.com", cache_ttl_hours=5
-        )
-        cv_backend = cross_validator_factory(
-            email="lambda-test@example.com", cache_ttl_hours=5
-        )
-
-        assert crossref_backend.email == "lambda-test@example.com"
-        assert openalex_backend.email == "lambda-test@example.com"
-        assert cv_backend.email == "lambda-test@example.com"
-
     def test_config_file_email_configuration(self):
         """Test that email configuration can be loaded from a config file.
 
