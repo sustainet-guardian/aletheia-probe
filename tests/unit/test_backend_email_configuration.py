@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Unit tests for email configuration issue #47.
+"""Unit tests for backend email configuration.
 
-This test module validates the email configuration fix for issue #47:
-"Configuration of email does not work" - Error: <lambda>() got an unexpected keyword argument 'email'
+This test module validates that backends can be properly configured with email
+parameters. This functionality was added to fix issue #47 where email configuration
+was failing with a lambda syntax error.
+
+Historical context (issue #47):
+"Configuration of email does not work" - Error: <lambda>() got an unexpected
+keyword argument 'email'
 """
 
 import tempfile
@@ -15,8 +20,12 @@ from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.config import ConfigManager
 
 
-class TestEmailConfigurationIssue47:
-    """Tests for the specific issue #47: email configuration not working."""
+class TestBackendEmailConfiguration:
+    """Tests for backend email configuration functionality.
+
+    These tests verify that backends can be properly created and configured
+    with email parameters. Originally created to validate the fix for issue #47.
+    """
 
     def test_backend_registry_create_backend_with_email_crossref(self):
         """Test that crossref_analyzer backend can be created with email parameter.
@@ -65,8 +74,9 @@ class TestEmailConfigurationIssue47:
     def test_lambda_syntax_fix_verification(self):
         """Test that verifies the lambda syntax is fixed in all three backends.
 
-        The original issue was invalid Python lambda syntax in the factory registrations.
-        This test verifies that the lambda functions can be called with keyword arguments.
+        The original issue #47 was invalid Python lambda syntax in the factory
+        registrations. This test verifies that the lambda functions can be called
+        with keyword arguments.
         """
         registry = get_backend_registry()
 
@@ -132,7 +142,7 @@ backends:
     def test_original_error_scenario_simulation(self):
         """Simulate the original error scenario that would have occurred.
 
-        Before the fix, this would result in:
+        Before the fix for issue #47, this would result in:
         "Error during assessment: <lambda>() got an unexpected keyword argument 'email'"
         """
         registry = get_backend_registry()
