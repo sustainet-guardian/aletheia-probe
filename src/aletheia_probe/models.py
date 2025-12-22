@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Core data models for the journal assessment tool."""
 
-import re
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
+
+from .validation import validate_email as _validate_email
 
 
 class VenueType(str, Enum):
@@ -171,12 +172,7 @@ class ConfigBackend(BaseModel):
         if v is None:
             return v
 
-        # Basic email validation regex
-        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(email_pattern, v):
-            raise ValueError("Invalid email format")
-
-        return v
+        return _validate_email(v)
 
 
 class BibtexEntry(BaseModel):
