@@ -11,7 +11,13 @@ import yaml
 from pydantic import ValidationError
 
 from aletheia_probe.config import AppConfig, ConfigManager
-from aletheia_probe.constants import DEFAULT_CACHE_AUTO_SYNC
+from aletheia_probe.constants import (
+    DEFAULT_BACKEND_TIMEOUT,
+    DEFAULT_BACKEND_WEIGHT,
+    DEFAULT_CACHE_AUTO_SYNC,
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_OUTPUT_FORMAT,
+)
 from aletheia_probe.models import ConfigBackend
 
 
@@ -73,8 +79,10 @@ class TestConfigManager:
         assert isinstance(config, AppConfig)
         # Should have default backends from registry
         assert len(config.backends) > 0
-        assert config.heuristics.confidence_threshold == 0.6  # Default
-        assert config.output.format == "json"  # Default
+        assert (
+            config.heuristics.confidence_threshold == DEFAULT_CONFIDENCE_THRESHOLD
+        )  # Default
+        assert config.output.format == DEFAULT_OUTPUT_FORMAT  # Default
         assert config.cache.auto_sync is DEFAULT_CACHE_AUTO_SYNC  # Default
 
     def test_load_config_caching(self, temp_config_file) -> None:
@@ -95,7 +103,7 @@ class TestConfigManager:
                 "backend1": {"enabled": True, "weight": 1.0},
                 "backend2": {"enabled": True, "weight": 1.0},
             },
-            "heuristics": {"confidence_threshold": 0.6},
+            "heuristics": {"confidence_threshold": DEFAULT_CONFIDENCE_THRESHOLD},
         }
 
         override_config = {
@@ -244,8 +252,8 @@ class TestConfigManager:
             for backend_name in ["backend1", "backend2", "backend3"]:
                 backend_config = default_config["backends"][backend_name]
                 assert backend_config["enabled"] is True
-                assert backend_config["weight"] == 0.8
-                assert backend_config["timeout"] == 10
+                assert backend_config["weight"] == DEFAULT_BACKEND_WEIGHT
+                assert backend_config["timeout"] == DEFAULT_BACKEND_TIMEOUT
 
     def test_create_default_config(self, tmp_path) -> None:
         """Test creating a default configuration file."""
@@ -279,8 +287,8 @@ class TestConfigManager:
         assert isinstance(config, AppConfig)
         assert "test" in config.backends
         # Should have default values for missing fields
-        assert config.heuristics.confidence_threshold == 0.6
-        assert config.output.format == "json"
+        assert config.heuristics.confidence_threshold == DEFAULT_CONFIDENCE_THRESHOLD
+        assert config.output.format == DEFAULT_OUTPUT_FORMAT
 
 
 class TestConfigModels:
@@ -291,8 +299,8 @@ class TestConfigModels:
         config = AppConfig()
 
         assert config.backends == {}
-        assert config.heuristics.confidence_threshold == 0.6
-        assert config.output.format == "json"
+        assert config.heuristics.confidence_threshold == DEFAULT_CONFIDENCE_THRESHOLD
+        assert config.output.format == DEFAULT_OUTPUT_FORMAT
         assert config.cache.auto_sync is DEFAULT_CACHE_AUTO_SYNC
 
     def test_app_config_validation(self) -> None:
