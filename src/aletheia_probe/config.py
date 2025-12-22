@@ -201,9 +201,8 @@ class ConfigManager:
     ) -> dict[str, Any]:
         """Deep merge override config into default config recursively.
 
-        This method performs a true recursive merge of configuration dictionaries,
-        allowing users to override specific nested settings while preserving
-        defaults at any level of nesting.
+        Nested dictionaries are merged recursively rather than replaced,
+        allowing partial overrides at any nesting level.
 
         Args:
             default_config: Base configuration with all defaults
@@ -211,36 +210,6 @@ class ConfigManager:
 
         Returns:
             Merged configuration
-
-        Recursive Merge Behavior:
-            When both default and override contain dictionaries for the same key,
-            they are recursively merged rather than replaced. This allows:
-
-            1. Partial Overrides: Override individual fields in deeply nested
-               structures without specifying complete configurations.
-
-            2. Any Nesting Level: Works consistently for any depth of nested
-               dictionaries (backends, backend configs, heuristics, etc.).
-
-            3. Flexibility: Users can override a single backend setting while
-               preserving all other defaults, or add new backends entirely.
-
-        Example:
-            Default: {
-                "backends": {
-                    "doaj": {"enabled": True, "weight": 0.8, "config": {"api_key": "default"}}
-                }
-            }
-            Override: {
-                "backends": {
-                    "doaj": {"config": {"api_key": "custom"}}
-                }
-            }
-            Result: {
-                "backends": {
-                    "doaj": {"enabled": True, "weight": 0.8, "config": {"api_key": "custom"}}
-                }
-            }
         """
         result = copy.deepcopy(default_config)
 
