@@ -93,6 +93,7 @@ DEFAULT_BACKEND_AGREEMENT_BONUS: float = 0.2
 
 # Default cache settings
 DEFAULT_CACHE_UPDATE_THRESHOLD_DAYS: int = 7
+DEFAULT_CACHE_AUTO_SYNC: bool = True
 
 # Default output format
 DEFAULT_OUTPUT_FORMAT: str = "json"

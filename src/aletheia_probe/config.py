@@ -14,6 +14,7 @@ from .constants import (
     DEFAULT_BACKEND_AGREEMENT_BONUS,
     DEFAULT_BACKEND_TIMEOUT,
     DEFAULT_BACKEND_WEIGHT,
+    DEFAULT_CACHE_AUTO_SYNC,
     DEFAULT_CACHE_UPDATE_THRESHOLD_DAYS,
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_OUTPUT_FORMAT,
@@ -50,7 +51,8 @@ class CacheConfig(BaseModel):
     """Configuration for cache synchronization."""
 
     auto_sync: bool = Field(
-        True, description="Enable automatic cache synchronization with backend config"
+        DEFAULT_CACHE_AUTO_SYNC,
+        description="Enable automatic cache synchronization with backend config",
     )
     cleanup_disabled: bool = Field(
         True, description="Remove cache data for disabled backends"
@@ -370,7 +372,7 @@ class ConfigManager:
                 "include_raw_data": False,
             },
             "cache": {
-                "auto_sync": True,
+                "auto_sync": DEFAULT_CACHE_AUTO_SYNC,
                 "cleanup_disabled": True,
                 "update_threshold_days": DEFAULT_CACHE_UPDATE_THRESHOLD_DAYS,
             },

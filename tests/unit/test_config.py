@@ -11,6 +11,7 @@ import yaml
 from pydantic import ValidationError
 
 from aletheia_probe.config import AppConfig, ConfigManager
+from aletheia_probe.constants import DEFAULT_CACHE_AUTO_SYNC
 from aletheia_probe.models import ConfigBackend
 
 
@@ -74,7 +75,7 @@ class TestConfigManager:
         assert len(config.backends) > 0
         assert config.heuristics.confidence_threshold == 0.6  # Default
         assert config.output.format == "json"  # Default
-        assert config.cache.auto_sync is True  # Default
+        assert config.cache.auto_sync is DEFAULT_CACHE_AUTO_SYNC  # Default
 
     def test_load_config_caching(self, temp_config_file) -> None:
         """Test that configuration is cached after first load."""
@@ -292,7 +293,7 @@ class TestConfigModels:
         assert config.backends == {}
         assert config.heuristics.confidence_threshold == 0.6
         assert config.output.format == "json"
-        assert config.cache.auto_sync is True
+        assert config.cache.auto_sync is DEFAULT_CACHE_AUTO_SYNC
 
     def test_app_config_validation(self) -> None:
         """Test AppConfig validation with invalid heuristics data."""
