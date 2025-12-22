@@ -20,6 +20,8 @@ htmlcov/
 coverage.xml
 .coverage.*
 coverage_analysis/
+benchmark-*.json
+*.db
 
 # IDEs
 .vscode/
