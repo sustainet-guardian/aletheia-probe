@@ -135,8 +135,14 @@ class TestConfigManager:
         manager = ConfigManager(temp_config_file)
         enabled = manager.get_enabled_backends()
 
+        # Verify specific backend is present
         assert "test_backend" in enabled
+        # Verify all entries are strings
         assert all(isinstance(name, str) for name in enabled)
+        # Verify only enabled backends are returned
+        config = manager.load_config()
+        for backend_name in enabled:
+            assert config.backends[backend_name].enabled is True
 
     def test_get_backend_config(self, temp_config_file) -> None:
         """Test getting configuration for a specific backend."""
@@ -161,22 +167,41 @@ class TestConfigManager:
         manager = ConfigManager(temp_config_file)
         config_dict = manager.get_complete_config_dict()
 
+        # Verify structure
         assert isinstance(config_dict, dict)
         assert "backends" in config_dict
         assert "heuristics" in config_dict
         assert "output" in config_dict
         assert "cache" in config_dict
 
+        # Verify specific values from temp_config_file
+        assert "test_backend" in config_dict["backends"]
+        assert config_dict["backends"]["test_backend"]["enabled"] is True
+        assert config_dict["backends"]["test_backend"]["weight"] == 0.8
+        assert config_dict["heuristics"]["confidence_threshold"] == 0.7
+        assert config_dict["output"]["format"] == "yaml"
+        assert config_dict["output"]["verbose"] is True
+        assert config_dict["cache"]["auto_sync"] is False
+
     def test_show_config(self, temp_config_file) -> None:
         """Test showing configuration in YAML format."""
         manager = ConfigManager(temp_config_file)
         config_yaml = manager.show_config()
 
+        # Verify output is a valid YAML string
         assert isinstance(config_yaml, str)
-        # Should be valid YAML
         parsed = yaml.safe_load(config_yaml)
         assert isinstance(parsed, dict)
+
+        # Verify structure
         assert "backends" in parsed
+
+        # Verify specific values from temp_config_file are present in output
+        assert "test_backend" in parsed["backends"]
+        assert parsed["backends"]["test_backend"]["enabled"] is True
+        assert parsed["backends"]["test_backend"]["weight"] == 0.8
+        assert parsed["heuristics"]["confidence_threshold"] == 0.7
+        assert parsed["output"]["format"] == "yaml"
 
     def test_find_config_file_priority(self, tmp_path) -> None:
         """Test configuration file search priority."""
