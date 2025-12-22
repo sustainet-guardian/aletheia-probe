@@ -2,14 +2,16 @@
 """Retry utilities for API calls."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any
+from typing import Any, TypeVar
 
 from .logging_config import get_detail_logger
 
 
 detail_logger = get_detail_logger()
+
+T = TypeVar("T")
 
 
 def async_retry_with_backoff(
@@ -18,7 +20,7 @@ def async_retry_with_backoff(
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorator for retrying async functions with exponential backoff.
 
     Args:
@@ -37,12 +39,13 @@ def async_retry_with_backoff(
         ...     return await api.get("/data")
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             delay = initial_delay
+            attempt = 0
 
-            for attempt in range(max_retries + 1):
+            while True:
                 try:
                     return await func(*args, **kwargs)
                 except exceptions as e:
@@ -58,8 +61,7 @@ def async_retry_with_backoff(
                     )
                     await asyncio.sleep(delay)
                     delay = min(delay * exponential_base, max_delay)
-
-            raise RuntimeError("Retry logic failed unexpectedly")
+                    attempt += 1
 
         return wrapper
 
