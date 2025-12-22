@@ -231,29 +231,27 @@ class TestEmailConfigurationValidation:
         backend1 = registry.create_backend("crossref_analyzer")
         assert backend1.email == "noreply@aletheia-probe.org"
 
-        # Test with explicit None - this should work and use None as the email value
-        # The backend accepts None as a valid email value
-        backend2 = registry.create_backend("crossref_analyzer", email=None)
-        assert backend2.email is None
+        # Test with explicit None - this should raise TypeError
+        # None is not a valid email address
+        with pytest.raises(TypeError, match="email must be a string"):
+            registry.create_backend("crossref_analyzer", email=None)
 
     def test_invalid_email_type_handling(self):
-        """Test behavior with different email types.
+        """Test that backends reject invalid email types.
 
-        The current implementation accepts various types and converts them to strings.
-        This documents the actual behavior rather than enforcing strict validation.
+        Email parameter must be a string with valid format.
+        Invalid types (integers, lists, dicts) should be rejected with TypeError.
         """
         registry = get_backend_registry()
 
-        # The backend currently accepts various types and converts them
-        # This is the actual behavior - document it in tests
-        backend1 = registry.create_backend("crossref_analyzer", email=123)
-        assert backend1.email == 123  # Gets stored as-is
+        # Integer should raise TypeError
+        with pytest.raises(TypeError, match="email must be a string"):
+            registry.create_backend("crossref_analyzer", email=123)
 
-        backend2 = registry.create_backend("crossref_analyzer", email=[])
-        assert backend2.email == []  # Gets stored as-is
+        # List should raise TypeError
+        with pytest.raises(TypeError, match="email must be a string"):
+            registry.create_backend("crossref_analyzer", email=[])
 
-        backend3 = registry.create_backend("crossref_analyzer", email={})
-        assert backend3.email == {}  # Gets stored as-is
-
-        # Note: In a production system, you might want stricter email validation
-        # but this test documents the current permissive behavior
+        # Dict should raise TypeError
+        with pytest.raises(TypeError, match="email must be a string"):
+            registry.create_backend("crossref_analyzer", email={})

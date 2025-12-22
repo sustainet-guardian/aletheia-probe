@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from ..models import BackendResult, BackendStatus, QueryInput
+from ..validation import validate_email
 from .base import HybridBackend, get_backend_registry
 from .crossref_analyzer import CrossrefAnalyzerBackend
 from .openalex_analyzer import OpenAlexAnalyzerBackend
@@ -22,9 +23,13 @@ class CrossValidatorBackend(HybridBackend):
         Args:
             email: Email for API access
             cache_ttl_hours: Cache TTL in hours
+
+        Raises:
+            TypeError: If email is not a string
+            ValueError: If email format is invalid
         """
         super().__init__(cache_ttl_hours)
-        self.email = email
+        self.email = validate_email(email)
         self.openalex_backend = OpenAlexAnalyzerBackend(email, cache_ttl_hours)
         self.crossref_backend = CrossrefAnalyzerBackend(email, cache_ttl_hours)
 

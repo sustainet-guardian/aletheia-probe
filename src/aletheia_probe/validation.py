@@ -6,6 +6,7 @@ import re
 
 ISSN_PATTERN = re.compile(r"^\d{4}-?\d{3}[\dXx]$")
 DOI_PATTERN = re.compile(r"^10\.\d{4,}/[\S]+$")
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def normalize_issn(issn: str | None) -> str | None:
@@ -157,3 +158,25 @@ def extract_issn_from_text(text: str) -> str | None:
         return normalize_issn(match.group())
 
     return None
+
+
+def validate_email(email: str) -> str:
+    """Validate email format.
+
+    Args:
+        email: Email string to validate
+
+    Returns:
+        The email if valid
+
+    Raises:
+        TypeError: If email is not a string
+        ValueError: If email format is invalid
+    """
+    if not isinstance(email, str):
+        raise TypeError(f"email must be a string, not {type(email).__name__}")
+
+    if not EMAIL_PATTERN.match(email):
+        raise ValueError("Invalid email format")
+
+    return email

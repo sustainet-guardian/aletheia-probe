@@ -13,6 +13,7 @@ from ..constants import (
     MIN_REFERENCE_COUNT,
 )
 from ..models import BackendResult, BackendStatus, QueryInput
+from ..validation import validate_email
 from .base import HybridBackend, get_backend_registry
 
 
@@ -27,9 +28,13 @@ class CrossrefAnalyzerBackend(HybridBackend):
         Args:
             email: Email for Crossref polite pool access
             cache_ttl_hours: Cache TTL in hours
+
+        Raises:
+            TypeError: If email is not a string
+            ValueError: If email format is invalid
         """
         super().__init__(cache_ttl_hours)
-        self.email = email
+        self.email = validate_email(email)
         self.base_url = "https://api.crossref.org"
         self.headers = {
             "User-Agent": f"AletheiaProbe/1.0 (mailto:{email})",

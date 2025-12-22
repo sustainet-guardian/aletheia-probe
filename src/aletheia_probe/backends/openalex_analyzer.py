@@ -14,6 +14,7 @@ from ..constants import (
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
+from ..validation import validate_email
 from .base import HybridBackend, get_backend_registry
 
 
@@ -28,9 +29,13 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         Args:
             email: Email for OpenAlex polite pool access
             cache_ttl_hours: Cache TTL in hours
+
+        Raises:
+            TypeError: If email is not a string
+            ValueError: If email format is invalid
         """
         super().__init__(cache_ttl_hours)
-        self.email = email
+        self.email = validate_email(email)
         self.detail_logger = get_detail_logger()
 
     def get_name(self) -> str:
