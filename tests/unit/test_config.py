@@ -49,7 +49,7 @@ def temp_config_file():
 
 
 class TestConfigManager:
-    """Test cases for ConfigManager."""
+    """Test cases for ConfigManager functionality (loading, merging, caching, env overrides)."""
 
     def test_load_config_from_file(self, temp_config_file):
         """Test loading configuration from file."""
@@ -240,25 +240,6 @@ class TestConfigManager:
             assert "backends" in config_data
             assert "test_backend" in config_data["backends"]
 
-    def test_config_validation_errors(self):
-        """Test configuration validation with invalid data."""
-        # Test invalid confidence threshold
-        with pytest.raises(ValidationError):
-            AppConfig(heuristics={"confidence_threshold": 1.5})  # > 1.0
-
-        # Test invalid timeout
-        with pytest.raises(ValidationError):
-            AppConfig(
-                backends={
-                    "test": ConfigBackend(
-                        name="test",
-                        enabled=True,
-                        weight=1.0,
-                        timeout=0,  # <= 0
-                    )
-                }
-            )
-
     def test_partial_config_file(self, tmp_path):
         """Test loading configuration with only partial data."""
         partial_config = {"backends": {"test": {"enabled": False}}}
@@ -277,7 +258,22 @@ class TestConfigManager:
 
 
 class TestConfigModels:
-    """Test configuration model validation."""
+    """Test Pydantic model validation for AppConfig and ConfigBackend."""
+
+    def test_app_config_defaults(self):
+        """Test AppConfig model with default values."""
+        config = AppConfig()
+
+        assert config.backends == {}
+        assert config.heuristics.confidence_threshold == 0.6
+        assert config.output.format == "json"
+        assert config.cache.auto_sync is True
+
+    def test_app_config_validation(self):
+        """Test AppConfig validation with invalid heuristics data."""
+        # Invalid confidence threshold (> 1.0)
+        with pytest.raises(ValidationError):
+            AppConfig(heuristics={"confidence_threshold": 1.5})
 
     def test_config_backend_validation(self):
         """Test ConfigBackend model validation."""
@@ -297,15 +293,19 @@ class TestConfigModels:
         with pytest.raises(ValidationError):
             ConfigBackend(name="test", enabled=True, weight=-0.1, timeout=10)
 
-        # Invalid timeout (zero)
+        # Invalid timeout (zero or negative)
         with pytest.raises(ValidationError):
             ConfigBackend(name="test", enabled=True, weight=1.0, timeout=0)
 
-    def test_app_config_defaults(self):
-        """Test AppConfig model with default values."""
-        config = AppConfig()
-
-        assert config.backends == {}
-        assert config.heuristics.confidence_threshold == 0.6
-        assert config.output.format == "json"
-        assert config.cache.auto_sync is True
+        # Invalid timeout in AppConfig backends
+        with pytest.raises(ValidationError):
+            AppConfig(
+                backends={
+                    "test": ConfigBackend(
+                        name="test",
+                        enabled=True,
+                        weight=1.0,
+                        timeout=0,  # <= 0
+                    )
+                }
+            )
