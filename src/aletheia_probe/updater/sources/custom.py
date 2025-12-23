@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ...cache import get_cache_manager
+from ...cache import DataSourceManager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
@@ -38,7 +38,8 @@ class CustomListSource(DataSource):
         if not self.file_path.exists():
             return False
 
-        last_update = get_cache_manager().get_source_last_updated(self.get_name())
+        data_source_manager = DataSourceManager()
+        last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
             return True
 

@@ -493,7 +493,7 @@ class BibtexParser:
             "\\ieee" -> "IEEE" -> (lookup in cache) -> full name or "IEEE"
             "\\unknownmacro" -> "UNKNOWNMACRO" (or removed if not in cache)
         """
-        from .cache import get_cache_manager
+        from .cache import AcronymCache
 
         # Find all LaTeX commands (backslash followed by letters)
         latex_command_pattern = r"\\([a-zA-Z]+)"
@@ -503,8 +503,8 @@ class BibtexParser:
             acronym = macro_name.upper()  # Convert to uppercase (e.g., pasp -> PASP)
 
             # Try to look up the acronym in the cache
-            cache = get_cache_manager()
-            full_name = cache.get_full_name_for_acronym(acronym)
+            acronym_cache = AcronymCache()
+            full_name = acronym_cache.get_full_name_for_acronym(acronym)
 
             if full_name:
                 return full_name

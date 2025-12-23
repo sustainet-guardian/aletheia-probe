@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from ...cache import get_cache_manager
+from ...cache import DataSourceManager, RetractionCache
 from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
@@ -43,7 +43,8 @@ class RetractionWatchSource(DataSource):
 
     def should_update(self) -> bool:
         """Check if we should update (weekly for retraction data)."""
-        last_update = get_cache_manager().get_source_last_updated(self.get_name())
+        data_source_manager = DataSourceManager()
+        last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
             return True
 
@@ -418,7 +419,7 @@ class RetractionWatchSource(DataSource):
         if not article_batch:
             return
 
-        cache_manager = get_cache_manager()
+        retraction_cache = RetractionCache()
         expires_at = datetime.now() + timedelta(hours=24 * 365)  # 1 year
 
         # Prepare batch data
@@ -461,7 +462,7 @@ class RetractionWatchSource(DataSource):
 
         # Batch insert
         if records:
-            with sqlite3.connect(cache_manager.db_path) as conn:
+            with sqlite3.connect(retraction_cache.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.executemany(
                     """

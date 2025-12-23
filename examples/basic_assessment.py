@@ -10,6 +10,7 @@ This script demonstrates:
 """
 
 import asyncio
+
 from aletheia_probe.dispatcher import query_dispatcher
 from aletheia_probe.models import QueryInput
 
@@ -22,7 +23,7 @@ async def single_assessment():
     query = QueryInput(
         raw_input="Nature Communications",
         normalized_name="nature communications",
-        identifiers={"issn": "2041-1723"}
+        identifiers={"issn": "2041-1723"},
     )
 
     # Perform assessment
@@ -45,7 +46,7 @@ async def batch_assessment():
     journals = [
         {"name": "Science", "issn": "1095-9203"},
         {"name": "PLOS ONE", "issn": "1932-6203"},
-        {"name": "Journal of Biomedicine", "issn": None}  # Potentially suspicious
+        {"name": "Journal of Biomedicine", "issn": None},  # Potentially suspicious
     ]
 
     results = []
@@ -54,13 +55,15 @@ async def batch_assessment():
         query = QueryInput(
             raw_input=journal["name"],
             normalized_name=journal["name"].lower(),
-            identifiers={"issn": journal["issn"]} if journal["issn"] else {}
+            identifiers={"issn": journal["issn"]} if journal["issn"] else {},
         )
 
         result = await query_dispatcher.assess_journal(query)
         results.append((journal["name"], result))
 
-        print(f"{journal['name']}: {result.assessment} ({result.confidence:.0%} confidence)")
+        print(
+            f"{journal['name']}: {result.assessment} ({result.confidence:.0%} confidence)"
+        )
 
     return results
 

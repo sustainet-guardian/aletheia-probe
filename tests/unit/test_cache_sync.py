@@ -250,7 +250,7 @@ class TestCacheSyncManager:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(
                 sync_manager, "_fetch_backend_data", new_callable=AsyncMock
@@ -276,7 +276,7 @@ class TestCacheSyncManager:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(sync_manager, "_should_update_source", return_value=True),
             patch.object(
@@ -303,7 +303,7 @@ class TestCacheSyncManager:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(sync_manager, "_should_update_source", return_value=False),
         ):
@@ -332,10 +332,10 @@ class TestCacheSyncManager:
         backend = MockCachedBackend("disabled_backend", "disabled_source")
 
         with patch(
-            "aletheia_probe.cache_sync.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.cache_sync.DataSourceManager"
+        ) as mock_data_source_manager:
             mock_cache_manager = Mock()
-            mock_get_cache_manager.return_value = mock_cache_manager
+            mock_data_source_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = True
             mock_cache_manager.remove_source_data.return_value = 25
             mock_cache_manager.log_update = Mock()
@@ -354,10 +354,10 @@ class TestCacheSyncManager:
         backend = MockCachedBackend("disabled_backend", "disabled_source")
 
         with patch(
-            "aletheia_probe.cache_sync.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.cache_sync.DataSourceManager"
+        ) as mock_data_source_manager:
             mock_cache_manager = Mock()
-            mock_get_cache_manager.return_value = mock_cache_manager
+            mock_data_source_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = False
 
             result = await sync_manager._cleanup_disabled_backend_data(backend)
@@ -371,10 +371,10 @@ class TestCacheSyncManager:
         backend = MockCachedBackend("disabled_backend", "disabled_source")
 
         with patch(
-            "aletheia_probe.cache_sync.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.cache_sync.DataSourceManager"
+        ) as mock_data_source_manager:
             mock_cache_manager = Mock()
-            mock_get_cache_manager.return_value = mock_cache_manager
+            mock_data_source_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = True
             mock_cache_manager.remove_source_data.side_effect = sqlite3.Error(
                 "Cleanup failed"
@@ -435,7 +435,7 @@ class TestCacheSyncManager:
         """Test should update for source that was never updated."""
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(sync_manager.config_manager, "load_config"),
         ):
@@ -453,7 +453,7 @@ class TestCacheSyncManager:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(
                 sync_manager.config_manager, "load_config", return_value=mock_config
@@ -473,7 +473,7 @@ class TestCacheSyncManager:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch.object(
                 sync_manager.config_manager, "load_config", return_value=mock_config
@@ -502,7 +502,7 @@ class TestCacheSyncManager:
                 return_value=["cached_backend"],
             ),
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
             mock_registry = Mock()
@@ -548,7 +548,7 @@ class TestCacheSyncManager:
                 sync_manager.config_manager, "get_enabled_backends", return_value=[]
             ),
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
             mock_registry = Mock()
@@ -665,7 +665,7 @@ class TestAsyncDBWriter:
                 },
             ) as mock_batch_write,
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
             mock_cache_manager = Mock()
@@ -735,7 +735,7 @@ class TestAsyncDBWriter:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch("sqlite3.connect") as mock_connect,
         ):
@@ -787,7 +787,7 @@ class TestAsyncDBWriter:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch("sqlite3.connect") as mock_connect,
         ):
@@ -833,7 +833,7 @@ class TestAsyncDBWriter:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch("sqlite3.connect") as mock_connect,
         ):
@@ -877,7 +877,7 @@ class TestAsyncDBWriter:
 
         with (
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
             patch("sqlite3.connect") as mock_connect,
         ):
@@ -924,7 +924,7 @@ class TestAsyncDBWriter:
                 },
             ) as mock_batch_write,
             patch(
-                "aletheia_probe.cache_sync.get_cache_manager"
+                "aletheia_probe.cache_sync.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
             mock_cache_manager = Mock()

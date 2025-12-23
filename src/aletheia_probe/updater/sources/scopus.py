@@ -9,7 +9,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-from ...cache import get_cache_manager
+from ...cache import DataSourceManager
 from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
@@ -53,7 +53,8 @@ class ScopusSource(DataSource):
         if not self._find_scopus_file():
             return False
 
-        last_update = get_cache_manager().get_source_last_updated(self.get_name())
+        data_source_manager = DataSourceManager()
+        last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
             return True
 

@@ -12,6 +12,13 @@ from aletheia_probe.article_retraction_checker import (
     ArticleRetractionResult,
     check_article_retraction,
 )
+from aletheia_probe.cache import RetractionCache
+
+
+@pytest.fixture
+def retraction_cache(isolated_test_cache):
+    """Create RetractionCache from isolated test cache path."""
+    return RetractionCache(isolated_test_cache)
 
 
 class TestArticleRetractionResult:
@@ -90,9 +97,9 @@ class TestArticleRetractionResult:
 class TestArticleRetractionCheckerInit:
     """Test suite for ArticleRetractionChecker initialization."""
 
-    def test_init_default_email(self):
+    def test_init_default_email(self, retraction_cache):
         """Test ArticleRetractionChecker initialization with default email."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
 
         assert checker.email == "noreply@aletheia-probe.org"
         assert checker.crossref_base_url == "https://api.crossref.org"
@@ -101,10 +108,10 @@ class TestArticleRetractionCheckerInit:
         expected_user_agent = "AletheiaProbe/1.0 (mailto:noreply@aletheia-probe.org)"
         assert checker.headers["User-Agent"] == expected_user_agent
 
-    def test_init_custom_email(self):
+    def test_init_custom_email(self, retraction_cache):
         """Test ArticleRetractionChecker initialization with custom email."""
         custom_email = "test@example.com"
-        checker = ArticleRetractionChecker(email=custom_email)
+        checker = ArticleRetractionChecker(retraction_cache, email=custom_email)
 
         assert checker.email == custom_email
         # Verify exact User-Agent format instead of substring matching
@@ -116,22 +123,22 @@ class TestArticleRetractionCheckerDOIValidation:
     """Test suite for DOI validation and normalization."""
 
     @pytest.mark.asyncio
-    async def test_check_doi_empty_string(self):
+    async def test_check_doi_empty_string(self, retraction_cache):
         """Test handling of empty DOI string."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         result = await checker.check_doi("")
 
         assert result.doi == ""
         assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_doi_normalization(self, isolated_test_cache):
+    async def test_check_doi_normalization(self, retraction_cache):
         """Test DOI normalization (lowercase and strip)."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
 
         # Mock the cache and API to check what DOI is being used
         with patch.object(
-            isolated_test_cache, "get_article_retraction", return_value=None
+            retraction_cache, "get_article_retraction", return_value=None
         ):
             with (
                 patch.object(checker, "_check_retraction_watch_local") as mock_rw,
@@ -155,13 +162,13 @@ class TestArticleRetractionCheckerCacheIntegration:
     """Test suite for cache integration."""
 
     @pytest.mark.asyncio
-    async def test_check_doi_cache_hit(self, isolated_test_cache):
+    async def test_check_doi_cache_hit(self, retraction_cache):
         """Test that cache hit returns cached result without API calls."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/test.cached"
 
         # Pre-populate cache
-        isolated_test_cache.cache_article_retraction(
+        retraction_cache.cache_article_retraction(
             doi=doi,
             is_retracted=True,
             source="cache",
@@ -185,9 +192,9 @@ class TestArticleRetractionCheckerCacheIntegration:
         assert "cache" in result.sources
 
     @pytest.mark.asyncio
-    async def test_check_doi_cache_miss_caches_result(self, isolated_test_cache):
+    async def test_check_doi_cache_miss_caches_result(self, retraction_cache):
         """Test that cache miss fetches from API and caches result."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/test.new"
 
         # Mock the API to return a retraction
@@ -204,7 +211,7 @@ class TestArticleRetractionCheckerCacheIntegration:
             assert result.is_retracted is True
 
             # Verify result was cached
-            cached = isolated_test_cache.get_article_retraction(doi)
+            cached = retraction_cache.get_article_retraction(doi)
             assert cached is not None
             # SQLite returns int (1) for boolean True
             assert cached["is_retracted"] == 1
@@ -214,13 +221,13 @@ class TestArticleRetractionCheckerRetractionWatchLocal:
     """Test suite for local Retraction Watch checking."""
 
     @pytest.mark.asyncio
-    async def test_check_retraction_watch_local_found(self, isolated_test_cache):
+    async def test_check_retraction_watch_local_found(self, retraction_cache):
         """Test finding retraction in local Retraction Watch data."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/retracted"
 
         # Pre-populate cache with Retraction Watch data
-        isolated_test_cache.cache_article_retraction(
+        retraction_cache.cache_article_retraction(
             doi=doi,
             is_retracted=True,
             source="retraction_watch",
@@ -237,9 +244,9 @@ class TestArticleRetractionCheckerRetractionWatchLocal:
         assert result.retraction_type == "misconduct"
 
     @pytest.mark.asyncio
-    async def test_check_retraction_watch_local_not_found(self, isolated_test_cache):
+    async def test_check_retraction_watch_local_not_found(self, retraction_cache):
         """Test when DOI not found in local Retraction Watch data."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/not.in.rw"
 
         result = await checker._check_retraction_watch_local(doi)
@@ -248,13 +255,13 @@ class TestArticleRetractionCheckerRetractionWatchLocal:
         assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_retraction_watch_local_wrong_source(self, isolated_test_cache):
+    async def test_check_retraction_watch_local_wrong_source(self, retraction_cache):
         """Test that only retraction_watch source is returned."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/crossref.only"
 
         # Cache with different source
-        isolated_test_cache.cache_article_retraction(
+        retraction_cache.cache_article_retraction(
             doi=doi, is_retracted=True, source="crossref"
         )
 
@@ -268,9 +275,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
     """Test suite for Crossref API integration."""
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_success_with_retraction(self):
+    async def test_check_crossref_api_success_with_retraction(self, retraction_cache):
         """Test successful Crossref API response with retraction."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/retracted"
 
         crossref_response = {
@@ -309,9 +316,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert "crossref" in result.sources
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_no_retraction(self):
+    async def test_check_crossref_api_no_retraction(self, retraction_cache):
         """Test Crossref API response for non-retracted article."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/not.retracted"
 
         crossref_response = {
@@ -335,9 +342,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_404_not_found(self):
+    async def test_check_crossref_api_404_not_found(self, retraction_cache):
         """Test Crossref API 404 response."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/not.found"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -351,9 +358,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_500_server_error(self):
+    async def test_check_crossref_api_500_server_error(self, retraction_cache):
         """Test Crossref API 500 server error handling."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/server.error"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -367,9 +374,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_timeout(self):
+    async def test_check_crossref_api_timeout(self, retraction_cache):
         """Test Crossref API timeout handling."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/timeout"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -383,9 +390,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_client_error(self):
+    async def test_check_crossref_api_client_error(self, retraction_cache):
         """Test Crossref API client error handling."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/client.error"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -399,9 +406,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_json_decode_error(self):
+    async def test_check_crossref_api_json_decode_error(self, retraction_cache):
         """Test Crossref API JSON decode error handling."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/bad.json"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -416,9 +423,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
             assert result.is_retracted is False
 
     @pytest.mark.asyncio
-    async def test_check_crossref_api_update_to_retraction(self):
+    async def test_check_crossref_api_update_to_retraction(self, retraction_cache):
         """Test Crossref API with 'update-to' retraction field."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/retracted.via.update.to"
 
         crossref_response = {
@@ -451,9 +458,9 @@ class TestArticleRetractionCheckerCrossrefAPI:
 class TestArticleRetractionCheckerParseRetraction:
     """Test suite for parsing retraction information."""
 
-    def test_parse_crossref_retraction_basic(self):
+    def test_parse_crossref_retraction_basic(self, retraction_cache):
         """Test parsing basic retraction information."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/test"
         update_info = {
             "DOI": "10.1234/retraction",
@@ -471,9 +478,9 @@ class TestArticleRetractionCheckerParseRetraction:
         assert result.retraction_reason == "Retracted due to misconduct"
         assert "crossref" in result.sources
 
-    def test_parse_crossref_retraction_with_date(self):
+    def test_parse_crossref_retraction_with_date(self, retraction_cache):
         """Test parsing retraction with date information."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/test"
         update_info = {
             "DOI": "10.1234/retraction",
@@ -486,9 +493,9 @@ class TestArticleRetractionCheckerParseRetraction:
 
         assert result.retraction_date == "2023-03-15"
 
-    def test_parse_crossref_retraction_with_incomplete_date(self):
+    def test_parse_crossref_retraction_with_incomplete_date(self, retraction_cache):
         """Test parsing retraction with incomplete date (less than 3 parts)."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/test"
         update_info = {
             "DOI": "10.1234/retraction",
@@ -502,7 +509,7 @@ class TestArticleRetractionCheckerParseRetraction:
         # Should not set retraction_date if incomplete
         assert result.retraction_date is None
 
-    def test_parse_crossref_retraction_is_notice(self):
+    def test_parse_crossref_retraction_is_notice(self, retraction_cache):
         """Test parsing retraction notice (update-to field)."""
         checker = ArticleRetractionChecker()
         doi = "10.1234/test"
@@ -519,9 +526,9 @@ class TestArticleRetractionCheckerParseRetraction:
 class TestArticleRetractionCheckerCacheResult:
     """Test suite for caching results."""
 
-    def test_cache_result_retracted(self, isolated_test_cache):
+    def test_cache_result_retracted(self, retraction_cache):
         """Test caching a retracted article result."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/retracted"
 
         result = ArticleRetractionResult(
@@ -538,16 +545,16 @@ class TestArticleRetractionCheckerCacheResult:
         checker._cache_result(result, "crossref")
 
         # Verify cached
-        cached = isolated_test_cache.get_article_retraction(doi)
+        cached = retraction_cache.get_article_retraction(doi)
         assert cached is not None
         # SQLite returns int (1) for boolean True
         assert cached["is_retracted"] == 1
         assert cached["retraction_type"] == "misconduct"
         assert cached["source"] == "crossref"
 
-    def test_cache_result_not_retracted(self, isolated_test_cache):
+    def test_cache_result_not_retracted(self, retraction_cache):
         """Test caching a non-retracted article result."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/not.retracted"
 
         result = ArticleRetractionResult(doi=doi, is_retracted=False)
@@ -555,7 +562,7 @@ class TestArticleRetractionCheckerCacheResult:
         checker._cache_result(result, "multiple")
 
         # Verify cached
-        cached = isolated_test_cache.get_article_retraction(doi)
+        cached = retraction_cache.get_article_retraction(doi)
         assert cached is not None
         # SQLite returns int (0) for boolean False
         assert cached["is_retracted"] == 0
@@ -566,9 +573,9 @@ class TestArticleRetractionCheckerIntegration:
     """Integration tests for the complete check workflow."""
 
     @pytest.mark.asyncio
-    async def test_check_doi_workflow_retraction_watch_hit(self, isolated_test_cache):
+    async def test_check_doi_workflow_retraction_watch_hit(self, retraction_cache):
         """Test complete workflow when Retraction Watch has the retraction."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/in.rw"
 
         # Mock Retraction Watch to return retraction (not using cache)
@@ -589,9 +596,9 @@ class TestArticleRetractionCheckerIntegration:
             assert "crossref" not in result.checked_sources
 
     @pytest.mark.asyncio
-    async def test_check_doi_workflow_crossref_only(self, isolated_test_cache):
+    async def test_check_doi_workflow_crossref_only(self, retraction_cache):
         """Test workflow when only Crossref has the retraction."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/in.crossref"
 
         crossref_response = {
@@ -615,9 +622,9 @@ class TestArticleRetractionCheckerIntegration:
             assert "crossref" in result.checked_sources
 
     @pytest.mark.asyncio
-    async def test_check_doi_workflow_not_retracted(self, isolated_test_cache):
+    async def test_check_doi_workflow_not_retracted(self, retraction_cache):
         """Test workflow when article is not retracted anywhere."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/clean.article"
 
         crossref_response = {
@@ -637,17 +644,15 @@ class TestArticleRetractionCheckerIntegration:
             assert len(result.checked_sources) == 2  # Both sources checked
 
             # Verify negative result was cached
-            cached = isolated_test_cache.get_article_retraction(doi)
+            cached = retraction_cache.get_article_retraction(doi)
             assert cached is not None
             # SQLite returns int (0) for boolean False
             assert cached["is_retracted"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_doi_workflow_crossref_error_continues(
-        self, isolated_test_cache
-    ):
+    async def test_check_doi_workflow_crossref_error_continues(self, retraction_cache):
         """Test that workflow continues when Crossref API fails."""
-        checker = ArticleRetractionChecker()
+        checker = ArticleRetractionChecker(retraction_cache)
         doi = "10.1234/crossref.error"
 
         with patch("aiohttp.ClientSession.get") as mock_get:
@@ -667,7 +672,7 @@ class TestCheckArticleRetractionConvenienceFunction:
     """Test suite for the convenience function."""
 
     @pytest.mark.asyncio
-    async def test_check_article_retraction_function(self, isolated_test_cache):
+    async def test_check_article_retraction_function(self, retraction_cache):
         """Test the convenience function creates checker and calls check_doi."""
         doi = "10.1234/convenience.test"
 

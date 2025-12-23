@@ -37,23 +37,28 @@ async def test_query_api_with_eissn_fallback(backend):
         raw_input="Test Journal",
         identifiers={"issn": "1234-5678", "eissn": "8765-4321"},
     )
-    with patch.object(
-        backend, "_get_journal_by_issn", new_callable=AsyncMock
-    ) as mock_get:
+    with (
+        patch.object(
+            backend.assessment_cache, "get_cached_assessment", return_value=None
+        ),
+        patch.object(
+            backend, "_get_journal_by_issn", new_callable=AsyncMock
+        ) as mock_get,
+        patch.object(backend, "_analyze_metadata_quality") as mock_analyze,
+    ):
         mock_get.side_effect = [None, {"title": "Test Journal"}]
-        with patch.object(backend, "_analyze_metadata_quality") as mock_analyze:
-            mock_analyze.return_value = {
-                "assessment": "legitimate",
-                "confidence": 0.8,
-                "metrics": {},
-                "red_flags": [],
-                "green_flags": [],
-            }
-            result = await backend.query(query_input)
-            assert result.status == BackendStatus.FOUND
-            assert mock_get.call_count == 2
-            mock_get.assert_any_call("1234-5678")
-            mock_get.assert_any_call("8765-4321")
+        mock_analyze.return_value = {
+            "assessment": "legitimate",
+            "confidence": 0.8,
+            "metrics": {},
+            "red_flags": [],
+            "green_flags": [],
+        }
+        result = await backend.query(query_input)
+        assert result.status == BackendStatus.FOUND
+        assert mock_get.call_count == 2
+        mock_get.assert_any_call("1234-5678")
+        mock_get.assert_any_call("8765-4321")
 
 
 @pytest.mark.asyncio
@@ -62,9 +67,14 @@ async def test_query_api_exception_handling(backend):
     query_input = QueryInput(
         raw_input="Test Journal", identifiers={"issn": "1234-5678"}
     )
-    with patch.object(
-        backend, "_get_journal_by_issn", new_callable=AsyncMock
-    ) as mock_get:
+    with (
+        patch.object(
+            backend.assessment_cache, "get_cached_assessment", return_value=None
+        ),
+        patch.object(
+            backend, "_get_journal_by_issn", new_callable=AsyncMock
+        ) as mock_get,
+    ):
         mock_get.side_effect = Exception("API Error")
         result = await backend.query(query_input)
         assert result.status == BackendStatus.ERROR

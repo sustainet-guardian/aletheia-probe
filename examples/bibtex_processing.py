@@ -12,6 +12,7 @@ This script demonstrates:
 import asyncio
 import tempfile
 from pathlib import Path
+
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
 
 
@@ -46,7 +47,7 @@ def create_sample_bibtex():
 """
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.bib', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False)
     temp_file.write(bibtex_content)
     temp_file.close()
 
@@ -69,7 +70,7 @@ async def process_bibtex_file():
         result = await assessor.assess_bibtex_file(bibtex_path, verbose=True)
 
         # Display summary results
-        print(f"\n=== Assessment Summary ===")
+        print("\n=== Assessment Summary ===")
         print(f"Total entries processed: {result.total_entries}")
         print(f"Legitimate journals: {result.legitimate_count}")
         print(f"Predatory journals: {result.predatory_count}")
@@ -92,14 +93,14 @@ async def analyze_results(result):
         print(f"  Confidence: {assessment.confidence:.0%}")
 
         if bibtex_entry.is_retracted:
-            print(f"  Warning: Contains retracted articles")
+            print("  Warning: Contains retracted articles")
 
         if assessment.assessment == "predatory":
-            print(f"  Risk Level: HIGH - Avoid this journal")
+            print("  Risk Level: HIGH - Avoid this journal")
         elif assessment.assessment == "legitimate":
-            print(f"  Risk Level: LOW - Safe to publish")
+            print("  Risk Level: LOW - Safe to publish")
         else:
-            print(f"  Risk Level: UNKNOWN - Requires manual review")
+            print("  Risk Level: UNKNOWN - Requires manual review")
 
 
 async def main():

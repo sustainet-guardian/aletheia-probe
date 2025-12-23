@@ -47,11 +47,11 @@ class TestScopusSource:
             source = ScopusSource(data_dir=data_dir)
 
             with patch(
-                "aletheia_probe.updater.sources.scopus.get_cache_manager"
-            ) as mock_get_cache_manager:
+                "aletheia_probe.updater.sources.scopus.DataSourceManager"
+            ) as MockJournalCache:
                 mock_cache_manager = Mock()
                 mock_cache_manager.get_source_last_updated.return_value = None
-                mock_get_cache_manager.return_value = mock_cache_manager
+                MockJournalCache.return_value = mock_cache_manager
                 assert source.should_update() is True
 
     def test_find_scopus_file_not_found(self):
@@ -319,13 +319,16 @@ class TestScopusBackend:
             }
         ]
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = mock_results
-            mock_cache.search_journals_by_name.return_value = mock_results
-            mock_get_cache_manager.return_value = mock_cache
+        with (
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=mock_results
+            ),
+            patch.object(
+                backend.journal_cache,
+                "search_journals_by_name",
+                return_value=mock_results,
+            ),
+        ):
             result = await backend.query(query_input)
 
             assert result.status == BackendStatus.FOUND
@@ -340,13 +343,12 @@ class TestScopusBackend:
             raw_input="Unknown Journal", normalized_name="unknown journal"
         )
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = []
-            mock_cache.search_journals_by_name.return_value = []
-            mock_get_cache_manager.return_value = mock_cache
+        with (
+            patch.object(backend.journal_cache, "search_journals", return_value=[]),
+            patch.object(
+                backend.journal_cache, "search_journals_by_name", return_value=[]
+            ),
+        ):
             result = await backend.query(query_input)
 
             assert result.status == BackendStatus.NOT_FOUND
@@ -375,13 +377,16 @@ class TestScopusBackend:
             }
         ]
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = mock_results
-            mock_cache.search_journals_by_name.return_value = mock_results
-            mock_get_cache_manager.return_value = mock_cache
+        with (
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=mock_results
+            ),
+            patch.object(
+                backend.journal_cache,
+                "search_journals_by_name",
+                return_value=mock_results,
+            ),
+        ):
             result = await backend.query(query_input)
 
             # Still returns as legitimate (indexed in Scopus)

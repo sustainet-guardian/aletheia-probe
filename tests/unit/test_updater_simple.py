@@ -86,7 +86,9 @@ class TestDataUpdater:
         updater = DataUpdater()
         source = MockDataSource("test_source")
 
-        with patch("aletheia_probe.cache.get_cache_manager") as mock_get_cache_manager:
+        with patch(
+            "aletheia_probe.updater.core.DataSourceManager"
+        ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.clear_source_data.return_value = 0
             mock_cache.log_update = Mock()
@@ -109,7 +111,9 @@ class TestDataUpdater:
         updater = DataUpdater()
         source = ErrorDataSource("error_source")
 
-        with patch("aletheia_probe.cache.get_cache_manager") as mock_get_cache_manager:
+        with patch(
+            "aletheia_probe.updater.core.DataSourceManager"
+        ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.log_update = Mock()
             mock_get_cache_manager.return_value = mock_cache
@@ -130,7 +134,9 @@ class TestDataUpdater:
         updater.add_source(source2)
 
         with (
-            patch("aletheia_probe.cache.get_cache_manager") as mock_get_cache_manager,
+            patch(
+                "aletheia_probe.updater.core.DataSourceManager"
+            ) as mock_get_cache_manager,
             patch.object(updater, "update_source") as mock_update,
         ):
             mock_cache = Mock()

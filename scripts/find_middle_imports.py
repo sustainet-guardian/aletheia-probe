@@ -46,15 +46,17 @@ def check_file_for_middle_imports(filepath: Path) -> list[tuple[int, str]]:
         with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         tree = ast.parse(content, filename=str(filepath))
 
         # Skip the module docstring if present
         body_start_idx = 0
-        if (tree.body and
-            isinstance(tree.body[0], ast.Expr) and
-            isinstance(tree.body[0].value, ast.Constant) and
-            isinstance(tree.body[0].value.value, str)):
+        if (
+            tree.body
+            and isinstance(tree.body[0], ast.Expr)
+            and isinstance(tree.body[0].value, ast.Constant)
+            and isinstance(tree.body[0].value.value, str)
+        ):
             body_start_idx = 1
 
         # Track if we've seen actual code (not imports, not docstrings)
@@ -103,7 +105,9 @@ def main():
 
     # Print results
     if files_with_middle_imports:
-        print(f"Found {total_middle_imports} imports after code across {len(files_with_middle_imports)} files:\n")
+        print(
+            f"Found {total_middle_imports} imports after code across {len(files_with_middle_imports)} files:\n"
+        )
 
         for filepath, imports in sorted(files_with_middle_imports.items()):
             print(f"{filepath}:")

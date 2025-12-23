@@ -6,7 +6,7 @@ from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
-from ...cache import get_cache_manager
+from ...cache import DataSourceManager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
@@ -68,7 +68,8 @@ class KscienGenericSource(DataSource):
             )
             return False
 
-        last_update = get_cache_manager().get_source_last_updated(self.get_name())
+        data_source_manager = DataSourceManager()
+        last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
             detail_logger.info(
                 f"No previous update found for kscien {self.publication_type}, will update"

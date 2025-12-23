@@ -11,7 +11,7 @@ from typing import Any
 
 import aiohttp
 
-from ..cache import get_cache_manager
+from ..cache import AssessmentCache, JournalCache, KeyValueCache
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
@@ -106,6 +106,8 @@ class CachedBackend(Backend):
         super().__init__(cache_ttl_hours)
         self.source_name = source_name
         self.list_type = list_type
+        self.journal_cache = JournalCache()
+        self.assessment_cache = AssessmentCache()
 
     def get_evidence_type(self) -> EvidenceType:
         """Return evidence type based on list type."""
@@ -124,7 +126,7 @@ class CachedBackend(Backend):
         try:
             # Search by ISSN first (most reliable)
             if query_input.identifiers.get("issn"):
-                results = get_cache_manager().search_journals(
+                results = self.journal_cache.search_journals(
                     issn=query_input.identifiers["issn"],
                     source_name=self.source_name,
                     assessment=self.list_type,
@@ -191,8 +193,8 @@ class CachedBackend(Backend):
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
         """Search for exact journal name matches using optimized SQL query."""
-        # Use optimized cache manager method with SQL WHERE clause
-        return get_cache_manager().search_journals_by_name(
+        # Use optimized journal cache method with SQL WHERE clause
+        return self.journal_cache.search_journals_by_name(
             name=name, source_name=self.source_name, assessment=self.list_type
         )
 
@@ -227,6 +229,10 @@ class HybridBackend(Backend):
 
     def __init__(self, cache_ttl_hours: int = 24):
         super().__init__(cache_ttl_hours)
+        # Initialize cache instances (db_path will be fetched from config)
+        self.journal_cache = JournalCache()
+        self.assessment_cache = AssessmentCache()
+        self.key_value_cache = KeyValueCache()
 
     def get_evidence_type(self) -> EvidenceType:
         """HybridBackend provides heuristic evidence by default."""
@@ -240,7 +246,7 @@ class HybridBackend(Backend):
         cache_key = self._generate_cache_key(query_input)
 
         # Try cache first
-        cached_result = get_cache_manager().get_cached_assessment(cache_key)
+        cached_result = self.assessment_cache.get_cached_assessment(cache_key)
         if cached_result:
             # Update the cached result to indicate it came from cache
             cache_lookup_time = time.time() - start_time
@@ -266,7 +272,7 @@ class HybridBackend(Backend):
                 metadata=None,
                 processing_time=result.response_time,
             )
-            get_cache_manager().cache_assessment_result(
+            self.assessment_cache.cache_assessment_result(
                 cache_key,
                 query_input.raw_input,
                 assessment_result,

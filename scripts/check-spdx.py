@@ -13,7 +13,7 @@ def check_spdx_header(file_path: Path) -> tuple[bool, str]:
         Tuple of (has_valid_spdx, error_message)
     """
     try:
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
     except Exception as e:
         return False, f"Error reading file: {e}"
@@ -23,15 +23,21 @@ def check_spdx_header(file_path: Path) -> tuple[bool, str]:
 
     # Check first few lines for SPDX identifier
     for line in lines[:10]:  # Check first 10 lines
-        if 'SPDX-License-Identifier:' in line:
+        if "SPDX-License-Identifier:" in line:
             # Verify it's the correct MIT license
-            if 'MIT' in line:
+            if "MIT" in line:
                 # Check that it's a properly formatted comment
                 stripped = line.strip()
-                if stripped.startswith('#') and 'SPDX-License-Identifier: MIT' in stripped:
+                if (
+                    stripped.startswith("#")
+                    and "SPDX-License-Identifier: MIT" in stripped
+                ):
                     return True, ""
                 else:
-                    return False, f"SPDX header found but incorrectly formatted: '{stripped}'"
+                    return (
+                        False,
+                        f"SPDX header found but incorrectly formatted: '{stripped}'",
+                    )
             else:
                 return False, f"SPDX header found but wrong license: '{line.strip()}'"
 
@@ -61,7 +67,9 @@ def main() -> int:
 
     # Report results
     if missing_spdx:
-        print(f"\n❌ SPDX Check FAILED: {len(missing_spdx)} file(s) missing or have invalid SPDX headers:")
+        print(
+            f"\n❌ SPDX Check FAILED: {len(missing_spdx)} file(s) missing or have invalid SPDX headers:"
+        )
         for file_path, error in missing_spdx:
             rel_path = file_path.relative_to(project_root)
             print(f"  - {rel_path}: {error}")
@@ -72,7 +80,9 @@ def main() -> int:
 
         return 1  # Exit with error code
     else:
-        print(f"✅ SPDX Check PASSED: All {total_files} Python files have valid SPDX headers")
+        print(
+            f"✅ SPDX Check PASSED: All {total_files} Python files have valid SPDX headers"
+        )
         return 0
 
 

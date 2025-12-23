@@ -6,7 +6,7 @@ from typing import Any
 
 import aiohttp
 
-from .cache import get_cache_manager
+from .cache import RetractionCache
 from .logging_config import get_detail_logger, get_status_logger
 
 
@@ -57,7 +57,11 @@ class ArticleRetractionResult:
 class ArticleRetractionChecker:
     """Checks individual articles (by DOI) for retraction status using multiple sources."""
 
-    def __init__(self, email: str = "noreply@aletheia-probe.org"):
+    def __init__(
+        self,
+        retraction_cache: RetractionCache | None = None,
+        email: str = "noreply@aletheia-probe.org",
+    ):
         """
         Initialize the article retraction checker.
 
@@ -69,6 +73,9 @@ class ArticleRetractionChecker:
         self.headers = {
             "User-Agent": f"AletheiaProbe/1.0 (mailto:{email})",
         }
+        self.retraction_cache = (
+            retraction_cache if retraction_cache else RetractionCache()
+        )
 
     async def check_doi(self, doi: str) -> ArticleRetractionResult:
         """
@@ -93,8 +100,7 @@ class ArticleRetractionChecker:
         detail_logger.debug(f"Checking retraction status for DOI: {normalized_doi}")
 
         # Check cache first
-        cache_manager = get_cache_manager()
-        cached = cache_manager.get_article_retraction(normalized_doi)
+        cached = self.retraction_cache.get_article_retraction(normalized_doi)
         if cached:
             detail_logger.debug(f"Cache hit for DOI {normalized_doi}")
             return ArticleRetractionResult(
@@ -155,8 +161,7 @@ class ArticleRetractionChecker:
         """
         # Check if we have this DOI in the article_retractions table
         # (populated from Retraction Watch CSV during sync)
-        cache_manager = get_cache_manager()
-        cached = cache_manager.get_article_retraction(doi)
+        cached = self.retraction_cache.get_article_retraction(doi)
 
         if cached and cached.get("source") == "retraction_watch":
             detail_logger.debug(
@@ -282,8 +287,7 @@ class ArticleRetractionChecker:
 
     def _cache_result(self, result: ArticleRetractionResult, source: str) -> None:
         """Cache the retraction check result."""
-        cache_manager = get_cache_manager()
-        cache_manager.cache_article_retraction(
+        self.retraction_cache.cache_article_retraction(
             doi=result.doi,
             is_retracted=result.is_retracted,
             source=source,

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .backends.base import Backend, get_backend_registry
-from .cache import get_cache_manager
+from .cache import AcronymCache
 from .config import get_config_manager
 from .constants import (
     AGREEMENT_BONUS_AMOUNT,
@@ -120,11 +120,13 @@ class QueryDispatcher:
         # like an acronym with a cached expansion, retry with the expanded name
         if self._should_try_acronym_fallback(assessment_result, query_input):
             normalizer = InputNormalizer()
-            cache = get_cache_manager()
+            acronym_cache = AcronymCache()
 
             # Check if input is acronym-like and has expansion
             if normalizer._is_standalone_acronym(query_input.raw_input):
-                expanded_name = cache.get_full_name_for_acronym(query_input.raw_input)
+                expanded_name = acronym_cache.get_full_name_for_acronym(
+                    query_input.raw_input
+                )
 
                 if expanded_name:
                     self.status_logger.info(
@@ -134,7 +136,8 @@ class QueryDispatcher:
 
                     # Create new query input with expanded name
                     expanded_query = input_normalizer.normalize(
-                        expanded_name, acronym_lookup=cache.get_full_name_for_acronym
+                        expanded_name,
+                        acronym_lookup=acronym_cache.get_full_name_for_acronym,
                     )
 
                     # Store any new acronym mappings discovered during expansion
@@ -142,7 +145,7 @@ class QueryDispatcher:
                         acronym,
                         full_name,
                     ) in expanded_query.extracted_acronym_mappings.items():
-                        cache.store_acronym_mapping(
+                        acronym_cache.store_acronym_mapping(
                             acronym, full_name, source="dispatcher_expansion"
                         )
 

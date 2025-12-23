@@ -2,7 +2,7 @@
 """Data updater for downloading and processing journal lists."""
 
 # Import dependencies used by sources and tests
-from ..cache import get_cache_manager
+from ..cache import DataSourceManager
 from ..normalizer import input_normalizer
 from ..validation import extract_issn_from_text, validate_issn
 from .core import DataSource, DataUpdater, get_update_source_registry
@@ -72,6 +72,6 @@ __all__ = [
     "parse_date_string",
     "validate_issn",
     # Dependencies used by sources and tests
-    "get_cache_manager",
+    "DataSourceManager",
     "input_normalizer",
 ]
