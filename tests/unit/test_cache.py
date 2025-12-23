@@ -637,74 +637,80 @@ class TestAcronymMapping:
 
     def test_are_conference_names_equivalent_identical(self, temp_cache):
         """Test equivalence check for identical names."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "Machine Learning Conference", "Machine Learning Conference"
         )
 
     def test_are_conference_names_equivalent_case_insensitive(self, temp_cache):
         """Test equivalence check is case-insensitive."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "Machine Learning Conference", "machine learning conference"
         )
 
     def test_are_conference_names_equivalent_year_prefix(self, temp_cache):
         """Test equivalence with year prefix."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "2022 IEEE/CVF Conference on Computer Vision",
             "IEEE/CVF Conference on Computer Vision",
         )
 
     def test_are_conference_names_equivalent_year_suffix(self, temp_cache):
         """Test equivalence with year suffix."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "Conference on Machine Learning 2023",
             "Conference on Machine Learning",
         )
 
     def test_are_conference_names_equivalent_edition_markers(self, temp_cache):
         """Test equivalence with edition markers."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "2022 edition International Conference",
             "International Conference",
         )
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "International Conference edition 2022",
             "International Conference",
         )
 
     def test_are_conference_names_equivalent_ordinals(self, temp_cache):
         """Test equivalence with ordinal numbers."""
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "37th International Conference on Machine Learning",
             "International Conference on Machine Learning",
         )
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "1st Workshop on Neural Networks",
             "Workshop on Neural Networks",
         )
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "22nd Annual Conference",
             "Annual Conference",
         )
 
     def test_are_conference_names_equivalent_different_conferences(self, temp_cache):
         """Test that truly different conferences are not equivalent."""
-        assert not temp_cache._are_conference_names_equivalent(
+        assert not temp_cache._acronym_cache._are_conference_names_equivalent(
             "Artificial Intelligence Conference",
             "Algorithms and Informatics Symposium",
         )
-        assert not temp_cache._are_conference_names_equivalent("AAAI", "AI Conference")
+        assert not temp_cache._acronym_cache._are_conference_names_equivalent(
+            "AAAI", "AI Conference"
+        )
 
     def test_are_conference_names_equivalent_substring_with_length_check(
         self, temp_cache
     ):
         """Test that short substrings don't match to avoid false positives."""
         # Short names (< 10 chars) should not match via substring
-        assert not temp_cache._are_conference_names_equivalent("AI", "AAAI")
-        assert not temp_cache._are_conference_names_equivalent("ML", "ICML")
+        assert not temp_cache._acronym_cache._are_conference_names_equivalent(
+            "AI", "AAAI"
+        )
+        assert not temp_cache._acronym_cache._are_conference_names_equivalent(
+            "ML", "ICML"
+        )
 
         # But longer names can match via substring after year/ordinal removal
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "International Conference on Machine Learning and Applications",
             "International Conference on Machine Learning",
         )
@@ -712,13 +718,13 @@ class TestAcronymMapping:
     def test_are_conference_names_equivalent_complex_variations(self, temp_cache):
         """Test complex real-world variations."""
         # Real example from issue #90
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
             "IEEE/CVF Conference on Computer Vision and Pattern Recognition",
         )
 
         # Multiple years in name
-        assert temp_cache._are_conference_names_equivalent(
+        assert temp_cache._acronym_cache._are_conference_names_equivalent(
             "2023 25th International Conference",
             "International Conference",
         )

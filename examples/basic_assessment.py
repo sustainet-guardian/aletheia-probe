@@ -10,6 +10,7 @@ This script demonstrates:
 """
 
 import asyncio
+
 from aletheia_probe.dispatcher import query_dispatcher
 from aletheia_probe.models import QueryInput
 

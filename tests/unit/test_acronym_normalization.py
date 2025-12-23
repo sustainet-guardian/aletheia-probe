@@ -31,10 +31,12 @@ def test_clean_text_html_unescape(normalizer):
 def test_are_conference_names_equivalent_basic_match(isolated_test_cache):
     """Test _are_conference_names_equivalent with basic equivalent names."""
     cache = isolated_test_cache
-    assert cache._are_conference_names_equivalent(
+    assert cache._acronym_cache._are_conference_names_equivalent(
         "Journal of Science", "Journal of Science"
     )
-    assert cache._are_conference_names_equivalent("The Conference", "The Conference")
+    assert cache._acronym_cache._are_conference_names_equivalent(
+        "The Conference", "The Conference"
+    )
 
 
 def test_are_conference_names_equivalent_stop_words(isolated_test_cache):
@@ -43,11 +45,11 @@ def test_are_conference_names_equivalent_stop_words(isolated_test_cache):
     # "and" vs "new" issue from logs
     name1 = "journal of process management and new technologies international"
     name2 = "journal of process management new technologies international"
-    assert cache._are_conference_names_equivalent(name1, name2)
+    assert cache._acronym_cache._are_conference_names_equivalent(name1, name2)
 
     name3 = "International Journal of Research in Medical & Applied Sciences"
     name4 = "International Journal of Research in Medical Applied Sciences"
-    assert cache._are_conference_names_equivalent(name3, name4)
+    assert cache._acronym_cache._are_conference_names_equivalent(name3, name4)
 
 
 def test_are_conference_names_equivalent_case_and_html_entities(
@@ -57,7 +59,7 @@ def test_are_conference_names_equivalent_case_and_html_entities(
     cache = isolated_test_cache
     name1 = "International Journal of Scientific Research &#038; Management Studies"
     name2 = "international journal of scientific research & management studies"
-    assert cache._are_conference_names_equivalent(name1, name2)
+    assert cache._acronym_cache._are_conference_names_equivalent(name1, name2)
 
 
 def test_are_conference_names_equivalent_year_and_ordinal(isolated_test_cache):
@@ -65,11 +67,11 @@ def test_are_conference_names_equivalent_year_and_ordinal(isolated_test_cache):
     cache = isolated_test_cache
     name1 = "2023 IEEE Conference on Computer Vision"
     name2 = "IEEE Conference on Computer Vision"
-    assert cache._are_conference_names_equivalent(name1, name2)
+    assert cache._acronym_cache._are_conference_names_equivalent(name1, name2)
 
     name3 = "1st International Conference on AI"
     name4 = "International Conference on AI"
-    assert cache._are_conference_names_equivalent(name3, name4)
+    assert cache._acronym_cache._are_conference_names_equivalent(name3, name4)
 
 
 def test_are_conference_names_equivalent_substrings(isolated_test_cache):
@@ -77,10 +79,10 @@ def test_are_conference_names_equivalent_substrings(isolated_test_cache):
     cache = isolated_test_cache
     name1 = "Advances in Neural Information Processing Systems"
     name2 = "Neural Information Processing Systems"
-    assert cache._are_conference_names_equivalent(name1, name2)
+    assert cache._acronym_cache._are_conference_names_equivalent(name1, name2)
 
     # Shorter names should not match on substring alone aggressively
-    assert not cache._are_conference_names_equivalent("AI", "AAAI")
+    assert not cache._acronym_cache._are_conference_names_equivalent("AI", "AAAI")
 
 
 def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):

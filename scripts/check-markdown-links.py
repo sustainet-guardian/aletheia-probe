@@ -20,7 +20,6 @@ import urllib.request
 from pathlib import Path
 from typing import NamedTuple
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
 
 
 class Link(NamedTuple):
