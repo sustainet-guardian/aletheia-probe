@@ -47,35 +47,35 @@ class TestAlgerianMinistrySource:
     def test_should_update_no_last_update(self, source):
         """Test should_update when no last update exists."""
         with patch(
-            "aletheia_probe.updater.sources.algerian.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.updater.sources.algerian.DataSourceManager"
+        ) as mock_DataSourceManager:
             mock_cache = Mock()
             mock_cache.get_source_last_updated.return_value = None
-            mock_get_cache_manager.return_value = mock_cache
+            mock_DataSourceManager.return_value = mock_cache
 
             assert source.should_update() is True
 
     def test_should_update_recent_update(self, source):
         """Test should_update with recent update (< 30 days)."""
         with patch(
-            "aletheia_probe.updater.sources.algerian.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.updater.sources.algerian.DataSourceManager"
+        ) as mock_DataSourceManager:
             mock_cache = Mock()
             recent_date = datetime.now() - timedelta(days=15)
             mock_cache.get_source_last_updated.return_value = recent_date
-            mock_get_cache_manager.return_value = mock_cache
+            mock_DataSourceManager.return_value = mock_cache
 
             assert source.should_update() is False
 
     def test_should_update_old_update(self, source):
         """Test should_update with old update (>= 30 days)."""
         with patch(
-            "aletheia_probe.updater.sources.algerian.get_cache_manager"
-        ) as mock_get_cache_manager:
+            "aletheia_probe.updater.sources.algerian.DataSourceManager"
+        ) as mock_DataSourceManager:
             mock_cache = Mock()
             old_date = datetime.now() - timedelta(days=35)
             mock_cache.get_source_last_updated.return_value = old_date
-            mock_get_cache_manager.return_value = mock_cache
+            mock_DataSourceManager.return_value = mock_cache
 
             assert source.should_update() is True
 

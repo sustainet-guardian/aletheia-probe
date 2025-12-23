@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from .backends.base import Backend, CachedBackend, HybridBackend, get_backend_registry
-from .cache import get_cache_manager
+from .cache import DataSourceManager
 from .config import get_config_manager
 from .enums import UpdateStatus
 from .logging_config import get_detail_logger, get_status_logger
@@ -79,7 +79,8 @@ class AsyncDBWriter:
                 unique_journals = write_result["unique_journals"]
                 duplicates = write_result["duplicates"]
 
-                get_cache_manager().log_update(
+                data_source_manager = DataSourceManager()
+                data_source_manager.log_update(
                     source_name, "full", "success", records_updated=total_records
                 )
 
@@ -100,10 +101,10 @@ class AsyncDBWriter:
         self, source_name: str, list_type: str, journals: list[dict[str, Any]]
     ) -> dict[str, int]:
         """Optimized batch writing of journals to database using SQLite performance tuning."""
-        cache_manager = get_cache_manager()
+        data_source_manager = DataSourceManager()
 
         # Get database connection with performance optimizations
-        with sqlite3.connect(cache_manager.db_path) as conn:
+        with sqlite3.connect(data_source_manager.db_path) as conn:
             # SQLite performance optimizations
             conn.execute(
                 "PRAGMA journal_mode = WAL"
@@ -118,7 +119,9 @@ class AsyncDBWriter:
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
             source_row = cursor.fetchone()
             if not source_row:
-                cache_manager.register_data_source(source_name, source_name, "mixed")
+                data_source_manager.register_data_source(
+                    source_name, source_name, "mixed"
+                )
                 cursor.execute(
                     "SELECT id FROM data_sources WHERE name = ?", (source_name,)
                 )
@@ -693,7 +696,8 @@ class CacheSyncManager:
         source_name = backend.source_name
 
         # Check if data exists
-        has_data = get_cache_manager().has_source_data(source_name)
+        data_source_manager = DataSourceManager()
+        has_data = data_source_manager.has_source_data(source_name)
 
         if not has_data:
             self.detail_logger.info(
@@ -731,16 +735,17 @@ class CacheSyncManager:
             return {"status": "skipped", "reason": "not_cached_backend"}
 
         source_name = backend.source_name
+        data_source_manager = DataSourceManager()
 
         # Check if data exists to clean up
-        if not get_cache_manager().has_source_data(source_name):
+        if not data_source_manager.has_source_data(source_name):
             self.detail_logger.debug(f"{backend_name}: No data to cleanup")
             return {"status": "skipped", "reason": "no_data_to_cleanup"}
 
         # Remove data from cache
         try:
-            deleted_count = get_cache_manager().remove_source_data(source_name)
-            get_cache_manager().log_update(
+            deleted_count = data_source_manager.remove_source_data(source_name)
+            data_source_manager.log_update(
                 source_name,
                 "cleanup",
                 "success",
@@ -755,7 +760,7 @@ class CacheSyncManager:
 
         except (sqlite3.Error, ValueError, KeyError) as e:
             self.detail_logger.error(f"Failed to cleanup data for {backend_name}: {e}")
-            get_cache_manager().log_update(
+            data_source_manager.log_update(
                 source_name, "cleanup", "failed", 0, error_message=str(e)
             )
             return {"status": "error", "error": str(e)}
@@ -822,7 +827,8 @@ class CacheSyncManager:
             getattr(cache_config, "update_threshold_days", 7) if cache_config else 7
         )
 
-        last_update = get_cache_manager().get_source_last_updated(source_name)
+        data_source_manager = DataSourceManager()
+        last_update = data_source_manager.get_source_last_updated(source_name)
         if last_update is None:
             return True  # Never updated
 
@@ -844,7 +850,8 @@ class CacheSyncManager:
         backend_registry = get_backend_registry()
         all_backend_names = backend_registry.get_backend_names()
         enabled_backend_names = self.config_manager.get_enabled_backends()
-        available_sources = get_cache_manager().get_available_sources()
+        data_source_manager = DataSourceManager()
+        available_sources = data_source_manager.get_available_sources()
 
         for backend_name in all_backend_names:
             try:
@@ -865,11 +872,11 @@ class CacheSyncManager:
                     backend_status["source_name"] = source_name
                     backend_status["has_data"] = source_name in available_sources
                     backend_status["last_updated"] = (
-                        get_cache_manager().get_source_last_updated(source_name)
+                        data_source_manager.get_source_last_updated(source_name)
                     )
 
                     # Get entry count for the source
-                    source_stats = get_cache_manager().get_source_statistics()
+                    source_stats = data_source_manager.get_source_statistics()
                     if source_name in source_stats:
                         backend_status["entry_count"] = source_stats[source_name].get(
                             "total", 0

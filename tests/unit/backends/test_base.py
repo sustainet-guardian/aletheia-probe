@@ -173,17 +173,16 @@ class TestCachedBackend:
             {"journal_name": "Test Journal", "normalized_name": "test journal"},
         ]
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.search_journals_by_name.return_value = mock_results
-            mock_get_cache_manager.return_value = mock_cache
+        # Mock the journal_cache instance attribute directly
+        with patch.object(
+            mock_cached_backend.journal_cache, "search_journals_by_name"
+        ) as mock_search:
+            mock_search.return_value = mock_results
 
             results = mock_cached_backend._search_exact_match("Test Journal")
 
             # Should call the optimized search_journals_by_name method
-            mock_cache.search_journals_by_name.assert_called_once_with(
+            mock_search.assert_called_once_with(
                 name="Test Journal",
                 source_name=mock_cached_backend.source_name,
                 assessment=mock_cached_backend.list_type,
@@ -297,12 +296,11 @@ class TestHybridBackend:
             processing_time=1.0,
         )
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = mock_cached_result
-            mock_get_cache_manager.return_value = mock_cache
+        # Mock the assessment_cache instance attribute directly
+        with patch.object(
+            mock_hybrid_backend.assessment_cache, "get_cached_assessment"
+        ) as mock_get:
+            mock_get.return_value = mock_cached_result
 
             result = await mock_hybrid_backend.query(sample_query_input)
 
@@ -317,21 +315,22 @@ class TestHybridBackend:
         self, mock_hybrid_backend, sample_query_input
     ):
         """Test hybrid backend with cache miss but API hit."""
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None
-            mock_cache.cache_assessment_result = Mock()
-            mock_get_cache_manager.return_value = mock_cache
+        # Mock the assessment_cache instance attribute directly
+        with patch.object(
+            mock_hybrid_backend.assessment_cache, "get_cached_assessment"
+        ) as mock_get:
+            mock_get.return_value = None
 
-            result = await mock_hybrid_backend.query(sample_query_input)
+            with patch.object(
+                mock_hybrid_backend.assessment_cache, "cache_assessment_result"
+            ) as mock_cache:
+                result = await mock_hybrid_backend.query(sample_query_input)
 
-            # Should fallback to API
-            assert result.status == BackendStatus.FOUND
-            assert result.confidence == 0.7
-            assert result.data == {"api": "data"}
-            assert result.cached is False  # API call should set cached=False
+                # Should fallback to API
+                assert result.status == BackendStatus.FOUND
+                assert result.confidence == 0.7
+                assert result.data == {"api": "data"}
+                assert result.cached is False  # API call should set cached=False
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_both_miss(
@@ -353,13 +352,11 @@ class TestHybridBackend:
 
         backend = MissHybridBackend()
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
+        with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
             mock_cache = Mock()
             mock_cache.get_cached_assessment.return_value = None
             mock_cache.cache_assessment_result = Mock()
-            mock_get_cache_manager.return_value = mock_cache
+            MockJournalCache.return_value = mock_cache
 
             result = await backend.query(sample_query_input)
 

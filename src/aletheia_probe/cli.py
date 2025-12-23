@@ -14,7 +14,7 @@ import click
 
 from . import __version__
 from .batch_assessor import BibtexBatchAssessor
-from .cache import get_cache_manager
+from .cache import AcronymCache, AssessmentCache
 from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
@@ -193,17 +193,17 @@ def clear_cache(confirm: bool) -> None:
             "This will clear all cached assessment results. Continue?", abort=True
         )
 
-    cache_manager = get_cache_manager()
+    assessment_cache = AssessmentCache()
 
     # Get count before clearing
-    count = cache_manager.get_assessment_cache_count()
+    count = assessment_cache.get_assessment_cache_count()
 
     if count == 0:
         status_logger.info("Cache is already empty.")
         return
 
-    # Clear assessment cache using CacheManager method
-    cache_manager.clear_assessment_cache()
+    # Clear assessment cache
+    assessment_cache.clear_assessment_cache()
 
     status_logger.info(f"Cleared {count} cached assessment(s).")
 
@@ -334,8 +334,8 @@ def acronym_status() -> None:
     """Show conference acronym database status."""
     status_logger = get_status_logger()
 
-    cache_manager = get_cache_manager()
-    stats = cache_manager.get_acronym_stats()
+    acronym_cache = AcronymCache()
+    stats = acronym_cache.get_acronym_stats()
     count = stats.get("total_count", 0)
 
     status_logger.info("Conference Acronym Database Status")
@@ -353,8 +353,8 @@ def stats() -> None:
     """Show detailed statistics about the acronym database."""
     status_logger = get_status_logger()
 
-    cache_manager = get_cache_manager()
-    stats = cache_manager.get_acronym_stats()
+    acronym_cache = AcronymCache()
+    stats = acronym_cache.get_acronym_stats()
 
     status_logger.info("Conference Acronym Database Statistics")
     status_logger.info("=" * 40)
@@ -394,8 +394,8 @@ def list(limit: int | None, offset: int) -> None:
     """List all acronym mappings in the database."""
     status_logger = get_status_logger()
 
-    cache_manager = get_cache_manager()
-    acronyms = cache_manager.list_all_acronyms(limit=limit, offset=offset)
+    acronym_cache = AcronymCache()
+    acronyms = acronym_cache.list_all_acronyms(limit=limit, offset=offset)
 
     if not acronyms:
         status_logger.info("No acronyms found in the database.")
@@ -415,7 +415,7 @@ def list(limit: int | None, offset: int) -> None:
         status_logger.info(f"  Created: {entry['created_at']}")
         status_logger.info(f"  Last Used: {entry['last_used_at']}")
 
-    total_count = cache_manager.get_acronym_stats()["total_count"]
+    total_count = acronym_cache.get_acronym_stats()["total_count"]
     shown = len(acronyms)
 
     if limit is not None or offset > 0:
@@ -434,8 +434,8 @@ def clear(confirm: bool) -> None:
             "This will delete all conference acronym mappings. Continue?", abort=True
         )
 
-    cache_manager = get_cache_manager()
-    count = cache_manager.clear_acronym_database()
+    acronym_cache = AcronymCache()
+    count = acronym_cache.clear_acronym_database()
 
     if count == 0:
         status_logger.info("Acronym database is already empty.")
@@ -460,8 +460,8 @@ def add(acronym: str, full_name: str, source: str) -> None:
     """
     status_logger = get_status_logger()
 
-    cache_manager = get_cache_manager()
-    cache_manager.store_acronym_mapping(acronym, full_name, source)
+    acronym_cache = AcronymCache()
+    acronym_cache.store_acronym_mapping(acronym, full_name, source)
 
     status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
     status_logger.info(f"Source: {source}")
@@ -530,20 +530,18 @@ async def _async_assess_publication(
     publication_name: str, publication_type: str, verbose: bool, output_format: str
 ) -> None:
     """Async function for assessing publications with type specification."""
-    from .cache import get_cache_manager
-
     status_logger = get_status_logger()
-    cache = get_cache_manager()
+    acronym_cache = AcronymCache()
 
     try:
         # Normalize the input with acronym lookup from cache
         query_input = input_normalizer.normalize(
-            publication_name, acronym_lookup=cache.get_full_name_for_acronym
+            publication_name, acronym_lookup=acronym_cache.get_full_name_for_acronym
         )
 
         # Store any extracted acronym mappings in cache
         for acronym, full_name in query_input.extracted_acronym_mappings.items():
-            cache.store_acronym_mapping(acronym, full_name, source="user_input")
+            acronym_cache.store_acronym_mapping(acronym, full_name, source="user_input")
 
         if verbose:
             status_logger.info(f"Publication type: {publication_type}")

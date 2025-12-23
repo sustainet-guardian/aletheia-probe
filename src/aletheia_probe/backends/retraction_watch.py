@@ -8,7 +8,6 @@ from typing import Any
 
 import aiohttp
 
-from ..cache import get_cache_manager
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
@@ -56,7 +55,7 @@ class RetractionWatchBackend(HybridBackend):
             # Use parent's search methods for consistency
             # Search by ISSN first (though we don't have ISSN in retraction data)
             if query_input.identifiers.get("issn"):
-                results = get_cache_manager().search_journals(
+                results = self.journal_cache.search_journals(
                     issn=query_input.identifiers["issn"],
                     source_name=self.source_name,
                 )
@@ -219,7 +218,7 @@ class RetractionWatchBackend(HybridBackend):
         cache_key = f"openalex:{issn}" if issn else f"openalex:{journal_name}"
 
         # Check cache first
-        cached = get_cache_manager().get_cached_value(cache_key)
+        cached = self.key_value_cache.get_cached_value(cache_key)
         if cached is not None:
             detail_logger.debug(f"OpenAlex cache hit for {journal_name}")
             return json.loads(cached) if cached != "null" else None
@@ -231,7 +230,7 @@ class RetractionWatchBackend(HybridBackend):
 
             # Cache result (including null for not found) for 30 days
             cache_value = json.dumps(openalex_data) if openalex_data else "null"
-            get_cache_manager().set_cached_value(
+            self.key_value_cache.set_cached_value(
                 cache_key, cache_value, ttl_hours=24 * 30
             )
 
@@ -248,13 +247,13 @@ class RetractionWatchBackend(HybridBackend):
                 f"Failed to fetch OpenAlex data for {journal_name}: {e}"
             )
             # Cache the failure for 1 day to avoid repeated API calls
-            get_cache_manager().set_cached_value(cache_key, "null", ttl_hours=24)
+            self.key_value_cache.set_cached_value(cache_key, "null", ttl_hours=24)
             return None
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
         """Search for exact journal name matches only."""
         # Get all journals from this source and filter for exact matches
-        all_results = get_cache_manager().search_journals(
+        all_results = self.journal_cache.search_journals(
             source_name=self.source_name, assessment=self.list_type
         )
 

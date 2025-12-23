@@ -96,12 +96,8 @@ class TestRetractionWatchBackend:
             processing_time=0.01,
         )
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = mock_cached_result
-            mock_get_cache_manager.return_value = mock_cache
+        with patch.object(backend.assessment_cache, "get_cached_assessment") as mock_get:
+            mock_get.return_value = mock_cached_result
 
             # Query should return cached result
             result = await backend.query(sample_query_input)
@@ -122,11 +118,11 @@ class TestRetractionWatchBackend:
         # Need to patch get_cache_manager in both locations
         with (
             patch(
-                "aletheia_probe.backends.base.get_cache_manager"
-            ) as mock_base_get_cache_manager,
+                "aletheia_probe.backends.base.AssessmentCache"
+            ) as MockAssessmentCache,
             patch(
-                "aletheia_probe.backends.retraction_watch.get_cache_manager"
-            ) as mock_rw_get_cache_manager,
+                "aletheia_probe.backends.retraction_watch.RetractionCache"
+            ) as MockRetractionCache,
             patch.object(
                 backend, "_get_openalex_data_cached", return_value=mock_openalex_data
             ) as mock_openalex,
@@ -137,8 +133,8 @@ class TestRetractionWatchBackend:
             mock_cache.cache_assessment_result = Mock()
 
             # Both should return the same mock cache
-            mock_base_get_cache_manager.return_value = mock_cache
-            mock_rw_get_cache_manager.return_value = mock_cache
+            MockAssessmentCache.return_value = mock_cache
+            MockRetractionCache.return_value = mock_cache
 
             # Query should hit API
             result = await backend.query(sample_query_input)
@@ -159,7 +155,7 @@ class TestRetractionWatchBackend:
     async def test_not_found_result_is_cached(self, backend, sample_query_input):
         """Test that NOT_FOUND results are also cached."""
         with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
+            "aletheia_probe.backends.base.AssessmentCache"
         ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.get_cached_assessment.return_value = None  # Cache miss
@@ -202,12 +198,8 @@ class TestRetractionWatchBackend:
             processing_time=0.005,
         )
 
-        with patch(
-            "aletheia_probe.backends.base.get_cache_manager"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = mock_cached_result
-            mock_get_cache_manager.return_value = mock_cache
+        with patch.object(backend.assessment_cache, "get_cached_assessment") as mock_get:
+            mock_get.return_value = mock_cached_result
 
             result = await backend.query(sample_query_input)
 
@@ -233,10 +225,10 @@ class TestRetractionWatchBackend:
         # Mock OpenAlex cache hit
         with (
             patch(
-                "aletheia_probe.backends.base.get_cache_manager"
+                "aletheia_probe.backends.base.AssessmentCache"
             ) as mock_get_cache_manager,
             patch(
-                "aletheia_probe.backends.retraction_watch.get_cache_manager"
+                "aletheia_probe.backends.retraction_watch.RetractionCache"
             ) as mock_openalex_cache_manager,
         ):
             # Setup cache for assessment (miss)
@@ -287,7 +279,7 @@ class TestRetractionWatchBackend:
         """Test that ERROR status results are not cached."""
         with (
             patch(
-                "aletheia_probe.backends.base.get_cache_manager"
+                "aletheia_probe.backends.base.AssessmentCache"
             ) as mock_get_cache_manager,
             patch.object(
                 backend, "_get_openalex_data_cached", side_effect=Exception("API Error")

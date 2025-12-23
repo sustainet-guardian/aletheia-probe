@@ -47,7 +47,7 @@ def create_sample_bibtex():
 """
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.bib', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False)
     temp_file.write(bibtex_content)
     temp_file.close()
 

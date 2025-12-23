@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..cache import get_cache_manager
+from ..cache import AssessmentCache, DataSourceManager, JournalCache
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -247,7 +247,8 @@ class DataUpdater:
                 )
 
         # Clean up expired cache entries
-        expired_count = get_cache_manager().cleanup_expired_cache()
+        assessment_cache = AssessmentCache()
+        expired_count = assessment_cache.cleanup_expired_cache()
         detail_logger.info(f"Cleaned up {expired_count} expired cache entries")
 
         # Report all failures together
@@ -276,7 +277,8 @@ class DataUpdater:
             return {"status": "skipped", "reason": "no_update_needed"}
 
         start_time = datetime.now()
-        get_cache_manager().log_update(source_name, "full", "started")
+        data_source_manager = DataSourceManager()
+        data_source_manager.log_update(source_name, "full", "started")
 
         try:
             # Fetch data from source
@@ -286,7 +288,7 @@ class DataUpdater:
             if not journals:
                 detail_logger.warning(f"No data received from source {source_name}")
                 status_logger.warning(f"    {source_name}: No data received")
-                get_cache_manager().log_update(
+                data_source_manager.log_update(
                     source_name, "full", "failed", error_message="No data received"
                 )
                 return {"status": "failed", "error": "No data received"}
@@ -308,8 +310,9 @@ class DataUpdater:
                     f"    {source_name}: Processing {len(journals)} records..."
                 )
                 records_updated = 0
+                journal_cache = JournalCache()
                 for journal in journals:
-                    get_cache_manager().add_journal_list_entry(
+                    journal_cache.add_journal_list_entry(
                         source_name=source_name,
                         list_type=source.get_list_type(),
                         journal_name=journal["journal_name"],
@@ -323,7 +326,7 @@ class DataUpdater:
 
                 status_logger.info(f"    {source_name}: Writing to database...")
 
-                get_cache_manager().log_update(
+                data_source_manager.log_update(
                     source_name, "full", "success", records_updated=records_updated
                 )
 
@@ -345,7 +348,7 @@ class DataUpdater:
         ) as e:
             detail_logger.error(f"Failed to update source {source_name}: {e}")
             status_logger.error(f"    {source_name}: Error - {e}")
-            get_cache_manager().log_update(
+            data_source_manager.log_update(
                 source_name, "full", "failed", error_message=str(e)
             )
             return {"status": "failed", "error": str(e)}

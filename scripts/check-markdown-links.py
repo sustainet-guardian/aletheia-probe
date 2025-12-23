@@ -166,7 +166,9 @@ def check_external_link(link: Link) -> LinkCheckResult:
         if e.code in (403, 429):
             # Treat as warning, not error (might be CAPTCHA or rate limiting)
             return LinkCheckResult(
-                link=link, exists=True, error_message=f"⚠️ HTTP {e.code} (may require CAPTCHA)"
+                link=link,
+                exists=True,
+                error_message=f"⚠️ HTTP {e.code} (may require CAPTCHA)",
             )
         error_msg = f"HTTP {e.code}: {e.reason}"
         return LinkCheckResult(link=link, exists=False, error_message=error_msg)
@@ -209,7 +211,9 @@ def main() -> int:
     internal_links = [link for link in all_links if not link.is_external]
     external_links = [link for link in all_links if link.is_external]
 
-    print(f"Found {len(internal_links)} internal links and {len(external_links)} external links")
+    print(
+        f"Found {len(internal_links)} internal links and {len(external_links)} external links"
+    )
     print()
 
     # Check internal links

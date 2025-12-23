@@ -530,10 +530,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_status_empty(self, runner):
         """Test conference-acronym status command with empty database."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 0}
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "status"])
 
@@ -542,10 +542,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_status_with_data(self, runner):
         """Test conference-acronym status command with data."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "status"])
 
@@ -554,7 +554,7 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_stats(self, runner):
         """Test conference-acronym stats command."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {
                 "total_count": 5,
@@ -565,7 +565,7 @@ class TestConferenceAcronymCommands:
                 "oldest_normalized_name": "computer vision and pattern recognition",
                 "oldest_created": "2024-01-10 09:00:00",
             }
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "stats"])
 
@@ -576,10 +576,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_stats_empty(self, runner):
         """Test conference-acronym stats command with empty database."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 0}
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "stats"])
 
@@ -589,7 +589,7 @@ class TestConferenceAcronymCommands:
     def test_conference_acronym_list(self, runner):
         """Test conference-acronym list command."""
         with (
-            patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
         ):
             mock_cache = MagicMock()
@@ -610,7 +610,7 @@ class TestConferenceAcronymCommands:
                 },
             ]
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             # Mock the normalizer to return title-cased names for display
             def mock_normalize_case(text):
@@ -627,10 +627,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_list_empty(self, runner):
         """Test conference-acronym list command with empty database."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = []
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "list"])
 
@@ -640,7 +640,7 @@ class TestConferenceAcronymCommands:
     def test_conference_acronym_list_with_limit(self, runner):
         """Test conference-acronym list command with limit option."""
         with (
-            patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
         ):
             mock_cache = MagicMock()
@@ -654,7 +654,7 @@ class TestConferenceAcronymCommands:
                 }
             ]
             mock_cache.get_acronym_stats.return_value = {"total_count": 10}
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             # Mock the normalizer to return title-cased names for display
             def mock_normalize_case(text):
@@ -669,10 +669,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_clear_with_confirm(self, runner):
         """Test conference-acronym clear command with --confirm flag."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 5
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "clear", "--confirm"])
 
@@ -682,9 +682,9 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_clear_without_confirm_abort(self, runner):
         """Test conference-acronym clear command without confirm - user aborts."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             # Simulate user selecting 'n' for no
             result = runner.invoke(main, ["conference-acronym", "clear"], input="n\n")
@@ -695,10 +695,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_clear_without_confirm_proceed(self, runner):
         """Test conference-acronym clear command without confirm - user proceeds."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 3
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             # Simulate user selecting 'y' for yes
             result = runner.invoke(main, ["conference-acronym", "clear"], input="y\n")
@@ -709,10 +709,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_clear_already_empty(self, runner):
         """Test conference-acronym clear command when database is already empty."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 0
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["conference-acronym", "clear", "--confirm"])
 
@@ -721,9 +721,9 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_add(self, runner):
         """Test conference-acronym add command."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(
                 main,
@@ -744,9 +744,9 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_add_with_source(self, runner):
         """Test conference-acronym add command with custom source."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(
                 main,
@@ -768,10 +768,10 @@ class TestConferenceAcronymCommands:
 
     def test_conference_acronym_add_error(self, runner):
         """Test conference-acronym add command with error."""
-        with patch("aletheia_probe.cli.get_cache_manager") as mock_get_cache:
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.store_acronym_mapping.side_effect = Exception("Database error")
-            mock_get_cache.return_value = mock_cache
+            mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(
                 main,

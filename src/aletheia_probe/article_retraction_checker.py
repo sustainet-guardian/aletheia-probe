@@ -6,7 +6,7 @@ from typing import Any
 
 import aiohttp
 
-from .cache import get_cache_manager
+from .cache import RetractionCache
 from .logging_config import get_detail_logger, get_status_logger
 
 
@@ -93,8 +93,8 @@ class ArticleRetractionChecker:
         detail_logger.debug(f"Checking retraction status for DOI: {normalized_doi}")
 
         # Check cache first
-        cache_manager = get_cache_manager()
-        cached = cache_manager.get_article_retraction(normalized_doi)
+        retraction_cache = RetractionCache()
+        cached = retraction_cache.get_article_retraction(normalized_doi)
         if cached:
             detail_logger.debug(f"Cache hit for DOI {normalized_doi}")
             return ArticleRetractionResult(
@@ -155,8 +155,8 @@ class ArticleRetractionChecker:
         """
         # Check if we have this DOI in the article_retractions table
         # (populated from Retraction Watch CSV during sync)
-        cache_manager = get_cache_manager()
-        cached = cache_manager.get_article_retraction(doi)
+        retraction_cache = RetractionCache()
+        cached = retraction_cache.get_article_retraction(doi)
 
         if cached and cached.get("source") == "retraction_watch":
             detail_logger.debug(
@@ -282,8 +282,8 @@ class ArticleRetractionChecker:
 
     def _cache_result(self, result: ArticleRetractionResult, source: str) -> None:
         """Cache the retraction check result."""
-        cache_manager = get_cache_manager()
-        cache_manager.cache_article_retraction(
+        retraction_cache = RetractionCache()
+        retraction_cache.cache_article_retraction(
             doi=result.doi,
             is_retracted=result.is_retracted,
             source=source,

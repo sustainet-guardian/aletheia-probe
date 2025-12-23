@@ -76,6 +76,9 @@ RETRACTION_THRESHOLDS = RetractionThresholds()
 ASSESSMENT_CACHE_TTL: int = 86400  # 24 hours
 API_CACHE_TTL: int = 604800  # 7 days
 
+# Cache database path
+DEFAULT_CACHE_DB_PATH: str = ".aletheia-probe/cache.db"  # Relative to current directory
+
 # API rate limits (requests per second)
 DOAJ_REQUESTS_PER_SECOND: int = 10
 OPENALEX_REQUESTS_PER_SECOND: int = 10

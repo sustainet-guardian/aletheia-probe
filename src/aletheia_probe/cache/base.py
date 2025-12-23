@@ -52,12 +52,26 @@ class CacheBase:
         "proceedings",
     }
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path | None = None):
         """Initialize cache base with database path.
 
         Args:
-            db_path: Path to the SQLite database file
+            db_path: Path to the SQLite database file. If None, gets from config.
         """
+        if db_path is None:
+            # Local import to avoid circular dependency (config -> backends -> cache)
+            from ..config import get_config_manager
+            from .schema import init_database
+
+            db_path_str = get_config_manager().load_config().cache.db_path
+            db_path = Path(db_path_str)
+
+            # Ensure parent directory exists
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Initialize database schema
+            init_database(db_path)
+
         self.db_path = db_path
 
     def _normalize_for_comparison(self, text: str) -> str:

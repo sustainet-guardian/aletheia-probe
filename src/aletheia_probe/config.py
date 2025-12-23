@@ -15,6 +15,7 @@ from .constants import (
     DEFAULT_BACKEND_TIMEOUT,
     DEFAULT_BACKEND_WEIGHT,
     DEFAULT_CACHE_AUTO_SYNC,
+    DEFAULT_CACHE_DB_PATH,
     DEFAULT_CACHE_UPDATE_THRESHOLD_DAYS,
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_OUTPUT_FORMAT,
@@ -50,6 +51,9 @@ class OutputConfig(BaseModel):
 class CacheConfig(BaseModel):
     """Configuration for cache synchronization."""
 
+    db_path: str = Field(
+        DEFAULT_CACHE_DB_PATH, description="Path to the SQLite cache database file"
+    )
     auto_sync: bool = Field(
         DEFAULT_CACHE_AUTO_SYNC,
         description="Enable automatic cache synchronization with backend config",

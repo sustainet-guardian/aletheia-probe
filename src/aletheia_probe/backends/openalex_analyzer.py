@@ -172,7 +172,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
         Args:
             openalex_data: Raw data from OpenAlex API
         """
-        from ..cache import get_cache_manager
+        from ..cache import AcronymCache
         from ..normalizer import InputNormalizer
 
         display_name = openalex_data.get("display_name")
@@ -190,9 +190,9 @@ class OpenAlexAnalyzerBackend(HybridBackend):
             )
 
             # Store each mapping in the cache
-            cache = get_cache_manager()
+            acronym_cache = AcronymCache()
             for acronym, full_name in mappings.items():
-                cache.store_acronym_mapping(
+                acronym_cache.store_acronym_mapping(
                     acronym, full_name, source="openalex_response"
                 )
 
