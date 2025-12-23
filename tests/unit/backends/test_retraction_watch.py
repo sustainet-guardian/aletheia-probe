@@ -96,7 +96,9 @@ class TestRetractionWatchBackend:
             processing_time=0.01,
         )
 
-        with patch.object(backend.assessment_cache, "get_cached_assessment") as mock_get:
+        with patch.object(
+            backend.assessment_cache, "get_cached_assessment"
+        ) as mock_get:
             mock_get.return_value = mock_cached_result
 
             # Query should return cached result
@@ -108,36 +110,34 @@ class TestRetractionWatchBackend:
             assert result.data["from_cache"] is True
 
             # Verify cache was checked
-            mock_cache.get_cached_assessment.assert_called_once()
+            mock_get.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cache_miss_triggers_api_query(
         self, backend, sample_query_input, mock_retraction_data, mock_openalex_data
     ):
         """Test that cache miss triggers API queries and caches result."""
-        # Need to patch get_cache_manager in both locations
         with (
-            patch(
-                "aletheia_probe.backends.base.AssessmentCache"
-            ) as MockAssessmentCache,
-            patch(
-                "aletheia_probe.backends.retraction_watch.RetractionCache"
-            ) as MockRetractionCache,
+            patch.object(
+                backend.assessment_cache, "get_cached_assessment", return_value=None
+            ) as mock_get_cached,
+            patch.object(
+                backend.journal_cache,
+                "search_journals",
+                return_value=[mock_retraction_data],
+            ) as mock_search,
+            patch.object(
+                backend.assessment_cache, "cache_assessment_result"
+            ) as mock_cache_result,
             patch.object(
                 backend, "_get_openalex_data_cached", return_value=mock_openalex_data
             ) as mock_openalex,
         ):
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None  # Cache miss
-            mock_cache.search_journals.return_value = [mock_retraction_data]
-            mock_cache.cache_assessment_result = Mock()
-
-            # Both should return the same mock cache
-            MockAssessmentCache.return_value = mock_cache
-            MockRetractionCache.return_value = mock_cache
-
             # Query should hit API
             result = await backend.query(sample_query_input)
+
+            # Verify cache was checked first
+            mock_get_cached.assert_called_once()
 
             # Verify result
             assert result.status == BackendStatus.FOUND
@@ -149,28 +149,33 @@ class TestRetractionWatchBackend:
             mock_openalex.assert_called_once()
 
             # Verify result was cached
-            mock_cache.cache_assessment_result.assert_called_once()
+            mock_cache_result.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_not_found_result_is_cached(self, backend, sample_query_input):
         """Test that NOT_FOUND results are also cached."""
-        with patch(
-            "aletheia_probe.backends.base.AssessmentCache"
-        ) as mock_get_cache_manager:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None  # Cache miss
-            mock_cache.search_journals.return_value = []  # No retraction data
-            mock_cache.cache_assessment_result = Mock()
-            mock_get_cache_manager.return_value = mock_cache
-
+        with (
+            patch.object(
+                backend.assessment_cache, "get_cached_assessment", return_value=None
+            ) as mock_get_cached,
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=[]
+            ) as mock_search,
+            patch.object(
+                backend.assessment_cache, "cache_assessment_result"
+            ) as mock_cache_result,
+        ):
             result = await backend.query(sample_query_input)
+
+            # Verify cache was checked first
+            mock_get_cached.assert_called_once()
 
             # Verify NOT_FOUND status
             assert result.status == BackendStatus.NOT_FOUND
             assert result.confidence == 0.0
 
             # Verify result was cached (to prevent repeated lookups)
-            mock_cache.cache_assessment_result.assert_called_once()
+            mock_cache_result.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_response_time_under_50ms_when_cached(
@@ -198,7 +203,9 @@ class TestRetractionWatchBackend:
             processing_time=0.005,
         )
 
-        with patch.object(backend.assessment_cache, "get_cached_assessment") as mock_get:
+        with patch.object(
+            backend.assessment_cache, "get_cached_assessment"
+        ) as mock_get:
             mock_get.return_value = mock_cached_result
 
             result = await backend.query(sample_query_input)
@@ -224,44 +231,39 @@ class TestRetractionWatchBackend:
         """Test that OpenAlex data has separate caching layer."""
         # Mock OpenAlex cache hit
         with (
-            patch(
-                "aletheia_probe.backends.base.AssessmentCache"
-            ) as mock_get_cache_manager,
-            patch(
-                "aletheia_probe.backends.retraction_watch.RetractionCache"
-            ) as mock_openalex_cache_manager,
+            patch.object(
+                backend.assessment_cache, "get_cached_assessment", return_value=None
+            ) as mock_get_cached,
+            patch.object(
+                backend.journal_cache,
+                "search_journals",
+                return_value=[mock_retraction_data],
+            ) as mock_search,
+            patch.object(
+                backend.assessment_cache, "cache_assessment_result"
+            ) as mock_cache_result,
+            patch.object(
+                backend.key_value_cache,
+                "get_cached_value",
+                return_value=json.dumps(
+                    {
+                        "openalex_id": "https://openalex.org/S12345",
+                        "total_publications": 50000,
+                        "recent_publications": 10000,
+                    }
+                ),
+            ) as mock_openalex_cache_get,
         ):
-            # Setup cache for assessment (miss)
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None
-            mock_cache.search_journals.return_value = [mock_retraction_data]
-            mock_cache.cache_assessment_result = Mock()
-
-            # Setup cache for OpenAlex (hit)
-            mock_openalex_cache = Mock()
-            mock_openalex_cache.get_cached_value.return_value = json.dumps(
-                {
-                    "openalex_id": "https://openalex.org/S12345",
-                    "total_publications": 50000,
-                    "recent_publications": 10000,
-                }
-            )
-            mock_openalex_cache.search_journals.return_value = [mock_retraction_data]
-
-            # Use different mocks for different calls
-            def cache_manager_side_effect():
-                return mock_cache
-
-            def openalex_cache_manager_side_effect():
-                return mock_openalex_cache
-
-            mock_get_cache_manager.side_effect = cache_manager_side_effect
-            mock_openalex_cache_manager.side_effect = openalex_cache_manager_side_effect
-
             result = await backend.query(sample_query_input)
+
+            # Verify cache was checked first
+            mock_get_cached.assert_called_once()
 
             # Should have used OpenAlex cached data
             assert result.data["total_publications"] == 50000
+
+            # Verify OpenAlex cache was checked
+            mock_openalex_cache_get.assert_called_once()
 
     def test_backend_inherits_from_hybrid_backend(self, backend):
         """Test that RetractionWatchBackend inherits from HybridBackend."""
@@ -278,22 +280,25 @@ class TestRetractionWatchBackend:
     async def test_error_status_not_cached(self, backend, sample_query_input):
         """Test that ERROR status results are not cached."""
         with (
-            patch(
-                "aletheia_probe.backends.base.AssessmentCache"
-            ) as mock_get_cache_manager,
+            patch.object(
+                backend.assessment_cache, "get_cached_assessment", return_value=None
+            ) as mock_get_cached,
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=[]
+            ) as mock_search,
+            patch.object(
+                backend.assessment_cache, "cache_assessment_result"
+            ) as mock_cache_result,
             patch.object(
                 backend, "_get_openalex_data_cached", side_effect=Exception("API Error")
             ),
         ):
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None
-            mock_cache.search_journals.return_value = []
-            mock_cache.cache_assessment_result = Mock()
-            mock_get_cache_manager.return_value = mock_cache
-
             result = await backend.query(sample_query_input)
+
+            # Verify cache was checked first
+            mock_get_cached.assert_called_once()
 
             # Error should not be cached
             assert result.status == BackendStatus.NOT_FOUND
             # Still cached because NOT_FOUND should be cached
-            mock_cache.cache_assessment_result.assert_called_once()
+            mock_cache_result.assert_called_once()

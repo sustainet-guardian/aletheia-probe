@@ -319,11 +319,16 @@ class TestScopusBackend:
             }
         ]
 
-        with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = mock_results
-            mock_cache.search_journals_by_name.return_value = mock_results
-            MockJournalCache.return_value = mock_cache
+        with (
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=mock_results
+            ),
+            patch.object(
+                backend.journal_cache,
+                "search_journals_by_name",
+                return_value=mock_results,
+            ),
+        ):
             result = await backend.query(query_input)
 
             assert result.status == BackendStatus.FOUND
@@ -338,11 +343,12 @@ class TestScopusBackend:
             raw_input="Unknown Journal", normalized_name="unknown journal"
         )
 
-        with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = []
-            mock_cache.search_journals_by_name.return_value = []
-            MockJournalCache.return_value = mock_cache
+        with (
+            patch.object(backend.journal_cache, "search_journals", return_value=[]),
+            patch.object(
+                backend.journal_cache, "search_journals_by_name", return_value=[]
+            ),
+        ):
             result = await backend.query(query_input)
 
             assert result.status == BackendStatus.NOT_FOUND
@@ -371,11 +377,16 @@ class TestScopusBackend:
             }
         ]
 
-        with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
-            mock_cache = Mock()
-            mock_cache.search_journals.return_value = mock_results
-            mock_cache.search_journals_by_name.return_value = mock_results
-            MockJournalCache.return_value = mock_cache
+        with (
+            patch.object(
+                backend.journal_cache, "search_journals", return_value=mock_results
+            ),
+            patch.object(
+                backend.journal_cache,
+                "search_journals_by_name",
+                return_value=mock_results,
+            ),
+        ):
             result = await backend.query(query_input)
 
             # Still returns as legitimate (indexed in Scopus)

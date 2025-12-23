@@ -257,7 +257,7 @@ class TestCacheSyncManager:
             ) as mock_fetch,
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = False
             mock_fetch.return_value = {"status": "success", "records_updated": 100}
 
@@ -284,7 +284,7 @@ class TestCacheSyncManager:
             ) as mock_fetch,
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = True
             mock_fetch.return_value = {"status": "success", "records_updated": 50}
 
@@ -308,7 +308,7 @@ class TestCacheSyncManager:
             patch.object(sync_manager, "_should_update_source", return_value=False),
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.has_source_data.return_value = True
 
             result = await sync_manager._ensure_backend_data_available(backend)
@@ -440,7 +440,7 @@ class TestCacheSyncManager:
             patch.object(sync_manager.config_manager, "load_config"),
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_source_last_updated.return_value = None
 
             should_update = sync_manager._should_update_source("test_source")
@@ -460,7 +460,7 @@ class TestCacheSyncManager:
             ),
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_source_last_updated.return_value = old_date
 
             should_update = sync_manager._should_update_source("test_source")
@@ -480,7 +480,7 @@ class TestCacheSyncManager:
             ),
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_source_last_updated.return_value = recent_date
 
             should_update = sync_manager._should_update_source("test_source")
@@ -515,7 +515,7 @@ class TestCacheSyncManager:
             )
             mock_get_registry.return_value = mock_registry
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_available_sources.return_value = ["cached_source"]
             mock_cache_manager.get_source_last_updated.return_value = datetime.now()
             mock_cache_manager.get_source_statistics.return_value = {
@@ -556,7 +556,7 @@ class TestCacheSyncManager:
             mock_registry.get_backend.side_effect = Exception("Backend error")
             mock_get_registry.return_value = mock_registry
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_available_sources.return_value = []
 
             status = sync_manager.get_sync_status()
@@ -669,7 +669,7 @@ class TestAsyncDBWriter:
             ) as mock_get_cache_manager,
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.log_update = Mock()
 
             # Start writer
@@ -742,7 +742,7 @@ class TestAsyncDBWriter:
             # Mock cache manager
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
 
             # Mock database connection and cursor
             mock_connection = Mock()
@@ -794,7 +794,7 @@ class TestAsyncDBWriter:
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
             mock_cache_manager.register_data_source = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
 
             mock_connection = Mock()
             mock_cursor = Mock()
@@ -839,7 +839,7 @@ class TestAsyncDBWriter:
         ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
 
             mock_connection = Mock()
             mock_cursor = Mock()
@@ -883,7 +883,7 @@ class TestAsyncDBWriter:
         ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
 
             mock_connection = Mock()
             mock_cursor = Mock()
@@ -928,7 +928,7 @@ class TestAsyncDBWriter:
             ) as mock_get_cache_manager,
         ):
             mock_cache_manager = Mock()
-            mock_data_source_manager.return_value = mock_cache_manager
+            mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.log_update = Mock()
 
             # Start writer
