@@ -176,7 +176,6 @@ class OpenAlexAnalyzerBackend(HybridBackend):
             query_input: Query input containing venue type information
         """
         from ..cache import AcronymCache
-        from ..models import VenueType
         from ..normalizer import InputNormalizer
 
         display_name = openalex_data.get("display_name")
