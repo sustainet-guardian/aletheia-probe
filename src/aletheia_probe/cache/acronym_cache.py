@@ -250,7 +250,16 @@ class AcronymCache(CacheBase):
 
         Returns:
             List of dictionaries containing acronym details
+
+        Raises:
+            TypeError: If limit or offset are not integers
         """
+        # Validate types at runtime to prevent SQL injection
+        if limit is not None and not isinstance(limit, int):
+            raise TypeError(f"limit must be an integer, got {type(limit).__name__}")
+        if not isinstance(offset, int):
+            raise TypeError(f"offset must be an integer, got {type(offset).__name__}")
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
