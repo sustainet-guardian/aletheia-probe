@@ -104,6 +104,7 @@ class AcronymCache(CacheBase):
             entity_type: VenueType value (e.g., 'journal', 'conference', 'workshop')
             source: Source of the mapping ('bibtex_extraction', 'openalex_response', 'manual')
         """
+        # Import inside method to avoid circular dependency issues
         from ..logging_config import get_status_logger
         from ..normalizer import input_normalizer
 
