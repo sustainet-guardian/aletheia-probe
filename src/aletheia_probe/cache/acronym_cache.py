@@ -95,7 +95,7 @@ class AcronymCache(CacheBase):
 
         # Normalize the publication name to generic series form
         # This removes years, ordinals, and "Proceedings of" prefix
-        series_name = input_normalizer._extract_conference_series(full_name.lower())
+        series_name = input_normalizer.extract_conference_series(full_name.lower())
 
         if series_name:
             # Use the extracted series name
@@ -180,8 +180,8 @@ class AcronymCache(CacheBase):
 
         # Use the existing conference series extraction logic
         # This removes years, ordinals, and "Proceedings of" prefix
-        series1 = input_normalizer._extract_conference_series(norm1)
-        series2 = input_normalizer._extract_conference_series(norm2)
+        series1 = input_normalizer.extract_conference_series(norm1)
+        series2 = input_normalizer.extract_conference_series(norm2)
 
         # If both extracted to the same series, they're equivalent
         if series1 and series2:
