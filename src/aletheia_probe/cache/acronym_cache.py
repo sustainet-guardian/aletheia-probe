@@ -1,5 +1,21 @@
 # SPDX-License-Identifier: MIT
-"""Conference acronym caching for the cache system."""
+"""Venue acronym caching for journals, conferences, and other publication types.
+
+Design Decision: Single Table Approach
+=====================================
+This module uses a single 'acronyms' table to store acronym mappings for all venue types
+(journals, conferences, workshops, symposia, etc.) rather than separate tables per type.
+
+Rationale:
+- Reduces database complexity and maintenance overhead
+- Simplifies codebase with unified storage/retrieval logic
+- Venue type distinction is preserved via the entity_type column
+- No performance benefits from multiple tables for this use case
+- Easier to query across all venue types when needed
+
+Having multiple tables would increase database and code complexity without any real
+positive effect while making cross-venue queries more difficult.
+"""
 
 import re
 import sqlite3
@@ -8,13 +24,14 @@ from .base import CacheBase
 
 
 class AcronymCache(CacheBase):
-    """Manages conference acronym to full name mappings."""
+    """Manages venue acronym to full name mappings."""
 
-    def get_full_name_for_acronym(self, acronym: str) -> str | None:
-        """Look up the normalized name for a conference/journal acronym.
+    def get_full_name_for_acronym(self, acronym: str, entity_type: str) -> str | None:
+        """Look up the normalized name for a venue acronym.
 
         Args:
-            acronym: The acronym to look up (e.g., 'ICML', 'CVPR')
+            acronym: The acronym to look up (e.g., 'ICML', 'JMLR')
+            entity_type: VenueType value (e.g., 'journal', 'conference', 'workshop')
 
         Returns:
             Normalized name if found in cache, None otherwise
@@ -25,10 +42,10 @@ class AcronymCache(CacheBase):
 
             cursor.execute(
                 """
-                SELECT normalized_name FROM conference_acronyms
-                WHERE acronym = ? COLLATE NOCASE
+                SELECT normalized_name FROM venue_acronyms
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
-                (acronym.strip(),),
+                (acronym.strip(), entity_type),
             )
 
             row = cursor.fetchone()
@@ -36,31 +53,36 @@ class AcronymCache(CacheBase):
                 # Update last_used_at timestamp
                 cursor.execute(
                     """
-                    UPDATE conference_acronyms
+                    UPDATE venue_acronyms
                     SET last_used_at = CURRENT_TIMESTAMP
-                    WHERE acronym = ? COLLATE NOCASE
+                    WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                     """,
-                    (acronym.strip(),),
+                    (acronym.strip(), entity_type),
                 )
                 conn.commit()
                 return str(row["normalized_name"])
             return None
 
     def store_acronym_mapping(
-        self, acronym: str, full_name: str, source: str = "unknown"
+        self,
+        acronym: str,
+        full_name: str,
+        entity_type: str,
+        source: str = "unknown",
     ) -> None:
         """Store an acronym to normalized name mapping in the cache.
 
-        Automatically normalizes conference names to their generic series form
+        Automatically normalizes venue names to their generic series form
         by removing years, edition numbers, and "Proceedings of" prefixes.
 
-        If the acronym already exists with a different normalized_name, it logs a
-        warning and overwrites it, unless the names are essentially the same
-        conference with minor variations (e.g., year prefix/suffix).
+        If the acronym already exists for this entity_type with a different normalized_name,
+        it logs a warning and overwrites it, unless the names are essentially the same
+        publication with minor variations (e.g., year prefix/suffix).
 
         Args:
-            acronym: The acronym (e.g., 'ICML')
-            full_name: The full conference/journal name (may include year/edition)
+            acronym: The acronym (e.g., 'ICML', 'JMLR')
+            full_name: The full venue name (may include year/edition)
+            entity_type: VenueType value (e.g., 'journal', 'conference', 'workshop')
             source: Source of the mapping ('bibtex_extraction', 'openalex_response', 'manual')
         """
         from ..logging_config import get_status_logger
@@ -71,7 +93,7 @@ class AcronymCache(CacheBase):
         acronym = acronym.strip()
         full_name = full_name.strip()
 
-        # Normalize the conference name to generic series form
+        # Normalize the publication name to generic series form
         # This removes years, ordinals, and "Proceedings of" prefix
         series_name = input_normalizer._extract_conference_series(full_name.lower())
 
@@ -86,34 +108,34 @@ class AcronymCache(CacheBase):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # Check for existing mapping
+            # Check for existing mapping with same acronym and entity_type
             cursor.execute(
                 """
-                SELECT normalized_name FROM conference_acronyms
-                WHERE acronym = ? COLLATE NOCASE
+                SELECT normalized_name FROM venue_acronyms
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
-                (acronym,),
+                (acronym, entity_type),
             )
 
             existing = cursor.fetchone()
             if existing and existing["normalized_name"] != normalized_name:
-                # Check if this is essentially the same conference with minor variations
+                # Check if this is essentially the same publication with minor variations
                 if not self._are_conference_names_equivalent(
                     existing["normalized_name"], normalized_name
                 ):
                     status_logger.warning(
-                        f"Acronym '{acronym}' already maps to '{existing['normalized_name']}', "
+                        f"Acronym '{acronym}' (entity_type={entity_type}) already maps to '{existing['normalized_name']}', "
                         f"overwriting with '{normalized_name}'"
                     )
 
             # Insert or replace the mapping with normalized form
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO conference_acronyms
-                (acronym, normalized_name, source, created_at, last_used_at)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT OR REPLACE INTO venue_acronyms
+                (acronym, normalized_name, entity_type, source, created_at, last_used_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
-                (acronym, normalized_name, source),
+                (acronym, normalized_name, entity_type, source),
             )
             conn.commit()
 
@@ -189,8 +211,12 @@ class AcronymCache(CacheBase):
 
         return False
 
-    def get_acronym_stats(self) -> dict[str, int | str]:
+    def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int | str]:
         """Get statistics about the acronym database.
+
+        Args:
+            entity_type: Optional VenueType value to filter by (e.g., 'journal', 'conference').
+                        If None, returns stats for all entity types.
 
         Returns:
             Dictionary containing count, most_recent, and oldest entry info
@@ -199,31 +225,61 @@ class AcronymCache(CacheBase):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # Get total count
-            cursor.execute("SELECT COUNT(*) as count FROM conference_acronyms")
-            count = cursor.fetchone()["count"]
+            if entity_type:
+                # Get stats for specific entity type
+                cursor.execute(
+                    "SELECT COUNT(*) as count FROM venue_acronyms WHERE entity_type = ?",
+                    (entity_type,),
+                )
+                count = cursor.fetchone()["count"]
 
-            # Get most recently used
-            cursor.execute(
-                """
-                SELECT acronym, normalized_name, last_used_at
-                FROM conference_acronyms
-                ORDER BY last_used_at DESC
-                LIMIT 1
-                """
-            )
-            most_recent = cursor.fetchone()
+                cursor.execute(
+                    """
+                    SELECT acronym, normalized_name, entity_type, last_used_at
+                    FROM venue_acronyms
+                    WHERE entity_type = ?
+                    ORDER BY last_used_at DESC
+                    LIMIT 1
+                    """,
+                    (entity_type,),
+                )
+                most_recent = cursor.fetchone()
 
-            # Get oldest entry
-            cursor.execute(
-                """
-                SELECT acronym, normalized_name, created_at
-                FROM conference_acronyms
-                ORDER BY created_at ASC
-                LIMIT 1
-                """
-            )
-            oldest = cursor.fetchone()
+                cursor.execute(
+                    """
+                    SELECT acronym, normalized_name, entity_type, created_at
+                    FROM venue_acronyms
+                    WHERE entity_type = ?
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                    """,
+                    (entity_type,),
+                )
+                oldest = cursor.fetchone()
+            else:
+                # Get stats for all entity types
+                cursor.execute("SELECT COUNT(*) as count FROM venue_acronyms")
+                count = cursor.fetchone()["count"]
+
+                cursor.execute(
+                    """
+                    SELECT acronym, normalized_name, entity_type, last_used_at
+                    FROM venue_acronyms
+                    ORDER BY last_used_at DESC
+                    LIMIT 1
+                    """
+                )
+                most_recent = cursor.fetchone()
+
+                cursor.execute(
+                    """
+                    SELECT acronym, normalized_name, entity_type, created_at
+                    FROM venue_acronyms
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                    """
+                )
+                oldest = cursor.fetchone()
 
             stats = {"total_count": count}
 
@@ -240,11 +296,13 @@ class AcronymCache(CacheBase):
             return stats
 
     def list_all_acronyms(
-        self, limit: int | None = None, offset: int = 0
+        self, entity_type: str | None = None, limit: int | None = None, offset: int = 0
     ) -> list[dict[str, str]]:
         """List all acronym mappings in the database.
 
         Args:
+            entity_type: Optional VenueType value to filter by (e.g., 'journal', 'conference').
+                        If None, returns all acronyms across all entity types.
             limit: Maximum number of entries to return (None for all)
             offset: Number of entries to skip
 
@@ -264,22 +322,33 @@ class AcronymCache(CacheBase):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            query = """
-                SELECT acronym, normalized_name, source, created_at, last_used_at
-                FROM conference_acronyms
-                ORDER BY acronym ASC
-            """
+            if entity_type:
+                query = """
+                    SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
+                    FROM venue_acronyms
+                    WHERE entity_type = ?
+                    ORDER BY acronym ASC
+                """
+                params = [entity_type]
+            else:
+                query = """
+                    SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
+                    FROM venue_acronyms
+                    ORDER BY acronym ASC
+                """
+                params = []
 
             if limit is not None:
                 query += f" LIMIT {limit} OFFSET {offset}"
 
-            cursor.execute(query)
+            cursor.execute(query, params)
             rows = cursor.fetchall()
 
             return [
                 {
                     "acronym": row["acronym"],
                     "normalized_name": row["normalized_name"],
+                    "entity_type": row["entity_type"],
                     "source": row["source"],
                     "created_at": row["created_at"],
                     "last_used_at": row["last_used_at"],
@@ -287,8 +356,12 @@ class AcronymCache(CacheBase):
                 for row in rows
             ]
 
-    def clear_acronym_database(self) -> int:
-        """Clear all entries from the acronym database.
+    def clear_acronym_database(self, entity_type: str | None = None) -> int:
+        """Clear entries from the acronym database.
+
+        Args:
+            entity_type: Optional VenueType value to filter by (e.g., 'journal', 'conference').
+                        If None, clears all acronyms across all entity types.
 
         Returns:
             Number of entries deleted
@@ -296,13 +369,27 @@ class AcronymCache(CacheBase):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
 
-            # Get count before deletion
-            cursor.execute("SELECT COUNT(*) FROM conference_acronyms")
-            result = cursor.fetchone()
-            count: int = result[0] if result else 0
+            if entity_type:
+                # Get count before deletion
+                cursor.execute(
+                    "SELECT COUNT(*) FROM venue_acronyms WHERE entity_type = ?",
+                    (entity_type,),
+                )
+                result = cursor.fetchone()
+                count = result[0] if result else 0
 
-            # Delete all entries
-            cursor.execute("DELETE FROM conference_acronyms")
+                # Delete entries for specific entity type
+                cursor.execute(
+                    "DELETE FROM venue_acronyms WHERE entity_type = ?", (entity_type,)
+                )
+            else:
+                # Get count before deletion
+                cursor.execute("SELECT COUNT(*) FROM venue_acronyms")
+                result = cursor.fetchone()
+                count = result[0] if result else 0
+
+                # Delete all entries
+                cursor.execute("DELETE FROM venue_acronyms")
+
             conn.commit()
-
             return count

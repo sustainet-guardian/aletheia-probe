@@ -124,8 +124,11 @@ class QueryDispatcher:
 
             # Check if input is acronym-like and has expansion
             if normalizer._is_standalone_acronym(query_input.raw_input):
+                # Use original venue type for acronym lookup - matches storage approach
+                entity_type = query_input.venue_type.value
+
                 expanded_name = acronym_cache.get_full_name_for_acronym(
-                    query_input.raw_input
+                    query_input.raw_input, entity_type
                 )
 
                 if expanded_name:
@@ -135,9 +138,13 @@ class QueryDispatcher:
                     )
 
                     # Create new query input with expanded name
+                    # Create acronym lookup closure that uses the same entity_type
+                    def acronym_lookup_for_type(acr: str) -> str | None:
+                        return acronym_cache.get_full_name_for_acronym(acr, entity_type)
+
                     expanded_query = input_normalizer.normalize(
                         expanded_name,
-                        acronym_lookup=acronym_cache.get_full_name_for_acronym,
+                        acronym_lookup=acronym_lookup_for_type,
                     )
 
                     # Store any new acronym mappings discovered during expansion
@@ -146,7 +153,10 @@ class QueryDispatcher:
                         full_name,
                     ) in expanded_query.extracted_acronym_mappings.items():
                         acronym_cache.store_acronym_mapping(
-                            acronym, full_name, source="dispatcher_expansion"
+                            acronym,
+                            full_name,
+                            entity_type,
+                            source="dispatcher_expansion",
                         )
 
                     # Re-query backends with expanded name

@@ -78,15 +78,19 @@ def init_database(db_path: Path) -> None:
                 UNIQUE(journal_id, source_id)
             );
 
-            -- Conference/journal acronym mappings (self-learning cache)
-            CREATE TABLE IF NOT EXISTS conference_acronyms (
-                acronym TEXT PRIMARY KEY COLLATE NOCASE,
+            -- Venue acronym mappings (self-learning cache)
+            -- Tracks acronym-to-name mappings for journals, conferences, and other venue types
+            CREATE TABLE IF NOT EXISTS venue_acronyms (
+                acronym TEXT NOT NULL COLLATE NOCASE,
                 normalized_name TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
                 source TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (acronym, entity_type)
             );
-            CREATE INDEX IF NOT EXISTS idx_acronyms_normalized_name ON conference_acronyms(normalized_name);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_normalized_name ON venue_acronyms(normalized_name);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_entity_type ON venue_acronyms(entity_type);
 
             -- Source metadata (replaces JSON metadata)
             CREATE TABLE IF NOT EXISTS source_metadata (

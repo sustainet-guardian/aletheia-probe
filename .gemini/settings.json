@@ -9,7 +9,7 @@
       "run_shell_command(aletheia-probe bibtex)",
       "run_shell_command(aletheia-probe conference)",
       "run_shell_command(aletheia-probe journal)",
-      "run_shell_command(aletheia-probe conference-acronym list)",
+      "run_shell_command(aletheia-probe acronym list)",
       "run_shell_command(bash scripts/run-quality-checks.sh)",
       "run_shell_command(curl)",
       "run_shell_command(find)",

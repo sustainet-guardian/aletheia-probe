@@ -502,9 +502,9 @@ class BibtexParser:
             macro_name = match.group(1)  # Get the name without backslash
             acronym = macro_name.upper()  # Convert to uppercase (e.g., pasp -> PASP)
 
-            # Try to look up the acronym in the cache
+            # Try to look up the acronym in the cache (for journals)
             acronym_cache = AcronymCache()
-            full_name = acronym_cache.get_full_name_for_acronym(acronym)
+            full_name = acronym_cache.get_full_name_for_acronym(acronym, "journal")
 
             if full_name:
                 return full_name

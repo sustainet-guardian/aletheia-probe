@@ -322,13 +322,13 @@ def bibtex(
     asyncio.run(_async_bibtex_main(bibtex_file, verbose, output_format, relax_bibtex))
 
 
-@main.group(name="conference-acronym")
-def conference_acronym() -> None:
-    """Manage the conference acronym database."""
+@main.group(name="acronym")
+def acronym() -> None:
+    """Manage the venue acronym database (journals, conferences, etc.)."""
     pass
 
 
-@conference_acronym.command(name="status")
+@acronym.command(name="status")
 @handle_cli_errors
 def acronym_status() -> None:
     """Show conference acronym database status."""
@@ -347,7 +347,7 @@ def acronym_status() -> None:
         status_logger.info(f"Total acronyms: {count:,}")
 
 
-@conference_acronym.command()
+@acronym.command()
 @handle_cli_errors
 def stats() -> None:
     """Show detailed statistics about the acronym database."""
@@ -386,7 +386,7 @@ def stats() -> None:
         status_logger.info(f"  Created: {stats['oldest_created']}")
 
 
-@conference_acronym.command()
+@acronym.command()
 @click.option("--limit", type=int, help="Maximum number of entries to display")
 @click.option("--offset", type=int, default=0, help="Number of entries to skip")
 @handle_cli_errors
@@ -422,7 +422,7 @@ def list(limit: int | None, offset: int) -> None:
         status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
 
 
-@conference_acronym.command()
+@acronym.command()
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
 @handle_cli_errors
 def clear(confirm: bool) -> None:
@@ -443,27 +443,33 @@ def clear(confirm: bool) -> None:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
 
 
-@conference_acronym.command()
+@acronym.command()
 @click.argument("acronym")
 @click.argument("full_name")
+@click.option(
+    "--entity-type",
+    required=True,
+    help="Entity type: journal, conference, workshop, symposium, etc.",
+)
 @click.option(
     "--source",
     default="manual",
     help="Source of the mapping (default: manual)",
 )
 @handle_cli_errors
-def add(acronym: str, full_name: str, source: str) -> None:
+def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
     """Manually add an acronym mapping to the database.
 
-    ACRONYM: The conference acronym (e.g., ICML)
-    FULL_NAME: The full conference name
+    ACRONYM: The venue acronym (e.g., ICML, JMLR)
+    FULL_NAME: The full venue name
     """
     status_logger = get_status_logger()
 
     acronym_cache = AcronymCache()
-    acronym_cache.store_acronym_mapping(acronym, full_name, source)
+    acronym_cache.store_acronym_mapping(acronym, full_name, entity_type, source)
 
     status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
+    status_logger.info(f"Entity type: {entity_type}")
     status_logger.info(f"Source: {source}")
 
 
@@ -534,14 +540,14 @@ async def _async_assess_publication(
     acronym_cache = AcronymCache()
 
     try:
-        # Normalize the input with acronym lookup from cache
-        query_input = input_normalizer.normalize(
-            publication_name, acronym_lookup=acronym_cache.get_full_name_for_acronym
-        )
+        # Normalize the input (without acronym lookup for now)
+        query_input = input_normalizer.normalize(publication_name)
 
-        # Store any extracted acronym mappings in cache
+        # Store any extracted acronym mappings in cache with detected venue type
         for acronym, full_name in query_input.extracted_acronym_mappings.items():
-            acronym_cache.store_acronym_mapping(acronym, full_name, source="user_input")
+            acronym_cache.store_acronym_mapping(
+                acronym, full_name, query_input.venue_type.value, source="user_input"
+            )
 
         if verbose:
             status_logger.info(f"Publication type: {publication_type}")
