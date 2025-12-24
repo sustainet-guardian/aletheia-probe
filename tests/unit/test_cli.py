@@ -526,34 +526,34 @@ class TestAsyncMain:
 
 
 class TestConferenceAcronymCommands:
-    """Tests for conference-acronym command group."""
+    """Tests for acronym command group."""
 
-    def test_conference_acronym_status_empty(self, runner):
-        """Test conference-acronym status command with empty database."""
+    def test_acronym_status_empty(self, runner):
+        """Test acronym status command with empty database."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 0}
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "status"])
+            result = runner.invoke(main, ["acronym", "status"])
 
             assert result.exit_code == 0
             assert "empty" in result.output.lower()
 
-    def test_conference_acronym_status_with_data(self, runner):
-        """Test conference-acronym status command with data."""
+    def test_acronym_status_with_data(self, runner):
+        """Test acronym status command with data."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "status"])
+            result = runner.invoke(main, ["acronym", "status"])
 
             assert result.exit_code == 0
             assert "2" in result.output
 
-    def test_conference_acronym_stats(self, runner):
-        """Test conference-acronym stats command."""
+    def test_acronym_stats(self, runner):
+        """Test acronym stats command."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {
@@ -567,27 +567,27 @@ class TestConferenceAcronymCommands:
             }
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "stats"])
+            result = runner.invoke(main, ["acronym", "stats"])
 
             assert result.exit_code == 0
             assert "5" in result.output
             assert "ICML" in result.output
             assert "CVPR" in result.output
 
-    def test_conference_acronym_stats_empty(self, runner):
-        """Test conference-acronym stats command with empty database."""
+    def test_acronym_stats_empty(self, runner):
+        """Test acronym stats command with empty database."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.get_acronym_stats.return_value = {"total_count": 0}
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "stats"])
+            result = runner.invoke(main, ["acronym", "stats"])
 
             assert result.exit_code == 0
             assert "empty" in result.output.lower()
 
-    def test_conference_acronym_list(self, runner):
-        """Test conference-acronym list command."""
+    def test_acronym_list(self, runner):
+        """Test acronym list command."""
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
@@ -618,27 +618,27 @@ class TestConferenceAcronymCommands:
 
             mock_normalizer._normalize_case = mock_normalize_case
 
-            result = runner.invoke(main, ["conference-acronym", "list"])
+            result = runner.invoke(main, ["acronym", "list"])
 
             assert result.exit_code == 0
             assert "ICML" in result.output
             assert "CVPR" in result.output
             assert "Normalized:" in result.output
 
-    def test_conference_acronym_list_empty(self, runner):
-        """Test conference-acronym list command with empty database."""
+    def test_acronym_list_empty(self, runner):
+        """Test acronym list command with empty database."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = []
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "list"])
+            result = runner.invoke(main, ["acronym", "list"])
 
             assert result.exit_code == 0
             assert "No acronyms found" in result.output
 
-    def test_conference_acronym_list_with_limit(self, runner):
-        """Test conference-acronym list command with limit option."""
+    def test_acronym_list_with_limit(self, runner):
+        """Test acronym list command with limit option."""
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
@@ -662,65 +662,65 @@ class TestConferenceAcronymCommands:
 
             mock_normalizer._normalize_case = mock_normalize_case
 
-            result = runner.invoke(main, ["conference-acronym", "list", "--limit", "1"])
+            result = runner.invoke(main, ["acronym", "list", "--limit", "1"])
 
             assert result.exit_code == 0
             assert "Showing 1 of 10" in result.output
 
-    def test_conference_acronym_clear_with_confirm(self, runner):
-        """Test conference-acronym clear command with --confirm flag."""
+    def test_acronym_clear_with_confirm(self, runner):
+        """Test acronym clear command with --confirm flag."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 5
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "clear", "--confirm"])
+            result = runner.invoke(main, ["acronym", "clear", "--confirm"])
 
             assert result.exit_code == 0
             assert "5" in result.output
             mock_cache.clear_acronym_database.assert_called_once()
 
-    def test_conference_acronym_clear_without_confirm_abort(self, runner):
-        """Test conference-acronym clear command without confirm - user aborts."""
+    def test_acronym_clear_without_confirm_abort(self, runner):
+        """Test acronym clear command without confirm - user aborts."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_acronym_cache.return_value = mock_cache
 
             # Simulate user selecting 'n' for no
-            result = runner.invoke(main, ["conference-acronym", "clear"], input="n\n")
+            result = runner.invoke(main, ["acronym", "clear"], input="n\n")
 
             assert result.exit_code == 1
             # Should not have called clear if user aborted
             mock_cache.clear_acronym_database.assert_not_called()
 
-    def test_conference_acronym_clear_without_confirm_proceed(self, runner):
-        """Test conference-acronym clear command without confirm - user proceeds."""
+    def test_acronym_clear_without_confirm_proceed(self, runner):
+        """Test acronym clear command without confirm - user proceeds."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 3
             mock_acronym_cache.return_value = mock_cache
 
             # Simulate user selecting 'y' for yes
-            result = runner.invoke(main, ["conference-acronym", "clear"], input="y\n")
+            result = runner.invoke(main, ["acronym", "clear"], input="y\n")
 
             assert result.exit_code == 0
             assert "3" in result.output
             mock_cache.clear_acronym_database.assert_called_once()
 
-    def test_conference_acronym_clear_already_empty(self, runner):
-        """Test conference-acronym clear command when database is already empty."""
+    def test_acronym_clear_already_empty(self, runner):
+        """Test acronym clear command when database is already empty."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.clear_acronym_database.return_value = 0
             mock_acronym_cache.return_value = mock_cache
 
-            result = runner.invoke(main, ["conference-acronym", "clear", "--confirm"])
+            result = runner.invoke(main, ["acronym", "clear", "--confirm"])
 
             assert result.exit_code == 0
             assert "already empty" in result.output.lower()
 
-    def test_conference_acronym_add(self, runner):
-        """Test conference-acronym add command."""
+    def test_acronym_add(self, runner):
+        """Test acronym add command."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_acronym_cache.return_value = mock_cache
@@ -728,10 +728,12 @@ class TestConferenceAcronymCommands:
             result = runner.invoke(
                 main,
                 [
-                    "conference-acronym",
+                    "acronym",
                     "add",
                     "ICML",
                     "International Conference on Machine Learning",
+                    "--entity-type",
+                    "conference",
                 ],
             )
 
@@ -739,11 +741,14 @@ class TestConferenceAcronymCommands:
             assert "ICML" in result.output
             assert "International Conference on Machine Learning" in result.output
             mock_cache.store_acronym_mapping.assert_called_once_with(
-                "ICML", "International Conference on Machine Learning", "manual"
+                "ICML",
+                "International Conference on Machine Learning",
+                "conference",
+                "manual",
             )
 
-    def test_conference_acronym_add_with_source(self, runner):
-        """Test conference-acronym add command with custom source."""
+    def test_acronym_add_with_source(self, runner):
+        """Test acronym add command with custom source."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_acronym_cache.return_value = mock_cache
@@ -751,10 +756,12 @@ class TestConferenceAcronymCommands:
             result = runner.invoke(
                 main,
                 [
-                    "conference-acronym",
+                    "acronym",
                     "add",
                     "CVPR",
                     "Computer Vision and Pattern Recognition",
+                    "--entity-type",
+                    "conference",
                     "--source",
                     "external_database",
                 ],
@@ -763,11 +770,14 @@ class TestConferenceAcronymCommands:
             assert result.exit_code == 0
             assert "external_database" in result.output
             mock_cache.store_acronym_mapping.assert_called_once_with(
-                "CVPR", "Computer Vision and Pattern Recognition", "external_database"
+                "CVPR",
+                "Computer Vision and Pattern Recognition",
+                "conference",
+                "external_database",
             )
 
-    def test_conference_acronym_add_error(self, runner):
-        """Test conference-acronym add command with error."""
+    def test_acronym_add_error(self, runner):
+        """Test acronym add command with error."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.store_acronym_mapping.side_effect = Exception("Database error")
@@ -775,7 +785,14 @@ class TestConferenceAcronymCommands:
 
             result = runner.invoke(
                 main,
-                ["conference-acronym", "add", "TEST", "Test Conference"],
+                [
+                    "acronym",
+                    "add",
+                    "TEST",
+                    "Test Conference",
+                    "--entity-type",
+                    "conference",
+                ],
             )
 
             assert result.exit_code == 1

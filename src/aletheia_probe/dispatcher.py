@@ -124,8 +124,24 @@ class QueryDispatcher:
 
             # Check if input is acronym-like and has expansion
             if normalizer._is_standalone_acronym(query_input.raw_input):
+                # Determine entity type string from VenueType
+                # Map conference-like venue types to 'conference' for acronym lookup
+                from .models import VenueType
+
+                if query_input.venue_type in [
+                    VenueType.CONFERENCE,
+                    VenueType.WORKSHOP,
+                    VenueType.SYMPOSIUM,
+                    VenueType.PROCEEDINGS,
+                ]:
+                    # Conference-like venues (conferences, workshops, symposia, proceedings)
+                    entity_type = VenueType.CONFERENCE.value
+                else:
+                    # Use the actual venue type value for journals and other types
+                    entity_type = query_input.venue_type.value
+
                 expanded_name = acronym_cache.get_full_name_for_acronym(
-                    query_input.raw_input
+                    query_input.raw_input, entity_type
                 )
 
                 if expanded_name:
@@ -135,9 +151,13 @@ class QueryDispatcher:
                     )
 
                     # Create new query input with expanded name
+                    # Create acronym lookup closure that uses the same entity_type
+                    def acronym_lookup_for_type(acr: str) -> str | None:
+                        return acronym_cache.get_full_name_for_acronym(acr, entity_type)
+
                     expanded_query = input_normalizer.normalize(
                         expanded_name,
-                        acronym_lookup=acronym_cache.get_full_name_for_acronym,
+                        acronym_lookup=acronym_lookup_for_type,
                     )
 
                     # Store any new acronym mappings discovered during expansion
@@ -146,7 +166,10 @@ class QueryDispatcher:
                         full_name,
                     ) in expanded_query.extracted_acronym_mappings.items():
                         acronym_cache.store_acronym_mapping(
-                            acronym, full_name, source="dispatcher_expansion"
+                            acronym,
+                            full_name,
+                            entity_type,
+                            source="dispatcher_expansion",
                         )
 
                     # Re-query backends with expanded name

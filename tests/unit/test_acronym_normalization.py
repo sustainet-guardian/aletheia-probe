@@ -90,20 +90,23 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
     """
     cache = AcronymCache(isolated_test_cache)
     acronym = "IJSRMS"
+    entity_type = "journal"
     full_name1 = "international journal of scientific research & management studies"
     full_name2 = (
         "international journal of scientific research &#038; management studies"
     )
 
     # Store the first mapping
-    cache.store_acronym_mapping(acronym, full_name1, source="test")
+    cache.store_acronym_mapping(acronym, full_name1, entity_type, source="test")
 
     # Attempt to store the second, equivalent mapping
     # This should not trigger a warning
-    cache.store_acronym_mapping(acronym, full_name2, source="test_overwrite")
+    cache.store_acronym_mapping(
+        acronym, full_name2, entity_type, source="test_overwrite"
+    )
 
     # Verify that the mapping exists and is the second one (as it overwrites)
-    stored_name = cache.get_full_name_for_acronym(acronym)
+    stored_name = cache.get_full_name_for_acronym(acronym, entity_type)
     # The normalized name in the cache would be the one after _extract_conference_series and lower()
     # Let's verify it matches the robustly normalized version of full_name2
     norm_full_name2 = cache._normalize_for_comparison(full_name2)
@@ -114,8 +117,10 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
 
     # Test with a different normalized name, should overwrite and possibly warn (if not equivalent)
     full_name3 = "International Journal of Completely Different Research"
-    cache.store_acronym_mapping(acronym, full_name3, source="test_different")
-    stored_name_different = cache.get_full_name_for_acronym(acronym)
+    cache.store_acronym_mapping(
+        acronym, full_name3, entity_type, source="test_different"
+    )
+    stored_name_different = cache.get_full_name_for_acronym(acronym, entity_type)
     assert cache._normalize_for_comparison(
         stored_name_different
     ) == cache._normalize_for_comparison(full_name3)

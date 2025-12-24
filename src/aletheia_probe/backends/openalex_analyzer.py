@@ -100,7 +100,7 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                     )
 
                 # Store acronym mapping if display_name contains acronym in parentheses
-                self._store_acronym_from_openalex(openalex_data)
+                self._store_acronym_from_openalex(openalex_data, query_input)
 
                 # Route to appropriate assessment based on publication type
                 source_type = openalex_data.get("source_type", "").lower()
@@ -163,7 +163,9 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                 response_time=response_time,
             )
 
-    def _store_acronym_from_openalex(self, openalex_data: dict[str, Any]) -> None:
+    def _store_acronym_from_openalex(
+        self, openalex_data: dict[str, Any], query_input: QueryInput
+    ) -> None:
         """Extract and store acronym mapping from OpenAlex display_name.
 
         OpenAlex sometimes includes acronyms in parentheses in the display_name field.
@@ -171,8 +173,10 @@ class OpenAlexAnalyzerBackend(HybridBackend):
 
         Args:
             openalex_data: Raw data from OpenAlex API
+            query_input: Query input containing venue type information
         """
         from ..cache import AcronymCache
+        from ..models import VenueType
         from ..normalizer import InputNormalizer
 
         display_name = openalex_data.get("display_name")
@@ -189,11 +193,25 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                 display_name, acronyms
             )
 
+            # Determine entity type from venue type
+            # Map conference-like venue types to 'conference' for acronym storage
+            if query_input.venue_type in [
+                VenueType.CONFERENCE,
+                VenueType.WORKSHOP,
+                VenueType.SYMPOSIUM,
+                VenueType.PROCEEDINGS,
+            ]:
+                # Conference-like venues (conferences, workshops, symposia, proceedings)
+                entity_type = VenueType.CONFERENCE.value
+            else:
+                # Use the actual venue type value for journals and other types
+                entity_type = query_input.venue_type.value
+
             # Store each mapping in the cache
             acronym_cache = AcronymCache()
             for acronym, full_name in mappings.items():
                 acronym_cache.store_acronym_mapping(
-                    acronym, full_name, source="openalex_response"
+                    acronym, full_name, entity_type, source="openalex_response"
                 )
 
     def _analyze_journal_patterns(

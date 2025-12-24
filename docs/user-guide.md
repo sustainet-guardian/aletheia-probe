@@ -11,7 +11,7 @@ This comprehensive guide covers all aspects of using the Journal Assessment Tool
 5. [Output Formats](#output-formats)
 6. [Understanding Results](#understanding-results)
 7. [Configuration](#configuration)
-8. [Conference Acronym Management](#conference-acronym-management)
+8. [Venue Acronym Management](#venue-acronym-management)
 9. [Article Retraction Checking](#article-retraction-checking)
 10. [Data Sources](#data-sources)
 11. [Best Practices](#best-practices)
@@ -553,9 +553,9 @@ backends:
       project_id: "your_project_id"
 ```
 
-## Conference Acronym Management
+## Venue Acronym Management
 
-The conference acronym expansion system automatically expands conference abbreviations to their full names during assessment. This improves matching accuracy when processing bibliographic data where conferences may be referenced by common acronyms like "ICSE" (International Conference on Software Engineering) or "NIPS" (Neural Information Processing Systems).
+The venue acronym expansion system automatically expands abbreviations for journals and conferences to their full names during assessment. This improves matching accuracy when processing bibliographic data where venues may be referenced by common acronyms like "ICSE" (International Conference on Software Engineering), "JMLR" (Journal of Machine Learning Research), or "NIPS" (Neural Information Processing Systems).
 
 ### How Acronym Expansion Works
 
@@ -599,13 +599,13 @@ aletheia-probe conference "ICSE"
 
 ### Available Commands
 
-The `aletheia-probe conference-acronym` command group provides the following subcommands:
+The `aletheia-probe acronym` command group provides the following subcommands for managing venue acronyms (both journals and conferences):
 
 #### Show Database Status
 
 ```bash
 # Check if acronym database has entries
-aletheia-probe conference-acronym status
+aletheia-probe acronym status
 ```
 
 Displays basic information about the acronym database, including total count of stored mappings.
@@ -614,7 +614,7 @@ Displays basic information about the acronym database, including total count of 
 
 ```bash
 # Show detailed database statistics
-aletheia-probe conference-acronym stats
+aletheia-probe acronym stats
 ```
 
 Provides detailed statistics including:
@@ -627,11 +627,11 @@ Provides detailed statistics including:
 
 ```bash
 # List all acronym mappings
-aletheia-probe conference-acronym list
+aletheia-probe acronym list
 
 # List with pagination
-aletheia-probe conference-acronym list --limit 10
-aletheia-probe conference-acronym list --limit 20 --offset 50
+aletheia-probe acronym list --limit 10
+aletheia-probe acronym list --limit 20 --offset 50
 ```
 
 Shows all stored acronym mappings with details:
@@ -643,26 +643,35 @@ Shows all stored acronym mappings with details:
 #### Add Manual Mapping
 
 ```bash
-# Add a new acronym mapping
-aletheia-probe conference-acronym add "ICSE" "International Conference on Software Engineering"
+# Add a new conference acronym mapping
+aletheia-probe acronym add "ICSE" "International Conference on Software Engineering" --entity-type conference
+
+# Add a journal acronym mapping
+aletheia-probe acronym add "JMLR" "Journal of Machine Learning Research" --entity-type journal
 
 # Add with custom source attribution
-aletheia-probe conference-acronym add "NIPS" "Neural Information Processing Systems" --source "manual-2024"
+aletheia-probe acronym add "NIPS" "Neural Information Processing Systems" --entity-type conference --source "manual-2024"
 ```
 
-Manually adds acronym mappings to the database. Useful for:
+Manually adds acronym mappings to the database. The `--entity-type` parameter is required and specifies the type of venue:
+- `journal` - For journal acronyms
+- `conference` - For conferences, workshops, symposia, and proceedings
+- Other VenueType values as needed
+
+Useful for:
 - Pre-populating common acronyms
 - Correcting automatic mappings
 - Adding institution-specific acronyms
+- Distinguishing between journals and conferences with the same acronym
 
 #### Clear Database
 
 ```bash
 # Clear all mappings (with confirmation prompt)
-aletheia-probe conference-acronym clear
+aletheia-probe acronym clear
 
 # Clear without confirmation prompt
-aletheia-probe conference-acronym clear --confirm
+aletheia-probe acronym clear --confirm
 ```
 
 Removes all acronym mappings from the database. Use with caution as this action cannot be undone.
@@ -672,30 +681,34 @@ Removes all acronym mappings from the database. Use with caution as this action 
 **Building an acronym database:**
 ```bash
 # Start with empty database
-aletheia-probe conference-acronym status
+aletheia-probe acronym status
 
 # Add common computer science conferences
-aletheia-probe conference-acronym add "ICSE" "International Conference on Software Engineering"
-aletheia-probe conference-acronym add "FSE" "Foundations of Software Engineering"
-aletheia-probe conference-acronym add "ASE" "Automated Software Engineering"
+aletheia-probe acronym add "ICSE" "International Conference on Software Engineering" --entity-type conference
+aletheia-probe acronym add "FSE" "Foundations of Software Engineering" --entity-type conference
+aletheia-probe acronym add "ASE" "Automated Software Engineering" --entity-type conference
+
+# Add journal acronyms
+aletheia-probe acronym add "JMLR" "Journal of Machine Learning Research" --entity-type journal
+aletheia-probe acronym add "PLOS" "Public Library of Science" --entity-type journal
 
 # Check what was added
-aletheia-probe conference-acronym list --limit 5
+aletheia-probe acronym list --limit 10
 
 # View statistics
-aletheia-probe conference-acronym stats
+aletheia-probe acronym stats
 ```
 
 **Managing existing mappings:**
 ```bash
 # See current database size
-aletheia-probe conference-acronym status
+aletheia-probe acronym status
 
 # List recent entries
-aletheia-probe conference-acronym list --limit 10
+aletheia-probe acronym list --limit 10
 
 # Clear outdated mappings if needed
-aletheia-probe conference-acronym clear --confirm
+aletheia-probe acronym clear --confirm
 ```
 
 ### Integration with Assessment

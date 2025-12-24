@@ -37,30 +37,34 @@ class TestAcronymMapping:
     def test_store_acronym_mapping_new_entry(self, temp_cache):
         """Test storing a new acronym mapping."""
         temp_cache.store_acronym_mapping(
-            acronym="ICML", full_name="International Conference on Machine Learning"
+            acronym="ICML",
+            full_name="International Conference on Machine Learning",
+            entity_type="conference",
         )
 
         # Verify the mapping was stored (returns normalized lowercase form)
-        result = temp_cache.get_full_name_for_acronym("ICML")
+        result = temp_cache.get_full_name_for_acronym("ICML", "conference")
         assert result == "international conference on machine learning"
 
     def test_store_acronym_mapping_case_insensitive(self, temp_cache):
         """Test that acronym lookup is case-insensitive."""
         temp_cache.store_acronym_mapping(
-            acronym="CVPR", full_name="Conference on Computer Vision"
+            acronym="CVPR",
+            full_name="Conference on Computer Vision",
+            entity_type="conference",
         )
 
         # Should work with different cases (returns normalized lowercase form)
         assert (
-            temp_cache.get_full_name_for_acronym("CVPR")
+            temp_cache.get_full_name_for_acronym("CVPR", "conference")
             == "conference on computer vision"
         )
         assert (
-            temp_cache.get_full_name_for_acronym("cvpr")
+            temp_cache.get_full_name_for_acronym("cvpr", "conference")
             == "conference on computer vision"
         )
         assert (
-            temp_cache.get_full_name_for_acronym("CvPr")
+            temp_cache.get_full_name_for_acronym("CvPr", "conference")
             == "conference on computer vision"
         )
 
@@ -72,12 +76,14 @@ class TestAcronymMapping:
         temp_cache.store_acronym_mapping(
             acronym="CVPR",
             full_name="2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+            entity_type="conference",
         )
 
         # Store same conference without year - should not warn
         temp_cache.store_acronym_mapping(
             acronym="CVPR",
             full_name="IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+            entity_type="conference",
         )
 
         # Verify no warning was logged
@@ -96,11 +102,14 @@ class TestAcronymMapping:
         temp_cache.store_acronym_mapping(
             acronym="ICML",
             full_name="37th International Conference on Machine Learning",
+            entity_type="conference",
         )
 
         # Store without ordinal - should not warn
         temp_cache.store_acronym_mapping(
-            acronym="ICML", full_name="International Conference on Machine Learning"
+            acronym="ICML",
+            full_name="International Conference on Machine Learning",
+            entity_type="conference",
         )
 
         # Verify no warning was logged
@@ -117,12 +126,16 @@ class TestAcronymMapping:
 
         # Store first conference
         temp_cache.store_acronym_mapping(
-            acronym="AI", full_name="Artificial Intelligence Conference"
+            acronym="AI",
+            full_name="Artificial Intelligence Conference",
+            entity_type="conference",
         )
 
         # Store different conference with same acronym - should warn
         temp_cache.store_acronym_mapping(
-            acronym="AI", full_name="Algorithms and Informatics Symposium"
+            acronym="AI",
+            full_name="Algorithms and Informatics Symposium",
+            entity_type="conference",
         )
 
         # Verify warning was logged
@@ -138,11 +151,12 @@ class TestAcronymMapping:
         temp_cache.store_acronym_mapping(
             acronym="NeurIPS",
             full_name="Neural Information Processing Systems",
+            entity_type="conference",
             source="bibtex_extraction",
         )
 
         # Verify the mapping exists (source is tracked internally, returns normalized form)
-        result = temp_cache.get_full_name_for_acronym("NeurIPS")
+        result = temp_cache.get_full_name_for_acronym("NeurIPS", "conference")
         assert result == "neural information processing systems"
 
     # ToDo: checks internals! This will be fixed when the
@@ -239,14 +253,14 @@ class TestAcronymMapping:
         """Test that newer mappings overwrite older ones."""
         # Store initial mapping
         temp_cache.store_acronym_mapping(
-            acronym="TEST", full_name="Test Conference 2022"
+            acronym="TEST", full_name="Test Conference 2022", entity_type="conference"
         )
 
         # Store updated mapping (equivalent, just different year)
         temp_cache.store_acronym_mapping(
-            acronym="TEST", full_name="Test Conference 2023"
+            acronym="TEST", full_name="Test Conference 2023", entity_type="conference"
         )
 
         # Both normalize to the same generic form (years stripped)
-        result = temp_cache.get_full_name_for_acronym("TEST")
+        result = temp_cache.get_full_name_for_acronym("TEST", "conference")
         assert result == "test conference"
