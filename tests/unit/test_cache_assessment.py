@@ -57,9 +57,67 @@ def sample_assessment_result():
 class TestCacheAssessment:
     """Test cases for CacheAssessment."""
 
+    def test_validate_query_hash_valid(self, temp_cache):
+        """Test that valid query hashes pass validation."""
+        valid_hash = hashlib.md5(b"test").hexdigest()  # 32 hex characters
+        # Should not raise an exception
+        temp_cache._validate_query_hash(valid_hash)
+
+    def test_validate_query_hash_empty(self, temp_cache):
+        """Test that empty query hashes are rejected."""
+        with pytest.raises(ValueError, match="query_hash cannot be empty or None"):
+            temp_cache._validate_query_hash("")
+
+        with pytest.raises(ValueError, match="query_hash cannot be empty or None"):
+            temp_cache._validate_query_hash("   ")  # whitespace only
+
+    def test_validate_query_hash_wrong_length(self, temp_cache):
+        """Test that query hashes with wrong length are rejected."""
+        with pytest.raises(ValueError, match="query_hash must be 32 characters long"):
+            temp_cache._validate_query_hash("abc123")  # too short
+
+        with pytest.raises(ValueError, match="query_hash must be 32 characters long"):
+            temp_cache._validate_query_hash("a" * 64)  # too long
+
+    def test_validate_query_hash_invalid_characters(self, temp_cache):
+        """Test that query hashes with invalid characters are rejected."""
+        with pytest.raises(
+            ValueError, match="query_hash must contain only hexadecimal characters"
+        ):
+            temp_cache._validate_query_hash("g" + "a" * 31)  # 'g' is not hex
+
+        with pytest.raises(
+            ValueError, match="query_hash must contain only hexadecimal characters"
+        ):
+            temp_cache._validate_query_hash(
+                "123456789012345678901234567890zz"
+            )  # contains invalid chars 'z'
+
+    def test_cache_assessment_result_invalid_hash(
+        self, temp_cache, sample_assessment_result
+    ):
+        """Test that cache_assessment_result rejects invalid query hashes."""
+        with pytest.raises(ValueError, match="query_hash cannot be empty or None"):
+            temp_cache.cache_assessment_result(
+                "", "Test Query", sample_assessment_result
+            )
+
+        with pytest.raises(ValueError, match="query_hash must be 32 characters long"):
+            temp_cache.cache_assessment_result(
+                "invalid", "Test Query", sample_assessment_result
+            )
+
+    def test_get_cached_assessment_invalid_hash(self, temp_cache):
+        """Test that get_cached_assessment rejects invalid query hashes."""
+        with pytest.raises(ValueError, match="query_hash cannot be empty or None"):
+            temp_cache.get_cached_assessment("")
+
+        with pytest.raises(ValueError, match="query_hash must be 32 characters long"):
+            temp_cache.get_cached_assessment("invalid")
+
     def test_store_and_get_assessment(self, temp_cache, sample_assessment_result):
         """Test storing and retrieving assessment results."""
-        query_hash = "test_hash"
+        query_hash = hashlib.md5(b"test_hash").hexdigest()
 
         # Store assessment
         temp_cache.cache_assessment_result(
@@ -76,12 +134,13 @@ class TestCacheAssessment:
 
     def test_get_assessment_nonexistent(self, temp_cache):
         """Test retrieving non-existent assessment."""
-        result = temp_cache.get_cached_assessment("nonexistent_hash")
+        nonexistent_hash = hashlib.md5(b"nonexistent_hash").hexdigest()
+        result = temp_cache.get_cached_assessment(nonexistent_hash)
         assert result is None
 
     def test_get_assessment_expired(self, temp_cache, sample_assessment_result):
         """Test that expired assessments are not returned."""
-        query_hash = "expired_hash"
+        query_hash = hashlib.md5(b"expired_hash").hexdigest()
 
         # Store with negative TTL (already expired)
         temp_cache.cache_assessment_result(
@@ -93,12 +152,15 @@ class TestCacheAssessment:
 
     def test_cleanup_expired_cache(self, temp_cache, sample_assessment_result):
         """Test cleanup of expired cache entries."""
+        recent_hash = hashlib.md5(b"recent_hash").hexdigest()
+        old_hash = hashlib.md5(b"old_hash").hexdigest()
+
         # Add entries with different expiration times
         temp_cache.cache_assessment_result(
-            "recent_hash", "Test Journal", sample_assessment_result, ttl_hours=24
+            recent_hash, "Test Journal", sample_assessment_result, ttl_hours=24
         )
         temp_cache.cache_assessment_result(
-            "old_hash",
+            old_hash,
             "Test Journal",
             sample_assessment_result,
             ttl_hours=-1,  # Already expired
@@ -110,8 +172,8 @@ class TestCacheAssessment:
         assert expired_count == 1  # Exactly the expired one
 
         # Verify cleanup worked
-        recent_result = temp_cache.get_cached_assessment("recent_hash")
-        old_result = temp_cache.get_cached_assessment("old_hash")
+        recent_result = temp_cache.get_cached_assessment(recent_hash)
+        old_result = temp_cache.get_cached_assessment(old_hash)
 
         assert recent_result is not None
         assert old_result is None
