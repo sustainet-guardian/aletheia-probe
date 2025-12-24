@@ -9,8 +9,6 @@ cache components in the system. It handles shared functionality including:
 - Common utility methods used across cache implementations
 """
 
-import html
-import re
 import sqlite3
 from pathlib import Path
 
@@ -27,8 +25,6 @@ class CacheBase:
     Provides foundational functionality for all cache implementations:
 
     - Automatic database initialization from config or explicit path
-    - Text normalization via _normalize_for_comparison() method
-    - STOP_WORDS set for filtering common terms during comparison
     - Shared database path management (self.db_path)
 
     Subclasses should call super().__init__(db_path) to initialize the database
@@ -37,43 +33,7 @@ class CacheBase:
 
     Attributes:
         db_path: Path to the SQLite database file used by this cache component.
-        STOP_WORDS: Set of common words filtered during text normalization.
     """
-
-    # Common words to ignore for comparison (e.g., "journal of", "the")
-    STOP_WORDS = {
-        "a",
-        "an",
-        "and",
-        "the",
-        "of",
-        "in",
-        "on",
-        "for",
-        "with",
-        "at",
-        "by",
-        "to",
-        "from",
-        "as",
-        "is",
-        "are",
-        "was",
-        "were",
-        "be",
-        "been",
-        "being",
-        "can",
-        "will",
-        "or",
-        "but",
-        "not",
-        "do",
-        "journal",
-        "international",
-        "conference",
-        "proceedings",
-    }
 
     def __init__(self, db_path: Path | None = None):
         """Initialize cache base with database path.
@@ -124,19 +84,3 @@ class CacheBase:
                 raise RuntimeError(error_msg) from e
 
         self.db_path = db_path
-
-    def _normalize_for_comparison(self, text: str) -> str:
-        """Normalize text for robust comparison, removing common words and special characters.
-
-        Args:
-            text: The input string (e.g., a journal or conference name).
-
-        Returns:
-            A cleaned and normalized string suitable for comparison.
-        """
-        text = html.unescape(text)
-        text = text.lower()
-        # Remove common special characters, keeping only alphanumeric and spaces
-        text = re.sub(r"[^\w\s]", "", text)
-        words = [word for word in text.split() if word not in self.STOP_WORDS]
-        return " ".join(words)

@@ -3,7 +3,11 @@
 
 import pytest
 
-from aletheia_probe.normalizer import InputNormalizer
+from aletheia_probe.normalizer import (
+    InputNormalizer,
+    are_conference_names_equivalent,
+    normalize_for_comparison,
+)
 
 
 class TestInputNormalizer:
@@ -419,3 +423,138 @@ class TestInputNormalizer:
         query = normalizer.normalize(unicode_name)
         assert query.raw_input == unicode_name
         assert query.normalized_name is not None
+
+
+class TestNormalizerUtilityFunctions:
+    """Tests for standalone utility functions in normalizer module."""
+
+    def test_normalize_for_comparison_basic(self):
+        """Test basic text normalization for comparison."""
+        text1 = "International Journal of Scientific Research & Management Studies"
+        text2 = "international journal of scientific research & management studies"
+
+        assert normalize_for_comparison(text1) == normalize_for_comparison(text2)
+
+    def test_normalize_for_comparison_stop_words(self):
+        """Test that stop words are removed during normalization."""
+        text1 = "journal of process management and new technologies international"
+        text2 = "journal of process management new technologies international"
+
+        # "and" is a stop word and should be filtered out, making these equivalent
+        assert normalize_for_comparison(text1) == normalize_for_comparison(text2)
+
+    def test_normalize_for_comparison_html_entities(self):
+        """Test HTML entity handling in normalization."""
+        text1 = "International Journal of Scientific Research &#038; Management Studies"
+        text2 = "international journal of scientific research & management studies"
+
+        assert normalize_for_comparison(text1) == normalize_for_comparison(text2)
+
+    def test_normalize_for_comparison_special_chars(self):
+        """Test special character removal in normalization."""
+        text1 = "International Journal of Research in Medical & Applied Sciences"
+        text2 = "International Journal of Research in Medical Applied Sciences"
+
+        assert normalize_for_comparison(text1) == normalize_for_comparison(text2)
+
+    def test_are_conference_names_equivalent_identical(self):
+        """Test equivalence check for identical names."""
+        assert are_conference_names_equivalent(
+            "Machine Learning Conference", "Machine Learning Conference"
+        )
+
+    def test_are_conference_names_equivalent_case_insensitive(self):
+        """Test equivalence check is case-insensitive."""
+        assert are_conference_names_equivalent(
+            "Machine Learning Conference", "machine learning conference"
+        )
+
+    def test_are_conference_names_equivalent_year_prefix(self):
+        """Test equivalence with year prefix."""
+        assert are_conference_names_equivalent(
+            "2022 IEEE/CVF Conference on Computer Vision",
+            "IEEE/CVF Conference on Computer Vision",
+        )
+
+    def test_are_conference_names_equivalent_year_suffix(self):
+        """Test equivalence with year suffix."""
+        assert are_conference_names_equivalent(
+            "Conference on Machine Learning 2023",
+            "Conference on Machine Learning",
+        )
+
+    def test_are_conference_names_equivalent_edition_markers(self):
+        """Test equivalence with edition markers."""
+        assert are_conference_names_equivalent(
+            "2022 edition International Conference",
+            "International Conference",
+        )
+        assert are_conference_names_equivalent(
+            "International Conference edition 2022",
+            "International Conference",
+        )
+
+    def test_are_conference_names_equivalent_ordinals(self):
+        """Test equivalence with ordinal numbers."""
+        assert are_conference_names_equivalent(
+            "37th International Conference on Machine Learning",
+            "International Conference on Machine Learning",
+        )
+        assert are_conference_names_equivalent(
+            "1st Workshop on Neural Networks",
+            "Workshop on Neural Networks",
+        )
+        assert are_conference_names_equivalent(
+            "22nd Annual Conference",
+            "Annual Conference",
+        )
+
+    def test_are_conference_names_equivalent_different_conferences(self):
+        """Test that truly different conferences are not equivalent."""
+        assert not are_conference_names_equivalent(
+            "Artificial Intelligence Conference",
+            "Algorithms and Informatics Symposium",
+        )
+        assert not are_conference_names_equivalent("AAAI", "AI Conference")
+
+    def test_are_conference_names_equivalent_substring_with_length_check(self):
+        """Test that short substrings don't match to avoid false positives."""
+        # Short names (< 10 chars) should not match via substring
+        assert not are_conference_names_equivalent("AI", "AAAI")
+        assert not are_conference_names_equivalent("ML", "ICML")
+
+        # But longer names can match via substring after year/ordinal removal
+        assert are_conference_names_equivalent(
+            "International Conference on Machine Learning and Applications",
+            "International Conference on Machine Learning",
+        )
+
+    def test_are_conference_names_equivalent_complex_variations(self):
+        """Test complex real-world variations."""
+        # Real example from issue #90
+        assert are_conference_names_equivalent(
+            "2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+            "IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+        )
+
+        # Multiple years in name
+        assert are_conference_names_equivalent(
+            "2023 25th International Conference",
+            "International Conference",
+        )
+
+    def test_are_conference_names_equivalent_stop_word_variations(self):
+        """Test equivalence with stop word variations."""
+        name1 = "journal of process management and new technologies international"
+        name2 = "journal of process management new technologies international"
+        assert are_conference_names_equivalent(name1, name2)
+
+        name3 = "International Journal of Research in Medical & Applied Sciences"
+        name4 = "International Journal of Research in Medical Applied Sciences"
+        assert are_conference_names_equivalent(name3, name4)
+
+    def test_are_conference_names_equivalent_html_entities(self):
+        """Test equivalence with HTML entities."""
+        name1 = "International Journal of Scientific Research &#038; Management Studies"
+        name2 = "international journal of scientific research & management studies"
+        assert are_conference_names_equivalent(name1, name2)
