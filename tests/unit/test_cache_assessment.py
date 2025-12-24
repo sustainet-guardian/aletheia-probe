@@ -107,7 +107,7 @@ class TestCacheAssessment:
         # Cleanup
         expired_count = temp_cache.cleanup_expired_cache()
 
-        assert expired_count >= 1  # At least the expired one
+        assert expired_count == 1  # Exactly the expired one
 
         # Verify cleanup worked
         recent_result = temp_cache.get_cached_assessment("recent_hash")
