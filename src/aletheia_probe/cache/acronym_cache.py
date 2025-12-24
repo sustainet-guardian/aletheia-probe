@@ -112,7 +112,11 @@ class AcronymCache(CacheBase):
         return normalized_name
 
     def _check_existing_mapping(
-        self, cursor: sqlite3.Cursor, acronym: str, entity_type: str, normalized_name: str
+        self,
+        cursor: sqlite3.Cursor,
+        acronym: str,
+        entity_type: str,
+        normalized_name: str,
     ) -> None:
         """Check for existing mapping and log conflicts if necessary.
 
@@ -152,9 +156,7 @@ class AcronymCache(CacheBase):
                         f"overwriting with '{normalized_name}'"
                     )
                 else:
-                    detail_logger.debug(
-                        "Names are equivalent, proceeding with update"
-                    )
+                    detail_logger.debug("Names are equivalent, proceeding with update")
             else:
                 detail_logger.debug(
                     f"Mapping unchanged: '{acronym}' -> '{normalized_name}'"
@@ -165,7 +167,12 @@ class AcronymCache(CacheBase):
             )
 
     def _store_mapping(
-        self, cursor: sqlite3.Cursor, acronym: str, normalized_name: str, entity_type: str, source: str
+        self,
+        cursor: sqlite3.Cursor,
+        acronym: str,
+        normalized_name: str,
+        entity_type: str,
+        source: str,
     ) -> None:
         """Store the mapping to the database.
 
