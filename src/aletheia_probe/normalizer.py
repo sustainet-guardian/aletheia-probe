@@ -539,5 +539,127 @@ class InputNormalizer:
         return mappings
 
 
+# Common words to ignore for comparison (e.g., "journal of", "the")
+STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "the",
+    "of",
+    "in",
+    "on",
+    "for",
+    "with",
+    "at",
+    "by",
+    "to",
+    "from",
+    "as",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "can",
+    "will",
+    "or",
+    "but",
+    "not",
+    "do",
+    "journal",
+    "international",
+    "conference",
+    "proceedings",
+}
+
+
+def normalize_for_comparison(text: str) -> str:
+    """Normalize text for robust comparison, removing common words and special characters.
+
+    Args:
+        text: The input string (e.g., a journal or conference name).
+
+    Returns:
+        A cleaned and normalized string suitable for comparison.
+    """
+    text = html.unescape(text)
+    text = text.lower()
+    # Remove common special characters, keeping only alphanumeric and spaces
+    text = re.sub(r"[^\w\s]", "", text)
+    words = [word for word in text.split() if word not in STOP_WORDS]
+    return " ".join(words)
+
+
+def are_conference_names_equivalent(name1: str, name2: str) -> bool:
+    """Check if two conference names are essentially the same with minor variations.
+
+    This function uses the existing conference series normalization logic to
+    identify trivial differences like year prefixes/suffixes and ordinal numbers
+    that don't represent different conferences. It also uses a more robust
+    comparison by normalizing the names to remove stop words and special characters.
+
+    Args:
+        name1: First conference name
+        name2: Second conference name
+
+    Returns:
+        True if the names represent the same conference with minor variations
+
+    Examples:
+        - "2022 IEEE/CVF Conference" and "IEEE/CVF Conference" -> True
+        - "Conference 2022" and "Conference" -> True
+        - "1st International Conference" and "International Conference" -> True
+        - "AAAI" and "AI Conference" -> False
+        - "journal of process management and new technologies international" and "journal of process management new technologies international" -> True
+    """
+    # Perform a quick comparison after aggressive normalization first
+    normalized_for_comp1 = normalize_for_comparison(name1)
+    normalized_for_comp2 = normalize_for_comparison(name2)
+
+    if normalized_for_comp1 == normalized_for_comp2:
+        return True
+
+    # Normalize case
+    norm1 = name1.lower().strip()
+    norm2 = name2.lower().strip()
+
+    # If identical after case normalization, they're equivalent
+    if norm1 == norm2:
+        return True
+
+    # Use the existing conference series extraction logic
+    # This removes years, ordinals, and "Proceedings of" prefix
+    series1 = input_normalizer.extract_conference_series(norm1)
+    series2 = input_normalizer.extract_conference_series(norm2)
+
+    # If both extracted to the same series, they're equivalent
+    if series1 and series2:
+        if normalize_for_comparison(series1) == normalize_for_comparison(series2):
+            return True
+
+    # Handle case where one might be the series of the other
+    # e.g., "2022 Conference" vs "Conference" where series2 is None
+    # Apply robust comparison here as well
+    if series1 and normalize_for_comparison(series1) == normalized_for_comp2:
+        return True
+    if series2 and normalize_for_comparison(series2) == normalized_for_comp1:
+        return True
+
+    # Check if one is a substring of the other after normalization
+    # But only if the shorter name is at least 10 characters to avoid false positives
+    # (e.g., "AI" vs "AAAI" should not match)
+    # Apply robust comparison here as well
+    if len(normalized_for_comp1) >= 10 or len(normalized_for_comp2) >= 10:
+        if (
+            normalized_for_comp1 in normalized_for_comp2
+            or normalized_for_comp2 in normalized_for_comp1
+        ):
+            return True
+
+    return False
+
+
 # Global normalizer instance
 input_normalizer = InputNormalizer()

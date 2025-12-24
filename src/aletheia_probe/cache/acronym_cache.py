@@ -20,6 +20,7 @@ positive effect while making cross-venue queries more difficult.
 import re
 import sqlite3
 
+from ..normalizer import are_conference_names_equivalent
 from .base import CacheBase
 
 
@@ -120,7 +121,7 @@ class AcronymCache(CacheBase):
             existing = cursor.fetchone()
             if existing and existing["normalized_name"] != normalized_name:
                 # Check if this is essentially the same publication with minor variations
-                if not self._are_conference_names_equivalent(
+                if not are_conference_names_equivalent(
                     existing["normalized_name"], normalized_name
                 ):
                     status_logger.warning(
@@ -138,78 +139,6 @@ class AcronymCache(CacheBase):
                 (acronym, normalized_name, entity_type, source),
             )
             conn.commit()
-
-    def _are_conference_names_equivalent(self, name1: str, name2: str) -> bool:
-        """Check if two conference names are essentially the same with minor variations.
-
-        This method uses the existing conference series normalization logic to
-        identify trivial differences like year prefixes/suffixes and ordinal numbers
-        that don't represent different conferences. It also uses a more robust
-        comparison by normalizing the names to remove stop words and special characters.
-
-        Args:
-            name1: First conference name
-            name2: Second conference name
-
-        Returns:
-            True if the names represent the same conference with minor variations
-
-        Examples:
-            - "2022 IEEE/CVF Conference" and "IEEE/CVF Conference" -> True
-            - "Conference 2022" and "Conference" -> True
-            - "1st International Conference" and "International Conference" -> True
-            - "AAAI" and "AI Conference" -> False
-            - "journal of process management and new technologies international" and "journal of process management new technologies international" -> True
-        """
-        from ..normalizer import input_normalizer
-
-        # Perform a quick comparison after aggressive normalization first
-        normalized_for_comp1 = self._normalize_for_comparison(name1)
-        normalized_for_comp2 = self._normalize_for_comparison(name2)
-
-        if normalized_for_comp1 == normalized_for_comp2:
-            return True
-
-        # Normalize case
-        norm1 = name1.lower().strip()
-        norm2 = name2.lower().strip()
-
-        # If identical after case normalization, they're equivalent
-        if norm1 == norm2:
-            return True
-
-        # Use the existing conference series extraction logic
-        # This removes years, ordinals, and "Proceedings of" prefix
-        series1 = input_normalizer.extract_conference_series(norm1)
-        series2 = input_normalizer.extract_conference_series(norm2)
-
-        # If both extracted to the same series, they're equivalent
-        if series1 and series2:
-            if self._normalize_for_comparison(
-                series1
-            ) == self._normalize_for_comparison(series2):
-                return True
-
-        # Handle case where one might be the series of the other
-        # e.g., "2022 Conference" vs "Conference" where series2 is None
-        # Apply robust comparison here as well
-        if series1 and self._normalize_for_comparison(series1) == normalized_for_comp2:
-            return True
-        if series2 and self._normalize_for_comparison(series2) == normalized_for_comp1:
-            return True
-
-        # Check if one is a substring of the other after normalization
-        # But only if the shorter name is at least 10 characters to avoid false positives
-        # (e.g., "AI" vs "AAAI" should not match)
-        # Apply robust comparison here as well
-        if len(normalized_for_comp1) >= 10 or len(normalized_for_comp2) >= 10:
-            if (
-                normalized_for_comp1 in normalized_for_comp2
-                or normalized_for_comp2 in normalized_for_comp1
-            ):
-                return True
-
-        return False
 
     def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int | str]:
         """Get statistics about the acronym database.
