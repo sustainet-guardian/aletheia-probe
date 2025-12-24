@@ -124,21 +124,8 @@ class QueryDispatcher:
 
             # Check if input is acronym-like and has expansion
             if normalizer._is_standalone_acronym(query_input.raw_input):
-                # Determine entity type string from VenueType
-                # Map conference-like venue types to 'conference' for acronym lookup
-                from .models import VenueType
-
-                if query_input.venue_type in [
-                    VenueType.CONFERENCE,
-                    VenueType.WORKSHOP,
-                    VenueType.SYMPOSIUM,
-                    VenueType.PROCEEDINGS,
-                ]:
-                    # Conference-like venues (conferences, workshops, symposia, proceedings)
-                    entity_type = VenueType.CONFERENCE.value
-                else:
-                    # Use the actual venue type value for journals and other types
-                    entity_type = query_input.venue_type.value
+                # Use original venue type for acronym lookup - matches storage approach
+                entity_type = query_input.venue_type.value
 
                 expanded_name = acronym_cache.get_full_name_for_acronym(
                     query_input.raw_input, entity_type
