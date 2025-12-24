@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Base utilities for cache components."""
+"""Base utilities for cache components.
+
+This module provides the CacheBase class, which serves as the foundation for all
+cache components in the system. It handles shared functionality including:
+
+- Database initialization and path management
+- Text normalization for robust name comparison (removing stop words, special chars)
+- Common utility methods used across cache implementations
+"""
 
 import html
 import re
@@ -14,7 +22,23 @@ status_logger = get_status_logger()
 
 
 class CacheBase:
-    """Base class for cache components with shared utilities."""
+    """Base class for cache components with shared utilities.
+
+    Provides foundational functionality for all cache implementations:
+
+    - Automatic database initialization from config or explicit path
+    - Text normalization via _normalize_for_comparison() method
+    - STOP_WORDS set for filtering common terms during comparison
+    - Shared database path management (self.db_path)
+
+    Subclasses should call super().__init__(db_path) to initialize the database
+    connection path and schema. The db_path parameter defaults to the value from
+    the application configuration (config.cache.db_path).
+
+    Attributes:
+        db_path: Path to the SQLite database file used by this cache component.
+        STOP_WORDS: Set of common words filtered during text normalization.
+    """
 
     # Common words to ignore for comparison (e.g., "journal of", "the")
     STOP_WORDS = {
