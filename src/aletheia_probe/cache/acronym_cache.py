@@ -1,5 +1,21 @@
 # SPDX-License-Identifier: MIT
-"""Venue acronym caching for journals, conferences, and other publication types."""
+"""Venue acronym caching for journals, conferences, and other publication types.
+
+Design Decision: Single Table Approach
+=====================================
+This module uses a single 'acronyms' table to store acronym mappings for all venue types
+(journals, conferences, workshops, symposia, etc.) rather than separate tables per type.
+
+Rationale:
+- Reduces database complexity and maintenance overhead
+- Simplifies codebase with unified storage/retrieval logic
+- Venue type distinction is preserved via the entity_type column
+- No performance benefits from multiple tables for this use case
+- Easier to query across all venue types when needed
+
+Having multiple tables would increase database and code complexity without any real
+positive effect while making cross-venue queries more difficult.
+"""
 
 import re
 import sqlite3

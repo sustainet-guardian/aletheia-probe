@@ -193,19 +193,8 @@ class OpenAlexAnalyzerBackend(HybridBackend):
                 display_name, acronyms
             )
 
-            # Determine entity type from venue type
-            # Map conference-like venue types to 'conference' for acronym storage
-            if query_input.venue_type in [
-                VenueType.CONFERENCE,
-                VenueType.WORKSHOP,
-                VenueType.SYMPOSIUM,
-                VenueType.PROCEEDINGS,
-            ]:
-                # Conference-like venues (conferences, workshops, symposia, proceedings)
-                entity_type = VenueType.CONFERENCE.value
-            else:
-                # Use the actual venue type value for journals and other types
-                entity_type = query_input.venue_type.value
+            # Store original venue type value - filtering can be done during reading
+            entity_type = query_input.venue_type.value
 
             # Store each mapping in the cache
             acronym_cache = AcronymCache()
