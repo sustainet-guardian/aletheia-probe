@@ -16,6 +16,28 @@ status_logger = get_status_logger()
 class AssessmentCache(CacheBase):
     """Manages assessment result caching with TTL."""
 
+    def _validate_query_hash(self, query_hash: str) -> None:
+        """Validate query_hash parameter format.
+
+        Args:
+            query_hash: Hash value to validate
+
+        Raises:
+            ValueError: If query_hash is invalid or empty
+        """
+        if not query_hash or not query_hash.strip():
+            raise ValueError("query_hash cannot be empty or None")
+
+        # MD5 hash should be 32 hexadecimal characters
+        if len(query_hash) != 32:
+            raise ValueError(
+                f"query_hash must be 32 characters long, got {len(query_hash)}"
+            )
+
+        # Check if all characters are hexadecimal
+        if not all(c in "0123456789abcdefABCDEF" for c in query_hash):
+            raise ValueError("query_hash must contain only hexadecimal characters")
+
     def cache_assessment_result(
         self,
         query_hash: str,
@@ -31,6 +53,8 @@ class AssessmentCache(CacheBase):
             result: Assessment result to cache
             ttl_hours: Time-to-live in hours
         """
+        self._validate_query_hash(query_hash)
+
         detail_logger.debug(
             f"Caching assessment result for query_hash '{query_hash}' with TTL {ttl_hours}h"
         )
@@ -62,6 +86,8 @@ class AssessmentCache(CacheBase):
         Returns:
             Cached assessment result or None if not found or expired
         """
+        self._validate_query_hash(query_hash)
+
         detail_logger.debug(
             f"Looking up cached assessment for query_hash '{query_hash}'"
         )
