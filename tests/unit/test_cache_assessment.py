@@ -9,6 +9,7 @@ import pytest
 
 from aletheia_probe.cache import AssessmentCache
 from aletheia_probe.cache.schema import init_database
+from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import AssessmentResult, BackendResult, BackendStatus
 
 
@@ -33,7 +34,7 @@ def sample_assessment_result():
     """Sample assessment result for testing."""
     return AssessmentResult(
         input_query="Test Journal",
-        assessment="predatory",
+        assessment=AssessmentType.PREDATORY,
         confidence=0.85,
         overall_score=0.9,
         backend_results=[
@@ -41,7 +42,7 @@ def sample_assessment_result():
                 backend_name="test_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.8,
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 data={"key": "value"},
                 sources=["test_source"],
                 response_time=0.1,
