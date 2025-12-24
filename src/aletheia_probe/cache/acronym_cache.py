@@ -20,12 +20,13 @@ positive effect while making cross-venue queries more difficult.
 import re
 import sqlite3
 
-from ..logging_config import get_detail_logger
-from ..normalizer import are_conference_names_equivalent
+from ..logging_config import get_detail_logger, get_status_logger
+from ..normalizer import are_conference_names_equivalent, input_normalizer
 from .base import CacheBase
 
 
 detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class AcronymCache(CacheBase):
@@ -104,12 +105,6 @@ class AcronymCache(CacheBase):
             entity_type: VenueType value (e.g., 'journal', 'conference', 'workshop')
             source: Source of the mapping ('bibtex_extraction', 'openalex_response', 'manual')
         """
-        # Import inside method to avoid circular dependency issues
-        from ..logging_config import get_status_logger
-        from ..normalizer import input_normalizer
-
-        status_logger = get_status_logger()
-
         acronym = acronym.strip()
         full_name = full_name.strip()
 
@@ -330,6 +325,7 @@ class AcronymCache(CacheBase):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
+            params: list[str | int]
             if entity_type:
                 query = """
                     SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
@@ -351,7 +347,8 @@ class AcronymCache(CacheBase):
                 detail_logger.debug("Querying all acronyms across all entity types")
 
             if limit is not None:
-                query += f" LIMIT {limit} OFFSET {offset}"
+                query += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
                 detail_logger.debug(
                     f"Applied pagination: LIMIT {limit} OFFSET {offset}"
                 )
