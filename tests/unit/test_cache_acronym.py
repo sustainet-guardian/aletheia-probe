@@ -12,9 +12,6 @@ from aletheia_probe.cache import AcronymCache
 from aletheia_probe.cache.schema import init_database
 
 
-# from aletheia_probe.models import AssessmentResult, BackendResult, BackendStatus
-
-
 @pytest.fixture
 def temp_cache():
     """Create a temporary cache for testing with all cache components."""
