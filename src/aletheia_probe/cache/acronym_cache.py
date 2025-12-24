@@ -83,6 +83,113 @@ class AcronymCache(CacheBase):
                 )
             return None
 
+    def _normalize_venue_name(self, full_name: str) -> str:
+        """Normalize venue name to generic series form.
+
+        Args:
+            full_name: The full venue name (may include year/edition)
+
+        Returns:
+            Normalized venue name
+        """
+        # Normalize the publication name to generic series form
+        # This removes years, ordinals, and "Proceedings of" prefix
+        series_name = input_normalizer.extract_conference_series(full_name.lower())
+
+        if series_name:
+            # Use the extracted series name
+            normalized_name = re.sub(r"\s+", " ", series_name).strip()
+            detail_logger.debug(
+                f"Normalized '{full_name}' -> '{normalized_name}' (extracted series name)"
+            )
+        else:
+            # No normalization possible, use original (lowercased, whitespace normalized)
+            normalized_name = re.sub(r"\s+", " ", full_name.lower()).strip()
+            detail_logger.debug(
+                f"Normalized '{full_name}' -> '{normalized_name}' (lowercased original)"
+            )
+
+        return normalized_name
+
+    def _check_existing_mapping(
+        self, cursor: sqlite3.Cursor, acronym: str, entity_type: str, normalized_name: str
+    ) -> None:
+        """Check for existing mapping and log conflicts if necessary.
+
+        Args:
+            cursor: Database cursor
+            acronym: The acronym to check
+            entity_type: VenueType value
+            normalized_name: The normalized name to compare against existing mapping
+        """
+        # Check for existing mapping with same acronym and entity_type
+        detail_logger.debug(
+            f"Checking for existing mapping of acronym '{acronym}' with entity_type '{entity_type}'"
+        )
+        cursor.execute(
+            """
+            SELECT normalized_name FROM venue_acronyms
+            WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+            """,
+            (acronym, entity_type),
+        )
+
+        existing = cursor.fetchone()
+        if existing:
+            detail_logger.debug(
+                f"Found existing mapping: '{acronym}' -> '{existing['normalized_name']}'"
+            )
+            if existing["normalized_name"] != normalized_name:
+                # Check if this is essentially the same publication with minor variations
+                if not are_conference_names_equivalent(
+                    existing["normalized_name"], normalized_name
+                ):
+                    detail_logger.debug(
+                        "Names are not equivalent, will overwrite existing mapping"
+                    )
+                    status_logger.warning(
+                        f"Acronym '{acronym}' (entity_type={entity_type}) already maps to '{existing['normalized_name']}', "
+                        f"overwriting with '{normalized_name}'"
+                    )
+                else:
+                    detail_logger.debug(
+                        "Names are equivalent, proceeding with update"
+                    )
+            else:
+                detail_logger.debug(
+                    f"Mapping unchanged: '{acronym}' -> '{normalized_name}'"
+                )
+        else:
+            detail_logger.debug(
+                f"No existing mapping found for '{acronym}' with entity_type '{entity_type}'"
+            )
+
+    def _store_mapping(
+        self, cursor: sqlite3.Cursor, acronym: str, normalized_name: str, entity_type: str, source: str
+    ) -> None:
+        """Store the mapping to the database.
+
+        Args:
+            cursor: Database cursor
+            acronym: The acronym
+            normalized_name: The normalized name
+            entity_type: VenueType value
+            source: Source of the mapping
+        """
+        # Insert or replace the mapping with normalized form
+        detail_logger.debug(
+            f"Storing acronym mapping: '{acronym}' -> '{normalized_name}' (entity_type: {entity_type})"
+        )
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO venue_acronyms
+            (acronym, normalized_name, entity_type, source, created_at, last_used_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """,
+            (acronym, normalized_name, entity_type, source),
+        )
+        detail_logger.debug("Successfully stored acronym mapping to database")
+
     def store_acronym_mapping(
         self,
         acronym: str,
@@ -112,83 +219,16 @@ class AcronymCache(CacheBase):
             f"Storing acronym mapping: '{acronym}' -> '{full_name}' (entity_type: {entity_type}, source: {source})"
         )
 
-        # Normalize the publication name to generic series form
-        # This removes years, ordinals, and "Proceedings of" prefix
-        series_name = input_normalizer.extract_conference_series(full_name.lower())
-
-        if series_name:
-            # Use the extracted series name
-            normalized_name = re.sub(r"\s+", " ", series_name).strip()
-            detail_logger.debug(
-                f"Normalized '{full_name}' -> '{normalized_name}' (extracted series name)"
-            )
-        else:
-            # No normalization possible, use original (lowercased, whitespace normalized)
-            normalized_name = re.sub(r"\s+", " ", full_name.lower()).strip()
-            detail_logger.debug(
-                f"Normalized '{full_name}' -> '{normalized_name}' (lowercased original)"
-            )
+        normalized_name = self._normalize_venue_name(full_name)
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # Check for existing mapping with same acronym and entity_type
-            detail_logger.debug(
-                f"Checking for existing mapping of acronym '{acronym}' with entity_type '{entity_type}'"
-            )
-            cursor.execute(
-                """
-                SELECT normalized_name FROM venue_acronyms
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                """,
-                (acronym, entity_type),
-            )
+            self._check_existing_mapping(cursor, acronym, entity_type, normalized_name)
+            self._store_mapping(cursor, acronym, normalized_name, entity_type, source)
 
-            existing = cursor.fetchone()
-            if existing:
-                detail_logger.debug(
-                    f"Found existing mapping: '{acronym}' -> '{existing['normalized_name']}'"
-                )
-                if existing["normalized_name"] != normalized_name:
-                    # Check if this is essentially the same publication with minor variations
-                    if not are_conference_names_equivalent(
-                        existing["normalized_name"], normalized_name
-                    ):
-                        detail_logger.debug(
-                            "Names are not equivalent, will overwrite existing mapping"
-                        )
-                        status_logger.warning(
-                            f"Acronym '{acronym}' (entity_type={entity_type}) already maps to '{existing['normalized_name']}', "
-                            f"overwriting with '{normalized_name}'"
-                        )
-                    else:
-                        detail_logger.debug(
-                            "Names are equivalent, proceeding with update"
-                        )
-                else:
-                    detail_logger.debug(
-                        f"Mapping unchanged: '{acronym}' -> '{normalized_name}'"
-                    )
-            else:
-                detail_logger.debug(
-                    f"No existing mapping found for '{acronym}' with entity_type '{entity_type}'"
-                )
-
-            # Insert or replace the mapping with normalized form
-            detail_logger.debug(
-                f"Storing acronym mapping: '{acronym}' -> '{normalized_name}' (entity_type: {entity_type})"
-            )
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO venue_acronyms
-                (acronym, normalized_name, entity_type, source, created_at, last_used_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """,
-                (acronym, normalized_name, entity_type, source),
-            )
             conn.commit()
-            detail_logger.debug("Successfully stored acronym mapping to database")
 
     def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int | str]:
         """Get statistics about the acronym database.
