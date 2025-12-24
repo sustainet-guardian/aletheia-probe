@@ -20,8 +20,12 @@ positive effect while making cross-venue queries more difficult.
 import re
 import sqlite3
 
+from ..logging_config import get_detail_logger
 from ..normalizer import are_conference_names_equivalent
 from .base import CacheBase
+
+
+detail_logger = get_detail_logger()
 
 
 class AcronymCache(CacheBase):
@@ -37,6 +41,10 @@ class AcronymCache(CacheBase):
         Returns:
             Normalized name if found in cache, None otherwise
         """
+        detail_logger.debug(
+            f"Looking up acronym '{acronym}' for entity_type '{entity_type}'"
+        )
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -51,6 +59,9 @@ class AcronymCache(CacheBase):
 
             row = cursor.fetchone()
             if row:
+                detail_logger.debug(
+                    f"Found mapping for '{acronym}' -> '{row['normalized_name']}'"
+                )
                 # Update last_used_at timestamp
                 cursor.execute(
                     """
@@ -61,7 +72,14 @@ class AcronymCache(CacheBase):
                     (acronym.strip(), entity_type),
                 )
                 conn.commit()
+                detail_logger.debug(
+                    f"Updated last_used_at timestamp for acronym '{acronym}'"
+                )
                 return str(row["normalized_name"])
+            else:
+                detail_logger.debug(
+                    f"No mapping found for acronym '{acronym}' with entity_type '{entity_type}'"
+                )
             return None
 
     def store_acronym_mapping(
@@ -94,6 +112,10 @@ class AcronymCache(CacheBase):
         acronym = acronym.strip()
         full_name = full_name.strip()
 
+        detail_logger.debug(
+            f"Storing acronym mapping: '{acronym}' -> '{full_name}' (entity_type: {entity_type}, source: {source})"
+        )
+
         # Normalize the publication name to generic series form
         # This removes years, ordinals, and "Proceedings of" prefix
         series_name = input_normalizer.extract_conference_series(full_name.lower())
@@ -101,15 +123,24 @@ class AcronymCache(CacheBase):
         if series_name:
             # Use the extracted series name
             normalized_name = re.sub(r"\s+", " ", series_name).strip()
+            detail_logger.debug(
+                f"Normalized '{full_name}' -> '{normalized_name}' (extracted series name)"
+            )
         else:
             # No normalization possible, use original (lowercased, whitespace normalized)
             normalized_name = re.sub(r"\s+", " ", full_name.lower()).strip()
+            detail_logger.debug(
+                f"Normalized '{full_name}' -> '{normalized_name}' (lowercased original)"
+            )
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
             # Check for existing mapping with same acronym and entity_type
+            detail_logger.debug(
+                f"Checking for existing mapping of acronym '{acronym}' with entity_type '{entity_type}'"
+            )
             cursor.execute(
                 """
                 SELECT normalized_name FROM venue_acronyms
@@ -119,17 +150,39 @@ class AcronymCache(CacheBase):
             )
 
             existing = cursor.fetchone()
-            if existing and existing["normalized_name"] != normalized_name:
-                # Check if this is essentially the same publication with minor variations
-                if not are_conference_names_equivalent(
-                    existing["normalized_name"], normalized_name
-                ):
-                    status_logger.warning(
-                        f"Acronym '{acronym}' (entity_type={entity_type}) already maps to '{existing['normalized_name']}', "
-                        f"overwriting with '{normalized_name}'"
+            if existing:
+                detail_logger.debug(
+                    f"Found existing mapping: '{acronym}' -> '{existing['normalized_name']}'"
+                )
+                if existing["normalized_name"] != normalized_name:
+                    # Check if this is essentially the same publication with minor variations
+                    if not are_conference_names_equivalent(
+                        existing["normalized_name"], normalized_name
+                    ):
+                        detail_logger.debug(
+                            "Names are not equivalent, will overwrite existing mapping"
+                        )
+                        status_logger.warning(
+                            f"Acronym '{acronym}' (entity_type={entity_type}) already maps to '{existing['normalized_name']}', "
+                            f"overwriting with '{normalized_name}'"
+                        )
+                    else:
+                        detail_logger.debug(
+                            "Names are equivalent, proceeding with update"
+                        )
+                else:
+                    detail_logger.debug(
+                        f"Mapping unchanged: '{acronym}' -> '{normalized_name}'"
                     )
+            else:
+                detail_logger.debug(
+                    f"No existing mapping found for '{acronym}' with entity_type '{entity_type}'"
+                )
 
             # Insert or replace the mapping with normalized form
+            detail_logger.debug(
+                f"Storing acronym mapping: '{acronym}' -> '{normalized_name}' (entity_type: {entity_type})"
+            )
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO venue_acronyms
@@ -139,6 +192,7 @@ class AcronymCache(CacheBase):
                 (acronym, normalized_name, entity_type, source),
             )
             conn.commit()
+            detail_logger.debug("Successfully stored acronym mapping to database")
 
     def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int | str]:
         """Get statistics about the acronym database.
@@ -150,6 +204,11 @@ class AcronymCache(CacheBase):
         Returns:
             Dictionary containing count, most_recent, and oldest entry info
         """
+        if entity_type:
+            detail_logger.debug(f"Getting stats for entity_type '{entity_type}'")
+        else:
+            detail_logger.debug("Getting stats for all entity types")
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -161,6 +220,9 @@ class AcronymCache(CacheBase):
                     (entity_type,),
                 )
                 count = cursor.fetchone()["count"]
+                detail_logger.debug(
+                    f"Found {count} acronym entries for entity_type '{entity_type}'"
+                )
 
                 cursor.execute(
                     """
@@ -189,6 +251,9 @@ class AcronymCache(CacheBase):
                 # Get stats for all entity types
                 cursor.execute("SELECT COUNT(*) as count FROM venue_acronyms")
                 count = cursor.fetchone()["count"]
+                detail_logger.debug(
+                    f"Found {count} total acronym entries across all entity types"
+                )
 
                 cursor.execute(
                     """
@@ -209,6 +274,15 @@ class AcronymCache(CacheBase):
                     """
                 )
                 oldest = cursor.fetchone()
+
+            if most_recent:
+                detail_logger.debug(
+                    f"Most recent acronym: '{most_recent['acronym']}' -> '{most_recent['normalized_name']}' (last used: {most_recent['last_used_at']})"
+                )
+            if oldest:
+                detail_logger.debug(
+                    f"Oldest acronym: '{oldest['acronym']}' -> '{oldest['normalized_name']}' (created: {oldest['created_at']})"
+                )
 
             stats = {"total_count": count}
 
@@ -247,6 +321,10 @@ class AcronymCache(CacheBase):
         if not isinstance(offset, int):
             raise TypeError(f"offset must be an integer, got {type(offset).__name__}")
 
+        detail_logger.debug(
+            f"Listing acronyms with filters: entity_type={entity_type}, limit={limit}, offset={offset}"
+        )
+
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -259,6 +337,9 @@ class AcronymCache(CacheBase):
                     ORDER BY acronym ASC
                 """
                 params = [entity_type]
+                detail_logger.debug(
+                    f"Querying acronyms filtered by entity_type '{entity_type}'"
+                )
             else:
                 query = """
                     SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
@@ -266,12 +347,17 @@ class AcronymCache(CacheBase):
                     ORDER BY acronym ASC
                 """
                 params = []
+                detail_logger.debug("Querying all acronyms across all entity types")
 
             if limit is not None:
                 query += f" LIMIT {limit} OFFSET {offset}"
+                detail_logger.debug(
+                    f"Applied pagination: LIMIT {limit} OFFSET {offset}"
+                )
 
             cursor.execute(query, params)
             rows = cursor.fetchall()
+            detail_logger.debug(f"Retrieved {len(rows)} acronym entries from database")
 
             return [
                 {
@@ -295,6 +381,13 @@ class AcronymCache(CacheBase):
         Returns:
             Number of entries deleted
         """
+        if entity_type:
+            detail_logger.debug(
+                f"Clearing acronym database for entity_type '{entity_type}'"
+            )
+        else:
+            detail_logger.debug("Clearing entire acronym database")
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
 
@@ -306,19 +399,28 @@ class AcronymCache(CacheBase):
                 )
                 result = cursor.fetchone()
                 count = result[0] if result else 0
+                detail_logger.debug(
+                    f"Found {count} entries to delete for entity_type '{entity_type}'"
+                )
 
                 # Delete entries for specific entity type
                 cursor.execute(
                     "DELETE FROM venue_acronyms WHERE entity_type = ?", (entity_type,)
                 )
+                detail_logger.debug(f"Deleted entries for entity_type '{entity_type}'")
             else:
                 # Get count before deletion
                 cursor.execute("SELECT COUNT(*) FROM venue_acronyms")
                 result = cursor.fetchone()
                 count = result[0] if result else 0
+                detail_logger.debug(f"Found {count} total entries to delete")
 
                 # Delete all entries
                 cursor.execute("DELETE FROM venue_acronyms")
+                detail_logger.debug("Deleted all entries from acronym database")
 
             conn.commit()
+            detail_logger.debug(
+                f"Database clear operation completed, {count} entries deleted"
+            )
             return count
