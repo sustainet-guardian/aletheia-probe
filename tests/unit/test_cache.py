@@ -88,18 +88,20 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Add test data from multiple sources
-        temp_cache.journal_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="source_to_clear",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(
+        temp_cache.journal_cache.add_journal_entry(entry1)
+        entry2 = JournalEntryData(
             source_name="source_to_keep",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
+        temp_cache.journal_cache.add_journal_entry(entry2)
 
         # Clear one source
         cleared_count = temp_cache.data_source_manager.remove_source_data(
@@ -126,12 +128,13 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Add data
-        temp_cache.journal_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Test Journal",
             normalized_name="test journal",
         )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         # Should now have data
         assert temp_cache.data_source_manager.has_source_data("test_source")
@@ -144,24 +147,27 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Add test data
-        temp_cache.journal_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(
+        temp_cache.journal_cache.add_journal_entry(entry1)
+        entry2 = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.journal_cache.add_journal_entry(
+        temp_cache.journal_cache.add_journal_entry(entry2)
+        entry3 = JournalEntryData(
             source_name="test_source",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal C",
             normalized_name="journal c",
         )
+        temp_cache.journal_cache.add_journal_entry(entry3)
 
         stats = temp_cache.data_source_manager.get_source_statistics()
 
@@ -180,18 +186,20 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Add test data
-        temp_cache.journal_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="source_to_remove",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(
+        temp_cache.journal_cache.add_journal_entry(entry1)
+        entry2 = JournalEntryData(
             source_name="source_to_remove",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
+        temp_cache.journal_cache.add_journal_entry(entry2)
 
         # Remove source data
         removed_count = temp_cache.data_source_manager.remove_source_data(
@@ -229,8 +237,8 @@ class TestCacheIntegrationJournalDataSource:
             aliases=["TPJ", "Test Predatory"],
         )
 
-        # This should exercise lines 343-360 (JournalEntryData handling)
-        temp_cache.journal_cache.add_journal_entry(entry=entry_data)
+        # This should exercise JournalEntryData handling
+        temp_cache.journal_cache.add_journal_entry(entry_data)
 
         # Verify the entry was added correctly
         journals = temp_cache.journal_cache.search_journals(
@@ -256,8 +264,8 @@ class TestCacheIntegrationJournalDataSource:
             confidence=0.95,
         )
 
-        # This exercises lines 347-351 (enum value handling)
-        temp_cache.journal_cache.add_journal_entry(entry=entry_data)
+        # This exercises enum value handling
+        temp_cache.journal_cache.add_journal_entry(entry_data)
 
         journals = temp_cache.journal_cache.search_journals(
             normalized_name="legitimate_journal"
@@ -275,24 +283,26 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Add some test data first
-        temp_cache.journal_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="source1",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Test Journal 1",
             normalized_name="test_journal_1",
-            issn="1111-1111",
+            issn="1234-5678",
         )
+        temp_cache.journal_cache.add_journal_entry(entry1)
 
-        temp_cache.journal_cache.add_journal_entry(
+        entry2 = JournalEntryData(
             source_name="source2",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Test Journal 2",
             normalized_name="test_journal_2",
-            issn="2222-2222",
+            issn="0028-0836",
         )
+        temp_cache.journal_cache.add_journal_entry(entry2)
 
         # Test search by ISSN with different patterns
-        results = temp_cache.journal_cache.search_journals(issn="1111-1111")
+        results = temp_cache.journal_cache.search_journals(issn="1234-5678")
         assert len(results) == 1
 
         # Test search by source
@@ -320,19 +330,21 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Test duplicate normalized names handling
-        temp_cache.journal_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="source1",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal Name 1",
             normalized_name="same_normalized_name",
         )
+        temp_cache.journal_cache.add_journal_entry(entry1)
 
-        temp_cache.journal_cache.add_journal_entry(
+        entry2 = JournalEntryData(
             source_name="source2",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal Name 2",
             normalized_name="same_normalized_name",
         )
+        temp_cache.journal_cache.add_journal_entry(entry2)
 
         # Should handle duplicates gracefully
         results = temp_cache.journal_cache.search_journals(
@@ -350,15 +362,16 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Test with complex metadata and URLs
-        temp_cache.journal_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="complex_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Complex Journal",
             normalized_name="complex_journal",
             urls=["http://example1.com", "http://example2.com"],
             metadata={"key1": "value1", "key2": {"nested": "value"}},
             aliases=["CJ", "Complex J", "The Complex Journal"],
         )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         results = temp_cache.journal_cache.search_journals(
             normalized_name="complex_journal"
@@ -375,12 +388,13 @@ class TestCacheIntegrationJournalDataSource:
 
         # Add data from multiple sources
         for i in range(5):
-            temp_cache.journal_cache.add_journal_entry(
+            entry = JournalEntryData(
                 source_name=f"source_{i}",
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 journal_name=f"Journal {i}",
                 normalized_name=f"journal_{i}",
             )
+            temp_cache.journal_cache.add_journal_entry(entry)
 
         stats = temp_cache.data_source_manager.get_source_statistics()
         assert len(stats) >= 5
@@ -404,9 +418,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"count": 42},
         )
 
-        temp_cache.journal_cache.add_journal_entry(
-            source_name="test_source", entry=entry
-        )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         # Verify metadata was stored
         results = temp_cache.journal_cache.search_journals(
@@ -430,9 +442,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"is_active": True},
         )
 
-        temp_cache.journal_cache.add_journal_entry(
-            source_name="test_source", entry=entry
-        )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         results = temp_cache.journal_cache.search_journals(
             normalized_name="test_journal"
@@ -454,9 +464,7 @@ class TestCacheIntegrationJournalDataSource:
             normalized_name="international_journal_testing",
         )
 
-        temp_cache.journal_cache.add_journal_entry(
-            source_name="test_source", entry=entry
-        )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         # Search with journal_name parameter
         results = temp_cache.journal_cache.search_journals(journal_name="Testing")
@@ -480,9 +488,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"year": 2023},
         )
 
-        temp_cache.journal_cache.add_journal_entry(
-            source_name="test_source", entry=entry
-        )
+        temp_cache.journal_cache.add_journal_entry(entry)
 
         results = temp_cache.journal_cache.search_journals(
             normalized_name="test_journal"
@@ -521,8 +527,8 @@ class TestCacheIntegrationJournalDataSource:
             normalized_name="test_journal",
         )
 
-        temp_cache.journal_cache.add_journal_entry(source_name="source1", entry=entry1)
-        temp_cache.journal_cache.add_journal_entry(source_name="source2", entry=entry2)
+        temp_cache.journal_cache.add_journal_entry(entry1)
+        temp_cache.journal_cache.add_journal_entry(entry2)
 
         conflicts = temp_cache.data_source_manager.find_conflicts()
 
@@ -553,12 +559,13 @@ class TestCacheIntegrationJournalDataSource:
         ]
 
         for i, journal in enumerate(special_journals):
-            temp_cache.journal_cache.add_journal_entry(
+            entry = JournalEntryData(
                 source_name="test",
-                assessment=AssessmentType.LEGITIMATE.value,
+                assessment=AssessmentType.LEGITIMATE,
                 journal_name=journal,
                 normalized_name=f"special {i}",
             )
+            temp_cache.journal_cache.add_journal_entry(entry)
 
         # Verify all can be retrieved
         for i, journal in enumerate(special_journals):
@@ -587,16 +594,17 @@ class TestCacheIntegrationJournalDataSource:
         # Add 1000 journals
         num_journals = 1000
         for i in range(num_journals):
-            temp_cache.journal_cache.add_journal_entry(
+            entry = JournalEntryData(
                 source_name=f"source_{i % 10}",  # 10 different sources
                 assessment=(
-                    AssessmentType.LEGITIMATE.value
+                    AssessmentType.LEGITIMATE
                     if i % 3 == 0
-                    else AssessmentType.PREDATORY.value
+                    else AssessmentType.PREDATORY
                 ),
                 journal_name=f"Journal {i:04d}",
                 normalized_name=f"journal {i:04d}",
             )
+            temp_cache.journal_cache.add_journal_entry(entry)
 
         # Test searching still works
         results = temp_cache.journal_cache.search_journals(

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..cache import AssessmentCache, DataSourceManager, JournalCache
+from ..data_models import JournalEntryData
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -320,16 +321,17 @@ class DataUpdater:
                 records_updated = 0
                 journal_cache = JournalCache()
                 for journal in journals:
-                    journal_cache.add_journal_entry(
+                    entry = JournalEntryData(
                         source_name=source_name,
-                        assessment=source.get_list_type().value,
+                        assessment=source.get_list_type(),
                         journal_name=journal["journal_name"],
                         normalized_name=journal.get("normalized_name"),
                         issn=journal.get("issn"),
                         eissn=journal.get("eissn"),
                         publisher=journal.get("publisher"),
-                        metadata=journal.get("metadata"),
+                        metadata=journal.get("metadata", {}),
                     )
+                    journal_cache.add_journal_entry(entry)
                     records_updated += 1
 
                 status_logger.info(f"    {source_name}: Writing to database...")

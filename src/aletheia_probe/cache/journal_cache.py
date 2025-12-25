@@ -17,86 +17,6 @@ status_logger = get_status_logger()
 class JournalCache(CacheBase):
     """Manages journal data caching and queries."""
 
-    def _extract_entry_data(
-        self, entry: JournalEntryData
-    ) -> tuple[
-        str,
-        str,
-        str,
-        str,
-        float,
-        str | None,
-        str | None,
-        str | None,
-        list[str] | None,
-        dict[str, Any] | None,
-        list[str] | None,
-    ]:
-        """Extract data from JournalEntryData object.
-
-        Args:
-            entry: JournalEntryData object
-
-        Returns:
-            Tuple of (source_name, assessment, journal_name, normalized_name, confidence,
-                     issn, eissn, publisher, urls, metadata, aliases)
-
-        Raises:
-            TypeError: If entry is not a JournalEntryData instance
-        """
-        if not isinstance(entry, JournalEntryData):
-            raise TypeError("entry must be a JournalEntryData instance")
-
-        assessment = (
-            entry.assessment.value
-            if hasattr(entry.assessment, "value")
-            else entry.assessment
-        )
-        return (
-            entry.source_name,
-            assessment,
-            entry.journal_name,
-            entry.normalized_name,
-            entry.confidence,
-            entry.issn,
-            entry.eissn,
-            entry.publisher,
-            entry.urls,
-            entry.metadata,
-            entry.aliases,
-        )
-
-    def _validate_journal_fields(
-        self,
-        source_name: str | None,
-        assessment: str | None,
-        journal_name: str | None,
-        normalized_name: str | None,
-    ) -> None:
-        """Validate required journal fields.
-
-        Args:
-            source_name: Data source name
-            assessment: Assessment type
-            journal_name: Display journal name
-            normalized_name: Normalized journal name
-
-        Raises:
-            ValueError: If any required field is missing
-        """
-        if not source_name:
-            detail_logger.debug("Validation failed: source_name is required")
-            raise ValueError("source_name is required")
-        if not assessment:
-            detail_logger.debug("Validation failed: assessment is required")
-            raise ValueError("assessment is required")
-        if not journal_name:
-            detail_logger.debug("Validation failed: journal_name is required")
-            raise ValueError("journal_name is required")
-        if not normalized_name:
-            detail_logger.debug("Validation failed: normalized_name is required")
-            raise ValueError("normalized_name is required")
-
     def _get_source_id(self, cursor: sqlite3.Cursor, source_name: str) -> int:
         """Get source ID from database.
 
@@ -310,55 +230,20 @@ class JournalCache(CacheBase):
                         (journal_id, source_id, key, value, data_type),
                     )
 
-    def add_journal_entry(
-        self,
-        source_name: str | None = None,
-        assessment: str | None = None,
-        journal_name: str | None = None,
-        normalized_name: str | None = None,
-        confidence: float = 1.0,
-        issn: str | None = None,
-        eissn: str | None = None,
-        publisher: str | None = None,
-        urls: list[str] | None = None,
-        metadata: dict[str, Any] | None = None,
-        aliases: list[str] | None = None,
-        entry: JournalEntryData | None = None,
-    ) -> int:
+    def add_journal_entry(self, entry: JournalEntryData) -> int:
         """Add or update a journal entry with normalized deduplication.
 
-        Can be called either with individual parameters or with a JournalEntryData object.
-
         Args:
-            source_name: Data source name
-            assessment: Assessment type
-            journal_name: Display journal name
-            normalized_name: Normalized journal name for deduplication
-            confidence: Confidence score (0.0 to 1.0)
-            issn: Print ISSN
-            eissn: Electronic ISSN
-            publisher: Publisher name
-            urls: List of URLs
-            metadata: Additional metadata
-            aliases: List of journal name aliases
-            entry: JournalEntryData object (alternative to individual params)
+            entry: JournalEntryData object containing journal information
 
         Returns:
             Journal ID
 
         Raises:
-            ValueError: If required fields are missing or invalid
+            TypeError: If entry is not a JournalEntryData instance
+            ValueError: If source is not registered or if database operation fails
 
         Examples:
-            >>> # Using individual parameters
-            >>> cache.add_journal_entry(
-            ...     source_name="doaj",
-            ...     assessment="legitimate",
-            ...     journal_name="Nature",
-            ...     normalized_name="nature"
-            ... )
-
-            >>> # Using dataclass
             >>> from aletheia_probe.data_models import JournalEntryData
             >>> entry = JournalEntryData(
             ...     source_name="doaj",
@@ -366,47 +251,49 @@ class JournalCache(CacheBase):
             ...     journal_name="Nature",
             ...     normalized_name="nature"
             ... )
-            >>> cache.add_journal_entry(entry=entry)
+            >>> cache.add_journal_entry(entry)
         """
-        if entry is not None:
-            (
-                source_name,
-                assessment,
-                journal_name,
-                normalized_name,
-                confidence,
-                issn,
-                eissn,
-                publisher,
-                urls,
-                metadata,
-                aliases,
-            ) = self._extract_entry_data(entry)
+        if not isinstance(entry, JournalEntryData):
+            raise TypeError(
+                f"entry must be a JournalEntryData instance, got {type(entry).__name__}"
+            )
 
-        self._validate_journal_fields(
-            source_name, assessment, journal_name, normalized_name
+        assessment = (
+            entry.assessment.value
+            if hasattr(entry.assessment, "value")
+            else entry.assessment
         )
-
-        # After validation, these fields are guaranteed to be non-None
-        assert source_name is not None
-        assert assessment is not None
-        assert journal_name is not None
-        assert normalized_name is not None
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            source_id = self._get_source_id(cursor, source_name)
+            source_id = self._get_source_id(cursor, entry.source_name)
             journal_id = self._upsert_journal(
-                cursor, normalized_name, journal_name, issn, eissn, publisher
+                cursor,
+                entry.normalized_name,
+                entry.journal_name,
+                entry.issn,
+                entry.eissn,
+                entry.publisher,
             )
             self._add_journal_names(
-                cursor, journal_id, journal_name, source_name, aliases
+                cursor,
+                journal_id,
+                entry.journal_name,
+                entry.source_name,
+                entry.aliases if entry.aliases else None,
             )
-            self._add_journal_urls(cursor, journal_id, urls)
+            self._add_journal_urls(
+                cursor, journal_id, entry.urls if entry.urls else None
+            )
             self._add_source_assessment(
-                cursor, journal_id, source_id, assessment, confidence
+                cursor, journal_id, source_id, assessment, entry.confidence
             )
-            self._add_journal_metadata(cursor, journal_id, source_id, metadata)
+            self._add_journal_metadata(
+                cursor,
+                journal_id,
+                source_id,
+                entry.metadata if entry.metadata else None,
+            )
             return journal_id
 
     def _batch_fetch_urls(

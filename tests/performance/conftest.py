@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from aletheia_probe.data_models import JournalEntryData
+from aletheia_probe.enums import AssessmentType
+
 
 @pytest.fixture
 def generated_bibtex_file(tmp_path: Path):
@@ -84,19 +87,22 @@ def populated_cache(isolated_test_cache):
         cache = isolated_test_cache
 
         # Populate with varied journal entries
-        # Note: Using a simple source name that doesn't require registration
+        # Note: This fixture appears to be outdated and needs source registration
         for i in range(journal_count):
             journal_name = f"Test Journal {i % 100}"
             issn = f"{1000 + (i % 9000):04d}-{i % 10000:04d}"
 
-            cache.add_journal_entry(
+            entry = JournalEntryData(
                 journal_name=journal_name,
                 issn=issn,
-                source_name=None,  # Don't specify source to avoid registration requirement
+                source_name="test_source",
                 normalized_name=journal_name.lower(),
-                assessment="legitimate" if i % 3 == 0 else "unknown",
+                assessment=AssessmentType.LEGITIMATE
+                if i % 3 == 0
+                else AssessmentType.UNKNOWN,
                 confidence=0.5 + (i % 50) / 100.0,
             )
+            cache.add_journal_entry(entry)
 
         return cache
 
