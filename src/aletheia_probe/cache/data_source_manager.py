@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
+from ..enums import UpdateStatus
 from .base import CacheBase
 
 
@@ -193,9 +194,9 @@ class DataSourceManager(CacheBase):
                 """
                 SELECT MAX(completed_at) FROM source_updates su
                 JOIN data_sources ds ON su.source_id = ds.id
-                WHERE ds.name = ? AND su.status = 'success'
+                WHERE ds.name = ? AND su.status = ?
             """,
-                (source_name,),
+                (source_name, UpdateStatus.SUCCESS.value),
             )
 
             row = cursor.fetchone()
