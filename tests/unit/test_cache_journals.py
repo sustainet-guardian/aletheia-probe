@@ -178,31 +178,6 @@ class TestCacheJournal:
 class TestCacheJournalAdditional:
     """Additional test cases for JournalCache functionality."""
 
-    #    def test_get_available_sources(self, temp_cache):
-    #        """Test getting list of available sources."""
-    #        # Initially empty
-    #        sources = temp_cache.get_available_sources()
-    #        assert len(sources) == 0
-
-    #        # Add data from multiple sources
-    #        temp_cache.add_journal_list_entry(
-    #            source_name="source1",
-    #            list_type="predatory",
-    #            journal_name="Journal A",
-    #            normalized_name="journal a",
-    #        )
-    #        temp_cache.add_journal_list_entry(
-    #            source_name="source2",
-    #            list_type="legitimate",
-    #            journal_name="Journal B",
-    #            normalized_name="journal b",
-    #        )
-
-    #        # Should now have sources
-    #        sources = temp_cache.get_available_sources()
-    #        assert "source1" in sources
-    #        assert "source2" in sources
-
     def test_cache_with_metadata(self, temp_cache):
         """Test caching journal entries with metadata."""
         metadata = {
