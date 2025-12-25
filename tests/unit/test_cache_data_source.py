@@ -40,11 +40,15 @@ class TestDataSourceManager:
         assert last_updated is None
 
         # Register the source first (required for log_update in normalized schema)
-        temp_cache.register_data_source(source_name, "Test Source", AssessmentType.MIXED.value)
+        temp_cache.register_data_source(
+            source_name, "Test Source", AssessmentType.MIXED.value
+        )
 
         # Log an update and capture the time (truncate to seconds for SQLite TIMESTAMP precision)
         before_update = datetime.now().replace(microsecond=0)
-        temp_cache.log_update(source_name, "manual", UpdateStatus.SUCCESS.value, records_added=5)
+        temp_cache.log_update(
+            source_name, "manual", UpdateStatus.SUCCESS.value, records_added=5
+        )
         after_update = datetime.now().replace(microsecond=0) + timedelta(seconds=1)
 
         # Should now have update time that is recent (within the update window)
@@ -57,9 +61,13 @@ class TestDataSourceManager:
         import sqlite3
 
         # First register the data source
-        temp_cache.register_data_source("test_source", "Test Source", AssessmentType.PREDATORY.value)
+        temp_cache.register_data_source(
+            "test_source", "Test Source", AssessmentType.PREDATORY.value
+        )
 
-        temp_cache.log_update("test_source", "full", UpdateStatus.SUCCESS.value, records_added=100)
+        temp_cache.log_update(
+            "test_source", "full", UpdateStatus.SUCCESS.value, records_added=100
+        )
 
         # Verify log entry in the new source_updates table
         with sqlite3.connect(temp_cache.db_path) as conn:
