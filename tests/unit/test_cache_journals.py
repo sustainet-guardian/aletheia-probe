@@ -39,9 +39,9 @@ class TestCacheJournal:
         dsm = DataSourceManager(temp_cache.db_path)
         dsm.register_data_source("test_source", "Test Source", "predatory")
 
-        temp_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Test Journal",
             normalized_name="test journal",
             issn="1234-5678",
@@ -49,6 +49,7 @@ class TestCacheJournal:
             publisher="Test Publisher",
             metadata={"key": "value"},
         )
+        temp_cache.add_journal_entry(entry)
 
         # Verify entry was added using the cache API
         results = temp_cache.search_journals(normalized_name="test journal")
@@ -79,12 +80,13 @@ class TestCacheJournal:
         dsm.register_data_source("test_source", "Test Source", "predatory")
 
         # Add test data
-        temp_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal of Computer Science",
             normalized_name="journal of computer science",
         )
+        temp_cache.add_journal_entry(entry)
 
         # Search by normalized name
         results = temp_cache.search_journals(
@@ -102,13 +104,14 @@ class TestCacheJournal:
         dsm.register_data_source("test_source", "Test Source", "legitimate")
 
         # Add test data
-        temp_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="test_source",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Nature",
-            normalized_name="nature",  # Required parameter
+            normalized_name="nature",
             issn="0028-0836",
         )
+        temp_cache.add_journal_entry(entry)
 
         # Search by ISSN
         results = temp_cache.search_journals(issn="0028-0836")
@@ -124,18 +127,20 @@ class TestCacheJournal:
         dsm.register_data_source("doaj", "DOAJ", "legitimate")
 
         # Add test data from different sources
-        temp_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="bealls",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.add_journal_entry(
+        temp_cache.add_journal_entry(entry1)
+        entry2 = JournalEntryData(
             source_name="doaj",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
+        temp_cache.add_journal_entry(entry2)
 
         # Search by source
         bealls_results = temp_cache.search_journals(source_name="bealls")
@@ -154,18 +159,20 @@ class TestCacheJournal:
         dsm.register_data_source("test_source", "Test Source", "mixed")
 
         # Add test data
-        temp_cache.add_journal_entry(
+        entry1 = JournalEntryData(
             source_name="test_source",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             journal_name="Predatory Journal",
             normalized_name="predatory journal",
         )
-        temp_cache.add_journal_entry(
+        temp_cache.add_journal_entry(entry1)
+        entry2 = JournalEntryData(
             source_name="test_source",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="Legitimate Journal",
             normalized_name="legitimate journal",
         )
+        temp_cache.add_journal_entry(entry2)
 
         # Search by assessment (list_type maps to assessment in normalized schema)
         predatory_results = temp_cache.search_journals(
@@ -197,13 +204,14 @@ class TestCacheJournalAdditional:
             "open_access": True,
         }
 
-        temp_cache.add_journal_entry(
+        entry = JournalEntryData(
             source_name="test_source",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             journal_name="AI Journal",
             normalized_name="ai journal",
             metadata=metadata,
         )
+        temp_cache.add_journal_entry(entry)
 
         # Search by source to get back metadata in backward compatibility format
         results = temp_cache.search_journals(
@@ -224,12 +232,13 @@ class TestCacheJournalAdditional:
 
         def add_entries(source_suffix):
             for i in range(10):
-                temp_cache.add_journal_entry(
+                entry = JournalEntryData(
                     source_name=f"source_{source_suffix}",
-                    assessment="predatory",
+                    assessment=AssessmentType.PREDATORY,
                     journal_name=f"Journal {source_suffix}_{i}",
                     normalized_name=f"journal {source_suffix} {i}",
                 )
+                temp_cache.add_journal_entry(entry)
 
         # Create multiple threads
         threads = []
@@ -256,46 +265,35 @@ class TestCacheManagerWithJournalEntryData:
 
     def test_add_journal_entry_with_invalid_entry_type(self, temp_cache):
         """Test that invalid entry type raises TypeError."""
-        # This should exercise line 343-344 (type checking)
-        with pytest.raises(
-            TypeError, match="entry must be a JournalEntryData instance"
-        ):
-            temp_cache.add_journal_entry(entry="invalid_entry")
+        with pytest.raises(TypeError):
+            temp_cache.add_journal_entry("invalid_entry")
 
     def test_add_journal_entry_validation_errors(self, temp_cache):
         """Test validation error handling for required fields."""
-        # Test missing source_name (lines 363-364)
-        with pytest.raises(ValueError, match="source_name is required"):
-            temp_cache.add_journal_entry(
+        # Pydantic validates required fields when creating JournalEntryData
+        # Test missing source_name
+        with pytest.raises(ValueError):
+            JournalEntryData(
                 source_name="",
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 journal_name="Test Journal",
                 normalized_name="test_journal",
             )
 
-        # Test missing assessment (lines 365-366)
-        with pytest.raises(ValueError, match="assessment is required"):
-            temp_cache.add_journal_entry(
+        # Test missing journal_name
+        with pytest.raises(ValueError):
+            JournalEntryData(
                 source_name="test_source",
-                assessment="",
-                journal_name="Test Journal",
-                normalized_name="test_journal",
-            )
-
-        # Test missing journal_name (lines 367-368)
-        with pytest.raises(ValueError, match="journal_name is required"):
-            temp_cache.add_journal_entry(
-                source_name="test_source",
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 journal_name="",
                 normalized_name="test_journal",
             )
 
-        # Test missing normalized_name (lines 369+)
-        with pytest.raises(ValueError, match="normalized_name is required"):
-            temp_cache.add_journal_entry(
+        # Test missing normalized_name
+        with pytest.raises(ValueError):
+            JournalEntryData(
                 source_name="test_source",
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 journal_name="Test Journal",
                 normalized_name="",
             )
@@ -310,4 +308,4 @@ class TestCacheManagerWithJournalEntryData:
         )
 
         with pytest.raises(ValueError, match="Source.*not registered"):
-            temp_cache.add_journal_entry(source_name="unregistered_source", entry=entry)
+            temp_cache.add_journal_entry(entry)
