@@ -5,7 +5,12 @@ import json
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
+from ..logging_config import get_detail_logger, get_status_logger
 from .base import CacheBase
+
+
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 if TYPE_CHECKING:
@@ -98,12 +103,16 @@ class JournalCache(CacheBase):
 
         # Validate required fields
         if not source_name:
+            detail_logger.debug("Validation failed: source_name is required")
             raise ValueError("source_name is required")
         if not assessment:
+            detail_logger.debug("Validation failed: assessment is required")
             raise ValueError("assessment is required")
         if not journal_name:
+            detail_logger.debug("Validation failed: journal_name is required")
             raise ValueError("journal_name is required")
         if not normalized_name:
+            detail_logger.debug("Validation failed: normalized_name is required")
             raise ValueError("normalized_name is required")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -112,10 +121,19 @@ class JournalCache(CacheBase):
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
             source_row = cursor.fetchone()
             if not source_row:
+                detail_logger.debug(
+                    f"Data source '{source_name}' not found in database"
+                )
+                status_logger.error(
+                    f"Source '{source_name}' not registered. Register it first."
+                )
                 raise ValueError(
                     f"Source '{source_name}' not registered. Register it first."
                 )
             source_id = int(source_row[0])
+            detail_logger.debug(
+                f"Found data source '{source_name}' with ID {source_id}"
+            )
 
             # Find or create journal by normalized name
             cursor.execute(
@@ -125,6 +143,9 @@ class JournalCache(CacheBase):
 
             if journal_row:
                 journal_id = int(journal_row[0])
+                detail_logger.debug(
+                    f"Updating existing journal '{normalized_name}' (ID: {journal_id})"
+                )
                 # Update existing journal
                 cursor.execute(
                     """
@@ -139,6 +160,7 @@ class JournalCache(CacheBase):
                     (journal_name, issn, eissn, publisher, journal_id),
                 )
             else:
+                detail_logger.debug(f"Creating new journal '{normalized_name}'")
                 # Create new journal
                 cursor.execute(
                     """
@@ -149,8 +171,10 @@ class JournalCache(CacheBase):
                 )
                 lastrow_id = cursor.lastrowid
                 if lastrow_id is None:
+                    detail_logger.debug("Failed to get lastrowid from journal insert")
                     raise ValueError("Failed to insert journal record")
                 journal_id = int(lastrow_id)
+                detail_logger.debug(f"Created journal with ID {journal_id}")
 
             # Add journal name variants
             names_to_add = [journal_name]
@@ -240,6 +264,10 @@ class JournalCache(CacheBase):
             List of matching journal records
         """
         name_lower = name.lower().strip()
+        detail_logger.debug(
+            f"Searching journals by name: '{name}' (normalized: '{name_lower}'), "
+            f"source: {source_name}, assessment: {assessment}"
+        )
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -321,6 +349,9 @@ class JournalCache(CacheBase):
 
                 results.append(journal_dict)
 
+            detail_logger.debug(
+                f"Search by name returned {len(results)} result(s) for '{name}'"
+            )
             return results
 
     def search_journals(
@@ -343,6 +374,11 @@ class JournalCache(CacheBase):
         Returns:
             List of matching journal records
         """
+        detail_logger.debug(
+            f"Searching journals with filters: normalized_name={normalized_name}, "
+            f"journal_name={journal_name}, issn={issn}, source_name={source_name}, "
+            f"assessment={assessment}"
+        )
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
 
@@ -453,6 +489,7 @@ class JournalCache(CacheBase):
 
                 results.append(journal_dict)
 
+            detail_logger.debug(f"Search returned {len(results)} result(s)")
             return results
 
     def add_journal_list_entry(
@@ -485,11 +522,17 @@ class JournalCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
             if cursor.fetchone() is None:
+                detail_logger.debug(
+                    f"Data source '{source_name}' not found, auto-registering"
+                )
                 # Import here to avoid circular dependency
                 from .data_source_manager import DataSourceManager
 
                 dsm = DataSourceManager(self.db_path)
                 dsm.register_data_source(source_name, source_name, "mixed")
+                detail_logger.debug(
+                    f"Auto-registered data source '{source_name}' with type 'mixed'"
+                )
 
         # Add the journal entry using the new normalized method
         self.add_journal_entry(
