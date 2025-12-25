@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.core import DataSource, DataUpdater
 from aletheia_probe.updater.utils import (
     calculate_risk_level,
@@ -23,18 +24,20 @@ from aletheia_probe.validation import extract_issn_from_text, validate_issn
 class MockDataSource(DataSource):
     """Mock data source for testing."""
 
-    def __init__(self, name: str, assessment_type: str = "predatory"):
+    def __init__(
+        self, name: str, assessment_type: AssessmentType = AssessmentType.PREDATORY
+    ):
         self._name = name
         self.assessment_type = assessment_type
 
     def get_name(self) -> str:
         return self._name
 
-    def get_list_type(self) -> str:
+    def get_list_type(self) -> AssessmentType:
         return self.assessment_type
 
     def get_assessment_type(self) -> str:
-        return self.assessment_type
+        return self.assessment_type.value
 
     def should_update(self) -> bool:
         return True
@@ -92,7 +95,7 @@ class TestDataUpdater:
             mock_cache = Mock()
             mock_cache.clear_source_data.return_value = 0
             mock_cache.log_update = Mock()
-            mock_cache.add_journal_list_entry = Mock()
+            mock_cache.add_journal_entry = Mock()
             mock_get_cache_manager.return_value = mock_cache
 
             result = await updater.update_source(source)

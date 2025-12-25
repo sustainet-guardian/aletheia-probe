@@ -254,9 +254,9 @@ class TestAsyncDBWriter:
                 "new_source", "predatory", test_journals
             )
 
-            # Verify source was registered
+            # Verify source was registered with correct type
             mock_cache_manager.register_data_source.assert_called_once_with(
-                "new_source", "new_source", "mixed"
+                "new_source", "new_source", "predatory"
             )
 
     @pytest.mark.asyncio
