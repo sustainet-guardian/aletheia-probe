@@ -115,7 +115,7 @@ class AsyncDBWriter:
             source_row = cursor.fetchone()
             if not source_row:
                 data_source_manager.register_data_source(
-                    source_name, source_name, "mixed"
+                    source_name, source_name, list_type
                 )
                 cursor.execute(
                     "SELECT id FROM data_sources WHERE name = ?", (source_name,)

@@ -79,16 +79,24 @@ class TestCacheIntegrationJournalDataSource:
 
     def test_clear_source_data(self, temp_cache):
         """Test clearing data for a specific source."""
+        # Register data sources
+        temp_cache.data_source_manager.register_data_source(
+            "source_to_clear", "Source to Clear", "predatory"
+        )
+        temp_cache.data_source_manager.register_data_source(
+            "source_to_keep", "Source to Keep", "legitimate"
+        )
+
         # Add test data from multiple sources
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="source_to_clear",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="source_to_keep",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Journal B",
             normalized_name="journal b",
         )
@@ -112,10 +120,15 @@ class TestCacheIntegrationJournalDataSource:
         # Initially no data
         assert not temp_cache.data_source_manager.has_source_data("test_source")
 
+        # Register data source
+        temp_cache.data_source_manager.register_data_source(
+            "test_source", "Test Source", "predatory"
+        )
+
         # Add data
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Test Journal",
             normalized_name="test journal",
         )
@@ -125,22 +138,27 @@ class TestCacheIntegrationJournalDataSource:
 
     def test_get_source_statistics(self, temp_cache):
         """Test getting source statistics."""
+        # Register data source
+        temp_cache.data_source_manager.register_data_source(
+            "test_source", "Test Source", "mixed"
+        )
+
         # Add test data
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="test_source",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Journal C",
             normalized_name="journal c",
         )
@@ -156,16 +174,21 @@ class TestCacheIntegrationJournalDataSource:
 
     def test_remove_source_data(self, temp_cache):
         """Test removing all data for a source."""
+        # Register data source
+        temp_cache.data_source_manager.register_data_source(
+            "source_to_remove", "Source to Remove", "mixed"
+        )
+
         # Add test data
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="source_to_remove",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_list_entry(
+        temp_cache.journal_cache.add_journal_entry(
             source_name="source_to_remove",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Journal B",
             normalized_name="journal b",
         )

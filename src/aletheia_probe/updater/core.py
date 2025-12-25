@@ -278,6 +278,14 @@ class DataUpdater:
 
         start_time = datetime.now()
         data_source_manager = DataSourceManager()
+
+        # Register data source if not already registered
+        data_source_manager.register_data_source(
+            name=source_name,
+            display_name=source_name,
+            source_type=source.get_list_type().value,
+        )
+
         data_source_manager.log_update(source_name, "full", "started")
 
         try:
@@ -312,9 +320,9 @@ class DataUpdater:
                 records_updated = 0
                 journal_cache = JournalCache()
                 for journal in journals:
-                    journal_cache.add_journal_list_entry(
+                    journal_cache.add_journal_entry(
                         source_name=source_name,
-                        list_type=source.get_list_type(),
+                        assessment=source.get_list_type().value,
                         journal_name=journal["journal_name"],
                         normalized_name=journal.get("normalized_name"),
                         issn=journal.get("issn"),

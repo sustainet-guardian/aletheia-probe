@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from aletheia_probe.cache import JournalCache
+from aletheia_probe.cache import DataSourceManager, JournalCache
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.data_models import JournalEntryData
 from aletheia_probe.enums import AssessmentType
@@ -35,9 +35,13 @@ class TestCacheJournal:
 
     def test_add_journal_entry(self, temp_cache):
         """Test adding journal entries."""
-        temp_cache.add_journal_list_entry(
+        # Register data source
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "predatory")
+
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Test Journal",
             normalized_name="test journal",
             issn="1234-5678",
@@ -70,10 +74,14 @@ class TestCacheJournal:
 
     def test_search_journals_basic(self, temp_cache):
         """Test basic journal search functionality."""
+        # Register data source
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "predatory")
+
         # Add test data
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal of Computer Science",
             normalized_name="journal of computer science",
         )
@@ -89,10 +97,14 @@ class TestCacheJournal:
 
     def test_search_journals_by_issn(self, temp_cache):
         """Test searching journals by ISSN."""
+        # Register data source
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "legitimate")
+
         # Add test data
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Nature",
             normalized_name="nature",  # Required parameter
             issn="0028-0836",
@@ -106,16 +118,21 @@ class TestCacheJournal:
 
     def test_search_journals_by_source(self, temp_cache):
         """Test searching journals by source."""
+        # Register data sources
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("bealls", "Bealls List", "predatory")
+        dsm.register_data_source("doaj", "DOAJ", "legitimate")
+
         # Add test data from different sources
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="bealls",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="doaj",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Journal B",
             normalized_name="journal b",
         )
@@ -132,16 +149,20 @@ class TestCacheJournal:
 
     def test_search_journals_by_list_type(self, temp_cache):
         """Test searching journals by list type."""
+        # Register data source
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "mixed")
+
         # Add test data
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="predatory",
+            assessment="predatory",
             journal_name="Predatory Journal",
             normalized_name="predatory journal",
         )
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="Legitimate Journal",
             normalized_name="legitimate journal",
         )
@@ -166,15 +187,19 @@ class TestCacheJournalAdditional:
 
     def test_cache_with_metadata(self, temp_cache):
         """Test caching journal entries with metadata."""
+        # Register data source
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "legitimate")
+
         metadata = {
             "impact_factor": 2.5,
             "categories": ["Computer Science", "AI"],
             "open_access": True,
         }
 
-        temp_cache.add_journal_list_entry(
+        temp_cache.add_journal_entry(
             source_name="test_source",
-            list_type="legitimate",
+            assessment="legitimate",
             journal_name="AI Journal",
             normalized_name="ai journal",
             metadata=metadata,
@@ -192,12 +217,16 @@ class TestCacheJournalAdditional:
 
     def test_concurrent_cache_access(self, temp_cache):
         """Test that cache handles concurrent access properly."""
+        # Register data sources for all threads
+        dsm = DataSourceManager(temp_cache.db_path)
+        for i in range(3):
+            dsm.register_data_source(f"source_{i}", f"Source {i}", "predatory")
 
         def add_entries(source_suffix):
             for i in range(10):
-                temp_cache.add_journal_list_entry(
+                temp_cache.add_journal_entry(
                     source_name=f"source_{source_suffix}",
-                    list_type="predatory",
+                    assessment="predatory",
                     journal_name=f"Journal {source_suffix}_{i}",
                     normalized_name=f"journal {source_suffix} {i}",
                 )
