@@ -89,6 +89,12 @@ Verify the file strictly adheres to project conventions:
 - Only exception: circular dependency workarounds (must be documented with comment)
 - Check proper grouping: stdlib, third-party, local
 
+#### Dead Code Detection
+- ✅ **REQUIRED**: No dead code should remain in the source
+- Public interfaces must be documented and have corresponding tests
+- Private methods must be called from other methods within the class/module
+- Remove truly unused code (neither called internally nor tested)
+
 #### Dual-Logger System
 - Detail logger (`get_detail_logger()`): Technical info, debug, file-only
 - Status logger (`get_status_logger()`): User-facing, console + file
