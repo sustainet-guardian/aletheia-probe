@@ -2,7 +2,7 @@
 """Tests for the DataSourceManager cache module."""
 
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -41,12 +41,15 @@ class TestDataSourceManager:
         # Register the source first (required for log_update in normalized schema)
         temp_cache.register_data_source(source_name, "Test Source", "mixed")
 
-        # Log an update
+        # Log an update and capture the time (truncate to seconds for SQLite TIMESTAMP precision)
+        before_update = datetime.now().replace(microsecond=0)
         temp_cache.log_update(source_name, "manual", "success", records_added=5)
+        after_update = datetime.now().replace(microsecond=0) + timedelta(seconds=1)
 
-        # Should now have update time
+        # Should now have update time that is recent (within the update window)
         last_updated = temp_cache.get_source_last_updated(source_name)
-        assert isinstance(last_updated, datetime)
+        assert last_updated is not None
+        assert before_update <= last_updated <= after_update
 
     def test_log_update(self, temp_cache):
         """Test logging data source updates."""
