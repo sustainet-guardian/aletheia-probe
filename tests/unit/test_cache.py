@@ -123,7 +123,7 @@ class TestCacheIntegrationJournalDataSource:
         # Should now have data
         assert temp_cache.data_source_manager.has_source_data("test_source")
 
-    def test_get_source_stats(self, temp_cache):
+    def test_get_source_statistics(self, temp_cache):
         """Test getting source statistics."""
         # Add test data
         temp_cache.journal_cache.add_journal_list_entry(

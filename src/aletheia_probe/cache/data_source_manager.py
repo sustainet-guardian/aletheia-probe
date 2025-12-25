@@ -104,28 +104,6 @@ class DataSourceManager(CacheBase):
             detail_logger.debug(f"Retrieved statistics for {len(stats)} data sources")
             return stats
 
-    def get_source_stats(self) -> dict[str, dict[str, Any]]:
-        """Get statistics for all data sources in structured format.
-
-        Returns:
-            Dictionary with source statistics
-        """
-        # Get the base statistics
-        stats = self.get_source_statistics()
-
-        # Convert to structured format
-        result = {}
-        for source_name, source_stats in stats.items():
-            result[source_name] = {
-                "total": source_stats.get("total", 0),
-                "lists": {
-                    assessment: {"count": count}
-                    for assessment, count in source_stats.get("assessments", {}).items()
-                },
-            }
-
-        return result
-
     def find_conflicts(self) -> list[dict[str, Any]]:
         """Find journals with conflicting assessments from different sources.
 
