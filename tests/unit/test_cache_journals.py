@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache assessment module."""
 
-import hashlib
-import sqlite3
+import json
 import tempfile
 import threading
 from pathlib import Path
@@ -47,41 +46,27 @@ class TestCacheJournal:
             metadata={"key": "value"},
         )
 
-        # Verify entry was added to normalized tables
-        with sqlite3.connect(temp_cache.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+        # Verify entry was added using the cache API
+        results = temp_cache.search_journals(normalized_name="test journal")
+        assert len(results) == 1
 
-            # Check that the journal was added to the journals table
-            cursor.execute(
-                "SELECT * FROM journals WHERE normalized_name = ?", ("test journal",)
-            )
-            journal_result = cursor.fetchone()
-            assert journal_result is not None
-            assert journal_result["normalized_name"] == "test journal"
-            assert journal_result["display_name"] == "Test Journal"
-            assert journal_result["issn"] == "1234-5678"
-            assert journal_result["eissn"] == "0028-0836"
-            assert journal_result["publisher"] == "Test Publisher"
+        journal = results[0]
+        assert journal["normalized_name"] == "test journal"
+        assert journal["display_name"] == "Test Journal"
+        assert journal["issn"] == "1234-5678"
+        assert journal["eissn"] == "0028-0836"
+        assert journal["publisher"] == "Test Publisher"
 
-            # Check that the journal name was added
-            cursor.execute(
-                "SELECT * FROM journal_names WHERE name = ?", ("Test Journal",)
-            )
-            name_result = cursor.fetchone()
-            assert name_result is not None
-            assert name_result["name"] == "Test Journal"
+        # Verify source-specific data by searching with source_name
+        source_results = temp_cache.search_journals(
+            source_name="test_source", normalized_name="test journal"
+        )
+        assert len(source_results) == 1
 
-            # Check that the source assessment was added
-            cursor.execute(
-                """SELECT sa.assessment FROM source_assessments sa
-                   JOIN data_sources ds ON sa.source_id = ds.id
-                   WHERE ds.name = ? AND sa.journal_id = ?""",
-                ("test_source", journal_result["id"]),
-            )
-            assessment_result = cursor.fetchone()
-            assert assessment_result is not None
-            assert assessment_result["assessment"] == "predatory"
+        source_journal = source_results[0]
+        assert source_journal["journal_name"] == "Test Journal"
+        assert source_journal["list_type"] == "predatory"
+        assert json.loads(source_journal["metadata"]) == {"key": "value"}
 
     def test_search_journals_basic(self, temp_cache):
         """Test basic journal search functionality."""
