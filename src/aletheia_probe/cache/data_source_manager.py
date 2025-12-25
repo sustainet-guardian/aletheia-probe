@@ -6,7 +6,12 @@ from datetime import datetime
 from typing import Any
 
 from ..enums import UpdateStatus
+from ..logging_config import get_detail_logger, get_status_logger
 from .base import CacheBase
+
+
+detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class DataSourceManager(CacheBase):
@@ -34,6 +39,9 @@ class DataSourceManager(CacheBase):
         Returns:
             ID of the registered data source
         """
+        detail_logger.debug(
+            f"Registering data source: {name} (type: {source_type}, authority: {authority_level})"
+        )
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -55,8 +63,12 @@ class DataSourceManager(CacheBase):
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (name,))
             result = cursor.fetchone()
             if result is None:
-                raise ValueError(f"Could not retrieve ID for data source: {name}")
-            return int(result[0])
+                error_msg = f"Could not retrieve ID for data source: {name}"
+                detail_logger.error(error_msg)
+                raise ValueError(error_msg)
+            source_id = int(result[0])
+            detail_logger.debug(f"Data source '{name}' registered with ID: {source_id}")
+            return source_id
 
     def get_source_statistics(self) -> dict[str, dict[str, Any]]:
         """Get statistics for all data sources.
@@ -64,6 +76,7 @@ class DataSourceManager(CacheBase):
         Returns:
             Dictionary mapping source names to their statistics
         """
+        detail_logger.debug("Retrieving source statistics from database")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -88,6 +101,7 @@ class DataSourceManager(CacheBase):
                     stats[source_name]["assessments"][assessment] = count
                     stats[source_name]["total"] += count
 
+            detail_logger.debug(f"Retrieved statistics for {len(stats)} data sources")
             return stats
 
     def get_source_stats(self) -> dict[str, dict[str, Any]]:
@@ -118,6 +132,7 @@ class DataSourceManager(CacheBase):
         Returns:
             List of journals with conflicting assessments
         """
+        detail_logger.debug("Searching for journals with conflicting assessments")
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
@@ -134,7 +149,11 @@ class DataSourceManager(CacheBase):
             """
             )
 
-            return [dict(row) for row in cursor.fetchall()]
+            conflicts = [dict(row) for row in cursor.fetchall()]
+            detail_logger.debug(
+                f"Found {len(conflicts)} journals with conflicting assessments"
+            )
+            return conflicts
 
     def log_update(
         self,
@@ -157,6 +176,10 @@ class DataSourceManager(CacheBase):
             records_removed: Number of records removed
             error_message: Error message if update failed
         """
+        detail_logger.debug(
+            f"Logging update for source '{source_name}': type={update_type}, status={status}, "
+            f"added={records_added}, updated={records_updated}, removed={records_removed}"
+        )
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
@@ -179,6 +202,13 @@ class DataSourceManager(CacheBase):
                         error_message,
                     ),
                 )
+                detail_logger.debug(
+                    f"Update log entry created for source '{source_name}'"
+                )
+            else:
+                detail_logger.warning(
+                    f"Cannot log update: data source '{source_name}' not found"
+                )
 
     def get_source_last_updated(self, source_name: str) -> datetime | None:
         """Get the last successful update time for a source.
@@ -189,6 +219,7 @@ class DataSourceManager(CacheBase):
         Returns:
             Datetime of last successful update or None if never updated
         """
+        detail_logger.debug(f"Checking last update time for source '{source_name}'")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -201,7 +232,12 @@ class DataSourceManager(CacheBase):
 
             row = cursor.fetchone()
             if row and row[0]:
-                return datetime.fromisoformat(row[0])
+                last_updated = datetime.fromisoformat(row[0])
+                detail_logger.debug(
+                    f"Source '{source_name}' last updated at: {last_updated}"
+                )
+                return last_updated
+            detail_logger.debug(f"Source '{source_name}' has no successful updates")
             return None
 
     def has_source_data(self, source_name: str) -> bool:
@@ -213,6 +249,7 @@ class DataSourceManager(CacheBase):
         Returns:
             True if source has data, False otherwise
         """
+        detail_logger.debug(f"Checking if source '{source_name}' has data")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -223,6 +260,7 @@ class DataSourceManager(CacheBase):
                 (source_name,),
             )
             count: int = cursor.fetchone()[0]
+            detail_logger.debug(f"Source '{source_name}' has {count} records")
             return count > 0
 
     def remove_source_data(self, source_name: str) -> int:
@@ -234,6 +272,7 @@ class DataSourceManager(CacheBase):
         Returns:
             Number of records removed
         """
+        detail_logger.debug(f"Removing data for source '{source_name}'")
         with sqlite3.connect(self.db_path) as conn:
             # Get source ID
             cursor = conn.execute(
@@ -241,6 +280,9 @@ class DataSourceManager(CacheBase):
             )
             source_row = cursor.fetchone()
             if not source_row:
+                detail_logger.debug(
+                    f"Source '{source_name}' not found, no data to remove"
+                )
                 return 0
 
             source_id = source_row[0]
@@ -251,22 +293,29 @@ class DataSourceManager(CacheBase):
                 (source_id,),
             )
             count: int = cursor.fetchone()[0]
+            detail_logger.debug(
+                f"Found {count} records to remove for source '{source_name}'"
+            )
 
             # Remove source assessments
             conn.execute(
                 "DELETE FROM source_assessments WHERE source_id = ?", (source_id,)
             )
+            detail_logger.debug(f"Deleted {count} source assessments")
 
             # Clean up orphaned journals (journals with no source assessments)
-            conn.execute(
+            cursor = conn.execute(
                 """
                 DELETE FROM journals WHERE id NOT IN (
                     SELECT DISTINCT journal_id FROM source_assessments
                 )
                 """
             )
+            orphaned_journals = cursor.rowcount
+            detail_logger.debug(f"Cleaned up {orphaned_journals} orphaned journals")
 
             conn.commit()
+            status_logger.info(f"Removed {count} records from source '{source_name}'")
             return count
 
     def get_available_sources(self) -> list[str]:
@@ -275,8 +324,11 @@ class DataSourceManager(CacheBase):
         Returns:
             List of source names
         """
+        detail_logger.debug("Retrieving list of available data sources")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT DISTINCT name FROM data_sources ORDER BY name"
             )
-            return [row[0] for row in cursor.fetchall()]
+            sources = [row[0] for row in cursor.fetchall()]
+            detail_logger.debug(f"Found {len(sources)} available data sources")
+            return sources
