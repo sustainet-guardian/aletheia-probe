@@ -91,9 +91,9 @@ Verify the file strictly adheres to project conventions:
 
 #### Dead Code Detection
 - ✅ **REQUIRED**: No dead code should remain in the source
-- Public interfaces must be documented and have corresponding tests
+- Public interfaces must be used somewhere in the source code (not just in tests)
 - Private methods must be called from other methods within the class/module
-- Remove truly unused code (neither called internally nor tested)
+- Remove unused code along with its tests (having tests doesn't justify keeping unused code)
 
 #### Dual-Logger System
 - Detail logger (`get_detail_logger()`): Technical info, debug, file-only
