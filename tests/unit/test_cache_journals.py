@@ -49,6 +49,7 @@ class TestCacheJournal:
 
         # Verify entry was added to normalized tables
         with sqlite3.connect(temp_cache.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
             # Check that the journal was added to the journals table
@@ -57,11 +58,11 @@ class TestCacheJournal:
             )
             journal_result = cursor.fetchone()
             assert journal_result is not None
-            assert journal_result[1] == "test journal"  # normalized_name column
-            assert journal_result[2] == "Test Journal"  # display_name column
-            assert journal_result[3] == "1234-5678"  # issn column
-            assert journal_result[4] == "0028-0836"  # eissn column
-            assert journal_result[5] == "Test Publisher"  # publisher column
+            assert journal_result["normalized_name"] == "test journal"
+            assert journal_result["display_name"] == "Test Journal"
+            assert journal_result["issn"] == "1234-5678"
+            assert journal_result["eissn"] == "0028-0836"
+            assert journal_result["publisher"] == "Test Publisher"
 
             # Check that the journal name was added
             cursor.execute(
@@ -69,18 +70,18 @@ class TestCacheJournal:
             )
             name_result = cursor.fetchone()
             assert name_result is not None
-            assert name_result[2] == "Test Journal"  # name column
+            assert name_result["name"] == "Test Journal"
 
             # Check that the source assessment was added
             cursor.execute(
                 """SELECT sa.assessment FROM source_assessments sa
                    JOIN data_sources ds ON sa.source_id = ds.id
                    WHERE ds.name = ? AND sa.journal_id = ?""",
-                ("test_source", journal_result[0]),
+                ("test_source", journal_result["id"]),
             )
             assessment_result = cursor.fetchone()
             assert assessment_result is not None
-            assert assessment_result[0] == "predatory"
+            assert assessment_result["assessment"] == "predatory"
 
     def test_search_journals_basic(self, temp_cache):
         """Test basic journal search functionality."""
