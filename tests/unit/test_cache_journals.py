@@ -148,7 +148,7 @@ class TestCacheJournal:
 
         assert len(bealls_results) == 1
         assert len(doaj_results) == 1
-        # When searching by source_name, backward compatibility provides journal_name
+        # When searching by source_name, results include the journal_name field
         assert bealls_results[0]["journal_name"] == "Journal A"
         assert doaj_results[0]["journal_name"] == "Journal B"
 
@@ -184,7 +184,7 @@ class TestCacheJournal:
 
         assert len(predatory_results) == 1
         assert len(legitimate_results) == 1
-        # With source_name, backward compatibility provides list_type field
+        # With source_name, results include the source-specific list_type field
         assert predatory_results[0]["list_type"] == "predatory"
         assert legitimate_results[0]["list_type"] == "legitimate"
 
@@ -213,7 +213,7 @@ class TestCacheJournalAdditional:
         )
         temp_cache.add_journal_entry(entry)
 
-        # Search by source to get back metadata in backward compatibility format
+        # Search by source to get back source-specific metadata
         results = temp_cache.search_journals(
             source_name="test_source", normalized_name="ai journal"
         )
