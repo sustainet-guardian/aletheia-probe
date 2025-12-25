@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Tests for the DataSourceManager cache module."""
 
+import sqlite3
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -58,8 +59,6 @@ class TestDataSourceManager:
 
     def test_log_update(self, temp_cache):
         """Test logging data source updates."""
-        import sqlite3
-
         # First register the data source
         temp_cache.register_data_source(
             "test_source", "Test Source", AssessmentType.PREDATORY.value
