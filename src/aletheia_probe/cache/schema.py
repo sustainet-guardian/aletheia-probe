@@ -4,6 +4,9 @@
 import sqlite3
 from pathlib import Path
 
+from ..enums import AssessmentType, UpdateStatus
+from ..models import VenueType
+
 
 def init_database(db_path: Path) -> None:
     """Initialize normalized database schema.
@@ -11,9 +14,16 @@ def init_database(db_path: Path) -> None:
     Args:
         db_path: Path to the SQLite database file
     """
+    # Generate CHECK constraint strings from enums
+    source_type_values = ", ".join(f"'{t.value}'" for t in AssessmentType)
+    entity_type_values = ", ".join(f"'{t.value}'" for t in VenueType)
+    update_status_values = ", ".join(f"'{s.value}'" for s in UpdateStatus)
+    # Data types for source metadata (no enum, but fixed set of values)
+    data_type_values = "'string', 'boolean', 'integer', 'json'"
+
     with sqlite3.connect(db_path) as conn:
         conn.executescript(
-            """
+            f"""
             -- Core journals table (normalized, one entry per unique journal)
             CREATE TABLE IF NOT EXISTS journals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +45,8 @@ def init_database(db_path: Path) -> None:
                 source_name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
-                UNIQUE(journal_id, name)
+                UNIQUE(journal_id, name),
+                CHECK (name_type IN ('canonical', 'alias'))
             );
 
             -- Journal URLs (one-to-many with journals)
@@ -48,7 +59,8 @@ def init_database(db_path: Path) -> None:
                 first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
-                UNIQUE(journal_id, url)
+                UNIQUE(journal_id, url),
+                CHECK (url_type IN ('website'))
             );
 
             -- Data sources registry
@@ -60,7 +72,8 @@ def init_database(db_path: Path) -> None:
                 authority_level INTEGER DEFAULT 5,
                 base_url TEXT,
                 description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CHECK (source_type IN ({source_type_values}))
             );
 
             -- Source assessments (many-to-many: journals <-> sources)
@@ -87,7 +100,8 @@ def init_database(db_path: Path) -> None:
                 source TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (acronym, entity_type)
+                PRIMARY KEY (acronym, entity_type),
+                CHECK (entity_type IN ({entity_type_values}))
             );
             CREATE INDEX IF NOT EXISTS idx_venue_acronyms_normalized_name ON venue_acronyms(normalized_name);
             CREATE INDEX IF NOT EXISTS idx_venue_acronyms_entity_type ON venue_acronyms(entity_type);
@@ -103,7 +117,8 @@ def init_database(db_path: Path) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
                 FOREIGN KEY (source_id) REFERENCES data_sources(id) ON DELETE CASCADE,
-                UNIQUE(journal_id, source_id, metadata_key)
+                UNIQUE(journal_id, source_id, metadata_key),
+                CHECK (data_type IN ({data_type_values}))
             );
 
             -- Source updates tracking
@@ -118,7 +133,8 @@ def init_database(db_path: Path) -> None:
                 error_message TEXT,
                 started_at TIMESTAMP,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (source_id) REFERENCES data_sources(id)
+                FOREIGN KEY (source_id) REFERENCES data_sources(id),
+                CHECK (status IN ({update_status_values}))
             );
 
             -- Assessment result cache
