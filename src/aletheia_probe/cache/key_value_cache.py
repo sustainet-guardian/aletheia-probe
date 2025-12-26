@@ -4,7 +4,11 @@
 import sqlite3
 from datetime import datetime, timedelta
 
+from ..logging_config import get_detail_logger
 from .base import CacheBase
+
+
+detail_logger = get_detail_logger()
 
 
 class KeyValueCache(CacheBase):
@@ -19,6 +23,7 @@ class KeyValueCache(CacheBase):
             ttl_hours: Time-to-live in hours
         """
         expires_at = datetime.now() + timedelta(hours=ttl_hours)
+        detail_logger.debug(f"Storing cache entry: key='{key}', ttl_hours={ttl_hours}")
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -29,6 +34,7 @@ class KeyValueCache(CacheBase):
                 (key, value, expires_at),
             )
             conn.commit()
+            detail_logger.debug(f"Successfully stored cache entry for key '{key}'")
 
     def get_cached_value(self, key: str) -> str | None:
         """Get a cached value by key.
@@ -39,6 +45,8 @@ class KeyValueCache(CacheBase):
         Returns:
             Cached value or None if not found or expired
         """
+        detail_logger.debug(f"Looking up cache entry for key '{key}'")
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -48,4 +56,13 @@ class KeyValueCache(CacheBase):
                 (key,),
             )
             row = cursor.fetchone()
-            return row[0] if row else None
+            result = row[0] if row else None
+
+            if result:
+                detail_logger.debug(f"Cache hit for key '{key}'")
+            else:
+                detail_logger.debug(
+                    f"Cache miss for key '{key}' (not found or expired)"
+                )
+
+            return result
