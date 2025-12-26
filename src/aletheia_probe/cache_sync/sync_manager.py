@@ -216,40 +216,9 @@ class CacheSyncManager:
                     sync_results[backend_name] = result
 
                     # Log status after completion
-                    if show_progress:
-                        result_value = sync_results[backend_name]
-                        if isinstance(result_value, dict):
-                            status = result_value.get("status", "unknown")
-                            if status == UpdateStatus.SUCCESS.value:
-                                count = result_value.get("records_updated", 0)
-                                self.status_logger.info(
-                                    f"  {backend_name}: Updated {count} records"
-                                )
-                            elif status == UpdateStatus.CURRENT.value:
-                                self.status_logger.info(
-                                    f"  {backend_name}: Data is current"
-                                )
-                            elif status == UpdateStatus.CLEANED.value:
-                                count = result_value.get("records_removed", 0)
-                                self.status_logger.info(
-                                    f"  {backend_name}: Cleaned {count} records (disabled)"
-                                )
-                            elif status == UpdateStatus.SKIPPED.value:
-                                reason = result_value.get("reason", "")
-                                self.status_logger.info(
-                                    f"  {backend_name}: Skipped ({reason})"
-                                )
-                            elif status == UpdateStatus.FAILED.value:
-                                self.status_logger.warning(f"  {backend_name}: Failed")
-                            elif status == UpdateStatus.ERROR.value:
-                                error = result_value.get("error", "unknown error")
-                                self.status_logger.error(
-                                    f"  {backend_name}: Error - {error}"
-                                )
-                            else:
-                                self.status_logger.info(f"  {backend_name}: {status}")
-                        elif isinstance(result_value, str):
-                            self.status_logger.info(f"  {backend_name}: {result_value}")
+                    self._log_backend_result(
+                        backend_name, sync_results[backend_name], show_progress
+                    )
 
             self.detail_logger.info(
                 f"Cache synchronization completed. Results: {sync_results}"
@@ -262,6 +231,44 @@ class CacheSyncManager:
             # Stop the database writer
             await self.db_writer.stop_writer()
             self.sync_in_progress = False
+
+    def _log_backend_result(
+        self, backend_name: str, result_value: str | dict[str, Any], show_progress: bool
+    ) -> None:
+        """Log backend synchronization result to status logger.
+
+        Args:
+            backend_name: Name of the backend that was processed
+            result_value: Result dictionary or string from backend processing
+            show_progress: Whether to show progress output to console
+        """
+        if not show_progress:
+            return
+
+        if isinstance(result_value, dict):
+            status = result_value.get("status", "unknown")
+            if status == UpdateStatus.SUCCESS.value:
+                count = result_value.get("records_updated", 0)
+                self.status_logger.info(f"  {backend_name}: Updated {count} records")
+            elif status == UpdateStatus.CURRENT.value:
+                self.status_logger.info(f"  {backend_name}: Data is current")
+            elif status == UpdateStatus.CLEANED.value:
+                count = result_value.get("records_removed", 0)
+                self.status_logger.info(
+                    f"  {backend_name}: Cleaned {count} records (disabled)"
+                )
+            elif status == UpdateStatus.SKIPPED.value:
+                reason = result_value.get("reason", "")
+                self.status_logger.info(f"  {backend_name}: Skipped ({reason})")
+            elif status == UpdateStatus.FAILED.value:
+                self.status_logger.warning(f"  {backend_name}: Failed")
+            elif status == UpdateStatus.ERROR.value:
+                error = result_value.get("error", "unknown error")
+                self.status_logger.error(f"  {backend_name}: Error - {error}")
+            else:
+                self.status_logger.info(f"  {backend_name}: {status}")
+        elif isinstance(result_value, str):
+            self.status_logger.info(f"  {backend_name}: {result_value}")
 
     async def _process_backend_with_semaphore(
         self,
