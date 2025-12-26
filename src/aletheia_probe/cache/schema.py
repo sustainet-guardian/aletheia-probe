@@ -138,6 +138,10 @@ def init_database(db_path: Path) -> None:
             );
 
             -- Assessment result cache
+            -- Purpose: Domain-specific caching for structured journal/conference assessment results
+            -- Stores AssessmentResult objects as JSON with associated query metadata
+            -- Key structure: MD5 hash (32 hex chars) of normalized query parameters
+            -- Use this for: Caching complete assessment operations and their results
             CREATE TABLE IF NOT EXISTS assessment_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 query_hash TEXT UNIQUE NOT NULL,
@@ -162,6 +166,11 @@ def init_database(db_path: Path) -> None:
             );
 
             -- Generic key-value cache
+            -- Purpose: Simple string-based caching for arbitrary data (e.g., API responses, external service results)
+            -- Stores plain strings or JSON-encoded data as strings
+            -- Key structure: Arbitrary string identifier (up to 255 chars)
+            -- Use this for: General-purpose caching where structured assessment data is not needed
+            -- Examples: OpenAlex API responses, external service lookups, temporary computation results
             CREATE TABLE IF NOT EXISTS key_value_cache (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
