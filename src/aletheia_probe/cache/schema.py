@@ -146,6 +146,14 @@ def init_database(db_path: Path) -> None:
                 expires_at TIMESTAMP NOT NULL
             );
 
+            -- Generic key-value cache
+            CREATE TABLE IF NOT EXISTS key_value_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_journals_normalized_name ON journals(normalized_name);
             CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
@@ -164,5 +172,6 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_assessment_cache_expires ON assessment_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_doi ON article_retractions(doi);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_expires ON article_retractions(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_key_value_cache_expires ON key_value_cache(expires_at);
         """
         )
