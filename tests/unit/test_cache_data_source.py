@@ -9,7 +9,7 @@ import pytest
 
 from aletheia_probe.cache import DataSourceManager
 from aletheia_probe.cache.schema import init_database
-from aletheia_probe.enums import AssessmentType, UpdateStatus
+from aletheia_probe.enums import AssessmentType, UpdateStatus, UpdateType
 
 
 @pytest.fixture
@@ -47,7 +47,10 @@ class TestDataSourceManager:
         # Log an update and capture the time (truncate to seconds for SQLite TIMESTAMP precision)
         before_update = datetime.now().replace(microsecond=0)
         temp_cache.log_update(
-            source_name, "manual", UpdateStatus.SUCCESS.value, records_added=5
+            source_name,
+            UpdateType.FULL.value,
+            UpdateStatus.SUCCESS.value,
+            records_added=5,
         )
         after_update = datetime.now().replace(microsecond=0) + timedelta(seconds=1)
 
@@ -66,7 +69,10 @@ class TestDataSourceManager:
         )
 
         temp_cache.log_update(
-            "test_source", "full", UpdateStatus.SUCCESS.value, records_added=100
+            "test_source",
+            UpdateType.FULL.value,
+            UpdateStatus.SUCCESS.value,
+            records_added=100,
         )
 
         # Verify log entry in the new source_updates table
