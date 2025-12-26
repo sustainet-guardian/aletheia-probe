@@ -407,7 +407,7 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="test_source",
             display_name="Test Source",
-            source_type="list",
+            source_type="unknown",
         )
 
         entry = JournalEntryData(
@@ -431,7 +431,7 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="test_source",
             display_name="Test Source",
-            source_type="list",
+            source_type="unknown",
         )
 
         entry = JournalEntryData(
@@ -454,7 +454,7 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="test_source",
             display_name="Test Source",
-            source_type="list",
+            source_type="unknown",
         )
 
         entry = JournalEntryData(
@@ -477,7 +477,7 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="test_source",
             display_name="Test Source",
-            source_type="list",
+            source_type="unknown",
         )
 
         entry = JournalEntryData(
@@ -503,13 +503,13 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="source1",
             display_name="Source 1",
-            source_type="list",
+            source_type="unknown",
         )
 
         temp_cache.data_source_manager.register_data_source(
             name="source2",
             display_name="Source 2",
-            source_type="list",
+            source_type="unknown",
         )
 
         # Add same journal to both sources with different assessments
@@ -545,7 +545,7 @@ class TestCacheIntegrationJournalDataSource:
         temp_cache.data_source_manager.register_data_source(
             name="test",
             display_name="Test Source",
-            source_type="test",
+            source_type="unknown",
         )
 
         # Test journals with special characters
@@ -588,7 +588,7 @@ class TestCacheIntegrationJournalDataSource:
             temp_cache.data_source_manager.register_data_source(
                 name=f"source_{j}",
                 display_name=f"Source {j}",
-                source_type="test",
+                source_type="unknown",
             )
 
         # Add 1000 journals
