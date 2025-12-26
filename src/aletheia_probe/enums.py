@@ -53,3 +53,18 @@ class RiskLevel(str, Enum):
     MODERATE = "moderate"
     HIGH = "high"
     CRITICAL = "critical"
+
+
+class UpdateType(str, Enum):
+    """Type of update operation for data sources."""
+
+    FULL = "full"
+    INCREMENTAL = "incremental"
+    VERIFICATION = "verification"
+
+
+class NameType(str, Enum):
+    """Type of journal name (canonical or alias)."""
+
+    CANONICAL = "canonical"
+    ALIAS = "alias"

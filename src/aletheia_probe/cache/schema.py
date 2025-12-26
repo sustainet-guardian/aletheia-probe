@@ -4,7 +4,7 @@
 import sqlite3
 from pathlib import Path
 
-from ..enums import AssessmentType, UpdateStatus
+from ..enums import AssessmentType, NameType, UpdateStatus, UpdateType
 from ..models import VenueType
 
 
@@ -18,6 +18,8 @@ def init_database(db_path: Path) -> None:
     source_type_values = ", ".join(f"'{t.value}'" for t in AssessmentType)
     entity_type_values = ", ".join(f"'{t.value}'" for t in VenueType)
     update_status_values = ", ".join(f"'{s.value}'" for s in UpdateStatus)
+    update_type_values = ", ".join(f"'{t.value}'" for t in UpdateType)
+    name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
     # Data types for source metadata (no enum, but fixed set of values)
     data_type_values = "'string', 'boolean', 'integer', 'json'"
 
@@ -46,7 +48,7 @@ def init_database(db_path: Path) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
                 UNIQUE(journal_id, name),
-                CHECK (name_type IN ('canonical', 'alias'))
+                CHECK (name_type IN ({name_type_values}))
             );
 
             -- Journal URLs (one-to-many with journals)
@@ -134,6 +136,7 @@ def init_database(db_path: Path) -> None:
                 started_at TIMESTAMP,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (source_id) REFERENCES data_sources(id),
+                CHECK (update_type IN ({update_type_values})),
                 CHECK (status IN ({update_status_values}))
             );
 
