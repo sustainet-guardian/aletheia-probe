@@ -21,7 +21,22 @@ class KeyValueCache(CacheBase):
             key: Cache key
             value: Value to cache
             ttl_hours: Time-to-live in hours
+
+        Raises:
+            ValueError: If key is empty, too long, or TTL is invalid
         """
+        # Validate key
+        if not key or not key.strip():
+            raise ValueError("Cache key cannot be empty")
+        if len(key) > 255:
+            raise ValueError("Cache key exceeds maximum length (255 characters)")
+
+        # Validate TTL
+        if ttl_hours <= 0:
+            raise ValueError("TTL must be positive")
+        if ttl_hours > 8760:  # 365 days
+            raise ValueError("TTL exceeds maximum allowed (8760 hours)")
+
         expires_at = datetime.now() + timedelta(hours=ttl_hours)
         detail_logger.debug(f"Storing cache entry: key='{key}', ttl_hours={ttl_hours}")
 
@@ -44,7 +59,16 @@ class KeyValueCache(CacheBase):
 
         Returns:
             Cached value or None if not found or expired
+
+        Raises:
+            ValueError: If key is empty or too long
         """
+        # Validate key
+        if not key or not key.strip():
+            raise ValueError("Cache key cannot be empty")
+        if len(key) > 255:
+            raise ValueError("Cache key exceeds maximum length (255 characters)")
+
         detail_logger.debug(f"Looking up cache entry for key '{key}'")
 
         with sqlite3.connect(self.db_path) as conn:
