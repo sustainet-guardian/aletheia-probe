@@ -1,5 +1,21 @@
 # SPDX-License-Identifier: MIT
-"""Tests for cache database schema initialization."""
+"""Tests for cache database schema initialization.
+
+These are high-level tests that verify the schema was created correctly
+without duplicating schema definition details. The actual schema definition
+in src/aletheia_probe/cache/schema.py remains the single source of truth.
+
+Tests verify:
+- All expected tables exist
+- Tables have columns (basic structure check)
+- Foreign key relationships are created
+- Indexes are created
+
+Tests intentionally do NOT duplicate:
+- Exact column definitions
+- Data types and constraints
+- Detailed schema structure
+"""
 
 import sqlite3
 import tempfile
