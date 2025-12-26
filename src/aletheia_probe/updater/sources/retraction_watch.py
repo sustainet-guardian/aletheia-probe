@@ -3,7 +3,6 @@
 
 import asyncio
 import csv
-import json
 import sqlite3
 import subprocess
 import tempfile
