@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache retraction module."""
 
-import hashlib
 import sqlite3
 import tempfile
 from pathlib import Path
