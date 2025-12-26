@@ -16,7 +16,7 @@ from ..cache import (
     RetractionCache,
 )
 from ..data_models import JournalEntryData
-from ..enums import AssessmentType
+from ..enums import AssessmentType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
 
@@ -310,7 +310,9 @@ class DataUpdater:
             source_type=source.get_list_type().value,
         )
 
-        data_source_manager.log_update(source_name, "full", "started")
+        data_source_manager.log_update(
+            source_name, UpdateType.FULL.value, UpdateStatus.IN_PROGRESS.value
+        )
 
         try:
             # Fetch data from source
@@ -321,7 +323,10 @@ class DataUpdater:
                 detail_logger.warning(f"No data received from source {source_name}")
                 status_logger.warning(f"    {source_name}: No data received")
                 data_source_manager.log_update(
-                    source_name, "full", "failed", error_message="No data received"
+                    source_name,
+                    UpdateType.FULL.value,
+                    UpdateStatus.FAILED.value,
+                    error_message="No data received",
                 )
                 return {"status": "failed", "error": "No data received"}
 
@@ -360,7 +365,10 @@ class DataUpdater:
                 status_logger.info(f"    {source_name}: Writing to database...")
 
                 data_source_manager.log_update(
-                    source_name, "full", "success", records_updated=records_updated
+                    source_name,
+                    UpdateType.FULL.value,
+                    UpdateStatus.SUCCESS.value,
+                    records_updated=records_updated,
                 )
 
             detail_logger.info(
@@ -382,6 +390,9 @@ class DataUpdater:
             detail_logger.error(f"Failed to update source {source_name}: {e}")
             status_logger.error(f"    {source_name}: Error - {e}")
             data_source_manager.log_update(
-                source_name, "full", "failed", error_message=str(e)
+                source_name,
+                UpdateType.FULL.value,
+                UpdateStatus.FAILED.value,
+                error_message=str(e),
             )
             return {"status": "failed", "error": str(e)}

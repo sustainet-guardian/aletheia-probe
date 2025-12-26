@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any
 
 from ..data_models import JournalEntryData
+from ..enums import NameType
 from ..logging_config import get_detail_logger, get_status_logger
 from .base import CacheBase
 
@@ -132,7 +133,11 @@ class JournalCache(CacheBase):
 
         for name in names_to_add:
             if name and name.strip():
-                name_type = "canonical" if name == journal_name else "alias"
+                name_type = (
+                    NameType.CANONICAL.value
+                    if name == journal_name
+                    else NameType.ALIAS.value
+                )
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO journal_names

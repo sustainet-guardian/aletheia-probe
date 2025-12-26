@@ -7,6 +7,7 @@ import sqlite3
 from typing import Any
 
 from ..cache import DataSourceManager
+from ..enums import NameType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
 
@@ -98,7 +99,10 @@ class AsyncDBWriter:
 
                 data_source_manager = DataSourceManager()
                 data_source_manager.log_update(
-                    source_name, "full", "success", records_updated=total_records
+                    source_name,
+                    UpdateType.FULL.value,
+                    UpdateStatus.SUCCESS.value,
+                    records_updated=total_records,
                 )
 
                 if duplicates > 0:
@@ -312,7 +316,9 @@ class AsyncDBWriter:
             journal_name = journal["journal_name"]
             metadata = journal.get("metadata")
 
-            name_inserts.append((journal_id, journal_name, "canonical", source_name))
+            name_inserts.append(
+                (journal_id, journal_name, NameType.CANONICAL.value, source_name)
+            )
 
             assessment_inserts.append((journal_id, source_id, list_type, 1.0))
 
