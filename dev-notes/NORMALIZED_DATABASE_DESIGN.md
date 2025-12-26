@@ -115,6 +115,13 @@ CREATE TABLE source_metadata (
 ```
 
 ### 8. Assessment Cache Table
+
+**Purpose**: Domain-specific caching for structured journal/conference assessment results
+
+This table stores complete `AssessmentResult` objects as JSON along with their query metadata. It uses MD5 hashes (32 hex characters) of normalized query parameters as keys.
+
+**Use this for**: Caching complete assessment operations and their results
+
 ```sql
 CREATE TABLE assessment_cache (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,6 +150,21 @@ CREATE TABLE article_retractions (
 ```
 
 ### 10. Key-Value Cache Table
+
+**Purpose**: Simple string-based caching for arbitrary data (e.g., API responses, external service results)
+
+This table provides general-purpose caching where structured assessment data is not needed. It stores plain strings or JSON-encoded data as strings, with arbitrary string identifiers as keys (up to 255 characters).
+
+**Use this for**: General-purpose caching such as:
+- OpenAlex API responses
+- External service lookups
+- Temporary computation results
+- Any data that doesn't fit the assessment-specific structure
+
+**Distinction from assessment_cache**: While both tables provide caching with TTL, they serve different purposes:
+- `assessment_cache`: Structured, domain-specific caching for assessment operations
+- `key_value_cache`: Simple, flexible caching for arbitrary string data
+
 ```sql
 CREATE TABLE key_value_cache (
     key TEXT PRIMARY KEY,
