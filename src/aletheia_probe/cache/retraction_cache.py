@@ -55,10 +55,11 @@ class RetractionCache(CacheBase):
                         detail_logger.debug(
                             f"Parsed JSON metadata for DOI '{normalized_doi}'"
                         )
-                    except json.JSONDecodeError:
-                        detail_logger.debug(
-                            f"Failed to parse JSON metadata for DOI '{normalized_doi}'"
+                    except json.JSONDecodeError as e:
+                        detail_logger.warning(
+                            f"Data corruption detected: Invalid JSON metadata for DOI '{normalized_doi}': {e}"
                         )
+                        result["metadata"] = None
                 detail_logger.debug(
                     f"Cache hit for DOI '{normalized_doi}': "
                     f"is_retracted={result['is_retracted']}, source={result['source']}"

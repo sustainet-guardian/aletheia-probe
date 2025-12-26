@@ -73,9 +73,10 @@ class TestCacheRetraction:
 
         result = temp_cache.get_article_retraction(doi="10.1234/test")
 
-        # Should still return result but with unparsed metadata
+        # Should still return result but with metadata set to None
         assert result is not None
         assert result["is_retracted"]  # SQLite stores booleans as integers
+        assert result["metadata"] is None
 
     def test_cache_article_retraction_with_metadata(self, temp_cache):
         """Test caching article retraction with metadata."""
