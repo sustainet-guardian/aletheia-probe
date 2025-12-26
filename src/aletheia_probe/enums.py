@@ -13,6 +13,7 @@ class UpdateStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     CURRENT = "current"
     ERROR = "error"
+    CLEANED = "cleaned"
 
 
 class AssessmentType(str, Enum):
