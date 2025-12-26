@@ -140,11 +140,23 @@ class TestDataUpdater:
             patch(
                 "aletheia_probe.updater.core.DataSourceManager"
             ) as mock_get_cache_manager,
+            patch(
+                "aletheia_probe.updater.core.AssessmentCache"
+            ) as mock_assessment_cache,
+            patch("aletheia_probe.updater.core.KeyValueCache") as mock_kv_cache,
+            patch(
+                "aletheia_probe.updater.core.RetractionCache"
+            ) as mock_retraction_cache,
             patch.object(updater, "update_source") as mock_update,
         ):
             mock_cache = Mock()
-            mock_cache.cleanup_expired_cache.return_value = 3
             mock_get_cache_manager.return_value = mock_cache
+
+            # Mock cleanup methods
+            mock_assessment_cache.return_value.cleanup_expired_cache.return_value = 2
+            mock_kv_cache.return_value.cleanup_expired_entries.return_value = 1
+            mock_retraction_cache.return_value.cleanup_expired_article_retractions.return_value = 0
+
             mock_update.return_value = {"status": "success", "records_updated": 5}
 
             result = await updater.update_all()
@@ -153,6 +165,11 @@ class TestDataUpdater:
             assert "source2" in result
             assert result["source1"]["status"] == "success"
             assert result["source2"]["status"] == "success"
+
+            # Verify all cleanup methods were called
+            mock_assessment_cache.return_value.cleanup_expired_cache.assert_called_once()
+            mock_kv_cache.return_value.cleanup_expired_entries.assert_called_once()
+            mock_retraction_cache.return_value.cleanup_expired_article_retractions.assert_called_once()
 
     def test_add_custom_list(self):
         """Test adding a custom list."""
