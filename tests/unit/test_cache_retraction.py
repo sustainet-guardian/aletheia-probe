@@ -92,3 +92,49 @@ class TestCacheRetraction:
         assert result is not None
         assert result["metadata"]["key1"] == "value1"
         assert result["metadata"]["key2"] == 123
+
+    def test_cleanup_expired_article_retractions(self, temp_cache):
+        """Test cleanup of expired article retraction entries."""
+        # Insert expired entries directly
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO article_retractions
+                (doi, is_retracted, source, checked_at, expires_at)
+                VALUES
+                (?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '-1 day')),
+                (?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '-2 days'))
+                """,
+                (
+                    "10.1234/expired1",
+                    True,
+                    "test_source",
+                    "10.1234/expired2",
+                    False,
+                    "test_source",
+                ),
+            )
+            conn.commit()
+
+        # Add a non-expired entry using the regular method
+        temp_cache.cache_article_retraction(
+            doi="10.1234/valid",
+            is_retracted=True,
+            source="test_source",
+            ttl_hours=24,
+        )
+
+        # Cleanup expired entries
+        removed_count = temp_cache.cleanup_expired_article_retractions()
+
+        # Verify count of removed entries
+        assert removed_count == 2
+
+        # Verify expired entries are gone
+        assert temp_cache.get_article_retraction(doi="10.1234/expired1") is None
+        assert temp_cache.get_article_retraction(doi="10.1234/expired2") is None
+
+        # Verify non-expired entry still exists
+        result = temp_cache.get_article_retraction(doi="10.1234/valid")
+        assert result is not None
+        assert result["is_retracted"]
