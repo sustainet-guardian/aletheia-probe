@@ -21,18 +21,6 @@ class KeyValueCache(CacheBase):
         expires_at = datetime.now() + timedelta(hours=ttl_hours)
 
         with sqlite3.connect(self.db_path) as conn:
-            # Create table if it doesn't exist
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS key_value_cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP NOT NULL
-                )
-                """
-            )
-
             conn.execute(
                 """
                 INSERT OR REPLACE INTO key_value_cache (key, value, expires_at)
@@ -52,18 +40,6 @@ class KeyValueCache(CacheBase):
             Cached value or None if not found or expired
         """
         with sqlite3.connect(self.db_path) as conn:
-            # Ensure table exists
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS key_value_cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP NOT NULL
-                )
-                """
-            )
-
             cursor = conn.execute(
                 """
                 SELECT value FROM key_value_cache
