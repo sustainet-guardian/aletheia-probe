@@ -15,20 +15,29 @@ class AsyncDBWriter:
     """Handles database writes asynchronously to prevent blocking."""
 
     def __init__(self) -> None:
+        """Initialize the database writer with an empty queue and loggers."""
         self.write_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
         self.writer_task: asyncio.Task[None] | None = None
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
 
     async def start_writer(self) -> None:
-        """Start the database writer task."""
+        """Start the database writer task.
+
+        Creates an asynchronous task that processes the write queue. Does nothing
+        if the writer task is already running.
+        """
         if self.writer_task is None:
             self.status_logger.info("    DBWriter: Starting database writer task...")
             self.detail_logger.debug("Creating async task for database writer loop")
             self.writer_task = asyncio.create_task(self._db_writer_loop())
 
     async def stop_writer(self) -> None:
-        """Stop the database writer task."""
+        """Stop the database writer task.
+
+        Sends a shutdown signal to the writer loop and waits for it to complete.
+        Does nothing if the writer task is not running.
+        """
         if self.writer_task:
             self.status_logger.info("    DBWriter: Stopping database writer task...")
             self.detail_logger.debug("Sending shutdown signal (None) to write queue")
@@ -41,7 +50,13 @@ class AsyncDBWriter:
     async def queue_write(
         self, source_name: str, list_type: str, journals: list[dict[str, Any]]
     ) -> None:
-        """Queue data for database writing."""
+        """Queue data for database writing.
+
+        Args:
+            source_name: Name of the data source
+            list_type: Type of list (e.g., "predatory", "legitimate")
+            journals: List of journal dictionaries to write
+        """
         self.status_logger.info(
             f"    DBWriter: Received {len(journals)} records from {source_name} for queuing"
         )
@@ -57,7 +72,11 @@ class AsyncDBWriter:
         )
 
     async def _db_writer_loop(self) -> None:
-        """Main database writer loop - processes write queue sequentially."""
+        """Main database writer loop - processes write queue sequentially.
+
+        Continuously processes items from the write queue until a shutdown signal
+        (None) is received. Handles database errors gracefully and logs them.
+        """
         self.detail_logger.debug("Database writer loop started")
         while True:
             try:
@@ -122,7 +141,11 @@ class AsyncDBWriter:
                 )
 
     def _setup_db_connection(self, conn: sqlite3.Connection) -> None:
-        """Configure SQLite performance optimizations for batch operations."""
+        """Configure SQLite performance optimizations for batch operations.
+
+        Args:
+            conn: SQLite database connection to configure
+        """
         self.detail_logger.debug(
             "Configuring SQLite PRAGMA settings for batch operations"
         )
@@ -142,7 +165,17 @@ class AsyncDBWriter:
         source_name: str,
         list_type: str,
     ) -> int:
-        """Ensure data source is registered and return its ID."""
+        """Ensure data source is registered and return its ID.
+
+        Args:
+            cursor: Database cursor for executing queries
+            data_source_manager: Manager for data source registration
+            source_name: Name of the data source to register
+            list_type: Type of list (e.g., "predatory", "legitimate")
+
+        Returns:
+            Database ID of the registered data source
+        """
         self.detail_logger.debug(
             f"Checking if data source is registered: {source_name}"
         )
@@ -166,7 +199,15 @@ class AsyncDBWriter:
         cursor: sqlite3.Cursor,
         journals: list[dict[str, Any]],
     ) -> tuple[list[str], int, int]:
-        """Prepare journal data and upsert to database."""
+        """Prepare journal data and upsert to database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            journals: List of journal dictionaries to upsert
+
+        Returns:
+            Tuple containing (normalized_names, unique_journals, total_input_records)
+        """
         self.detail_logger.debug(
             f"Preparing journal upserts for {len(journals)} records"
         )
@@ -213,7 +254,15 @@ class AsyncDBWriter:
     def _get_journal_ids(
         self, cursor: sqlite3.Cursor, normalized_names: list[str]
     ) -> dict[str, int]:
-        """Retrieve journal IDs for the given normalized names."""
+        """Retrieve journal IDs for the given normalized names.
+
+        Args:
+            cursor: Database cursor for executing queries
+            normalized_names: List of normalized journal names to look up
+
+        Returns:
+            Dictionary mapping normalized names to their database IDs
+        """
         if not normalized_names:
             self.detail_logger.debug("No normalized names to retrieve journal IDs for")
             return {}
@@ -233,7 +282,14 @@ class AsyncDBWriter:
         return journal_ids
 
     def _extract_urls_from_journal(self, journal: dict[str, Any]) -> set[str]:
-        """Extract and deduplicate URLs from journal data."""
+        """Extract and deduplicate URLs from journal data.
+
+        Args:
+            journal: Dictionary containing journal data with potential URLs
+
+        Returns:
+            Set of unique, non-empty URL strings
+        """
         urls_to_insert = set()
 
         if journal.get("urls"):
@@ -263,7 +319,16 @@ class AsyncDBWriter:
     def _prepare_metadata_inserts(
         self, journal_id: int, source_id: int, metadata: dict[str, Any]
     ) -> list[tuple[int, int, str, str, str]]:
-        """Prepare metadata insert records for batch operation."""
+        """Prepare metadata insert records for batch operation.
+
+        Args:
+            journal_id: Database ID of the journal
+            source_id: Database ID of the data source
+            metadata: Dictionary of metadata key-value pairs
+
+        Returns:
+            List of tuples for batch insert (journal_id, source_id, key, value, data_type)
+        """
         metadata_inserts = []
 
         for key, value in metadata.items():
@@ -297,7 +362,18 @@ class AsyncDBWriter:
         list[tuple[int, int, str, str, str]],
         list[tuple[int, str]],
     ]:
-        """Prepare batch data for related tables."""
+        """Prepare batch data for related tables.
+
+        Args:
+            journals: List of journal dictionaries
+            existing_journals: Mapping of normalized names to journal IDs
+            source_id: Database ID of the data source
+            source_name: Name of the data source
+            list_type: Type of list (e.g., "predatory", "legitimate")
+
+        Returns:
+            Tuple of (name_inserts, assessment_inserts, metadata_inserts, url_inserts)
+        """
         self.detail_logger.debug(
             f"Preparing related data for {len(journals)} journals, "
             f"{len(existing_journals)} existing journal IDs"
@@ -345,7 +421,15 @@ class AsyncDBWriter:
         metadata_inserts: list[tuple[int, int, str, str, str]],
         url_inserts: list[tuple[int, str]],
     ) -> None:
-        """Execute all batch insert operations."""
+        """Execute all batch insert operations.
+
+        Args:
+            cursor: Database cursor for executing queries
+            name_inserts: List of journal name records to insert
+            assessment_inserts: List of source assessment records to insert
+            metadata_inserts: List of metadata records to insert
+            url_inserts: List of journal URL records to insert
+        """
         self.detail_logger.debug("Executing batch inserts for related tables")
         if name_inserts:
             self.detail_logger.debug(f"Inserting {len(name_inserts)} journal names")
@@ -391,7 +475,22 @@ class AsyncDBWriter:
     def _batch_write_journals(
         self, source_name: str, list_type: str, journals: list[dict[str, Any]]
     ) -> dict[str, int]:
-        """Optimized batch writing of journals to database using SQLite performance tuning."""
+        """Optimized batch writing of journals to database using SQLite performance tuning.
+
+        Args:
+            source_name: Name of the data source
+            list_type: Type of list (e.g., "predatory", "legitimate")
+            journals: List of journal dictionaries to write
+
+        Returns:
+            Dictionary with keys: total_records, unique_journals, duplicates
+
+        Raises:
+            sqlite3.Error: Database operation errors
+            KeyError: Missing required keys in journal data
+            ValueError: Invalid data values
+            TypeError: Incorrect data types
+        """
         self.detail_logger.debug(
             f"Starting batch write: source={source_name}, list_type={list_type}, "
             f"journal_count={len(journals)}"
