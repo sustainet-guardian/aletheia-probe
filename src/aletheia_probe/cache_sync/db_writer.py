@@ -281,6 +281,23 @@ class AsyncDBWriter:
         )
         return journal_ids
 
+    def _collect_urls_from_value(self, value: Any, url_set: set[str]) -> None:
+        """Collect valid URLs from a value and add them to a set.
+
+        Handles both single URL strings and lists of URLs. Validates that
+        URLs are non-empty strings and strips whitespace before adding.
+
+        Args:
+            value: Single URL string or list of URL strings
+            url_set: Set to add validated URLs to
+        """
+        if isinstance(value, list):
+            for url in value:
+                if url and isinstance(url, str) and url.strip():
+                    url_set.add(url.strip())
+        elif isinstance(value, str) and value.strip():
+            url_set.add(value.strip())
+
     def _extract_urls_from_journal(self, journal: dict[str, Any]) -> set[str]:
         """Extract and deduplicate URLs from journal data.
 
@@ -290,29 +307,16 @@ class AsyncDBWriter:
         Returns:
             Set of unique, non-empty URL strings
         """
-        urls_to_insert = set()
+        urls_to_insert: set[str] = set()
 
         if journal.get("urls"):
-            for url in journal["urls"]:
-                if url and isinstance(url, str) and url.strip():
-                    urls_to_insert.add(url.strip())
+            self._collect_urls_from_value(journal["urls"], urls_to_insert)
 
         metadata = journal.get("metadata")
         if metadata:
-            if "urls" in metadata and isinstance(metadata["urls"], list):
-                for url in metadata["urls"]:
-                    if url and isinstance(url, str) and url.strip():
-                        urls_to_insert.add(url.strip())
-
-            if "website_url" in metadata and metadata["website_url"]:
-                url = metadata["website_url"]
-                if isinstance(url, str) and url.strip():
-                    urls_to_insert.add(url.strip())
-
-            if "source_url" in metadata and metadata["source_url"]:
-                url = metadata["source_url"]
-                if isinstance(url, str) and url.strip():
-                    urls_to_insert.add(url.strip())
+            for field in ("urls", "website_url", "source_url"):
+                if field in metadata and metadata[field]:
+                    self._collect_urls_from_value(metadata[field], urls_to_insert)
 
         return urls_to_insert
 
