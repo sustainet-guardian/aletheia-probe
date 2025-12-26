@@ -103,7 +103,10 @@ class CacheSyncManager:
                     self.status_logger.warning(
                         f"No matching backends found for filter: {backend_filter}"
                     )
-                    return {"status": "error", "error": "No matching backends found"}
+                    return {
+                        "status": UpdateStatus.ERROR.value,
+                        "error": "No matching backends found",
+                    }
                 self.detail_logger.info(f"Syncing only: {', '.join(backends_to_sync)}")
                 if show_progress:
                     self.status_logger.info(
@@ -130,7 +133,7 @@ class CacheSyncManager:
                     else:
                         # Skip non-cached backends that don't need cleanup
                         sync_results[backend_name] = {
-                            "status": "skipped",
+                            "status": UpdateStatus.SKIPPED.value,
                             "reason": "not_cached_backend",
                         }
                 except (
@@ -147,7 +150,7 @@ class CacheSyncManager:
                         f"Error getting backend {backend_name}: {e}"
                     )
                     sync_results[backend_name] = {
-                        "status": "error",
+                        "status": UpdateStatus.ERROR.value,
                         "error": str(e),
                         "type": type(e).__name__,
                     }
@@ -200,7 +203,7 @@ class CacheSyncManager:
                         f"Unexpected error syncing backend {backend_name}: {result}"
                     )
                     sync_results[backend_name] = {
-                        "status": "error",
+                        "status": UpdateStatus.ERROR.value,
                         "error": str(result),
                         "type": type(result).__name__,
                     }
@@ -217,28 +220,28 @@ class CacheSyncManager:
                         result_value = sync_results[backend_name]
                         if isinstance(result_value, dict):
                             status = result_value.get("status", "unknown")
-                            if status == UpdateStatus.SUCCESS:
+                            if status == UpdateStatus.SUCCESS.value:
                                 count = result_value.get("records_updated", 0)
                                 self.status_logger.info(
                                     f"  {backend_name}: Updated {count} records"
                                 )
-                            elif status == "current":
+                            elif status == UpdateStatus.CURRENT.value:
                                 self.status_logger.info(
                                     f"  {backend_name}: Data is current"
                                 )
-                            elif status == "cleaned":
+                            elif status == UpdateStatus.CLEANED.value:
                                 count = result_value.get("records_removed", 0)
                                 self.status_logger.info(
                                     f"  {backend_name}: Cleaned {count} records (disabled)"
                                 )
-                            elif status == "skipped":
+                            elif status == UpdateStatus.SKIPPED.value:
                                 reason = result_value.get("reason", "")
                                 self.status_logger.info(
                                     f"  {backend_name}: Skipped ({reason})"
                                 )
-                            elif status == "failed":
+                            elif status == UpdateStatus.FAILED.value:
                                 self.status_logger.warning(f"  {backend_name}: Failed")
-                            elif status == "error":
+                            elif status == UpdateStatus.ERROR.value:
                                 error = result_value.get("error", "unknown error")
                                 self.status_logger.error(
                                     f"  {backend_name}: Error - {error}"
@@ -305,7 +308,7 @@ class CacheSyncManager:
                     self.detail_logger.exception(
                         f"Error cleaning up {backend_name}: {e}"
                     )
-                    return {"status": "error", "error": str(e)}
+                    return {"status": UpdateStatus.ERROR.value, "error": str(e)}
             else:
                 self.detail_logger.debug(f"{backend_name}: Skipped (cleanup disabled)")
                 return {
@@ -369,7 +372,7 @@ class CacheSyncManager:
                         f"  {backend_name}: {type(e).__name__} - {e}"
                     )
                 return {
-                    "status": "error",
+                    "status": UpdateStatus.ERROR.value,
                     "error": str(e),
                     "type": type(e).__name__,
                 }
@@ -392,7 +395,10 @@ class CacheSyncManager:
         # Only handle CachedBackend types (bealls, algerian_ministry)
         if not isinstance(backend, CachedBackend):
             self.detail_logger.debug(f"{backend_name}: Skipped (not a cached backend)")
-            return {"status": "skipped", "reason": "not_cached_backend"}
+            return {
+                "status": UpdateStatus.SKIPPED.value,
+                "reason": "not_cached_backend",
+            }
 
         source_name = backend.source_name
 
@@ -412,7 +418,7 @@ class CacheSyncManager:
             return await self._fetch_backend_data(source_name, force, self.db_writer)
 
         self.detail_logger.debug(f"Data for {backend_name} is fresh, no update needed")
-        return {"status": "current", "reason": "data_fresh"}
+        return {"status": UpdateStatus.CURRENT.value, "reason": "data_fresh"}
 
     async def _cleanup_disabled_backend_data(
         self, backend: Backend, show_progress: bool = True
@@ -433,7 +439,10 @@ class CacheSyncManager:
             self.detail_logger.debug(
                 f"{backend_name}: Skipped cleanup (not a cached backend)"
             )
-            return {"status": "skipped", "reason": "not_cached_backend"}
+            return {
+                "status": UpdateStatus.SKIPPED.value,
+                "reason": "not_cached_backend",
+            }
 
         source_name = backend.source_name
         data_source_manager = DataSourceManager()
@@ -441,7 +450,10 @@ class CacheSyncManager:
         # Check if data exists to clean up
         if not data_source_manager.has_source_data(source_name):
             self.detail_logger.debug(f"{backend_name}: No data to cleanup")
-            return {"status": "skipped", "reason": "no_data_to_cleanup"}
+            return {
+                "status": UpdateStatus.SKIPPED.value,
+                "reason": "no_data_to_cleanup",
+            }
 
         # Remove data from cache
         try:
@@ -457,14 +469,17 @@ class CacheSyncManager:
             self.detail_logger.info(
                 f"Cleaned up {deleted_count} records for disabled backend {backend_name}"
             )
-            return {"status": "cleaned", "records_removed": deleted_count}
+            return {
+                "status": UpdateStatus.CLEANED.value,
+                "records_removed": deleted_count,
+            }
 
         except (sqlite3.Error, ValueError, KeyError) as e:
             self.detail_logger.error(f"Failed to cleanup data for {backend_name}: {e}")
             data_source_manager.log_update(
                 source_name, "cleanup", "failed", 0, error_message=str(e)
             )
-            return {"status": "error", "error": str(e)}
+            return {"status": UpdateStatus.ERROR.value, "error": str(e)}
 
     async def _fetch_backend_data(
         self, source_name: str, force: bool = False, db_writer: Any = None
@@ -504,11 +519,11 @@ class CacheSyncManager:
                         f"Failed to update source {source_name}: {e}"
                     )
                     self.detail_logger.exception("Detailed error:")
-                    return {"status": "error", "error": str(e)}
+                    return {"status": UpdateStatus.ERROR.value, "error": str(e)}
 
         self.detail_logger.error(f"No data source found for {source_name}")
         return {
-            "status": "error",
+            "status": UpdateStatus.ERROR.value,
             "error": f"No data source configured for {source_name}",
         }
 
