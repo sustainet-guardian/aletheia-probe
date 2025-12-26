@@ -26,7 +26,6 @@ class ArticleRetractionResult:
         retraction_doi: str | None = None,
         retraction_reason: str | None = None,
         sources: list[str] | None = None,
-        metadata: dict[str, Any] | None = None,
         checked_sources: list[str] | None = None,
     ):
         self.doi = doi
@@ -36,7 +35,6 @@ class ArticleRetractionResult:
         self.retraction_doi = retraction_doi
         self.retraction_reason = retraction_reason
         self.sources = sources or []
-        self.metadata = metadata or {}
         self.checked_sources = checked_sources or []
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,7 +47,6 @@ class ArticleRetractionResult:
             "retraction_doi": self.retraction_doi,
             "retraction_reason": self.retraction_reason,
             "sources": self.sources,
-            "metadata": self.metadata,
             "checked_sources": self.checked_sources,
         }
 
@@ -111,7 +108,6 @@ class ArticleRetractionChecker:
                 retraction_doi=cached.get("retraction_doi"),
                 retraction_reason=cached.get("retraction_reason"),
                 sources=[cached.get("source", "cache")],
-                metadata=cached.get("metadata", {}),
             )
 
         # Check multiple sources
@@ -175,7 +171,6 @@ class ArticleRetractionChecker:
                 retraction_doi=cached.get("retraction_doi"),
                 retraction_reason=cached.get("retraction_reason"),
                 sources=["retraction_watch"],
-                metadata=cached.get("metadata", {}),
             )
 
         return ArticleRetractionResult(doi=doi, is_retracted=False)
@@ -282,7 +277,6 @@ class ArticleRetractionChecker:
             retraction_doi=retraction_doi,
             retraction_reason=retraction_reason,
             sources=["crossref"],
-            metadata={"crossref_data": update_info, "is_notice": is_notice},
         )
 
     def _cache_result(self, result: ArticleRetractionResult, source: str) -> None:
@@ -295,7 +289,6 @@ class ArticleRetractionChecker:
             retraction_date=result.retraction_date,
             retraction_doi=result.retraction_doi,
             retraction_reason=result.retraction_reason,
-            metadata=result.metadata,
             ttl_hours=24 * 30,  # Cache for 30 days
         )
 

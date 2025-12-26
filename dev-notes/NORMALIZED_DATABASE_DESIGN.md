@@ -137,7 +137,6 @@ CREATE TABLE article_retractions (
     retraction_doi TEXT,
     retraction_reason TEXT,
     source TEXT NOT NULL,
-    metadata TEXT,
     checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL
 );
