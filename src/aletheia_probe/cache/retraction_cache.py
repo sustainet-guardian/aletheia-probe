@@ -52,7 +52,9 @@ class RetractionCache(CacheBase):
                 if result.get("metadata"):
                     try:
                         result["metadata"] = json.loads(result["metadata"])
-                        detail_logger.debug(f"Parsed JSON metadata for DOI '{normalized_doi}'")
+                        detail_logger.debug(
+                            f"Parsed JSON metadata for DOI '{normalized_doi}'"
+                        )
                     except json.JSONDecodeError:
                         detail_logger.debug(
                             f"Failed to parse JSON metadata for DOI '{normalized_doi}'"
@@ -101,7 +103,9 @@ class RetractionCache(CacheBase):
 
         metadata_json = json.dumps(metadata) if metadata else None
         if metadata:
-            detail_logger.debug(f"Serialized metadata to JSON for DOI '{normalized_doi}'")
+            detail_logger.debug(
+                f"Serialized metadata to JSON for DOI '{normalized_doi}'"
+            )
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
