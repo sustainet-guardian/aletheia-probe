@@ -4,12 +4,11 @@
 import sqlite3
 from datetime import datetime, timedelta
 
-from ..logging_config import get_detail_logger, get_status_logger
+from ..logging_config import get_detail_logger
 from .base import CacheBase
 
 
 detail_logger = get_detail_logger()
-status_logger = get_status_logger()
 
 
 class KeyValueCache(CacheBase):
@@ -62,6 +61,8 @@ class KeyValueCache(CacheBase):
             if result:
                 detail_logger.debug(f"Cache hit for key '{key}'")
             else:
-                detail_logger.debug(f"Cache miss for key '{key}' (not found or expired)")
+                detail_logger.debug(
+                    f"Cache miss for key '{key}' (not found or expired)"
+                )
 
             return result
