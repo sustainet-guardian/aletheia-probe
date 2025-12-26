@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Article retraction tracking for the cache system."""
 
-import json
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
@@ -37,7 +36,7 @@ class RetractionCache(CacheBase):
             cursor.execute(
                 """
                 SELECT doi, is_retracted, retraction_type, retraction_date,
-                       retraction_doi, retraction_reason, source, metadata,
+                       retraction_doi, retraction_reason, source,
                        checked_at, expires_at
                 FROM article_retractions
                 WHERE doi = ? AND expires_at > CURRENT_TIMESTAMP
@@ -48,18 +47,6 @@ class RetractionCache(CacheBase):
             row = cursor.fetchone()
             if row:
                 result = dict(row)
-                # Parse JSON metadata if present
-                if result.get("metadata"):
-                    try:
-                        result["metadata"] = json.loads(result["metadata"])
-                        detail_logger.debug(
-                            f"Parsed JSON metadata for DOI '{normalized_doi}'"
-                        )
-                    except json.JSONDecodeError as e:
-                        detail_logger.warning(
-                            f"Data corruption detected: Invalid JSON metadata for DOI '{normalized_doi}': {e}"
-                        )
-                        result["metadata"] = None
                 detail_logger.debug(
                     f"Cache hit for DOI '{normalized_doi}': "
                     f"is_retracted={result['is_retracted']}, source={result['source']}"
@@ -79,7 +66,6 @@ class RetractionCache(CacheBase):
         retraction_date: str | None = None,
         retraction_doi: str | None = None,
         retraction_reason: str | None = None,
-        metadata: dict[str, Any] | None = None,
         ttl_hours: int = 24 * 30,  # 30 days default
     ) -> None:
         """Cache retraction information for a DOI.
@@ -92,7 +78,6 @@ class RetractionCache(CacheBase):
             retraction_date: Date of retraction
             retraction_doi: DOI of the retraction notice
             retraction_reason: Reason for retraction
-            metadata: Additional metadata as JSON
             ttl_hours: Cache TTL in hours
         """
         normalized_doi = doi.lower().strip()
@@ -102,20 +87,14 @@ class RetractionCache(CacheBase):
             f"is_retracted={is_retracted}, source={source}, ttl_hours={ttl_hours}"
         )
 
-        metadata_json = json.dumps(metadata) if metadata else None
-        if metadata:
-            detail_logger.debug(
-                f"Serialized metadata to JSON for DOI '{normalized_doi}'"
-            )
-
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO article_retractions
                 (doi, is_retracted, retraction_type, retraction_date, retraction_doi,
-                 retraction_reason, source, metadata, checked_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+                 retraction_reason, source, checked_at, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
                 """,
                 (
                     normalized_doi,
@@ -125,7 +104,6 @@ class RetractionCache(CacheBase):
                     retraction_doi,
                     retraction_reason,
                     source,
-                    metadata_json,
                     expires_at.isoformat(),
                 ),
             )

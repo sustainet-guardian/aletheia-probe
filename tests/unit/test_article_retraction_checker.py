@@ -35,12 +35,10 @@ class TestArticleRetractionResult:
         assert result.retraction_doi is None
         assert result.retraction_reason is None
         assert result.sources == []
-        assert result.metadata == {}
         assert result.checked_sources == []
 
     def test_init_with_all_values(self):
         """Test ArticleRetractionResult initialization with all values."""
-        metadata = {"key": "value"}
         sources = ["crossref"]
         checked_sources = ["crossref", "retraction_watch"]
 
@@ -52,7 +50,6 @@ class TestArticleRetractionResult:
             retraction_doi="10.1234/retraction",
             retraction_reason="Data fabrication",
             sources=sources,
-            metadata=metadata,
             checked_sources=checked_sources,
         )
 
@@ -63,7 +60,6 @@ class TestArticleRetractionResult:
         assert result.retraction_doi == "10.1234/retraction"
         assert result.retraction_reason == "Data fabrication"
         assert result.sources == sources
-        assert result.metadata == metadata
         assert result.checked_sources == checked_sources
 
     def test_to_dict(self):
@@ -76,7 +72,6 @@ class TestArticleRetractionResult:
             retraction_doi="10.1234/retraction",
             retraction_reason="Data fabrication",
             sources=["crossref"],
-            metadata={"test": "data"},
             checked_sources=["crossref"],
         )
 
@@ -90,7 +85,6 @@ class TestArticleRetractionResult:
         assert result_dict["retraction_doi"] == "10.1234/retraction"
         assert result_dict["retraction_reason"] == "Data fabrication"
         assert result_dict["sources"] == ["crossref"]
-        assert result_dict["metadata"] == {"test": "data"}
         assert result_dict["checked_sources"] == ["crossref"]
 
 
@@ -176,7 +170,6 @@ class TestArticleRetractionCheckerCacheIntegration:
             retraction_date="2023-01-15",
             retraction_doi="10.1234/retraction",
             retraction_reason="Data fabrication",
-            metadata={"test": "cached"},
         )
 
         # Check DOI - should return cached result
@@ -452,7 +445,6 @@ class TestArticleRetractionCheckerCrossrefAPI:
 
             assert result.doi == doi
             assert result.is_retracted is True
-            assert result.metadata.get("is_notice") is True
 
 
 class TestArticleRetractionCheckerParseRetraction:
@@ -520,8 +512,6 @@ class TestArticleRetractionCheckerParseRetraction:
             doi, update_info, full_message, is_notice=True
         )
 
-        assert result.metadata.get("is_notice") is True
-
 
 class TestArticleRetractionCheckerCacheResult:
     """Test suite for caching results."""
@@ -539,7 +529,6 @@ class TestArticleRetractionCheckerCacheResult:
             retraction_doi="10.1234/retraction",
             retraction_reason="Data fabrication",
             sources=["crossref"],
-            metadata={"test": "data"},
         )
 
         checker._cache_result(result, "crossref")

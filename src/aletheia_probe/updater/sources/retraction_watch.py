@@ -439,13 +439,6 @@ class RetractionWatchSource(DataSource):
             reason = article.get("reason", "")
             retraction_doi = article.get("retraction_doi", "")
 
-            metadata_json = json.dumps(
-                {
-                    "source_database": "retraction_watch",
-                    "retraction_nature": retraction_nature,
-                }
-            )
-
             records.append(
                 (
                     doi.lower().strip(),
@@ -455,7 +448,6 @@ class RetractionWatchSource(DataSource):
                     retraction_doi if retraction_doi else None,
                     reason if reason else None,
                     "retraction_watch",
-                    metadata_json,
                     expires_at.isoformat(),
                 )
             )
@@ -468,8 +460,8 @@ class RetractionWatchSource(DataSource):
                     """
                     INSERT OR REPLACE INTO article_retractions
                     (doi, is_retracted, retraction_type, retraction_date, retraction_doi,
-                     retraction_reason, source, metadata, checked_at, expires_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+                     retraction_reason, source, checked_at, expires_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
                     """,
                     records,
                 )

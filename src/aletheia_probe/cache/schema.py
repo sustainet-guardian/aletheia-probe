@@ -141,7 +141,6 @@ def init_database(db_path: Path) -> None:
                 retraction_doi TEXT,
                 retraction_reason TEXT,
                 source TEXT NOT NULL,
-                metadata TEXT,
                 checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP NOT NULL
             );
