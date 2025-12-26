@@ -8,7 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..cache import AssessmentCache, DataSourceManager, JournalCache
+from ..cache import (
+    AssessmentCache,
+    DataSourceManager,
+    JournalCache,
+    KeyValueCache,
+    RetractionCache,
+)
 from ..data_models import JournalEntryData
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
@@ -249,8 +255,25 @@ class DataUpdater:
 
         # Clean up expired cache entries
         assessment_cache = AssessmentCache()
-        expired_count = assessment_cache.cleanup_expired_cache()
-        detail_logger.info(f"Cleaned up {expired_count} expired cache entries")
+        assessment_expired = assessment_cache.cleanup_expired_cache()
+        detail_logger.info(
+            f"Cleaned up {assessment_expired} expired assessment cache entries"
+        )
+
+        key_value_cache = KeyValueCache()
+        kv_expired = key_value_cache.cleanup_expired_entries()
+        detail_logger.info(f"Cleaned up {kv_expired} expired key-value cache entries")
+
+        retraction_cache = RetractionCache()
+        retraction_expired = retraction_cache.cleanup_expired_article_retractions()
+        detail_logger.info(
+            f"Cleaned up {retraction_expired} expired retraction cache entries"
+        )
+
+        total_expired = assessment_expired + kv_expired + retraction_expired
+        status_logger.info(
+            f"Cache cleanup: {total_expired} total expired entries removed"
+        )
 
         # Report all failures together
         if failed_sources:

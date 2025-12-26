@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Tests for the cache key-value module."""
 
+import sqlite3
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -106,3 +108,73 @@ class TestCacheKeyValue:
         temp_cache.set_cached_value(key="test_key", value="test_value", ttl_hours=8760)
         result = temp_cache.get_cached_value(key="test_key")
         assert result == "test_value"
+
+    def test_cleanup_expired_entries(self, temp_cache):
+        """Test cleanup of expired cache entries."""
+        # Add a valid entry
+        temp_cache.set_cached_value(key="valid_key", value="valid_value", ttl_hours=24)
+
+        # Manually insert an expired entry (bypassing validation)
+        expired_time = datetime.now() - timedelta(hours=1)
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            conn.execute(
+                "INSERT INTO key_value_cache (key, value, expires_at) VALUES (?, ?, ?)",
+                ("expired_key", "expired_value", expired_time),
+            )
+            conn.commit()
+
+        # Verify both entries exist in database before cleanup
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM key_value_cache")
+            assert cursor.fetchone()[0] == 2
+
+        # Cleanup
+        expired_count = temp_cache.cleanup_expired_entries()
+
+        # Verify cleanup removed exactly one entry
+        assert expired_count == 1
+
+        # Verify valid entry still exists
+        result = temp_cache.get_cached_value(key="valid_key")
+        assert result == "valid_value"
+
+        # Verify expired entry is gone
+        result = temp_cache.get_cached_value(key="expired_key")
+        assert result is None
+
+    def test_cleanup_expired_entries_empty(self, temp_cache):
+        """Test cleanup when no expired entries exist."""
+        # Add only valid entries
+        temp_cache.set_cached_value(key="key1", value="value1", ttl_hours=24)
+        temp_cache.set_cached_value(key="key2", value="value2", ttl_hours=48)
+
+        # Cleanup should remove nothing
+        expired_count = temp_cache.cleanup_expired_entries()
+        assert expired_count == 0
+
+        # Verify all entries still exist
+        assert temp_cache.get_cached_value(key="key1") == "value1"
+        assert temp_cache.get_cached_value(key="key2") == "value2"
+
+    def test_cleanup_expired_entries_all_expired(self, temp_cache):
+        """Test cleanup when all entries are expired."""
+        # Manually insert multiple expired entries
+        expired_time = datetime.now() - timedelta(hours=1)
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            conn.execute(
+                "INSERT INTO key_value_cache (key, value, expires_at) VALUES (?, ?, ?)",
+                ("expired_key1", "expired_value1", expired_time),
+            )
+            conn.execute(
+                "INSERT INTO key_value_cache (key, value, expires_at) VALUES (?, ?, ?)",
+                ("expired_key2", "expired_value2", expired_time),
+            )
+            conn.commit()
+
+        # Cleanup should remove all entries
+        expired_count = temp_cache.cleanup_expired_entries()
+        assert expired_count == 2
+
+        # Verify all entries are gone
+        assert temp_cache.get_cached_value(key="expired_key1") is None
+        assert temp_cache.get_cached_value(key="expired_key2") is None

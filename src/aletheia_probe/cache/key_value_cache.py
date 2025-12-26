@@ -90,3 +90,24 @@ class KeyValueCache(CacheBase):
                 )
 
             return result
+
+    def cleanup_expired_entries(self) -> int:
+        """Remove expired cache entries.
+
+        Returns:
+            Number of entries removed
+        """
+        detail_logger.debug("Starting cleanup of expired key-value cache entries")
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "DELETE FROM key_value_cache WHERE expires_at <= CURRENT_TIMESTAMP"
+            )
+            removed_count = cursor.rowcount
+            conn.commit()
+
+            detail_logger.debug(
+                f"Cleanup completed: removed {removed_count} expired entries"
+            )
+
+            return removed_count
