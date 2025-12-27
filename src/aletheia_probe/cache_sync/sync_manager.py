@@ -143,7 +143,6 @@ class CacheSyncManager:
                     TypeError,
                     ImportError,
                     RuntimeError,
-                    Exception,
                 ) as e:
                     # If we can't get the backend, mark as error and skip
                     self.detail_logger.exception(
@@ -310,7 +309,6 @@ class CacheSyncManager:
                     ValueError,
                     KeyError,
                     AttributeError,
-                    Exception,
                 ) as e:
                     self.detail_logger.exception(
                         f"Error cleaning up {backend_name}: {e}"
@@ -520,7 +518,6 @@ class CacheSyncManager:
                     KeyError,
                     AttributeError,
                     sqlite3.Error,
-                    Exception,
                 ) as e:
                     self.detail_logger.error(
                         f"Failed to update source {source_name}: {e}"
@@ -613,8 +610,8 @@ class CacheSyncManager:
                 AttributeError,
                 KeyError,
                 ValueError,
+                RuntimeError,
                 sqlite3.Error,
-                Exception,
             ) as e:
                 status["backends"][backend_name] = {"error": str(e)}
 

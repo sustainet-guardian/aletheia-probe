@@ -234,7 +234,7 @@ class TestCacheSyncManager:
         ):
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["error_backend"]
-            mock_registry.get_backend.side_effect = Exception("Backend error")
+            mock_registry.get_backend.side_effect = RuntimeError("Backend error")
             mock_get_registry.return_value = mock_registry
 
             result = await sync_manager.sync_cache_with_config()
@@ -429,7 +429,7 @@ class TestCacheSyncManager:
         ) as mock_updater:
             mock_updater.sources = [mock_source]
             mock_updater.update_source = AsyncMock(
-                side_effect=Exception("Update failed")
+                side_effect=ValueError("Update failed")
             )
 
             result = await sync_manager._fetch_backend_data("test_source")
@@ -559,7 +559,7 @@ class TestCacheSyncManager:
         ):
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["error_backend"]
-            mock_registry.get_backend.side_effect = Exception("Backend error")
+            mock_registry.get_backend.side_effect = RuntimeError("Backend error")
             mock_get_registry.return_value = mock_registry
             mock_cache_manager = Mock()
             mock_get_cache_manager.return_value = mock_cache_manager
