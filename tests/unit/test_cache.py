@@ -350,7 +350,7 @@ class TestCacheIntegrationJournalDataSource:
         results = temp_cache.journal_cache.search_journals(
             normalized_name="same_normalized_name"
         )
-        assert len(results) >= 1
+        assert len(results) == 1
 
     def test_metadata_and_url_handling(self, temp_cache):
         """Test metadata and URL handling to improve coverage."""
@@ -397,7 +397,7 @@ class TestCacheIntegrationJournalDataSource:
             temp_cache.journal_cache.add_journal_entry(entry)
 
         stats = temp_cache.data_source_manager.get_source_statistics()
-        assert len(stats) >= 5
+        assert len(stats) == 5
 
         # Test that source_0 appears in the statistics
         assert "source_0" in stats
