@@ -15,6 +15,7 @@ from ..cache import (
     KeyValueCache,
     RetractionCache,
 )
+from ..cache_sync.db_writer import AsyncDBWriter
 from ..data_models import JournalEntryData
 from ..enums import AssessmentType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
@@ -288,7 +289,10 @@ class DataUpdater:
         return results
 
     async def update_source(
-        self, source: DataSource, force: bool = False, db_writer: Any = None
+        self,
+        source: DataSource,
+        force: bool = False,
+        db_writer: AsyncDBWriter | None = None,
     ) -> dict[str, Any]:
         """Update a specific data source."""
         source_name = source.get_name()
