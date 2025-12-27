@@ -484,7 +484,10 @@ class CacheSyncManager:
             return {"status": UpdateStatus.ERROR.value, "error": str(e)}
 
     async def _fetch_backend_data(
-        self, source_name: str, force: bool = False, db_writer: Any = None
+        self,
+        source_name: str,
+        force: bool = False,
+        db_writer: AsyncDBWriter | None = None,
     ) -> dict[str, str | int]:
         """Fetch data for a specific source.
 
