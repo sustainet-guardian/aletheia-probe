@@ -194,6 +194,71 @@ class AsyncDBWriter:
         self.detail_logger.debug(f"Data source ID for {source_name}: {source_id}")
         return source_id
 
+    def _prepare_journal_batch_data(
+        self, journals: list[dict[str, Any]]
+    ) -> tuple[
+        list[str],
+        set[str],
+        list[tuple[str, str, str | None, str | None, str | None]],
+        int,
+    ]:
+        """Prepare journal data for batch upsert.
+
+        Args:
+            journals: List of journal dictionaries to process
+
+        Returns:
+            Tuple of (normalized_names, unique_names, upsert_records, total_records)
+        """
+        normalized_names = []
+        unique_normalized_names = set()
+        journal_upserts = []
+        total_input_records = 0
+
+        for journal in journals:
+            normalized_name = journal.get("normalized_name")
+            if not normalized_name:
+                continue
+
+            total_input_records += 1
+            unique_normalized_names.add(normalized_name)
+            normalized_names.append(normalized_name)
+
+            journal_upserts.append(
+                (
+                    normalized_name,
+                    journal["journal_name"],
+                    journal.get("issn"),
+                    journal.get("eissn"),
+                    journal.get("publisher"),
+                )
+            )
+
+        return (
+            normalized_names,
+            unique_normalized_names,
+            journal_upserts,
+            total_input_records,
+        )
+
+    def _upsert_journals_batch(
+        self,
+        cursor: sqlite3.Cursor,
+        journal_upserts: list[tuple[str, str, str | None, str | None, str | None]],
+    ) -> None:
+        """Execute batch upsert of journals to database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            journal_upserts: List of journal tuples to upsert
+        """
+        if journal_upserts:
+            cursor.executemany(
+                """INSERT OR REPLACE INTO journals (normalized_name, display_name, issn, eissn, publisher)
+                   VALUES (?, ?, ?, ?, ?)""",
+                journal_upserts,
+            )
+
     def _prepare_and_upsert_journals(
         self,
         cursor: sqlite3.Cursor,
@@ -211,45 +276,22 @@ class AsyncDBWriter:
         self.detail_logger.debug(
             f"Preparing journal upserts for {len(journals)} records"
         )
-        normalized_names = []
-        unique_normalized_names = set()
-        journal_upserts = []
-        total_input_records = 0
 
-        for journal in journals:
-            normalized_name = journal.get("normalized_name")
-            if not normalized_name:
-                continue
-
-            total_input_records += 1
-            unique_normalized_names.add(normalized_name)
-            normalized_names.append(normalized_name)
-
-            journal_name = journal["journal_name"]
-            issn = journal.get("issn")
-            eissn = journal.get("eissn")
-            publisher = journal.get("publisher")
-
-            journal_upserts.append(
-                (normalized_name, journal_name, issn, eissn, publisher)
-            )
-
-        if journal_upserts:
-            self.detail_logger.debug(
-                f"Executing journal upserts: {len(journal_upserts)} records, "
-                f"{len(unique_normalized_names)} unique journals"
-            )
-            cursor.executemany(
-                """INSERT OR REPLACE INTO journals (normalized_name, display_name, issn, eissn, publisher)
-                   VALUES (?, ?, ?, ?, ?)""",
-                journal_upserts,
-            )
-
-        unique_journals = len(unique_normalized_names)
-        self.detail_logger.debug(
-            f"Journal upserts completed: total_input={total_input_records}, unique={unique_journals}"
+        normalized_names, unique_names, journal_upserts, total_input = (
+            self._prepare_journal_batch_data(journals)
         )
-        return normalized_names, unique_journals, total_input_records
+
+        self.detail_logger.debug(
+            f"Executing journal upserts: {len(journal_upserts)} records, "
+            f"{len(unique_names)} unique journals"
+        )
+        self._upsert_journals_batch(cursor, journal_upserts)
+
+        unique_journals = len(unique_names)
+        self.detail_logger.debug(
+            f"Journal upserts completed: total_input={total_input}, unique={unique_journals}"
+        )
+        return normalized_names, unique_journals, total_input
 
     def _get_journal_ids(
         self, cursor: sqlite3.Cursor, normalized_names: list[str]
@@ -353,6 +395,51 @@ class AsyncDBWriter:
 
         return metadata_inserts
 
+    def _prepare_name_insert(
+        self, journal_id: int, journal_name: str, source_name: str
+    ) -> tuple[int, str, str, str]:
+        """Prepare a single name insert record.
+
+        Args:
+            journal_id: Database ID of the journal
+            journal_name: Display name of the journal
+            source_name: Name of the data source
+
+        Returns:
+            Tuple for journal_names table insert
+        """
+        return (journal_id, journal_name, NameType.CANONICAL.value, source_name)
+
+    def _prepare_assessment_insert(
+        self, journal_id: int, source_id: int, list_type: str
+    ) -> tuple[int, int, str, float]:
+        """Prepare a single assessment insert record.
+
+        Args:
+            journal_id: Database ID of the journal
+            source_id: Database ID of the data source
+            list_type: Type of list (e.g., "predatory", "legitimate")
+
+        Returns:
+            Tuple for source_assessments table insert
+        """
+        return (journal_id, source_id, list_type, 1.0)
+
+    def _prepare_url_inserts(
+        self, journal_id: int, journal: dict[str, Any]
+    ) -> list[tuple[int, str]]:
+        """Prepare URL insert records for a journal.
+
+        Args:
+            journal_id: Database ID of the journal
+            journal: Dictionary containing journal data with potential URLs
+
+        Returns:
+            List of tuples for journal_urls table inserts
+        """
+        urls_to_insert = self._extract_urls_from_journal(journal)
+        return [(journal_id, url) for url in urls_to_insert]
+
     def _prepare_related_data(
         self,
         journals: list[dict[str, Any]],
@@ -393,22 +480,22 @@ class AsyncDBWriter:
                 continue
 
             journal_id = existing_journals[normalized_name]
-            journal_name = journal["journal_name"]
-            metadata = journal.get("metadata")
 
             name_inserts.append(
-                (journal_id, journal_name, NameType.CANONICAL.value, source_name)
+                self._prepare_name_insert(
+                    journal_id, journal["journal_name"], source_name
+                )
             )
+            assessment_inserts.append(
+                self._prepare_assessment_insert(journal_id, source_id, list_type)
+            )
+            url_inserts.extend(self._prepare_url_inserts(journal_id, journal))
 
-            assessment_inserts.append((journal_id, source_id, list_type, 1.0))
-
-            urls_to_insert = self._extract_urls_from_journal(journal)
-            for url in urls_to_insert:
-                url_inserts.append((journal_id, url))
-
-            if metadata:
+            if journal.get("metadata"):
                 metadata_inserts.extend(
-                    self._prepare_metadata_inserts(journal_id, source_id, metadata)
+                    self._prepare_metadata_inserts(
+                        journal_id, source_id, journal["metadata"]
+                    )
                 )
 
         self.detail_logger.debug(
@@ -416,6 +503,86 @@ class AsyncDBWriter:
             f"{len(metadata_inserts)} metadata entries, {len(url_inserts)} URLs"
         )
         return name_inserts, assessment_inserts, metadata_inserts, url_inserts
+
+    def _insert_journal_names(
+        self, cursor: sqlite3.Cursor, name_inserts: list[tuple[int, str, str, str]]
+    ) -> None:
+        """Insert journal names into database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            name_inserts: List of journal name records to insert
+        """
+        if name_inserts:
+            self.detail_logger.debug(f"Inserting {len(name_inserts)} journal names")
+            cursor.executemany(
+                """INSERT OR IGNORE INTO journal_names
+                   (journal_id, name, name_type, source_name)
+                   VALUES (?, ?, ?, ?)""",
+                name_inserts,
+            )
+
+    def _insert_assessments(
+        self,
+        cursor: sqlite3.Cursor,
+        assessment_inserts: list[tuple[int, int, str, float]],
+    ) -> None:
+        """Insert source assessments into database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            assessment_inserts: List of source assessment records to insert
+        """
+        if assessment_inserts:
+            self.detail_logger.debug(
+                f"Inserting {len(assessment_inserts)} source assessments"
+            )
+            cursor.executemany(
+                """INSERT OR REPLACE INTO source_assessments
+                   (journal_id, source_id, assessment, confidence, last_confirmed_at)
+                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                assessment_inserts,
+            )
+
+    def _insert_metadata(
+        self,
+        cursor: sqlite3.Cursor,
+        metadata_inserts: list[tuple[int, int, str, str, str]],
+    ) -> None:
+        """Insert metadata into database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            metadata_inserts: List of metadata records to insert
+        """
+        if metadata_inserts:
+            self.detail_logger.debug(
+                f"Inserting {len(metadata_inserts)} metadata entries"
+            )
+            cursor.executemany(
+                """INSERT OR REPLACE INTO source_metadata
+                   (journal_id, source_id, metadata_key, metadata_value, data_type)
+                   VALUES (?, ?, ?, ?, ?)""",
+                metadata_inserts,
+            )
+
+    def _insert_urls(
+        self, cursor: sqlite3.Cursor, url_inserts: list[tuple[int, str]]
+    ) -> None:
+        """Insert journal URLs into database.
+
+        Args:
+            cursor: Database cursor for executing queries
+            url_inserts: List of journal URL records to insert
+        """
+        if url_inserts:
+            self.detail_logger.debug(f"Inserting {len(url_inserts)} journal URLs")
+            cursor.executemany(
+                """INSERT OR REPLACE INTO journal_urls
+                   (journal_id, url, last_seen_at)
+                   VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                url_inserts,
+            )
 
     def _execute_batch_inserts(
         self,
@@ -435,46 +602,51 @@ class AsyncDBWriter:
             url_inserts: List of journal URL records to insert
         """
         self.detail_logger.debug("Executing batch inserts for related tables")
-        if name_inserts:
-            self.detail_logger.debug(f"Inserting {len(name_inserts)} journal names")
-            cursor.executemany(
-                """INSERT OR IGNORE INTO journal_names
-                   (journal_id, name, name_type, source_name)
-                   VALUES (?, ?, ?, ?)""",
-                name_inserts,
-            )
-
-        if assessment_inserts:
-            self.detail_logger.debug(
-                f"Inserting {len(assessment_inserts)} source assessments"
-            )
-            cursor.executemany(
-                """INSERT OR REPLACE INTO source_assessments
-                   (journal_id, source_id, assessment, confidence, last_confirmed_at)
-                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)""",
-                assessment_inserts,
-            )
-
-        if metadata_inserts:
-            self.detail_logger.debug(
-                f"Inserting {len(metadata_inserts)} metadata entries"
-            )
-            cursor.executemany(
-                """INSERT OR REPLACE INTO source_metadata
-                   (journal_id, source_id, metadata_key, metadata_value, data_type)
-                   VALUES (?, ?, ?, ?, ?)""",
-                metadata_inserts,
-            )
-
-        if url_inserts:
-            self.detail_logger.debug(f"Inserting {len(url_inserts)} journal URLs")
-            cursor.executemany(
-                """INSERT OR REPLACE INTO journal_urls
-                   (journal_id, url, last_seen_at)
-                   VALUES (?, ?, CURRENT_TIMESTAMP)""",
-                url_inserts,
-            )
+        self._insert_journal_names(cursor, name_inserts)
+        self._insert_assessments(cursor, assessment_inserts)
+        self._insert_metadata(cursor, metadata_inserts)
+        self._insert_urls(cursor, url_inserts)
         self.detail_logger.debug("Batch inserts completed")
+
+    def _execute_transaction(
+        self,
+        cursor: sqlite3.Cursor,
+        conn: sqlite3.Connection,
+        journals: list[dict[str, Any]],
+        source_id: int,
+        source_name: str,
+        list_type: str,
+    ) -> tuple[int, int]:
+        """Execute database transaction for journal batch write.
+
+        Args:
+            cursor: Database cursor for executing queries
+            conn: Database connection for transaction control
+            journals: List of journal dictionaries to write
+            source_id: Database ID of the data source
+            source_name: Name of the data source
+            list_type: Type of list (e.g., "predatory", "legitimate")
+
+        Returns:
+            Tuple of (unique_journals, total_input_records)
+        """
+        normalized_names, unique_journals, total_input_records = (
+            self._prepare_and_upsert_journals(cursor, journals)
+        )
+
+        existing_journals = self._get_journal_ids(cursor, normalized_names)
+
+        name_inserts, assessment_inserts, metadata_inserts, url_inserts = (
+            self._prepare_related_data(
+                journals, existing_journals, source_id, source_name, list_type
+            )
+        )
+
+        self._execute_batch_inserts(
+            cursor, name_inserts, assessment_inserts, metadata_inserts, url_inserts
+        )
+
+        return unique_journals, total_input_records
 
     def _batch_write_journals(
         self, source_name: str, list_type: str, journals: list[dict[str, Any]]
@@ -513,24 +685,8 @@ class AsyncDBWriter:
             conn.execute("BEGIN TRANSACTION")
 
             try:
-                normalized_names, unique_journals, total_input_records = (
-                    self._prepare_and_upsert_journals(cursor, journals)
-                )
-
-                existing_journals = self._get_journal_ids(cursor, normalized_names)
-
-                name_inserts, assessment_inserts, metadata_inserts, url_inserts = (
-                    self._prepare_related_data(
-                        journals, existing_journals, source_id, source_name, list_type
-                    )
-                )
-
-                self._execute_batch_inserts(
-                    cursor,
-                    name_inserts,
-                    assessment_inserts,
-                    metadata_inserts,
-                    url_inserts,
+                unique_journals, total_input_records = self._execute_transaction(
+                    cursor, conn, journals, source_id, source_name, list_type
                 )
 
                 self.detail_logger.debug("Committing database transaction")
