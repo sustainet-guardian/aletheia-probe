@@ -162,10 +162,7 @@ class CacheSyncManager:
                 f"Backends needing sync: {', '.join(backends_needing_sync)}"
             )
 
-            # Create semaphore to limit concurrent backend syncs
-            semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_SOURCES)
-
-            # Process all backends with controlled concurrency (3 at a time)
+            # Process all backends with controlled concurrency (5 at a time)
             self.detail_logger.debug(
                 f"Starting {len(backends_needing_sync)} backends concurrently: {backends_needing_sync}"
             )
