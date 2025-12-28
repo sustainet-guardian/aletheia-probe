@@ -7,6 +7,7 @@ import sqlite3
 from typing import Any
 
 from ..cache import DataSourceManager, RetractionCache
+from ..data_models import JournalDataDict
 from ..enums import NameType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -48,14 +49,14 @@ class AsyncDBWriter:
             self.status_logger.info("    DBWriter: Database writer task stopped")
 
     async def queue_write(
-        self, source_name: str, list_type: str, journals: list[dict[str, Any]]
+        self, source_name: str, list_type: str, journals: list[JournalDataDict]
     ) -> None:
         """Queue data for database writing.
 
         Args:
             source_name: Name of the data source
             list_type: Type of list (e.g., "predatory", "legitimate")
-            journals: List of journal dictionaries to write
+            journals: List of journal data dictionaries conforming to JournalDataDict structure
         """
         self.status_logger.info(
             f"    DBWriter: Received {len(journals)} records from {source_name} for queuing"
@@ -195,7 +196,7 @@ class AsyncDBWriter:
         return source_id
 
     def _prepare_journal_batch_data(
-        self, journals: list[dict[str, Any]]
+        self, journals: list[JournalDataDict]
     ) -> tuple[
         list[str],
         set[str],
@@ -205,7 +206,7 @@ class AsyncDBWriter:
         """Prepare journal data for batch upsert.
 
         Args:
-            journals: List of journal dictionaries to process
+            journals: List of journal data dictionaries to process
 
         Returns:
             Tuple of (normalized_names, unique_names, upsert_records, total_records)
@@ -267,13 +268,13 @@ class AsyncDBWriter:
     def _prepare_and_upsert_journals(
         self,
         cursor: sqlite3.Cursor,
-        journals: list[dict[str, Any]],
+        journals: list[JournalDataDict],
     ) -> tuple[list[str], int, int]:
         """Prepare journal data and upsert to database.
 
         Args:
             cursor: Database cursor for executing queries
-            journals: List of journal dictionaries to upsert
+            journals: List of journal data dictionaries to upsert
 
         Returns:
             Tuple containing (normalized_names, unique_journals, total_input_records)
@@ -345,11 +346,11 @@ class AsyncDBWriter:
         elif isinstance(value, str) and value.strip():
             url_set.add(value.strip())
 
-    def _extract_urls_from_journal(self, journal: dict[str, Any]) -> set[str]:
+    def _extract_urls_from_journal(self, journal: JournalDataDict) -> set[str]:
         """Extract and deduplicate URLs from journal data.
 
         Args:
-            journal: Dictionary containing journal data with potential URLs
+            journal: Journal data dictionary with potential URLs
 
         Returns:
             Set of unique, non-empty URL strings
@@ -442,13 +443,13 @@ class AsyncDBWriter:
         return (journal_id, source_id, list_type, 1.0)
 
     def _prepare_url_inserts(
-        self, journal_id: int, journal: dict[str, Any]
+        self, journal_id: int, journal: JournalDataDict
     ) -> list[tuple[int, str]]:
         """Prepare URL insert records for a journal.
 
         Args:
             journal_id: Database ID of the journal
-            journal: Dictionary containing journal data with potential URLs
+            journal: Journal data dictionary with potential URLs
 
         Returns:
             List of tuples for journal_urls table inserts
@@ -458,7 +459,7 @@ class AsyncDBWriter:
 
     def _prepare_related_data(
         self,
-        journals: list[dict[str, Any]],
+        journals: list[JournalDataDict],
         existing_journals: dict[str, int],
         source_id: int,
         source_name: str,
@@ -471,7 +472,7 @@ class AsyncDBWriter:
         """Prepare batch data for related tables.
 
         Args:
-            journals: List of journal dictionaries
+            journals: List of journal data dictionaries
             existing_journals: Mapping of normalized names to journal IDs
             source_id: Database ID of the data source
             source_name: Name of the data source
@@ -554,14 +555,14 @@ class AsyncDBWriter:
     def _insert_retraction_statistics(
         self,
         source_name: str,
-        journals: list[dict[str, Any]],
+        journals: list[JournalDataDict],
         existing_journals: dict[str, int],
     ) -> None:
         """Insert retraction statistics for RetractionWatch journals.
 
         Args:
             source_name: Name of the data source
-            journals: List of journal dictionaries
+            journals: List of journal data dictionaries
             existing_journals: Mapping of normalized names to journal IDs
         """
         if source_name != "retraction_watch":
@@ -640,7 +641,7 @@ class AsyncDBWriter:
         self,
         cursor: sqlite3.Cursor,
         conn: sqlite3.Connection,
-        journals: list[dict[str, Any]],
+        journals: list[JournalDataDict],
         source_id: int,
         source_name: str,
         list_type: str,
@@ -650,7 +651,7 @@ class AsyncDBWriter:
         Args:
             cursor: Database cursor for executing queries
             conn: Database connection for transaction control
-            journals: List of journal dictionaries to write
+            journals: List of journal data dictionaries to write
             source_id: Database ID of the data source
             source_name: Name of the data source
             list_type: Type of list (e.g., "predatory", "legitimate")
@@ -678,14 +679,14 @@ class AsyncDBWriter:
         return unique_journals, total_input_records
 
     def _batch_write_journals(
-        self, source_name: str, list_type: str, journals: list[dict[str, Any]]
+        self, source_name: str, list_type: str, journals: list[JournalDataDict]
     ) -> dict[str, int]:
         """Optimized batch writing of journals to database using SQLite performance tuning.
 
         Args:
             source_name: Name of the data source
             list_type: Type of list (e.g., "predatory", "legitimate")
-            journals: List of journal dictionaries to write
+            journals: List of journal data dictionaries to write
 
         Returns:
             Dictionary with keys: total_records, unique_journals, duplicates

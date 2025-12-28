@@ -1,12 +1,71 @@
 # SPDX-License-Identifier: MIT
 """Data models and dataclasses for journal assessment tool."""
 
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
 
 from .enums import AssessmentType
 from .validation import validate_issn
+
+
+class JournalDataDict(TypedDict):
+    """TypedDict for journal data structure used in cache synchronization.
+
+    This defines the structure of journal dictionaries passed to AsyncDBWriter
+    and other cache synchronization operations. Using TypedDict provides type
+    safety and clear documentation without runtime overhead.
+    """
+
+    journal_name: str
+    normalized_name: str
+    issn: NotRequired[str | None]
+    eissn: NotRequired[str | None]
+    publisher: NotRequired[str | None]
+    urls: NotRequired[list[str] | str | None]
+    metadata: NotRequired[dict[str, Any]]
+
+
+class JournalData(BaseModel):
+    """Journal data structure for cache synchronization and database writing.
+
+    This model represents the minimal journal data structure expected by
+    AsyncDBWriter and cache synchronization operations.
+    """
+
+    journal_name: str = Field(..., min_length=1, description="Display journal name")
+    normalized_name: str = Field(
+        ..., min_length=1, description="Normalized journal name for deduplication"
+    )
+    issn: str | None = Field(None, description="Print ISSN")
+    eissn: str | None = Field(None, description="Electronic ISSN")
+    publisher: str | None = Field(None, description="Publisher name")
+    urls: list[str] | str | None = Field(
+        None, description="Journal URLs (list or single URL string)"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+
+    @field_validator("journal_name", "normalized_name", mode="after")
+    @classmethod
+    def strip_strings(cls, v: str) -> str:
+        """Strip whitespace from string fields."""
+        return v.strip()
+
+    @field_validator("publisher", mode="after")
+    @classmethod
+    def strip_publisher(cls, v: str | None) -> str | None:
+        """Strip whitespace from publisher field."""
+        return v.strip() if v else v
+
+    @field_validator("issn", "eissn", mode="after")
+    @classmethod
+    def validate_issn_format(cls, v: str | None) -> str | None:
+        """Validate ISSN format."""
+        if v and not validate_issn(v):
+            raise ValueError(f"Invalid ISSN format: {v}")
+        return v
 
 
 class JournalEntryData(BaseModel):
