@@ -169,18 +169,6 @@ def init_database(db_path: Path) -> None:
                 expires_at TIMESTAMP NOT NULL
             );
 
-            -- Generic key-value cache
-            -- Purpose: Simple string-based caching for arbitrary data (e.g., API responses, external service results)
-            -- Stores plain strings or JSON-encoded data as strings
-            -- Key structure: Arbitrary string identifier (up to 255 chars)
-            -- Use this for: General-purpose caching where structured assessment data is not needed
-            CREATE TABLE IF NOT EXISTS key_value_cache (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP NOT NULL
-            );
-
             -- OpenAlex publication statistics cache
             -- Purpose: Structured caching for OpenAlex API responses with publication metrics
             -- Replaces generic key_value_cache usage for OpenAlex data
@@ -226,7 +214,6 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_assessment_cache_expires ON assessment_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_doi ON article_retractions(doi);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_expires ON article_retractions(expires_at);
-            CREATE INDEX IF NOT EXISTS idx_key_value_cache_expires ON key_value_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_issn ON openalex_cache(issn);
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_journal_name ON openalex_cache(normalized_journal_name);
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_expires ON openalex_cache(expires_at);

@@ -7,7 +7,6 @@ For single-component tests, see the individual test files:
 - test_cache_acronym.py - AcronymCache only
 - test_cache_assessment.py - AssessmentCache only
 - test_cache_retraction.py - RetractionCache only
-- test_cache_key_value.py - KeyValueCache only
 - test_cache_data_source.py - DataSourceManager only
 - test_cache_schema.py - Database schema initialization
 """
@@ -29,7 +28,6 @@ from aletheia_probe.cache import (
     AssessmentCache,
     DataSourceManager,
     JournalCache,
-    KeyValueCache,
     RetractionCache,
 )
 from aletheia_probe.cache.schema import init_database
@@ -60,7 +58,6 @@ def temp_cache():
             self.acronym_cache = AcronymCache(db_path)
             self.retraction_cache = RetractionCache(db_path)
             self.assessment_cache = AssessmentCache(db_path)
-            self.key_value_cache = KeyValueCache(db_path)
             self.data_source_manager = DataSourceManager(db_path)
 
     cache = CacheComponents(cache_path)

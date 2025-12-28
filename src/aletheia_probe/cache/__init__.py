@@ -7,7 +7,6 @@ This module provides a refactored cache system with focused components:
 - RetractionCache: Article retraction tracking
 - AssessmentCache: Assessment result caching
 - OpenAlexCache: OpenAlex publication statistics caching
-- KeyValueCache: Generic key-value caching
 - DataSourceManager: Data source management
 """
 
@@ -15,7 +14,6 @@ from .acronym_cache import AcronymCache
 from .assessment_cache import AssessmentCache
 from .data_source_manager import DataSourceManager
 from .journal_cache import JournalCache
-from .key_value_cache import KeyValueCache
 from .openalex_cache import OpenAlexCache
 from .retraction_cache import RetractionCache
 
@@ -26,6 +24,5 @@ __all__ = [
     "RetractionCache",
     "AssessmentCache",
     "OpenAlexCache",
-    "KeyValueCache",
     "DataSourceManager",
 ]

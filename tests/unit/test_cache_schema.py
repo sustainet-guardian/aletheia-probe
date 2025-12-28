@@ -56,7 +56,6 @@ class TestCacheSchema:
             "source_updates",
             "assessment_cache",
             "article_retractions",
-            "key_value_cache",
             "openalex_cache",
             "venue_acronyms",
         }
@@ -83,7 +82,6 @@ class TestCacheSchema:
             "source_updates",
             "assessment_cache",
             "article_retractions",
-            "key_value_cache",
             "venue_acronyms",
         ]
 
@@ -129,7 +127,6 @@ class TestCacheSchema:
                 "idx_source_assessments_journal_id",
                 "idx_assessment_cache_expires",
                 "idx_article_retractions_doi",
-                "idx_key_value_cache_expires",
                 "idx_venue_acronyms_normalized_name",
             }
 

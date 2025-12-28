@@ -12,7 +12,6 @@ from ..cache import (
     AssessmentCache,
     DataSourceManager,
     JournalCache,
-    KeyValueCache,
     RetractionCache,
 )
 from ..cache_sync.db_writer import AsyncDBWriter
@@ -261,17 +260,13 @@ class DataUpdater:
             f"Cleaned up {assessment_expired} expired assessment cache entries"
         )
 
-        key_value_cache = KeyValueCache()
-        kv_expired = key_value_cache.cleanup_expired_entries()
-        detail_logger.info(f"Cleaned up {kv_expired} expired key-value cache entries")
-
         retraction_cache = RetractionCache()
         retraction_expired = retraction_cache.cleanup_expired_article_retractions()
         detail_logger.info(
             f"Cleaned up {retraction_expired} expired retraction cache entries"
         )
 
-        total_expired = assessment_expired + kv_expired + retraction_expired
+        total_expired = assessment_expired + retraction_expired
         status_logger.info(
             f"Cache cleanup: {total_expired} total expired entries removed"
         )
