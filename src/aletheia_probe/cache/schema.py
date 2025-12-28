@@ -20,8 +20,6 @@ def init_database(db_path: Path) -> None:
     update_status_values = ", ".join(f"'{s.value}'" for s in UpdateStatus)
     update_type_values = ", ".join(f"'{t.value}'" for t in UpdateType)
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
-    # Data types for source metadata (no enum, but fixed set of values)
-    data_type_values = "'string', 'boolean', 'integer', 'json'"
 
     with sqlite3.connect(db_path) as conn:
         conn.executescript(

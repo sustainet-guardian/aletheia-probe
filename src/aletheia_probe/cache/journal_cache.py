@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Journal data caching for the cache system."""
 
-import json
 import sqlite3
 from typing import Any
 
@@ -195,7 +194,6 @@ class JournalCache(CacheBase):
             (journal_id, source_id, assessment, confidence),
         )
 
-
     def add_journal_entry(self, entry: JournalEntryData) -> int:
         """Add or update a journal entry with normalized deduplication.
 
@@ -286,7 +284,6 @@ class JournalCache(CacheBase):
             urls_by_journal.setdefault(journal_id, []).append(url)
 
         return urls_by_journal
-
 
     def search_journals_by_name(
         self,
