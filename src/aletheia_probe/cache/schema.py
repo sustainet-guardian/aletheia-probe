@@ -174,12 +174,40 @@ def init_database(db_path: Path) -> None:
             -- Stores plain strings or JSON-encoded data as strings
             -- Key structure: Arbitrary string identifier (up to 255 chars)
             -- Use this for: General-purpose caching where structured assessment data is not needed
-            -- Examples: OpenAlex API responses, external service lookups, temporary computation results
             CREATE TABLE IF NOT EXISTS key_value_cache (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP NOT NULL
+            );
+
+            -- OpenAlex publication statistics cache
+            -- Purpose: Structured caching for OpenAlex API responses with publication metrics
+            -- Replaces generic key_value_cache usage for OpenAlex data
+            -- Provides queryable columns instead of JSON strings
+            CREATE TABLE IF NOT EXISTS openalex_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                issn TEXT,
+                normalized_journal_name TEXT,
+                openalex_id TEXT,
+                openalex_url TEXT,
+                display_name TEXT,
+                source_type TEXT,
+                issn_l TEXT,
+                issns TEXT,
+                total_publications INTEGER DEFAULT 0,
+                recent_publications INTEGER DEFAULT 0,
+                recent_publications_by_year TEXT,
+                publisher TEXT,
+                first_publication_year INTEGER,
+                last_publication_year INTEGER,
+                cited_by_count INTEGER DEFAULT 0,
+                is_in_doaj BOOLEAN DEFAULT FALSE,
+                fetched_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                CHECK (issn IS NOT NULL OR normalized_journal_name IS NOT NULL),
+                UNIQUE(issn, normalized_journal_name)
             );
 
             -- Indexes for performance
@@ -199,5 +227,8 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_article_retractions_doi ON article_retractions(doi);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_expires ON article_retractions(expires_at);
             CREATE INDEX IF NOT EXISTS idx_key_value_cache_expires ON key_value_cache(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_openalex_cache_issn ON openalex_cache(issn);
+            CREATE INDEX IF NOT EXISTS idx_openalex_cache_journal_name ON openalex_cache(normalized_journal_name);
+            CREATE INDEX IF NOT EXISTS idx_openalex_cache_expires ON openalex_cache(expires_at);
         """
         )

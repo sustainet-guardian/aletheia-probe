@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Tests for the Retraction Watch backend with caching."""
 
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -256,15 +255,13 @@ class TestRetractionWatchBackend:
                 backend.assessment_cache, "cache_assessment_result"
             ) as mock_cache_result,
             patch.object(
-                backend.key_value_cache,
-                "get_cached_value",
-                return_value=json.dumps(
-                    {
-                        "openalex_id": "https://openalex.org/S12345",
-                        "total_publications": 50000,
-                        "recent_publications": 10000,
-                    }
-                ),
+                backend.openalex_cache,
+                "get_openalex_data",
+                return_value={
+                    "openalex_id": "https://openalex.org/S12345",
+                    "total_publications": 50000,
+                    "recent_publications": 10000,
+                },
             ) as mock_openalex_cache_get,
             patch(
                 "aletheia_probe.backends.retraction_watch.RetractionCache.get_retraction_statistics",

@@ -57,6 +57,7 @@ class TestCacheSchema:
             "assessment_cache",
             "article_retractions",
             "key_value_cache",
+            "openalex_cache",
             "venue_acronyms",
         }
 
