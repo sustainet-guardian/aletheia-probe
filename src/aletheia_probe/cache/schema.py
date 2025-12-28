@@ -182,7 +182,6 @@ def init_database(db_path: Path) -> None:
             );
 
             -- Indexes for performance
-            CREATE INDEX IF NOT EXISTS idx_journals_normalized_name ON journals(normalized_name);
             CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
             CREATE INDEX IF NOT EXISTS idx_journals_normalized_name_lower ON journals(LOWER(normalized_name));
             CREATE INDEX IF NOT EXISTS idx_journals_display_name_lower ON journals(LOWER(display_name));
@@ -193,7 +192,6 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_journal_urls_journal_id ON journal_urls(journal_id);
             CREATE INDEX IF NOT EXISTS idx_journal_urls_url ON journal_urls(url);
             CREATE INDEX IF NOT EXISTS idx_source_assessments_journal_id ON source_assessments(journal_id);
-            CREATE INDEX IF NOT EXISTS idx_source_assessments_source_id ON source_assessments(source_id);
             CREATE INDEX IF NOT EXISTS idx_source_assessments_composite ON source_assessments(source_id, assessment);
             CREATE INDEX IF NOT EXISTS idx_source_metadata_journal_source ON source_metadata(journal_id, source_id);
             CREATE INDEX IF NOT EXISTS idx_assessment_cache_expires ON assessment_cache(expires_at);
