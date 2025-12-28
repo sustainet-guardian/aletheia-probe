@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Article retraction tracking for the cache system."""
+"""Article retraction tracking and journal retraction statistics for the cache system."""
 
+import json
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
@@ -13,7 +14,7 @@ detail_logger = get_detail_logger()
 
 
 class RetractionCache(CacheBase):
-    """Manages article retraction information caching."""
+    """Manages article retraction information and journal retraction statistics caching."""
 
     def get_article_retraction(self, doi: str) -> dict[str, Any] | None:
         """Get cached retraction information for a DOI.
@@ -136,3 +137,111 @@ class RetractionCache(CacheBase):
             )
 
             return removed_count
+
+    def upsert_retraction_statistics(
+        self,
+        journal_id: int,
+        total_retractions: int,
+        recent_retractions: int,
+        very_recent_retractions: int,
+        retraction_types: dict[str, int] | None = None,
+        top_reasons: list[tuple[str, int]] | None = None,
+        publishers: list[str] | None = None,
+        first_retraction_date: str | None = None,
+        last_retraction_date: str | None = None,
+    ) -> None:
+        """Insert or update retraction statistics for a journal.
+
+        Args:
+            journal_id: Journal database ID
+            total_retractions: Total number of retractions
+            recent_retractions: Number of retractions in last 2 years
+            very_recent_retractions: Number of retractions in last 1 year
+            retraction_types: Dictionary of retraction types and counts (stored as JSON)
+            top_reasons: List of (reason, count) tuples (stored as JSON)
+            publishers: List of publishers (stored as JSON)
+            first_retraction_date: First retraction date (ISO format)
+            last_retraction_date: Last retraction date (ISO format)
+        """
+        detail_logger.debug(
+            f"Upserting retraction statistics for journal_id {journal_id}: "
+            f"total={total_retractions}, recent={recent_retractions}"
+        )
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO retraction_statistics
+                (journal_id, total_retractions, recent_retractions, very_recent_retractions,
+                 retraction_types, top_reasons, publishers, first_retraction_date,
+                 last_retraction_date, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    journal_id,
+                    total_retractions,
+                    recent_retractions,
+                    very_recent_retractions,
+                    json.dumps(retraction_types) if retraction_types else None,
+                    json.dumps(top_reasons) if top_reasons else None,
+                    json.dumps(publishers) if publishers else None,
+                    first_retraction_date,
+                    last_retraction_date,
+                ),
+            )
+            conn.commit()
+            detail_logger.debug(
+                f"Successfully upserted retraction statistics for journal_id {journal_id}"
+            )
+
+    def get_retraction_statistics(self, journal_id: int) -> dict[str, Any] | None:
+        """Get retraction statistics for a journal.
+
+        Args:
+            journal_id: Journal database ID
+
+        Returns:
+            Dictionary with retraction statistics if found, None otherwise
+        """
+        detail_logger.debug(
+            f"Looking up retraction statistics for journal_id {journal_id}"
+        )
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT journal_id, total_retractions, recent_retractions,
+                       very_recent_retractions, retraction_types, top_reasons,
+                       publishers, first_retraction_date, last_retraction_date,
+                       created_at, updated_at
+                FROM retraction_statistics
+                WHERE journal_id = ?
+                """,
+                (journal_id,),
+            )
+
+            row = cursor.fetchone()
+            if row:
+                result = dict(row)
+                # Parse JSON fields
+                if result.get("retraction_types"):
+                    result["retraction_types"] = json.loads(result["retraction_types"])
+                if result.get("top_reasons"):
+                    result["top_reasons"] = json.loads(result["top_reasons"])
+                if result.get("publishers"):
+                    result["publishers"] = json.loads(result["publishers"])
+
+                detail_logger.debug(
+                    f"Found retraction statistics for journal_id {journal_id}: "
+                    f"total={result['total_retractions']}, recent={result['recent_retractions']}"
+                )
+                return result
+
+            detail_logger.debug(
+                f"No retraction statistics found for journal_id {journal_id}"
+            )
+            return None
