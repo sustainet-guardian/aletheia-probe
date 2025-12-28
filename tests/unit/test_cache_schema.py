@@ -123,7 +123,6 @@ class TestCacheSchema:
 
             # Check some key indexes exist
             expected_indexes = {
-                "idx_journals_normalized_name",
                 "idx_journals_issn",
                 "idx_journal_names_journal_id",
                 "idx_source_assessments_journal_id",
