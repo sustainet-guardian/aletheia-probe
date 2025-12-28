@@ -188,7 +188,9 @@ class OpenAlexCache(CacheBase):
             recent_pubs_by_year = {}
             if row["recent_publications_by_year"]:
                 year_data = json.loads(row["recent_publications_by_year"])
-                recent_pubs_by_year = {int(year): count for year, count in year_data.items()}
+                recent_pubs_by_year = {
+                    int(year): count for year, count in year_data.items()
+                }
 
             return {
                 "openalex_id": row["openalex_id"],
