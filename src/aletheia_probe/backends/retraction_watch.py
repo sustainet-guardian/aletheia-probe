@@ -78,6 +78,10 @@ class RetractionWatchBackend(HybridBackend):
                 match = results[0]
                 journal_id = match.get("id")
 
+                if not journal_id or not isinstance(journal_id, int):
+                    detail_logger.error(f"Invalid journal_id from match: {journal_id}")
+                    raise ValueError(f"Invalid journal_id: {journal_id}")
+
                 # Fetch retraction statistics from dedicated table
                 retraction_cache = RetractionCache()
                 stats = retraction_cache.get_retraction_statistics(journal_id)
