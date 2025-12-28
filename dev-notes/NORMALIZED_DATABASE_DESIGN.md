@@ -153,31 +153,6 @@ CREATE TABLE article_retractions (
 );
 ```
 
-### 10. Key-Value Cache Table
-
-**Purpose**: Simple string-based caching for arbitrary data (e.g., API responses, external service results)
-
-This table provides general-purpose caching where structured assessment data is not needed. It stores plain strings or JSON-encoded data as strings, with arbitrary string identifiers as keys (up to 255 characters).
-
-**Use this for**: General-purpose caching such as:
-- OpenAlex API responses
-- External service lookups
-- Temporary computation results
-- Any data that doesn't fit the assessment-specific structure
-
-**Distinction from assessment_cache**: While both tables provide caching with TTL, they serve different purposes:
-- `assessment_cache`: Structured, domain-specific caching for assessment operations
-- `key_value_cache`: Simple, flexible caching for arbitrary string data
-
-```sql
-CREATE TABLE key_value_cache (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP
-);
-```
-
 ## Indexes
 
 For performance optimization:

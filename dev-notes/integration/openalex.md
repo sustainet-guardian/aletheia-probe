@@ -46,9 +46,9 @@ OpenAlex provides publication volume data that enables **contextual retraction r
 - **Fallback**: Gracefully degrades to count-based assessment if OpenAlex unavailable
 
 ### Cache Storage
-- **Location**: `src/aletheia_probe/cache.py`
-- **Table**: `key_value_cache`
-- **Key Format**: `openalex:issn:{ISSN}` or `openalex:name:{normalized_name}`
+- **Location**: `src/aletheia_probe/cache/openalex_cache.py`
+- **Table**: `openalex_cache`
+- **Key Fields**: `issn` and/or `normalized_journal_name`
 - **TTL**: 30 days
 - **Auto-cleanup**: Expires old entries
 
