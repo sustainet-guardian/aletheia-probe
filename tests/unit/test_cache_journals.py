@@ -71,7 +71,8 @@ class TestCacheJournal:
         source_journal = source_results[0]
         assert source_journal["journal_name"] == "Test Journal"
         assert source_journal["list_type"] == "predatory"
-        assert json.loads(source_journal["metadata"]) == {"key": "value"}
+        # Note: Generic metadata is no longer stored in the cache
+        # Retraction statistics are stored in a dedicated table
 
     def test_search_journals_basic(self, temp_cache):
         """Test basic journal search functionality."""
@@ -193,7 +194,12 @@ class TestCacheJournalAdditional:
     """Additional test cases for JournalCache functionality."""
 
     def test_cache_with_metadata(self, temp_cache):
-        """Test caching journal entries with metadata."""
+        """Test caching journal entries with metadata.
+
+        Note: Generic metadata is no longer stored in cache.
+        Metadata field is accepted for backwards compatibility but not persisted.
+        Retraction statistics use a dedicated table instead.
+        """
         # Register data source
         dsm = DataSourceManager(temp_cache.db_path)
         dsm.register_data_source("test_source", "Test Source", "legitimate")
@@ -213,15 +219,13 @@ class TestCacheJournalAdditional:
         )
         temp_cache.add_journal_entry(entry)
 
-        # Search by source to get back source-specific metadata
+        # Verify journal was added successfully
         results = temp_cache.search_journals(
             source_name="test_source", normalized_name="ai journal"
         )
         assert len(results) == 1
-
-        # Metadata should be stored as JSON and retrievable
-        result_metadata = results[0]["metadata"]
-        assert result_metadata is not None
+        assert results[0]["journal_name"] == "AI Journal"
+        # Note: metadata is no longer stored in the cache
 
     def test_concurrent_cache_access(self, temp_cache):
         """Test that cache handles concurrent access properly."""

@@ -37,21 +37,25 @@ class TestRetractionWatchBackend:
     def mock_retraction_data(self):
         """Mock retraction data from cache."""
         return {
+            "id": 1,
             "journal_name": "Nature",
             "normalized_name": "nature",
             "issn": "0028-0836",
-            "metadata": json.dumps(
-                {
-                    "total_retractions": 5,
-                    "recent_retractions": 2,
-                    "very_recent_retractions": 1,
-                    "first_retraction_date": "2010-01-15",
-                    "last_retraction_date": "2023-05-20",
-                    "retraction_types": {"plagiarism": 2, "data_fabrication": 3},
-                    "top_reasons": ["Data fabrication", "Plagiarism"],
-                    "publishers": ["Springer Nature"],
-                }
-            ),
+        }
+
+    @pytest.fixture
+    def mock_retraction_stats(self):
+        """Mock retraction statistics from dedicated table."""
+        return {
+            "journal_id": 1,
+            "total_retractions": 5,
+            "recent_retractions": 2,
+            "very_recent_retractions": 1,
+            "first_retraction_date": "2010-01-15",
+            "last_retraction_date": "2023-05-20",
+            "retraction_types": {"plagiarism": 2, "data_fabrication": 3},
+            "top_reasons": ["Data fabrication", "Plagiarism"],
+            "publishers": ["Springer Nature"],
         }
 
     @pytest.fixture
@@ -114,7 +118,12 @@ class TestRetractionWatchBackend:
 
     @pytest.mark.asyncio
     async def test_cache_miss_triggers_api_query(
-        self, backend, sample_query_input, mock_retraction_data, mock_openalex_data
+        self,
+        backend,
+        sample_query_input,
+        mock_retraction_data,
+        mock_retraction_stats,
+        mock_openalex_data,
     ):
         """Test that cache miss triggers API queries and caches result."""
         with (
@@ -132,6 +141,10 @@ class TestRetractionWatchBackend:
             patch.object(
                 backend, "_get_openalex_data_cached", return_value=mock_openalex_data
             ) as mock_openalex,
+            patch(
+                "aletheia_probe.backends.retraction_watch.RetractionCache.get_retraction_statistics",
+                return_value=mock_retraction_stats,
+            ) as mock_stats,
         ):
             # Query should hit API
             result = await backend.query(sample_query_input)
@@ -226,7 +239,7 @@ class TestRetractionWatchBackend:
 
     @pytest.mark.asyncio
     async def test_openalex_data_caching_separate(
-        self, backend, sample_query_input, mock_retraction_data
+        self, backend, sample_query_input, mock_retraction_data, mock_retraction_stats
     ):
         """Test that OpenAlex data has separate caching layer."""
         # Mock OpenAlex cache hit
@@ -253,6 +266,10 @@ class TestRetractionWatchBackend:
                     }
                 ),
             ) as mock_openalex_cache_get,
+            patch(
+                "aletheia_probe.backends.retraction_watch.RetractionCache.get_retraction_statistics",
+                return_value=mock_retraction_stats,
+            ) as mock_stats,
         ):
             result = await backend.query(sample_query_input)
 
