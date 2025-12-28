@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Data models and dataclasses for journal assessment tool."""
 
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
+from typing_extensions import NotRequired
 
 from .enums import AssessmentType
 from .validation import validate_issn

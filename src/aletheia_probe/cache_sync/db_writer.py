@@ -577,7 +577,7 @@ class AsyncDBWriter:
                 continue
 
             journal_id = existing_journals[normalized_name]
-            metadata = journal.get("metadata", {})
+            metadata: dict[str, Any] = journal.get("metadata", {})
 
             if metadata:
                 retraction_cache.upsert_retraction_statistics(
