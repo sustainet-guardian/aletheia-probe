@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from aletheia_probe.cache_sync import AsyncDBWriter
+from aletheia_probe.data_models import JournalDataDict
 
 
 class TestAsyncDBWriter:
@@ -69,7 +70,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_queue_write(self, db_writer):
         """Test queuing data for writing."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {"journal_name": "Test Journal", "normalized_name": "test_journal"}
         ]
 
@@ -88,7 +89,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_db_writer_loop_with_mock_data(self, db_writer):
         """Test the database writer loop with mocked data."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
@@ -137,7 +138,9 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_db_writer_loop_database_error(self, db_writer):
         """Test database writer loop with database error."""
-        test_journals = [{"journal_name": "Test", "normalized_name": "test"}]
+        test_journals: list[JournalDataDict] = [
+            {"journal_name": "Test", "normalized_name": "test"}
+        ]
 
         with patch.object(
             db_writer,
@@ -161,7 +164,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_batch_write_journals(self, db_writer):
         """Test batch writing of journals."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
@@ -221,7 +224,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_batch_write_journals_new_source(self, db_writer):
         """Test batch writing with new source that needs registration."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
@@ -262,7 +265,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_batch_write_journals_with_duplicates(self, db_writer):
         """Test batch writing with duplicate journals."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
@@ -306,7 +309,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_batch_write_journals_skip_invalid_entries(self, db_writer):
         """Test batch writing skips entries without normalized_name."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Valid Journal",
                 "normalized_name": "valid_journal",
@@ -316,7 +319,7 @@ class TestAsyncDBWriter:
                 "journal_name": "Invalid Journal",
                 # Missing normalized_name
                 "issn": "2345-6789",
-            },
+            },  # type: ignore[typeddict-item]
         ]
 
         with (
@@ -349,7 +352,7 @@ class TestAsyncDBWriter:
     @pytest.mark.asyncio
     async def test_db_writer_loop_with_duplicates_reporting(self, db_writer):
         """Test the database writer loop reports duplicates correctly."""
-        test_journals = [
+        test_journals: list[JournalDataDict] = [
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",

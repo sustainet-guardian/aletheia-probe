@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..cache import (
     AssessmentCache,
@@ -15,7 +15,7 @@ from ..cache import (
     RetractionCache,
 )
 from ..cache_sync.db_writer import AsyncDBWriter
-from ..data_models import JournalEntryData
+from ..data_models import JournalDataDict, JournalEntryData
 from ..enums import AssessmentType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -332,8 +332,11 @@ class DataUpdater:
             # Store in cache - use queue if db_writer provided, else direct writes
             if db_writer is not None:
                 # Queue the data for asynchronous writing
+                # Cast to JournalDataDict list - data sources return dicts that conform to this structure
                 await db_writer.queue_write(
-                    source_name, source.get_list_type(), journals
+                    source_name,
+                    source.get_list_type(),
+                    cast(list[JournalDataDict], journals),
                 )
                 records_updated = len(journals)
                 status_logger.info(
