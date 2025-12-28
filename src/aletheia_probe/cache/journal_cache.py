@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Journal data caching for the cache system."""
 
-import json
 import sqlite3
 from typing import Any
 
@@ -195,46 +194,6 @@ class JournalCache(CacheBase):
             (journal_id, source_id, assessment, confidence),
         )
 
-    def _add_journal_metadata(
-        self,
-        cursor: sqlite3.Cursor,
-        journal_id: int,
-        source_id: int,
-        metadata: dict[str, Any] | None,
-    ) -> None:
-        """Add journal metadata to database.
-
-        Args:
-            cursor: Database cursor
-            journal_id: Journal ID
-            source_id: Source ID
-            metadata: Additional metadata
-        """
-        if metadata:
-            for key, value in metadata.items():
-                if value is not None:
-                    data_type = "string"
-                    if isinstance(value, bool):
-                        data_type = "boolean"
-                        value = str(value).lower()
-                    elif isinstance(value, int):
-                        data_type = "integer"
-                        value = str(value)
-                    elif isinstance(value, (dict, list)):
-                        data_type = "json"
-                        value = json.dumps(value)
-                    else:
-                        value = str(value)
-
-                    cursor.execute(
-                        """
-                        INSERT OR REPLACE INTO source_metadata
-                        (journal_id, source_id, metadata_key, metadata_value, data_type)
-                        VALUES (?, ?, ?, ?, ?)
-                    """,
-                        (journal_id, source_id, key, value, data_type),
-                    )
-
     def add_journal_entry(self, entry: JournalEntryData) -> int:
         """Add or update a journal entry with normalized deduplication.
 
@@ -293,12 +252,6 @@ class JournalCache(CacheBase):
             self._add_source_assessment(
                 cursor, journal_id, source_id, assessment, entry.confidence
             )
-            self._add_journal_metadata(
-                cursor,
-                journal_id,
-                source_id,
-                entry.metadata if entry.metadata else None,
-            )
             return journal_id
 
     def _batch_fetch_urls(
@@ -331,71 +284,6 @@ class JournalCache(CacheBase):
             urls_by_journal.setdefault(journal_id, []).append(url)
 
         return urls_by_journal
-
-    def _fetch_source_metadata(
-        self, conn: sqlite3.Connection, journal_id: int, source_name: str
-    ) -> dict[str, Any]:
-        """Fetch source-specific metadata for a journal.
-
-        Args:
-            conn: Database connection
-            journal_id: Journal ID
-            source_name: Data source name
-
-        Returns:
-            Dictionary of metadata key-value pairs
-        """
-        metadata_cursor = conn.execute(
-            """
-            SELECT sm.metadata_key, sm.metadata_value, sm.data_type
-            FROM source_metadata sm
-            JOIN data_sources ds ON sm.source_id = ds.id
-            WHERE sm.journal_id = ? AND ds.name = ?
-        """,
-            (journal_id, source_name),
-        )
-
-        metadata = {}
-        for key, value, data_type in metadata_cursor.fetchall():
-            if key and value:
-                if data_type == "json":
-                    metadata[key] = json.loads(value)
-                elif data_type == "boolean":
-                    metadata[key] = value.lower() == "true"
-                elif data_type == "integer":
-                    metadata[key] = int(value)
-                else:
-                    metadata[key] = value
-
-        return metadata
-
-    def _enrich_journal_result(
-        self,
-        journal_dict: dict[str, Any],
-        urls_by_journal: dict[int, list[str]],
-        conn: sqlite3.Connection,
-        source_name: str,
-    ) -> dict[str, Any]:
-        """Enrich journal result with URLs and metadata.
-
-        Args:
-            journal_dict: Base journal dictionary
-            urls_by_journal: Pre-fetched URLs by journal ID
-            conn: Database connection
-            source_name: Data source name
-
-        Returns:
-            Enriched journal dictionary
-        """
-        journal_id = journal_dict["id"]
-        journal_dict["urls"] = urls_by_journal.get(journal_id, [])
-        journal_dict["journal_name"] = journal_dict["display_name"]
-
-        metadata = self._fetch_source_metadata(conn, journal_id, source_name)
-        if metadata:
-            journal_dict["metadata"] = json.dumps(metadata)
-
-        return journal_dict
 
     def search_journals_by_name(
         self,
@@ -446,12 +334,13 @@ class JournalCache(CacheBase):
             journal_ids = [dict(row)["id"] for row in rows] if rows else []
             urls_by_journal = self._batch_fetch_urls(conn, journal_ids)
 
-            results = [
-                self._enrich_journal_result(
-                    dict(row), urls_by_journal, conn, source_name
-                )
-                for row in rows
-            ]
+            results = []
+            for row in rows:
+                journal_dict = dict(row)
+                journal_id = journal_dict["id"]
+                journal_dict["urls"] = urls_by_journal.get(journal_id, [])
+                journal_dict["journal_name"] = journal_dict["display_name"]
+                results.append(journal_dict)
 
             detail_logger.debug(
                 f"Search by name returned {len(results)} result(s) for '{name}'"
@@ -543,34 +432,18 @@ class JournalCache(CacheBase):
         if source_name:
             source_cursor = conn.execute(
                 """
-                SELECT sa.assessment, sa.confidence, sm.metadata_key, sm.metadata_value, sm.data_type
+                SELECT sa.assessment, sa.confidence
                 FROM source_assessments sa
-                LEFT JOIN source_metadata sm ON sa.journal_id = sm.journal_id AND sa.source_id = sm.source_id
                 JOIN data_sources ds ON sa.source_id = ds.id
                 WHERE sa.journal_id = ? AND ds.name = ?
             """,
                 (journal_id, source_name),
             )
 
-            source_data = source_cursor.fetchall()
+            source_data = source_cursor.fetchone()
             if source_data:
                 journal_dict["journal_name"] = journal_dict["display_name"]
-                journal_dict["list_type"] = source_data[0][0]
-
-                metadata = {}
-                for _, _, key, value, data_type in source_data:
-                    if key and value:
-                        if data_type == "json":
-                            metadata[key] = json.loads(value)
-                        elif data_type == "boolean":
-                            metadata[key] = value.lower() == "true"
-                        elif data_type == "integer":
-                            metadata[key] = int(value)
-                        else:
-                            metadata[key] = value
-
-                if metadata:
-                    journal_dict["metadata"] = json.dumps(metadata)
+                journal_dict["list_type"] = source_data[0]
 
         return journal_dict
 

@@ -52,7 +52,7 @@ class TestCacheSchema:
             "journal_urls",
             "data_sources",
             "source_assessments",
-            "source_metadata",
+            "retraction_statistics",
             "source_updates",
             "assessment_cache",
             "article_retractions",
@@ -78,7 +78,7 @@ class TestCacheSchema:
             "journal_urls",
             "data_sources",
             "source_assessments",
-            "source_metadata",
+            "retraction_statistics",
             "source_updates",
             "assessment_cache",
             "article_retractions",
@@ -99,7 +99,7 @@ class TestCacheSchema:
             "journal_names": ["journal_id"],
             "journal_urls": ["journal_id"],
             "source_assessments": ["journal_id", "source_id"],
-            "source_metadata": ["journal_id", "source_id"],
+            "retraction_statistics": ["journal_id"],
             "source_updates": ["source_id"],
         }
 

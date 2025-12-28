@@ -20,8 +20,6 @@ def init_database(db_path: Path) -> None:
     update_status_values = ", ".join(f"'{s.value}'" for s in UpdateStatus)
     update_type_values = ", ".join(f"'{t.value}'" for t in UpdateType)
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
-    # Data types for source metadata (no enum, but fixed set of values)
-    data_type_values = "'string', 'boolean', 'integer', 'json'"
 
     with sqlite3.connect(db_path) as conn:
         conn.executescript(
@@ -108,19 +106,22 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_venue_acronyms_normalized_name ON venue_acronyms(normalized_name);
             CREATE INDEX IF NOT EXISTS idx_venue_acronyms_entity_type ON venue_acronyms(entity_type);
 
-            -- Source metadata (replaces JSON metadata)
-            CREATE TABLE IF NOT EXISTS source_metadata (
+            -- Retraction statistics (purpose-built for RetractionWatch data)
+            CREATE TABLE IF NOT EXISTS retraction_statistics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 journal_id INTEGER NOT NULL,
-                source_id INTEGER NOT NULL,
-                metadata_key TEXT NOT NULL,
-                metadata_value TEXT,
-                data_type TEXT DEFAULT 'string',
+                total_retractions INTEGER NOT NULL DEFAULT 0,
+                recent_retractions INTEGER NOT NULL DEFAULT 0,
+                very_recent_retractions INTEGER NOT NULL DEFAULT 0,
+                retraction_types TEXT,
+                top_reasons TEXT,
+                publishers TEXT,
+                first_retraction_date TEXT,
+                last_retraction_date TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
-                FOREIGN KEY (source_id) REFERENCES data_sources(id) ON DELETE CASCADE,
-                UNIQUE(journal_id, source_id, metadata_key),
-                CHECK (data_type IN ({data_type_values}))
+                UNIQUE(journal_id)
             );
 
             -- Source updates tracking
@@ -193,7 +194,7 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_journal_urls_url ON journal_urls(url);
             CREATE INDEX IF NOT EXISTS idx_source_assessments_journal_id ON source_assessments(journal_id);
             CREATE INDEX IF NOT EXISTS idx_source_assessments_composite ON source_assessments(source_id, assessment);
-            CREATE INDEX IF NOT EXISTS idx_source_metadata_journal_source ON source_metadata(journal_id, source_id);
+            CREATE INDEX IF NOT EXISTS idx_retraction_statistics_journal_id ON retraction_statistics(journal_id);
             CREATE INDEX IF NOT EXISTS idx_assessment_cache_expires ON assessment_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_doi ON article_retractions(doi);
             CREATE INDEX IF NOT EXISTS idx_article_retractions_expires ON article_retractions(expires_at);

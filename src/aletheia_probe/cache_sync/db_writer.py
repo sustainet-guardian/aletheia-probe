@@ -6,7 +6,7 @@ import json
 import sqlite3
 from typing import Any
 
-from ..cache import DataSourceManager
+from ..cache import DataSourceManager, RetractionCache
 from ..enums import NameType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -368,18 +368,29 @@ class AsyncDBWriter:
         return urls_to_insert
 
     def _prepare_metadata_inserts(
-        self, journal_id: int, source_id: int, metadata: dict[str, Any]
+        self,
+        journal_id: int,
+        source_id: int,
+        metadata: dict[str, Any],
+        source_name: str,
     ) -> list[tuple[int, int, str, str, str]]:
         """Prepare metadata insert records for batch operation.
+
+        Note: Skips metadata for retraction_watch as it's stored in retraction_statistics table.
 
         Args:
             journal_id: Database ID of the journal
             source_id: Database ID of the data source
             metadata: Dictionary of metadata key-value pairs
+            source_name: Name of the data source
 
         Returns:
             List of tuples for batch insert (journal_id, source_id, key, value, data_type)
         """
+        # Skip metadata for retraction_watch - it's stored in retraction_statistics table
+        if source_name == "retraction_watch":
+            return []
+
         metadata_inserts = []
 
         for key, value in metadata.items():
@@ -455,7 +466,6 @@ class AsyncDBWriter:
     ) -> tuple[
         list[tuple[int, str, str, str]],
         list[tuple[int, int, str, float]],
-        list[tuple[int, int, str, str, str]],
         list[tuple[int, str]],
     ]:
         """Prepare batch data for related tables.
@@ -468,7 +478,7 @@ class AsyncDBWriter:
             list_type: Type of list (e.g., "predatory", "legitimate")
 
         Returns:
-            Tuple of (name_inserts, assessment_inserts, metadata_inserts, url_inserts)
+            Tuple of (name_inserts, assessment_inserts, url_inserts)
         """
         self.detail_logger.debug(
             f"Preparing related data for {len(journals)} journals, "
@@ -476,7 +486,6 @@ class AsyncDBWriter:
         )
         name_inserts = []
         assessment_inserts = []
-        metadata_inserts = []
         url_inserts = []
 
         for journal in journals:
@@ -496,18 +505,11 @@ class AsyncDBWriter:
             )
             url_inserts.extend(self._prepare_url_inserts(journal_id, journal))
 
-            if journal.get("metadata"):
-                metadata_inserts.extend(
-                    self._prepare_metadata_inserts(
-                        journal_id, source_id, journal["metadata"]
-                    )
-                )
-
         self.detail_logger.debug(
             f"Related data prepared: {len(name_inserts)} names, {len(assessment_inserts)} assessments, "
-            f"{len(metadata_inserts)} metadata entries, {len(url_inserts)} URLs"
+            f"{len(url_inserts)} URLs"
         )
-        return name_inserts, assessment_inserts, metadata_inserts, url_inserts
+        return name_inserts, assessment_inserts, url_inserts
 
     def _insert_journal_names(
         self, cursor: sqlite3.Cursor, name_inserts: list[tuple[int, str, str, str]]
@@ -549,26 +551,50 @@ class AsyncDBWriter:
                 assessment_inserts,
             )
 
-    def _insert_metadata(
+    def _insert_retraction_statistics(
         self,
-        cursor: sqlite3.Cursor,
-        metadata_inserts: list[tuple[int, int, str, str, str]],
+        source_name: str,
+        journals: list[dict[str, Any]],
+        existing_journals: dict[str, int],
     ) -> None:
-        """Insert metadata into database.
+        """Insert retraction statistics for RetractionWatch journals.
 
         Args:
-            cursor: Database cursor for executing queries
-            metadata_inserts: List of metadata records to insert
+            source_name: Name of the data source
+            journals: List of journal dictionaries
+            existing_journals: Mapping of normalized names to journal IDs
         """
-        if metadata_inserts:
+        if source_name != "retraction_watch":
+            return
+
+        retraction_cache = RetractionCache()
+        stats_count = 0
+
+        for journal in journals:
+            normalized_name = journal.get("normalized_name")
+            if not normalized_name or normalized_name not in existing_journals:
+                continue
+
+            journal_id = existing_journals[normalized_name]
+            metadata = journal.get("metadata", {})
+
+            if metadata:
+                retraction_cache.upsert_retraction_statistics(
+                    journal_id=journal_id,
+                    total_retractions=metadata.get("total_retractions", 0),
+                    recent_retractions=metadata.get("recent_retractions", 0),
+                    very_recent_retractions=metadata.get("very_recent_retractions", 0),
+                    retraction_types=metadata.get("retraction_types"),
+                    top_reasons=metadata.get("top_reasons"),
+                    publishers=metadata.get("publishers"),
+                    first_retraction_date=metadata.get("first_retraction_date"),
+                    last_retraction_date=metadata.get("last_retraction_date"),
+                )
+                stats_count += 1
+
+        if stats_count > 0:
             self.detail_logger.debug(
-                f"Inserting {len(metadata_inserts)} metadata entries"
-            )
-            cursor.executemany(
-                """INSERT OR REPLACE INTO source_metadata
-                   (journal_id, source_id, metadata_key, metadata_value, data_type)
-                   VALUES (?, ?, ?, ?, ?)""",
-                metadata_inserts,
+                f"Inserted {stats_count} retraction statistics records"
             )
 
     def _insert_urls(
@@ -594,7 +620,6 @@ class AsyncDBWriter:
         cursor: sqlite3.Cursor,
         name_inserts: list[tuple[int, str, str, str]],
         assessment_inserts: list[tuple[int, int, str, float]],
-        metadata_inserts: list[tuple[int, int, str, str, str]],
         url_inserts: list[tuple[int, str]],
     ) -> None:
         """Execute all batch insert operations.
@@ -603,13 +628,11 @@ class AsyncDBWriter:
             cursor: Database cursor for executing queries
             name_inserts: List of journal name records to insert
             assessment_inserts: List of source assessment records to insert
-            metadata_inserts: List of metadata records to insert
             url_inserts: List of journal URL records to insert
         """
         self.detail_logger.debug("Executing batch inserts for related tables")
         self._insert_journal_names(cursor, name_inserts)
         self._insert_assessments(cursor, assessment_inserts)
-        self._insert_metadata(cursor, metadata_inserts)
         self._insert_urls(cursor, url_inserts)
         self.detail_logger.debug("Batch inserts completed")
 
@@ -641,15 +664,16 @@ class AsyncDBWriter:
 
         existing_journals = self._get_journal_ids(cursor, normalized_names)
 
-        name_inserts, assessment_inserts, metadata_inserts, url_inserts = (
-            self._prepare_related_data(
-                journals, existing_journals, source_id, source_name, list_type
-            )
+        name_inserts, assessment_inserts, url_inserts = self._prepare_related_data(
+            journals, existing_journals, source_id, source_name, list_type
         )
 
         self._execute_batch_inserts(
-            cursor, name_inserts, assessment_inserts, metadata_inserts, url_inserts
+            cursor, name_inserts, assessment_inserts, url_inserts
         )
+
+        # Insert retraction statistics for retraction_watch source
+        self._insert_retraction_statistics(source_name, journals, existing_journals)
 
         return unique_journals, total_input_records
 

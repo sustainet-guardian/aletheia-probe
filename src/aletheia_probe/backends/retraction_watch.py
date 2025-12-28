@@ -8,6 +8,7 @@ from typing import Any
 
 import aiohttp
 
+from ..cache import RetractionCache
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
@@ -75,18 +76,35 @@ class RetractionWatchBackend(HybridBackend):
 
             if results:
                 match = results[0]
-                metadata_json = match.get("metadata")
+                journal_id = match.get("id")
 
-                if metadata_json:
-                    try:
-                        metadata = json.loads(metadata_json)
-                    except json.JSONDecodeError:
-                        metadata = {}
+                if not journal_id or not isinstance(journal_id, int):
+                    detail_logger.error(f"Invalid journal_id from match: {journal_id}")
+                    raise ValueError(f"Invalid journal_id: {journal_id}")
+
+                # Fetch retraction statistics from dedicated table
+                retraction_cache = RetractionCache()
+                stats = retraction_cache.get_retraction_statistics(journal_id)
+
+                if stats:
+                    total_retractions = stats.get("total_retractions", 0)
+                    recent_retractions = stats.get("recent_retractions", 0)
+                    very_recent_retractions = stats.get("very_recent_retractions", 0)
+                    retraction_types = stats.get("retraction_types", {})
+                    top_reasons = stats.get("top_reasons", [])
+                    publishers = stats.get("publishers", [])
+                    first_retraction_date = stats.get("first_retraction_date")
+                    last_retraction_date = stats.get("last_retraction_date")
                 else:
-                    metadata = {}
-
-                total_retractions = metadata.get("total_retractions", 0)
-                recent_retractions = metadata.get("recent_retractions", 0)
+                    # No statistics found
+                    total_retractions = 0
+                    recent_retractions = 0
+                    very_recent_retractions = 0
+                    retraction_types = {}
+                    top_reasons = []
+                    publishers = []
+                    first_retraction_date = None
+                    last_retraction_date = None
 
                 # Fetch OpenAlex publication data on-demand
                 openalex_data = None
@@ -127,15 +145,13 @@ class RetractionWatchBackend(HybridBackend):
                 result_data = {
                     "total_retractions": total_retractions,
                     "recent_retractions": recent_retractions,
-                    "very_recent_retractions": metadata.get(
-                        "very_recent_retractions", 0
-                    ),
+                    "very_recent_retractions": very_recent_retractions,
                     "risk_level": risk_level,
-                    "first_retraction_date": metadata.get("first_retraction_date"),
-                    "last_retraction_date": metadata.get("last_retraction_date"),
-                    "retraction_types": metadata.get("retraction_types", {}),
-                    "top_reasons": metadata.get("top_reasons", []),
-                    "publishers": metadata.get("publishers", []),
+                    "first_retraction_date": first_retraction_date,
+                    "last_retraction_date": last_retraction_date,
+                    "retraction_types": retraction_types,
+                    "top_reasons": top_reasons,
+                    "publishers": publishers,
                     "matches": len(results),
                     "source": "Retraction Watch Database (Crossref)",
                     "source_data": match,

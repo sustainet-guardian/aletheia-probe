@@ -98,19 +98,23 @@ CREATE TABLE source_updates (
 );
 ```
 
-### 7. Source Metadata Table (replaces JSON metadata)
+### 7. Retraction Statistics Table
 ```sql
-CREATE TABLE source_metadata (
+CREATE TABLE retraction_statistics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     journal_id INTEGER NOT NULL,
-    source_id INTEGER NOT NULL,
-    metadata_key TEXT NOT NULL,
-    metadata_value TEXT,
-    data_type TEXT DEFAULT 'string',       -- 'string', 'integer', 'boolean', 'date'
+    total_retractions INTEGER NOT NULL DEFAULT 0,
+    recent_retractions INTEGER NOT NULL DEFAULT 0,
+    very_recent_retractions INTEGER NOT NULL DEFAULT 0,
+    retraction_types TEXT,                 -- JSON: dictionary of retraction types and counts
+    top_reasons TEXT,                      -- JSON: array of [reason, count] tuples
+    publishers TEXT,                       -- JSON: array of publisher names
+    first_retraction_date TEXT,            -- ISO format date string
+    last_retraction_date TEXT,             -- ISO format date string
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_id) REFERENCES data_sources(id) ON DELETE CASCADE,
-    UNIQUE(journal_id, source_id, metadata_key)
+    UNIQUE(journal_id)
 );
 ```
 
@@ -188,7 +192,7 @@ CREATE INDEX idx_journal_urls_journal_id ON journal_urls(journal_id);
 CREATE INDEX idx_journal_urls_url ON journal_urls(url);
 CREATE INDEX idx_source_assessments_journal_id ON source_assessments(journal_id);
 CREATE INDEX idx_source_assessments_source_id ON source_assessments(source_id);
-CREATE INDEX idx_source_metadata_journal_source ON source_metadata(journal_id, source_id);
+CREATE INDEX idx_retraction_statistics_journal_id ON retraction_statistics(journal_id);
 CREATE INDEX idx_assessment_cache_expires ON assessment_cache(expires_at);
 CREATE INDEX idx_article_retractions_doi ON article_retractions(doi);
 CREATE INDEX idx_article_retractions_expires ON article_retractions(expires_at);
@@ -206,10 +210,10 @@ CREATE INDEX idx_article_retractions_expires ON article_retractions(expires_at);
 - Track confidence levels from different sources
 - Historical tracking of assessments via timestamps
 
-### 3. **Flexible Metadata**
-- Structured metadata instead of JSON blobs (where appropriate)
-- Queryable metadata with proper types
-- Source-specific metadata tracking
+### 3. **Purpose-Built Tables**
+- Dedicated tables for specific data types (e.g., retraction_statistics)
+- Proper column types instead of generic key-value storage
+- More efficient queries and better type safety
 
 ### 4. **URL Management**
 - URLs linked to journals, not source entries
