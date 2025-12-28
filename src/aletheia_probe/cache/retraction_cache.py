@@ -104,7 +104,7 @@ class RetractionCache(CacheBase):
                     retraction_doi,
                     retraction_reason,
                     source,
-                    expires_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    expires_at.strftime("%Y-%m-%d %H:%M:%S"),
                 ),
             )
             conn.commit()
