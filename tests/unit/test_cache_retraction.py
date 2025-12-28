@@ -57,26 +57,19 @@ class TestCacheRetraction:
 
     def test_cleanup_expired_article_retractions(self, temp_cache):
         """Test cleanup of expired article retraction entries."""
-        # Insert expired entries directly
-        with sqlite3.connect(temp_cache.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO article_retractions
-                (doi, is_retracted, source, checked_at, expires_at)
-                VALUES
-                (?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '-1 day')),
-                (?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '-2 days'))
-                """,
-                (
-                    "10.1234/expired1",
-                    True,
-                    "test_source",
-                    "10.1234/expired2",
-                    False,
-                    "test_source",
-                ),
-            )
-            conn.commit()
+        # Insert expired entries using the public API with negative TTL
+        temp_cache.cache_article_retraction(
+            doi="10.1234/expired1",
+            is_retracted=True,
+            source="test_source",
+            ttl_hours=-24,  # Expired 1 day ago
+        )
+        temp_cache.cache_article_retraction(
+            doi="10.1234/expired2",
+            is_retracted=False,
+            source="test_source",
+            ttl_hours=-48,  # Expired 2 days ago
+        )
 
         # Add a non-expired entry using the regular method
         temp_cache.cache_article_retraction(
