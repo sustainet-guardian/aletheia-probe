@@ -334,7 +334,9 @@ class DataUpdater:
                 # Queue the data for asynchronous writing
                 # Cast to JournalDataDict list - data sources return dicts that conform to this structure
                 await db_writer.queue_write(
-                    source_name, source.get_list_type(), cast(list[JournalDataDict], journals)
+                    source_name,
+                    source.get_list_type(),
+                    cast(list[JournalDataDict], journals),
                 )
                 records_updated = len(journals)
                 status_logger.info(
