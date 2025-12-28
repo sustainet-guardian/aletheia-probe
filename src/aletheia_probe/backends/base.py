@@ -11,7 +11,7 @@ from typing import Any
 
 import aiohttp
 
-from ..cache import AssessmentCache, JournalCache, KeyValueCache
+from ..cache import AssessmentCache, JournalCache, KeyValueCache, OpenAlexCache
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 
@@ -233,6 +233,7 @@ class HybridBackend(Backend):
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
         self.key_value_cache = KeyValueCache()
+        self.openalex_cache = OpenAlexCache()
 
     def get_evidence_type(self) -> EvidenceType:
         """HybridBackend provides heuristic evidence by default."""

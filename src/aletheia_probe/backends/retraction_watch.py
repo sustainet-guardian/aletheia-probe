@@ -2,7 +2,6 @@
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
 import asyncio
-import json
 import time
 from typing import Any
 
@@ -231,26 +230,32 @@ class RetractionWatchBackend(HybridBackend):
         Returns:
             Dictionary with publication statistics, or None if not found
         """
-        cache_key = f"openalex:{issn}" if issn else f"openalex:{journal_name}"
-
         # Check cache first
-        cached = self.key_value_cache.get_cached_value(cache_key)
+        cached = self.openalex_cache.get_openalex_data(
+            issn=issn, journal_name=journal_name
+        )
         if cached is not None:
             detail_logger.debug(f"OpenAlex cache hit for {journal_name}")
-            return json.loads(cached) if cached != "null" else None
+            return cached
 
         # Fetch from OpenAlex API
         status_logger.info(f"Fetching OpenAlex data on-demand for: {journal_name}")
         try:
             openalex_data = await get_publication_stats(journal_name, issn)
 
-            # Cache result (including null for not found) for 30 days
-            cache_value = json.dumps(openalex_data) if openalex_data else "null"
-            self.key_value_cache.set_cached_value(
-                cache_key, cache_value, ttl_hours=24 * 30
-            )
-
-            return openalex_data
+            if openalex_data:
+                # Cache successful result for 30 days
+                self.openalex_cache.set_openalex_data(
+                    issn=issn,
+                    journal_name=journal_name,
+                    openalex_data=openalex_data,
+                    ttl_hours=24 * 30,
+                )
+                return openalex_data
+            else:
+                # No data found - return None without caching
+                # (failures are not cached to allow retries)
+                return None
 
         except (
             aiohttp.ClientError,
@@ -262,8 +267,7 @@ class RetractionWatchBackend(HybridBackend):
             status_logger.warning(
                 f"Failed to fetch OpenAlex data for {journal_name}: {e}"
             )
-            # Cache the failure for 1 day to avoid repeated API calls
-            self.key_value_cache.set_cached_value(cache_key, "null", ttl_hours=24)
+            # Don't cache failures - allow retries
             return None
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
