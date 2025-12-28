@@ -35,6 +35,9 @@ MIN_ABSTRACT_LENGTH: int = 50
 MIN_REFERENCE_COUNT: int = 10
 MIN_AUTHOR_INFO_COMPLETENESS: float = 0.8
 
+# Conference name normalization and comparison
+MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH: int = 10
+
 
 @dataclass(frozen=True)
 class RetractionThresholds:

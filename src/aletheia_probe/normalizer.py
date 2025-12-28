@@ -5,6 +5,7 @@ import html
 import re
 from collections.abc import Callable
 
+from .constants import MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH
 from .logging_config import get_detail_logger
 from .models import QueryInput
 
@@ -648,10 +649,13 @@ def are_conference_names_equivalent(name1: str, name2: str) -> bool:
         return True
 
     # Check if one is a substring of the other after normalization
-    # But only if the shorter name is at least 10 characters to avoid false positives
+    # But only if the shorter name meets minimum length to avoid false positives
     # (e.g., "AI" vs "AAAI" should not match)
     # Apply robust comparison here as well
-    if len(normalized_for_comp1) >= 10 or len(normalized_for_comp2) >= 10:
+    if (
+        len(normalized_for_comp1) >= MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH
+        or len(normalized_for_comp2) >= MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH
+    ):
         if (
             normalized_for_comp1 in normalized_for_comp2
             or normalized_for_comp2 in normalized_for_comp1
