@@ -81,7 +81,7 @@ class RetractionCache(CacheBase):
             ttl_hours: Cache TTL in hours
         """
         normalized_doi = doi.lower().strip()
-        expires_at = datetime.now() + timedelta(hours=ttl_hours)
+        expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
         detail_logger.debug(
             f"Caching retraction info for DOI '{doi}' (normalized: '{normalized_doi}'): "
             f"is_retracted={is_retracted}, source={source}, ttl_hours={ttl_hours}"
@@ -104,7 +104,7 @@ class RetractionCache(CacheBase):
                     retraction_doi,
                     retraction_reason,
                     source,
-                    expires_at.isoformat(),
+                    expires_at.strftime('%Y-%m-%d %H:%M:%S'),
                 ),
             )
             conn.commit()

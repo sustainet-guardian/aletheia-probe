@@ -100,3 +100,46 @@ class TestCacheRetraction:
         result = temp_cache.get_article_retraction(doi="10.1234/valid")
         assert result is not None
         assert result["is_retracted"]
+
+    def test_datetime_format_consistency(self, temp_cache):
+        """Test that expires_at format is consistent with SQLite CURRENT_TIMESTAMP."""
+        # Cache an entry
+        temp_cache.cache_article_retraction(
+            doi="10.1234/format-test",
+            is_retracted=False,
+            source="test_source",
+            ttl_hours=1,
+        )
+
+        # Query the database directly to check the stored format
+        with sqlite3.connect(temp_cache.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT expires_at
+                FROM article_retractions
+                WHERE doi = ?
+                """,
+                ("10.1234/format-test",),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            expires_at_str = row[0]
+
+            # Verify format matches SQLite timestamp (YYYY-MM-DD HH:MM:SS)
+            # Should not contain 'T' separator or microseconds
+            assert "T" not in expires_at_str
+            assert len(expires_at_str) == 19  # 'YYYY-MM-DD HH:MM:SS'
+
+            # Verify string comparison with CURRENT_TIMESTAMP works correctly
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM article_retractions
+                WHERE doi = ? AND expires_at > CURRENT_TIMESTAMP
+                """,
+                ("10.1234/format-test",),
+            )
+            count = cursor.fetchone()[0]
+            # Should find the entry since it expires in 1 hour (future)
+            assert count == 1
