@@ -254,8 +254,13 @@ class AsyncDBWriter:
         """
         if journal_upserts:
             cursor.executemany(
-                """INSERT OR REPLACE INTO journals (normalized_name, display_name, issn, eissn, publisher)
-                   VALUES (?, ?, ?, ?, ?)""",
+                """INSERT INTO journals (normalized_name, display_name, issn, eissn, publisher)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(normalized_name) DO UPDATE SET
+                       display_name = excluded.display_name,
+                       issn = excluded.issn,
+                       eissn = excluded.eissn,
+                       publisher = excluded.publisher""",
                 journal_upserts,
             )
 
