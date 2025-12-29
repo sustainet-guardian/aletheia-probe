@@ -362,50 +362,6 @@ class AsyncDBWriter:
 
         return urls_to_insert
 
-    def _prepare_metadata_inserts(
-        self,
-        journal_id: int,
-        source_id: int,
-        metadata: dict[str, Any],
-        source_name: str,
-    ) -> list[tuple[int, int, str, str, str]]:
-        """Prepare metadata insert records for batch operation.
-
-        Note: Skips metadata for retraction_watch as it's stored in retraction_statistics table.
-
-        Args:
-            journal_id: Database ID of the journal
-            source_id: Database ID of the data source
-            metadata: Dictionary of metadata key-value pairs
-            source_name: Name of the data source
-
-        Returns:
-            List of tuples for batch insert (journal_id, source_id, key, value, data_type)
-        """
-        # Skip metadata for retraction_watch - it's stored in retraction_statistics table
-        if source_name == "retraction_watch":
-            return []
-
-        metadata_inserts = []
-
-        for key, value in metadata.items():
-            if value is not None:
-                data_type = "string"
-                if isinstance(value, bool):
-                    data_type = "boolean"
-                    value = str(int(value))
-                elif isinstance(value, int):
-                    data_type = "integer"
-                    value = str(value)
-                elif isinstance(value, (dict, list)):
-                    data_type = "json"
-                    value = json.dumps(value)
-                else:
-                    value = str(value)
-                metadata_inserts.append((journal_id, source_id, key, value, data_type))
-
-        return metadata_inserts
-
     def _prepare_name_insert(
         self, journal_id: int, journal_name: str, source_name: str
     ) -> tuple[int, str, str, str]:
