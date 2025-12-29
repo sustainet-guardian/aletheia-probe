@@ -7,12 +7,26 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from aletheia_probe.cache import DataSourceManager
+from aletheia_probe.cache.schema import init_database
 from aletheia_probe.cache_sync import AsyncDBWriter
 from aletheia_probe.data_models import JournalDataDict
 
 
 class TestAsyncDBWriter:
     """Test cases for AsyncDBWriter."""
+
+    @pytest.fixture
+    def memory_db(self, tmp_path):
+        """Create a temporary database file with initialized schema.
+
+        Using a file-based database instead of :memory: because SQLite's
+        :memory: databases are not shared between connections, which causes
+        issues when testing database operations that open new connections.
+        """
+        db_path = tmp_path / "test_db.sqlite"
+        init_database(db_path)
+        return db_path
 
     @pytest.fixture
     def db_writer(self):
@@ -162,7 +176,7 @@ class TestAsyncDBWriter:
             # The error should be handled gracefully (not crash the test)
 
     @pytest.mark.asyncio
-    async def test_batch_write_journals(self, db_writer):
+    async def test_batch_write_journals(self, db_writer, memory_db):
         """Test batch writing of journals."""
         test_journals: list[JournalDataDict] = [
             {
@@ -180,33 +194,12 @@ class TestAsyncDBWriter:
             },
         ]
 
-        with (
-            patch(
-                "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-            ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
-        ):
-            # Mock cache manager
-            mock_cache_manager = Mock()
-            mock_cache_manager.db_path = ":memory:"
-            mock_get_cache_manager.return_value = mock_cache_manager
-
-            # Mock database connection and cursor
-            mock_connection = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value.__enter__ = Mock(return_value=mock_connection)
-            mock_connect.return_value.__exit__ = Mock(return_value=None)
-            mock_connection.cursor.return_value = mock_cursor
-
-            # Mock existing source
-            mock_cursor.fetchone.side_effect = [
-                (1,),  # source_row exists
-                *[(i, f"test_journal_{i}") for i in range(1, 3)],  # journal IDs
-            ]
-            mock_cursor.fetchall.return_value = [
-                (1, "test_journal_1"),
-                (2, "test_journal_2"),
-            ]
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
 
             result = db_writer._batch_write_journals(
                 "test_source", "predatory", test_journals
@@ -216,13 +209,26 @@ class TestAsyncDBWriter:
             assert result["unique_journals"] == 2
             assert result["duplicates"] == 0
 
-            # Verify database operations were called
-            mock_connection.execute.assert_any_call("PRAGMA journal_mode = WAL")
-            mock_connection.execute.assert_any_call("BEGIN TRANSACTION")
-            mock_connection.execute.assert_any_call("COMMIT")
+        # Verify data was actually written to database
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+
+            # Check journals were created
+            cursor.execute("SELECT COUNT(*) FROM journals")
+            assert cursor.fetchone()[0] == 2
+
+            # Check source was created
+            cursor.execute(
+                "SELECT COUNT(*) FROM data_sources WHERE name = ?", ("test_source",)
+            )
+            assert cursor.fetchone()[0] == 1
+
+            # Check assessments were created
+            cursor.execute("SELECT COUNT(*) FROM source_assessments")
+            assert cursor.fetchone()[0] == 2
 
     @pytest.mark.asyncio
-    async def test_batch_write_journals_new_source(self, db_writer):
+    async def test_batch_write_journals_new_source(self, db_writer, memory_db):
         """Test batch writing with new source that needs registration."""
         test_journals: list[JournalDataDict] = [
             {
@@ -232,38 +238,34 @@ class TestAsyncDBWriter:
             }
         ]
 
-        with (
-            patch(
-                "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-            ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
-        ):
-            mock_cache_manager = Mock()
-            mock_cache_manager.db_path = ":memory:"
-            mock_cache_manager.register_data_source = Mock()
-            mock_get_cache_manager.return_value = mock_cache_manager
-
-            mock_connection = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value.__enter__ = Mock(return_value=mock_connection)
-            mock_connect.return_value.__exit__ = Mock(return_value=None)
-            mock_connection.cursor.return_value = mock_cursor
-
-            # First query returns None (source doesn't exist), second returns created source
-            mock_cursor.fetchone.side_effect = [None, (1,)]
-            mock_cursor.fetchall.return_value = [(1, "test_journal")]
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
 
             result = db_writer._batch_write_journals(
                 "new_source", "predatory", test_journals
             )
 
-            # Verify source was registered with correct type
-            mock_cache_manager.register_data_source.assert_called_once_with(
-                "new_source", "new_source", "predatory"
+            assert result["total_records"] == 1
+            assert result["unique_journals"] == 1
+
+        # Verify source was registered in the database
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT name, source_type FROM data_sources WHERE name = ?",
+                ("new_source",),
             )
+            row = cursor.fetchone()
+            assert row is not None
+            assert row[0] == "new_source"
+            assert row[1] == "predatory"
 
     @pytest.mark.asyncio
-    async def test_batch_write_journals_with_duplicates(self, db_writer):
+    async def test_batch_write_journals_with_duplicates(self, db_writer, memory_db):
         """Test batch writing with duplicate journals."""
         test_journals: list[JournalDataDict] = [
             {
@@ -278,24 +280,12 @@ class TestAsyncDBWriter:
             },
         ]
 
-        with (
-            patch(
-                "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-            ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
-        ):
-            mock_cache_manager = Mock()
-            mock_cache_manager.db_path = ":memory:"
-            mock_get_cache_manager.return_value = mock_cache_manager
-
-            mock_connection = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value.__enter__ = Mock(return_value=mock_connection)
-            mock_connect.return_value.__exit__ = Mock(return_value=None)
-            mock_connection.cursor.return_value = mock_cursor
-
-            mock_cursor.fetchone.side_effect = [(1,)]  # source exists
-            mock_cursor.fetchall.return_value = [(1, "test_journal")]
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
 
             result = db_writer._batch_write_journals(
                 "test_source", "predatory", test_journals
@@ -306,8 +296,19 @@ class TestAsyncDBWriter:
             assert result["unique_journals"] == 1
             assert result["duplicates"] == 1
 
+        # Verify only one journal entry in database (deduplication worked)
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
+                ("test_journal",),
+            )
+            assert cursor.fetchone()[0] == 1
+
     @pytest.mark.asyncio
-    async def test_batch_write_journals_skip_invalid_entries(self, db_writer):
+    async def test_batch_write_journals_skip_invalid_entries(
+        self, db_writer, memory_db
+    ):
         """Test batch writing skips entries without normalized_name."""
         test_journals: list[JournalDataDict] = [
             {
@@ -322,24 +323,12 @@ class TestAsyncDBWriter:
             },  # type: ignore[typeddict-item]
         ]
 
-        with (
-            patch(
-                "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-            ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
-        ):
-            mock_cache_manager = Mock()
-            mock_cache_manager.db_path = ":memory:"
-            mock_get_cache_manager.return_value = mock_cache_manager
-
-            mock_connection = Mock()
-            mock_cursor = Mock()
-            mock_connect.return_value.__enter__ = Mock(return_value=mock_connection)
-            mock_connect.return_value.__exit__ = Mock(return_value=None)
-            mock_connection.cursor.return_value = mock_cursor
-
-            mock_cursor.fetchone.side_effect = [(1,)]
-            mock_cursor.fetchall.return_value = [(1, "valid_journal")]
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
 
             result = db_writer._batch_write_journals(
                 "test_source", "predatory", test_journals
@@ -348,6 +337,109 @@ class TestAsyncDBWriter:
             # Should only process the valid journal
             assert result["total_records"] == 1
             assert result["unique_journals"] == 1
+
+        # Verify only valid journal was written
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT normalized_name FROM journals")
+            journals = cursor.fetchall()
+            assert len(journals) == 1
+            assert journals[0][0] == "valid_journal"
+
+    @pytest.mark.asyncio
+    async def test_cascade_delete_behavior(self, db_writer, memory_db):
+        """Test that cascade deletes work correctly with real database."""
+        test_journals: list[JournalDataDict] = [
+            {
+                "journal_name": "Test Journal",
+                "normalized_name": "test_journal",
+                "issn": "1234-5678",
+            }
+        ]
+
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
+
+            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+
+        # Verify data was written
+        with sqlite3.connect(memory_db) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            cursor = conn.cursor()
+
+            # Get journal_id
+            cursor.execute(
+                "SELECT id FROM journals WHERE normalized_name = ?", ("test_journal",)
+            )
+            journal_id = cursor.fetchone()[0]
+
+            # Verify related records exist
+            cursor.execute(
+                "SELECT COUNT(*) FROM journal_names WHERE journal_id = ?", (journal_id,)
+            )
+            assert cursor.fetchone()[0] > 0
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM source_assessments WHERE journal_id = ?",
+                (journal_id,),
+            )
+            assert cursor.fetchone()[0] > 0
+
+            # Delete journal and verify cascade
+            cursor.execute("DELETE FROM journals WHERE id = ?", (journal_id,))
+            conn.commit()
+
+            # Verify cascade delete worked
+            cursor.execute(
+                "SELECT COUNT(*) FROM journal_names WHERE journal_id = ?", (journal_id,)
+            )
+            assert cursor.fetchone()[0] == 0
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM source_assessments WHERE journal_id = ?",
+                (journal_id,),
+            )
+            assert cursor.fetchone()[0] == 0
+
+    @pytest.mark.asyncio
+    async def test_unique_constraint_enforcement(self, db_writer, memory_db):
+        """Test that unique constraints prevent duplicate normalized names."""
+        test_journals: list[JournalDataDict] = [
+            {
+                "journal_name": "Test Journal",
+                "normalized_name": "test_journal",
+                "issn": "1234-5678",
+            }
+        ]
+
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
+
+            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+
+        # Verify only one journal exists
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
+                ("test_journal",),
+            )
+            assert cursor.fetchone()[0] == 1
+
+            # Try to manually insert duplicate (should fail)
+            with pytest.raises(sqlite3.IntegrityError):
+                cursor.execute(
+                    "INSERT INTO journals (normalized_name, display_name) VALUES (?, ?)",
+                    ("test_journal", "Duplicate Journal"),
+                )
 
     @pytest.mark.asyncio
     async def test_db_writer_loop_with_duplicates_reporting(self, db_writer):
