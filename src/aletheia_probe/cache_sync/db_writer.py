@@ -399,7 +399,7 @@ class AsyncDBWriter:
                 data_type = "string"
                 if isinstance(value, bool):
                     data_type = "boolean"
-                    value = str(value).lower()
+                    value = str(int(value))
                 elif isinstance(value, int):
                     data_type = "integer"
                     value = str(value)
