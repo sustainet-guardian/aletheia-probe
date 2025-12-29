@@ -166,19 +166,12 @@ class CLIRunner:
 
     def __init__(self) -> None:
         """Initialize CLI runner."""
-        # Import here to ensure imports are traced
-        from click.testing import CliRunner
-
-        from aletheia_probe.cli import main
-
-        self.cli_main = main
-        self.runner = CliRunner()
-
-    def run_representative_commands(self) -> None:
-        """Run representative commands to exercise code paths."""
         import os
         import tempfile
         from pathlib import Path
+
+        # CRITICAL: Set up config file and env vars BEFORE importing CLI
+        # The config manager is initialized during CLI import, so this must happen first
 
         # Set up environment variables to trigger config._parse_env_value
         os.environ["ALETHEIA_PROBE_OUTPUT_VERBOSE"] = "true"
@@ -200,14 +193,28 @@ heuristics:
             mode="w", suffix=".yaml", delete=False, dir=Path.cwd()
         ) as tmp_config:
             tmp_config.write(config_content)
-            config_file = tmp_config.name
+            self.temp_config_file = tmp_config.name
 
         # Ensure config manager finds this file by placing in standard location
         config_dir = Path.cwd() / ".aletheia-probe"
         config_dir.mkdir(exist_ok=True)
-        config_path = config_dir / "config.yaml"
-        with open(config_path, "w", encoding="utf-8") as f:
+        self.config_path = config_dir / "config.yaml"
+        with open(self.config_path, "w", encoding="utf-8") as f:
             f.write(config_content)
+
+        # NOW import CLI - config manager will use the setup we just created
+        from click.testing import CliRunner
+
+        from aletheia_probe.cli import main
+
+        self.cli_main = main
+        self.runner = CliRunner()
+
+    def run_representative_commands(self) -> None:
+        """Run representative commands to exercise code paths."""
+        import os
+        import tempfile
+        from pathlib import Path
 
         # Create temporary bibtex file with complex entries to trigger parsing
         bibtex_content = """@article{nature2023,
@@ -391,8 +398,8 @@ Another Journal,9876-5432,Another Publisher
             Path(bibtex_file).unlink(missing_ok=True)
             Path(csv_file).unlink(missing_ok=True)
             Path(json_file).unlink(missing_ok=True)
-            Path(config_file).unlink(missing_ok=True)
-            config_path.unlink(missing_ok=True)
+            Path(self.temp_config_file).unlink(missing_ok=True)
+            self.config_path.unlink(missing_ok=True)
             # Clean up env vars
             for key in [
                 "ALETHEIA_PROBE_OUTPUT_VERBOSE",
