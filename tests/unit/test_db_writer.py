@@ -218,7 +218,9 @@ class TestAsyncDBWriter:
             assert cursor.fetchone()[0] == 2
 
             # Check source was created
-            cursor.execute("SELECT COUNT(*) FROM data_sources WHERE name = ?", ("test_source",))
+            cursor.execute(
+                "SELECT COUNT(*) FROM data_sources WHERE name = ?", ("test_source",)
+            )
             assert cursor.fetchone()[0] == 1
 
             # Check assessments were created
@@ -255,7 +257,7 @@ class TestAsyncDBWriter:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT name, source_type FROM data_sources WHERE name = ?",
-                ("new_source",)
+                ("new_source",),
             )
             row = cursor.fetchone()
             assert row is not None
@@ -297,11 +299,16 @@ class TestAsyncDBWriter:
         # Verify only one journal entry in database (deduplication worked)
         with sqlite3.connect(memory_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM journals WHERE normalized_name = ?", ("test_journal",))
+            cursor.execute(
+                "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
+                ("test_journal",),
+            )
             assert cursor.fetchone()[0] == 1
 
     @pytest.mark.asyncio
-    async def test_batch_write_journals_skip_invalid_entries(self, db_writer, memory_db):
+    async def test_batch_write_journals_skip_invalid_entries(
+        self, db_writer, memory_db
+    ):
         """Test batch writing skips entries without normalized_name."""
         test_journals: list[JournalDataDict] = [
             {
@@ -421,7 +428,10 @@ class TestAsyncDBWriter:
         # Verify only one journal exists
         with sqlite3.connect(memory_db) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM journals WHERE normalized_name = ?", ("test_journal",))
+            cursor.execute(
+                "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
+                ("test_journal",),
+            )
             assert cursor.fetchone()[0] == 1
 
             # Try to manually insert duplicate (should fail)
