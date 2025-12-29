@@ -321,10 +321,12 @@ class AsyncDBWriter:
             f"Retrieving journal IDs for {len(normalized_names)} normalized names"
         )
         placeholders = ",".join("?" * len(normalized_names))
-        cursor.execute(
-            f"SELECT id, normalized_name FROM journals WHERE normalized_name IN ({placeholders})",  # nosec B608
-            normalized_names,
+        query = (
+            "SELECT id, normalized_name FROM journals WHERE normalized_name IN ("
+            + placeholders
+            + ")"
         )
+        cursor.execute(query, normalized_names)
         journal_ids = {row[1]: row[0] for row in cursor.fetchall()}
         self.detail_logger.debug(
             f"Retrieved {len(journal_ids)} journal IDs from database"
