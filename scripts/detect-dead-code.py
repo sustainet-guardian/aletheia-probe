@@ -431,6 +431,24 @@ def _should_ignore(module: str, qualified_name: str) -> bool:
     if qualified_name == "<module>":
         return True
 
+    # Ignore Pydantic field validators - these are called automatically by Pydantic
+    # during object instantiation/validation, not directly by application code
+    pydantic_validators = {
+        'strip_strings', 'strip_publisher', 'validate_issn_format',
+        'validate_email', 'validate_url', 'validate_doi',
+        'normalize_name', 'validate_confidence', 'strip_whitespace',
+        'validate_year', 'validate_pages', 'validate_volume',
+        # Helper validator functions called by Pydantic field validators
+        'strip_whitespace_validator', 'strip_publisher_validator',
+        'validate_issn_format_validator', 'validate_email_validator',
+        'validate_url_validator', 'validate_doi_validator'
+    }
+
+    # Check if this is a known Pydantic validator method
+    method_name = qualified_name.split('.')[-1] if '.' in qualified_name else qualified_name
+    if method_name in pydantic_validators:
+        return True
+
     return False
 
 

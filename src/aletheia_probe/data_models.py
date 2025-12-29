@@ -44,43 +44,6 @@ class JournalDataDict(TypedDict):
     metadata: NotRequired[dict[str, Any]]
 
 
-class JournalData(BaseModel):
-    """Journal data structure for cache synchronization and database writing.
-
-    This model represents the minimal journal data structure expected by
-    AsyncDBWriter and cache synchronization operations.
-    """
-
-    journal_name: str = Field(..., min_length=1, description="Display journal name")
-    normalized_name: str = Field(
-        ..., min_length=1, description="Normalized journal name for deduplication"
-    )
-    issn: str | None = Field(None, description="Print ISSN")
-    eissn: str | None = Field(None, description="Electronic ISSN")
-    publisher: str | None = Field(None, description="Publisher name")
-    urls: list[str] | str | None = Field(
-        None, description="Journal URLs (list or single URL string)"
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
-
-    @field_validator("journal_name", "normalized_name", mode="after")
-    @classmethod
-    def strip_strings(cls, v: str) -> str:
-        return strip_whitespace_validator(v)
-
-    @field_validator("publisher", mode="after")
-    @classmethod
-    def strip_publisher(cls, v: str | None) -> str | None:
-        return strip_publisher_validator(v)
-
-    @field_validator("issn", "eissn", mode="after")
-    @classmethod
-    def validate_issn_format(cls, v: str | None) -> str | None:
-        return validate_issn_format_validator(v)
-
-
 class JournalEntryData(BaseModel):
     """Data for adding a journal entry to the normalized cache."""
 
