@@ -361,51 +361,6 @@ class AsyncDBWriter:
 
         return urls_to_insert
 
-    def _prepare_name_insert(
-        self, journal_id: int, journal_name: str, source_name: str
-    ) -> tuple[int, str, str, str]:
-        """Prepare a single name insert record.
-
-        Args:
-            journal_id: Database ID of the journal
-            journal_name: Display name of the journal
-            source_name: Name of the data source
-
-        Returns:
-            Tuple for journal_names table insert
-        """
-        return (journal_id, journal_name, NameType.CANONICAL.value, source_name)
-
-    def _prepare_assessment_insert(
-        self, journal_id: int, source_id: int, list_type: str
-    ) -> tuple[int, int, str, float]:
-        """Prepare a single assessment insert record.
-
-        Args:
-            journal_id: Database ID of the journal
-            source_id: Database ID of the data source
-            list_type: Type of list (e.g., "predatory", "legitimate")
-
-        Returns:
-            Tuple for source_assessments table insert
-        """
-        return (journal_id, source_id, list_type, 1.0)
-
-    def _prepare_url_inserts(
-        self, journal_id: int, journal: JournalDataDict
-    ) -> list[tuple[int, str]]:
-        """Prepare URL insert records for a journal.
-
-        Args:
-            journal_id: Database ID of the journal
-            journal: Journal data dictionary with potential URLs
-
-        Returns:
-            List of tuples for journal_urls table inserts
-        """
-        urls_to_insert = self._extract_urls_from_journal(journal)
-        return [(journal_id, url) for url in urls_to_insert]
-
     def _prepare_related_data(
         self,
         journals: list[JournalDataDict],
@@ -446,14 +401,14 @@ class AsyncDBWriter:
             journal_id = existing_journals[normalized_name]
 
             name_inserts.append(
-                self._prepare_name_insert(
-                    journal_id, journal["journal_name"], source_name
-                )
+                (journal_id, journal["journal_name"], NameType.CANONICAL.value, source_name)
             )
             assessment_inserts.append(
-                self._prepare_assessment_insert(journal_id, source_id, list_type)
+                (journal_id, source_id, list_type, 1.0)
             )
-            url_inserts.extend(self._prepare_url_inserts(journal_id, journal))
+            url_inserts.extend(
+                [(journal_id, url) for url in self._extract_urls_from_journal(journal)]
+            )
 
         self.detail_logger.debug(
             f"Related data prepared: {len(name_inserts)} names, {len(assessment_inserts)} assessments, "
