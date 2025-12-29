@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ..backends.base import Backend, CachedBackend, HybridBackend, get_backend_registry
-from ..cache import DataSourceManager
+from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, RetractionCache
 from ..config import get_config_manager
 from ..enums import UpdateStatus
 from ..logging_config import get_detail_logger, get_status_logger
@@ -221,6 +221,34 @@ class CacheSyncManager:
             )
             if show_progress:
                 self.status_logger.info("Synchronization completed")
+
+            # Clean up expired cache entries from all TTL-based caches
+            self.detail_logger.info("Cleaning up expired cache entries...")
+
+            assessment_cache = AssessmentCache()
+            assessment_expired = assessment_cache.cleanup_expired_cache()
+            self.detail_logger.info(
+                f"Cleaned up {assessment_expired} expired assessment cache entries"
+            )
+
+            retraction_cache = RetractionCache()
+            retraction_expired = retraction_cache.cleanup_expired_article_retractions()
+            self.detail_logger.info(
+                f"Cleaned up {retraction_expired} expired retraction cache entries"
+            )
+
+            openalex_cache = OpenAlexCache()
+            openalex_expired = openalex_cache.cleanup_expired_entries()
+            self.detail_logger.info(
+                f"Cleaned up {openalex_expired} expired OpenAlex cache entries"
+            )
+
+            total_expired = assessment_expired + retraction_expired + openalex_expired
+            if show_progress:
+                self.status_logger.info(
+                    f"Cache cleanup: {total_expired} total expired entries removed"
+                )
+
             return sync_results
 
         finally:

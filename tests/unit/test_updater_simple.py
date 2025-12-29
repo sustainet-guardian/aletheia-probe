@@ -126,48 +126,6 @@ class TestDataUpdater:
             assert result["status"] == "failed"
             assert "Fetch failed" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_update_all_sources(self):
-        """Test updating all sources."""
-        updater = DataUpdater()
-        source1 = MockDataSource("source1")
-        source2 = MockDataSource("source2")
-
-        updater.add_source(source1)
-        updater.add_source(source2)
-
-        with (
-            patch(
-                "aletheia_probe.updater.core.DataSourceManager"
-            ) as mock_get_cache_manager,
-            patch(
-                "aletheia_probe.updater.core.AssessmentCache"
-            ) as mock_assessment_cache,
-            patch(
-                "aletheia_probe.updater.core.RetractionCache"
-            ) as mock_retraction_cache,
-            patch.object(updater, "update_source") as mock_update,
-        ):
-            mock_cache = Mock()
-            mock_get_cache_manager.return_value = mock_cache
-
-            # Mock cleanup methods
-            mock_assessment_cache.return_value.cleanup_expired_cache.return_value = 2
-            mock_retraction_cache.return_value.cleanup_expired_article_retractions.return_value = 0
-
-            mock_update.return_value = {"status": "success", "records_updated": 5}
-
-            result = await updater.update_all()
-
-            assert "source1" in result
-            assert "source2" in result
-            assert result["source1"]["status"] == "success"
-            assert result["source2"]["status"] == "success"
-
-            # Verify all cleanup methods were called
-            mock_assessment_cache.return_value.cleanup_expired_cache.assert_called_once()
-            mock_retraction_cache.return_value.cleanup_expired_article_retractions.assert_called_once()
-
     def test_add_custom_list(self):
         """Test adding a custom list."""
         updater = DataUpdater()

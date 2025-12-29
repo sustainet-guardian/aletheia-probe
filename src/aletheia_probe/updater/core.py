@@ -8,12 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
-from ..cache import (
-    AssessmentCache,
-    DataSourceManager,
-    JournalCache,
-    RetractionCache,
-)
+from ..cache import DataSourceManager, JournalCache
 from ..cache_sync.db_writer import AsyncDBWriter
 from ..data_models import JournalDataDict, JournalEntryData
 from ..enums import AssessmentType, UpdateStatus, UpdateType
@@ -225,63 +220,6 @@ class DataUpdater:
 
         source = CustomListSource(file_path, list_type, source_name)
         self.add_source(source)
-
-    async def update_all(self, force: bool = False) -> dict[str, dict[str, Any]]:
-        """Update all data sources.
-
-        Args:
-            force: Force update even if not needed
-
-        Returns:
-            Dictionary with update results for each source
-
-        Raises:
-            RuntimeError: If any sources fail to update (after all sources are attempted)
-        """
-        detail_logger = get_detail_logger()
-        status_logger = get_status_logger()
-        results = {}
-        failed_sources = []
-
-        for source in self.sources:
-            result = await self.update_source(source, force)
-            results[source.get_name()] = result
-
-            # Track failures for aggregate error reporting
-            if result.get("status") == "failed":
-                failed_sources.append(
-                    f"{source.get_name()}: {result.get('error', 'Unknown error')}"
-                )
-
-        # Clean up expired cache entries
-        assessment_cache = AssessmentCache()
-        assessment_expired = assessment_cache.cleanup_expired_cache()
-        detail_logger.info(
-            f"Cleaned up {assessment_expired} expired assessment cache entries"
-        )
-
-        retraction_cache = RetractionCache()
-        retraction_expired = retraction_cache.cleanup_expired_article_retractions()
-        detail_logger.info(
-            f"Cleaned up {retraction_expired} expired retraction cache entries"
-        )
-
-        total_expired = assessment_expired + retraction_expired
-        status_logger.info(
-            f"Cache cleanup: {total_expired} total expired entries removed"
-        )
-
-        # Report all failures together
-        if failed_sources:
-            error_summary = f"Failed to update {len(failed_sources)} source(s):\n  - "
-            error_summary += "\n  - ".join(failed_sources)
-            detail_logger.error(error_summary)
-            status_logger.error(
-                f"Update completed with {len(failed_sources)} failure(s)"
-            )
-            raise RuntimeError(error_summary)
-
-        return results
 
     async def update_source(
         self,

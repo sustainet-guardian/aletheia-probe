@@ -69,6 +69,35 @@ def mock_config():
     return config
 
 
+@pytest.fixture(autouse=True)
+def mock_all_caches():
+    """Auto-mock all cache classes to avoid database path issues in tests."""
+    with (
+        patch("aletheia_probe.backends.base.JournalCache") as mock_journal,
+        patch(
+            "aletheia_probe.backends.base.AssessmentCache"
+        ) as mock_backend_assessment,
+        patch(
+            "aletheia_probe.cache_sync.sync_manager.AssessmentCache"
+        ) as mock_assessment,
+        patch(
+            "aletheia_probe.cache_sync.sync_manager.RetractionCache"
+        ) as mock_retraction,
+        patch("aletheia_probe.cache_sync.sync_manager.OpenAlexCache") as mock_openalex,
+    ):
+        # Set up return values for cleanup methods
+        mock_assessment.return_value.cleanup_expired_cache.return_value = 0
+        mock_retraction.return_value.cleanup_expired_article_retractions.return_value = 0
+        mock_openalex.return_value.cleanup_expired_entries.return_value = 0
+        yield {
+            "journal": mock_journal,
+            "backend_assessment": mock_backend_assessment,
+            "assessment": mock_assessment,
+            "retraction": mock_retraction,
+            "openalex": mock_openalex,
+        }
+
+
 class TestCacheSyncManager:
     """Test cases for CacheSyncManager."""
 

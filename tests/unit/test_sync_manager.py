@@ -67,6 +67,35 @@ def mock_config():
     return config
 
 
+@pytest.fixture(autouse=True)
+def mock_all_caches():
+    """Auto-mock all cache classes to avoid database path issues in tests."""
+    with (
+        patch("aletheia_probe.backends.base.JournalCache") as mock_journal,
+        patch(
+            "aletheia_probe.backends.base.AssessmentCache"
+        ) as mock_backend_assessment,
+        patch(
+            "aletheia_probe.cache_sync.sync_manager.AssessmentCache"
+        ) as mock_assessment,
+        patch(
+            "aletheia_probe.cache_sync.sync_manager.RetractionCache"
+        ) as mock_retraction,
+        patch("aletheia_probe.cache_sync.sync_manager.OpenAlexCache") as mock_openalex,
+    ):
+        # Set up return values for cleanup methods
+        mock_assessment.return_value.cleanup_expired_cache.return_value = 0
+        mock_retraction.return_value.cleanup_expired_article_retractions.return_value = 0
+        mock_openalex.return_value.cleanup_expired_entries.return_value = 0
+        yield {
+            "journal": mock_journal,
+            "backend_assessment": mock_backend_assessment,
+            "assessment": mock_assessment,
+            "retraction": mock_retraction,
+            "openalex": mock_openalex,
+        }
+
+
 class TestCacheSyncManager:
     """Test cases for CacheSyncManager."""
 
@@ -570,6 +599,59 @@ class TestCacheSyncManager:
             assert "error_backend" in status["backends"]
             assert "error" in status["backends"]["error_backend"]
             assert "Backend error" in status["backends"]["error_backend"]["error"]
+
+    @pytest.mark.asyncio
+    async def test_sync_cache_calls_cleanup_methods(
+        self, sync_manager, mock_config, mock_all_caches
+    ):
+        """Verify sync calls cleanup for all TTL-based caches."""
+        # Set custom return values for cleanup methods to verify they're called
+        mock_all_caches[
+            "assessment"
+        ].return_value.cleanup_expired_cache.return_value = 2
+        mock_all_caches[
+            "retraction"
+        ].return_value.cleanup_expired_article_retractions.return_value = 1
+        mock_all_caches[
+            "openalex"
+        ].return_value.cleanup_expired_entries.return_value = 3
+
+        with (
+            patch.object(
+                sync_manager.config_manager, "load_config", return_value=mock_config
+            ),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
+            ) as mock_get_registry,
+            patch.object(
+                sync_manager.config_manager,
+                "get_enabled_backends",
+                return_value=["test_backend"],
+            ),
+            patch.object(
+                sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock
+            ) as mock_ensure,
+        ):
+            # Setup mock backend registry
+            mock_registry = Mock()
+            mock_registry.get_backend_names.return_value = ["test_backend"]
+            mock_backend = MockCachedBackend("test_backend", "test_source")
+            mock_registry.get_backend.return_value = mock_backend
+            mock_get_registry.return_value = mock_registry
+            mock_ensure.return_value = {"status": "success"}
+
+            await sync_manager.sync_cache_with_config()
+
+            # Verify all cleanup methods were called
+            mock_all_caches[
+                "assessment"
+            ].return_value.cleanup_expired_cache.assert_called_once()
+            mock_all_caches[
+                "retraction"
+            ].return_value.cleanup_expired_article_retractions.assert_called_once()
+            mock_all_caches[
+                "openalex"
+            ].return_value.cleanup_expired_entries.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_max_concurrent_sources_constant_is_used(self, mock_config):
