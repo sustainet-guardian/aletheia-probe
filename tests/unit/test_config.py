@@ -253,25 +253,6 @@ class TestConfigManager:
                 assert backend_config["weight"] == DEFAULT_BACKEND_WEIGHT
                 assert backend_config["timeout"] == DEFAULT_BACKEND_TIMEOUT
 
-    def test_create_default_config(self, tmp_path) -> None:
-        """Test creating a default configuration file."""
-        with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
-            mock_registry = Mock()
-            mock_registry.get_backend_names.return_value = ["test_backend"]
-            # Mock get_supported_params to return empty set (no special params)
-            mock_registry.get_supported_params.return_value = set()
-            mock_get_registry.return_value = mock_registry
-
-            manager = ConfigManager()
-            output_path = tmp_path / "new_config.yaml"
-
-            manager.create_default_config(output_path)
-
-            assert output_path.exists()
-            config_data = yaml.safe_load(output_path.read_text())
-            assert "backends" in config_data
-            assert "test_backend" in config_data["backends"]
-
     def test_partial_config_file(self, tmp_path) -> None:
         """Test loading configuration with only partial data."""
         partial_config = {"backends": {"test": {"enabled": False}}}

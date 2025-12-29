@@ -378,14 +378,6 @@ class ConfigManager:
             },
         }
 
-    def create_default_config(self, output_path: Path) -> None:
-        """Create a default configuration file with all backends enabled."""
-        default_config = self.get_default_config_with_all_backends()
-
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
-
 
 # Global config manager instance with factory pattern
 _config_manager_instance: ConfigManager | None = None
