@@ -320,6 +320,11 @@ class AsyncDBWriter:
         self.detail_logger.debug(
             f"Retrieving journal IDs for {len(normalized_names)} normalized names"
         )
+        # Dynamic query construction with parameterized placeholders
+        # SAFETY: placeholders contains only "?" characters (SQLite parameter markers)
+        # The actual normalized_names values are passed separately to cursor.execute()
+        # and are safely bound by SQLite, preventing SQL injection.
+        # This pattern is verified by test_sql_injection_protection_in_get_journal_ids
         placeholders = ",".join("?" * len(normalized_names))
         cursor.execute(
             f"SELECT id, normalized_name FROM journals WHERE normalized_name IN ({placeholders})",  # nosec B608

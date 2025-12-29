@@ -485,3 +485,51 @@ class TestAsyncDBWriter:
             # Verify the duplicates branch was covered
             mock_batch_write.assert_called_once()
             mock_cache_manager.log_update.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sql_injection_protection_in_get_journal_ids(
+        self, db_writer, memory_db
+    ):
+        """Test that SQL injection attempts are safely handled via parameterization."""
+        # Create some legitimate test data
+        test_journals: list[JournalDataDict] = [
+            {
+                "journal_name": "Test Journal",
+                "normalized_name": "test_journal",
+                "issn": "1234-5678",
+            }
+        ]
+
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = memory_db
+            mock_dsm_class.return_value = mock_dsm
+
+            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+
+        # Now attempt to query with malicious input patterns
+        malicious_inputs = [
+            "test_journal'; DROP TABLE journals; --",
+            "test_journal' OR '1'='1",
+            "test_journal'; DELETE FROM journals WHERE '1'='1",
+        ]
+
+        with sqlite3.connect(memory_db) as conn:
+            cursor = conn.cursor()
+
+            # Verify that malicious inputs are safely handled as literal strings
+            for malicious_name in malicious_inputs:
+                # This should simply fail to find a match, not execute any malicious SQL
+                journal_ids = db_writer._get_journal_ids(cursor, [malicious_name])
+                assert len(journal_ids) == 0
+
+            # Verify the database is still intact after all attempts
+            cursor.execute("SELECT COUNT(*) FROM journals")
+            journal_count = cursor.fetchone()[0]
+            assert journal_count == 1  # Original journal should still exist
+
+            cursor.execute("SELECT normalized_name FROM journals")
+            result = cursor.fetchone()
+            assert result[0] == "test_journal"  # Original data unchanged
