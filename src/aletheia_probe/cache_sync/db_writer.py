@@ -4,6 +4,8 @@
 import asyncio
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from ..cache import DataSourceManager, RetractionCache
@@ -678,6 +680,39 @@ class AsyncDBWriter:
 
         return unique_journals, total_input_records
 
+    @contextmanager
+    def _database_transaction(
+        self, conn: sqlite3.Connection
+    ) -> Iterator[sqlite3.Connection]:
+        """Context manager for database transaction with automatic commit/rollback.
+
+        Args:
+            conn: SQLite database connection
+
+        Yields:
+            The database connection with an active transaction
+
+        Raises:
+            sqlite3.Error: Database operation errors
+            KeyError: Missing required keys in data
+            ValueError: Invalid data values
+            TypeError: Incorrect data types
+        """
+        self.detail_logger.debug("Beginning database transaction")
+        conn.execute("BEGIN TRANSACTION")
+
+        try:
+            yield conn
+            self.detail_logger.debug("Committing database transaction")
+            conn.execute("COMMIT")
+            self.detail_logger.debug("Transaction committed successfully")
+        except (sqlite3.Error, KeyError, ValueError, TypeError) as e:
+            self.detail_logger.debug("Rolling back database transaction due to error")
+            conn.execute("ROLLBACK")
+            self.status_logger.error(f"Transaction error: {e}")
+            self.detail_logger.exception("Detailed transaction error")
+            raise
+
     def _batch_write_journals(
         self, source_name: str, list_type: str, journals: list[JournalDataDict]
     ) -> dict[str, int]:
@@ -711,29 +746,13 @@ class AsyncDBWriter:
                 cursor, data_source_manager, source_name, list_type
             )
 
-            self.detail_logger.debug("Beginning database transaction")
-            conn.execute("BEGIN TRANSACTION")
-
-            try:
+            with self._database_transaction(conn):
                 unique_journals, total_input_records = self._execute_transaction(
                     cursor, conn, journals, source_id, source_name, list_type
                 )
-
-                self.detail_logger.debug("Committing database transaction")
-                conn.execute("COMMIT")
-                self.detail_logger.debug("Transaction committed successfully")
 
                 return {
                     "total_records": total_input_records,
                     "unique_journals": unique_journals,
                     "duplicates": total_input_records - unique_journals,
                 }
-
-            except (sqlite3.Error, KeyError, ValueError, TypeError) as e:
-                self.detail_logger.debug(
-                    "Rolling back database transaction due to error"
-                )
-                conn.execute("ROLLBACK")
-                self.status_logger.error(f"Batch write error: {e}")
-                self.detail_logger.exception("Detailed batch write error")
-                raise
