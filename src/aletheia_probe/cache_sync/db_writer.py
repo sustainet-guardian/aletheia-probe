@@ -2,7 +2,6 @@
 """Asynchronous database writer for cache synchronization."""
 
 import asyncio
-import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
