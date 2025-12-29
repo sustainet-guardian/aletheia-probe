@@ -10,6 +10,9 @@ from ..logging_config import get_detail_logger
 from .base import CacheBase
 
 
+# Maximum TTL in hours (365 days)
+MAX_TTL_HOURS = 8760
+
 detail_logger = get_detail_logger()
 
 
@@ -40,8 +43,8 @@ class OpenAlexCache(CacheBase):
 
         if ttl_hours <= 0:
             raise ValueError("TTL must be positive")
-        if ttl_hours > 8760:  # 365 days
-            raise ValueError("TTL exceeds maximum allowed (8760 hours)")
+        if ttl_hours > MAX_TTL_HOURS:
+            raise ValueError(f"TTL exceeds maximum allowed ({MAX_TTL_HOURS} hours)")
 
         expires_at = datetime.now() + timedelta(hours=ttl_hours)
 
