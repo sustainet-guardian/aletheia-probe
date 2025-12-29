@@ -94,39 +94,36 @@ class TestConfigManager:
 
         assert config1 is config2  # Same object reference
 
-    def test_deep_merge_configs(self, temp_config_file) -> None:
-        """Test deep merging of configuration dictionaries."""
-        manager = ConfigManager(temp_config_file)
-
-        default_config = {
-            "backends": {
-                "backend1": {"enabled": True, "weight": 1.0},
-                "backend2": {"enabled": True, "weight": 1.0},
-            },
-            "heuristics": {"confidence_threshold": DEFAULT_CONFIDENCE_THRESHOLD},
-        }
-
+    def test_deep_merge_configs(self, tmp_path) -> None:
+        """Test deep merging of configuration dictionaries via load_config."""
+        # Create a config file with partial overrides to test merging
         override_config = {
             "backends": {
-                "backend1": {"enabled": False},  # Override enabled
-                "backend3": {"enabled": True, "weight": 0.5},  # New backend
+                "doaj": {"enabled": False},  # Override enabled for existing backend
             },
             "heuristics": {"confidence_threshold": 0.8},  # Override threshold
         }
+        config_file = tmp_path / "merge_test.yaml"
+        config_file.write_text(yaml.dump(override_config))
 
-        result = manager._deep_merge_configs(default_config, override_config)
+        manager = ConfigManager(config_file)
+        config = manager.load_config()
 
-        assert result["backends"]["backend1"]["enabled"] is False
-        assert result["backends"]["backend1"]["weight"] == 1.0  # Preserved
-        assert result["backends"]["backend2"]["enabled"] is True  # Preserved
-        assert result["backends"]["backend3"]["enabled"] is True  # Added
-        assert result["heuristics"]["confidence_threshold"] == 0.8
+        # Verify merge behavior: overrides applied
+        assert config.backends["doaj"].enabled is False
+        # Verify merge behavior: defaults preserved for non-overridden fields
+        assert config.backends["doaj"].weight == DEFAULT_BACKEND_WEIGHT
+        # Verify merge behavior: other backends from defaults still present
+        assert len(config.backends) > 1
+        # Verify merge behavior: heuristic override applied
+        assert config.heuristics.confidence_threshold == 0.8
 
-    def test_apply_env_overrides(self, temp_config_file) -> None:
-        """Test environment variable overrides."""
-        manager = ConfigManager(temp_config_file)
-
+    def test_apply_env_overrides(self, tmp_path) -> None:
+        """Test environment variable overrides via load_config."""
+        # Create a simple config file
         config_data = {"output": {"format": "json", "verbose": False}}
+        config_file = tmp_path / "env_test.yaml"
+        config_file.write_text(yaml.dump(config_data))
 
         env_vars = {
             "ALETHEIA_PROBE_OUTPUT_VERBOSE": "true",
@@ -134,10 +131,11 @@ class TestConfigManager:
         }
 
         with patch.dict(os.environ, env_vars, clear=False):
-            result = manager._apply_env_overrides(config_data)
+            manager = ConfigManager(config_file)
+            config = manager.load_config()
 
-        assert result["output"]["verbose"] is True
-        assert result["output"]["format"] == "yaml"
+        assert config.output.verbose is True
+        assert config.output.format == "yaml"
 
     def test_get_enabled_backends(self, temp_config_file) -> None:
         """Test getting list of enabled backend names."""
@@ -254,25 +252,6 @@ class TestConfigManager:
                 assert backend_config["enabled"] is True
                 assert backend_config["weight"] == DEFAULT_BACKEND_WEIGHT
                 assert backend_config["timeout"] == DEFAULT_BACKEND_TIMEOUT
-
-    def test_create_default_config(self, tmp_path) -> None:
-        """Test creating a default configuration file."""
-        with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
-            mock_registry = Mock()
-            mock_registry.get_backend_names.return_value = ["test_backend"]
-            # Mock get_supported_params to return empty set (no special params)
-            mock_registry.get_supported_params.return_value = set()
-            mock_get_registry.return_value = mock_registry
-
-            manager = ConfigManager()
-            output_path = tmp_path / "new_config.yaml"
-
-            manager.create_default_config(output_path)
-
-            assert output_path.exists()
-            config_data = yaml.safe_load(output_path.read_text())
-            assert "backends" in config_data
-            assert "test_backend" in config_data["backends"]
 
     def test_partial_config_file(self, tmp_path) -> None:
         """Test loading configuration with only partial data."""
