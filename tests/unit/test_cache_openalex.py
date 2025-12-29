@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from aletheia_probe.cache import OpenAlexCache
+from aletheia_probe.cache.openalex_cache import MAX_TTL_HOURS
 from aletheia_probe.cache.schema import init_database
 
 
@@ -152,7 +153,7 @@ class TestOpenAlexCache:
                 issn="0028-0836",
                 journal_name=None,
                 openalex_data=sample_openalex_data,
-                ttl_hours=8761,
+                ttl_hours=MAX_TTL_HOURS + 1,
             )
 
     def test_cleanup_expired_entries(self, temp_cache, sample_openalex_data):
