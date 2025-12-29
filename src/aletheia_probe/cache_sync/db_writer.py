@@ -401,11 +401,14 @@ class AsyncDBWriter:
             journal_id = existing_journals[normalized_name]
 
             name_inserts.append(
-                (journal_id, journal["journal_name"], NameType.CANONICAL.value, source_name)
+                (
+                    journal_id,
+                    journal["journal_name"],
+                    NameType.CANONICAL.value,
+                    source_name,
+                )
             )
-            assessment_inserts.append(
-                (journal_id, source_id, list_type, 1.0)
-            )
+            assessment_inserts.append((journal_id, source_id, list_type, 1.0))
             url_inserts.extend(
                 [(journal_id, url) for url in self._extract_urls_from_journal(journal)]
             )
