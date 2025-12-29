@@ -210,7 +210,7 @@ class ArticleRetractionChecker:
 
                     # Check for retraction information in 'update-to' or 'updated-by' fields
                     # 'updated-by' indicates this work has been updated (potentially retracted)
-                    updated_by = message.get("update-by")
+                    updated_by = message.get("updated-by")
                     if (
                         updated_by
                         and isinstance(updated_by, list)
