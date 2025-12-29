@@ -150,10 +150,6 @@ class ConfigManager:
         self.config_path = config_path or self._find_config_file()
         self._config: AppConfig | None = None
 
-    def _reset_cache(self) -> None:
-        """Reset cached configuration. Useful for testing."""
-        self._config = None
-
     def _find_config_file(self) -> Path | None:
         """Find configuration file in standard locations."""
         search_paths = [
@@ -408,19 +404,3 @@ def get_config_manager(config_path: Path | None = None) -> ConfigManager:
     if _config_manager_instance is None:
         _config_manager_instance = ConfigManager(config_path)
     return _config_manager_instance
-
-
-def set_config_manager(manager: ConfigManager) -> None:
-    """Set the config manager instance (primarily for testing).
-
-    Args:
-        manager: ConfigManager instance to use globally
-    """
-    global _config_manager_instance
-    _config_manager_instance = manager
-
-
-def reset_config_manager() -> None:
-    """Reset the config manager instance (primarily for testing)."""
-    global _config_manager_instance
-    _config_manager_instance = None

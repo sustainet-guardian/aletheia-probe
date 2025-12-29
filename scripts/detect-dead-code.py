@@ -176,8 +176,38 @@ class CLIRunner:
 
     def run_representative_commands(self) -> None:
         """Run representative commands to exercise code paths."""
+        import os
         import tempfile
         from pathlib import Path
+
+        # Set up environment variables to trigger config._parse_env_value
+        os.environ["ALETHEIA_PROBE_OUTPUT_VERBOSE"] = "true"
+        os.environ["ALETHEIA_PROBE_CACHE_UPDATE_THRESHOLD_DAYS"] = "14"
+        os.environ["ALETHEIA_PROBE_HEURISTICS_CONFIDENCE_THRESHOLD"] = "0.8"
+
+        # Create temporary config file to trigger config._deep_merge_configs
+        config_content = """backends:
+  doaj:
+    enabled: true
+    weight: 1.5
+  scopus:
+    timeout: 60
+heuristics:
+  confidence_threshold: 0.7
+  unknown_threshold: 0.25
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False, dir=Path.cwd()
+        ) as tmp_config:
+            tmp_config.write(config_content)
+            config_file = tmp_config.name
+
+        # Ensure config manager finds this file by placing in standard location
+        config_dir = Path.cwd() / ".aletheia-probe"
+        config_dir.mkdir(exist_ok=True)
+        config_path = config_dir / "config.yaml"
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(config_content)
 
         # Create temporary bibtex file with complex entries to trigger parsing
         bibtex_content = """@article{nature2023,
@@ -361,6 +391,15 @@ Another Journal,9876-5432,Another Publisher
             Path(bibtex_file).unlink(missing_ok=True)
             Path(csv_file).unlink(missing_ok=True)
             Path(json_file).unlink(missing_ok=True)
+            Path(config_file).unlink(missing_ok=True)
+            config_path.unlink(missing_ok=True)
+            # Clean up env vars
+            for key in [
+                "ALETHEIA_PROBE_OUTPUT_VERBOSE",
+                "ALETHEIA_PROBE_CACHE_UPDATE_THRESHOLD_DAYS",
+                "ALETHEIA_PROBE_HEURISTICS_CONFIDENCE_THRESHOLD",
+            ]:
+                os.environ.pop(key, None)
 
 
 def _should_ignore(module: str, qualified_name: str) -> bool:
