@@ -693,3 +693,47 @@ class TestCacheSyncManager:
 
             # Verify Semaphore was created with the constant value, not hardcoded 5
             mock_semaphore_class.assert_called_once_with(42)
+
+    def test_filter_backends_to_sync_with_filter(self, sync_manager):
+        """Test filtering backends with specific filter."""
+        all_backends = ["backend1", "backend2", "backend3"]
+        backend_filter = ["backend1", "backend3"]
+
+        result = sync_manager._filter_backends_to_sync(
+            all_backends, backend_filter, show_progress=True
+        )
+
+        assert result == ["backend1", "backend3"]
+
+    def test_filter_backends_to_sync_without_filter(self, sync_manager):
+        """Test filtering backends without filter (returns all)."""
+        all_backends = ["backend1", "backend2", "backend3"]
+
+        result = sync_manager._filter_backends_to_sync(
+            all_backends, None, show_progress=True
+        )
+
+        assert result == all_backends
+
+    def test_filter_backends_to_sync_no_matches(self, sync_manager):
+        """Test filtering backends with no matches."""
+        all_backends = ["backend1", "backend2"]
+        backend_filter = ["backend3", "backend4"]
+
+        result = sync_manager._filter_backends_to_sync(
+            all_backends, backend_filter, show_progress=True
+        )
+
+        assert result == []
+
+    def test_filter_backends_to_sync_empty_filter(self, sync_manager):
+        """Test filtering backends with empty filter list (returns all backends)."""
+        all_backends = ["backend1", "backend2"]
+        backend_filter = []
+
+        result = sync_manager._filter_backends_to_sync(
+            all_backends, backend_filter, show_progress=True
+        )
+
+        # Empty list is falsy, so it's treated same as None (no filter)
+        assert result == all_backends
