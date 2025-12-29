@@ -163,7 +163,6 @@ class AsyncDBWriter:
 
     def _ensure_source_registered(
         self,
-        cursor: sqlite3.Cursor,
         data_source_manager: DataSourceManager,
         source_name: str,
         list_type: str,
@@ -171,7 +170,6 @@ class AsyncDBWriter:
         """Ensure data source is registered and return its ID.
 
         Args:
-            cursor: Database cursor for executing queries
             data_source_manager: Manager for data source registration
             source_name: Name of the data source to register
             list_type: Type of list (e.g., "predatory", "legitimate")
@@ -179,21 +177,10 @@ class AsyncDBWriter:
         Returns:
             Database ID of the registered data source
         """
-        self.detail_logger.debug(
-            f"Checking if data source is registered: {source_name}"
+        self.detail_logger.debug(f"Ensuring data source is registered: {source_name}")
+        source_id = data_source_manager.register_data_source(
+            source_name, source_name, list_type
         )
-        cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
-        source_row = cursor.fetchone()
-        if not source_row:
-            self.detail_logger.debug(
-                f"Data source not found, registering: {source_name} (list_type: {list_type})"
-            )
-            data_source_manager.register_data_source(
-                source_name, source_name, list_type
-            )
-            cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
-            source_row = cursor.fetchone()
-        source_id = int(source_row[0])
         self.detail_logger.debug(f"Data source ID for {source_name}: {source_id}")
         return source_id
 
@@ -748,7 +735,7 @@ class AsyncDBWriter:
             cursor = conn.cursor()
 
             source_id = self._ensure_source_registered(
-                cursor, data_source_manager, source_name, list_type
+                data_source_manager, source_name, list_type
             )
 
             with self._database_transaction(conn):
