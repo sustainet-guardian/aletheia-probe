@@ -570,3 +570,44 @@ class TestCacheSyncManager:
             assert "error_backend" in status["backends"]
             assert "error" in status["backends"]["error_backend"]
             assert "Backend error" in status["backends"]["error_backend"]["error"]
+
+    @pytest.mark.asyncio
+    async def test_max_concurrent_sources_constant_is_used(self, mock_config):
+        """Test that MAX_CONCURRENT_SOURCES constant is actually used instead of hardcoded value."""
+        # Create sync manager with custom MAX_CONCURRENT_SOURCES value
+        sync_manager = CacheSyncManager()
+        sync_manager.MAX_CONCURRENT_SOURCES = 42  # Custom test value
+
+        backend = MockCachedBackend("test_backend", "test_source")
+
+        with (
+            patch.object(
+                sync_manager.config_manager, "load_config", return_value=mock_config
+            ),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
+            ) as mock_get_registry,
+            patch.object(
+                sync_manager.config_manager,
+                "get_enabled_backends",
+                return_value=["test_backend"],
+            ),
+            patch("asyncio.Semaphore") as mock_semaphore_class,
+            patch.object(
+                sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock
+            ) as mock_ensure,
+        ):
+            mock_registry = Mock()
+            mock_registry.get_backend_names.return_value = ["test_backend"]
+            mock_registry.get_backend.return_value = backend
+            mock_get_registry.return_value = mock_registry
+            mock_ensure.return_value = {"status": "success", "records_updated": 100}
+
+            # Mock semaphore instance
+            mock_semaphore = AsyncMock()
+            mock_semaphore_class.return_value = mock_semaphore
+
+            await sync_manager.sync_cache_with_config()
+
+            # Verify Semaphore was created with the constant value, not hardcoded 5
+            mock_semaphore_class.assert_called_once_with(42)

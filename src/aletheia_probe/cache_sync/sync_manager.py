@@ -168,7 +168,7 @@ class CacheSyncManager:
             )
 
             # Use moderate concurrency with proper semaphore control
-            max_concurrent = 5
+            max_concurrent = self.MAX_CONCURRENT_SOURCES
             semaphore = asyncio.Semaphore(max_concurrent)
             self.status_logger.info(
                 f"Using {max_concurrent} concurrent backends with proper semaphore control"
