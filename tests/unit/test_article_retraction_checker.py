@@ -279,7 +279,7 @@ class TestArticleRetractionCheckerCrossrefAPI:
                 "DOI": doi,
                 "type": "journal-article",
                 "title": ["Retracted Article"],
-                "update-by": [
+                "updated-by": [
                     {
                         "DOI": "10.1234/retraction.notice",
                         "type": "retraction",
@@ -594,7 +594,7 @@ class TestArticleRetractionCheckerIntegration:
             "status": "ok",
             "message": {
                 "DOI": doi,
-                "update-by": [{"DOI": "10.1234/retraction", "type": "retraction"}],
+                "updated-by": [{"DOI": "10.1234/retraction", "type": "retraction"}],
             },
         }
 
