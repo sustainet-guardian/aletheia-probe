@@ -13,6 +13,7 @@ import sqlite3
 from pathlib import Path
 
 from ..logging_config import get_detail_logger, get_status_logger
+from ..utils.dead_code import code_is_used
 
 
 detail_logger = get_detail_logger()
@@ -35,6 +36,7 @@ class CacheBase:
         db_path: Path to the SQLite database file used by this cache component.
     """
 
+    @code_is_used
     def __init__(self, db_path: Path | None = None):
         """Initialize cache base with database path.
 
