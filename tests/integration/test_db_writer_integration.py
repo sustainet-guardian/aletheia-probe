@@ -20,6 +20,7 @@ import pytest
 from aletheia_probe.cache import DataSourceManager, JournalCache, RetractionCache
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.cache_sync.db_writer import AsyncDBWriter
+from aletheia_probe.enums import AssessmentType
 
 
 class TestAsyncDBWriterIntegration:
@@ -71,7 +72,7 @@ class TestAsyncDBWriterIntegration:
 
             # Perform the write operation
             result = db_writer._batch_write_journals(
-                "test_source", "predatory", test_journals
+                "test_source", AssessmentType.PREDATORY, test_journals
             )
 
             assert result["total_records"] == 2
@@ -123,7 +124,9 @@ class TestAsyncDBWriterIntegration:
             mock_dsm_class.return_value = mock_dsm
 
             # Perform the write operation
-            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            db_writer._batch_write_journals(
+                "test_source", AssessmentType.PREDATORY, test_journals
+            )
 
         # Verify foreign key relationships
         with sqlite3.connect(temp_db) as conn:
@@ -201,7 +204,7 @@ class TestAsyncDBWriterIntegration:
             mock_dsm_class.return_value = mock_dsm
 
             result1 = db_writer._batch_write_journals(
-                "source_one", "predatory", first_batch
+                "source_one", AssessmentType.PREDATORY, first_batch
             )
             assert result1["unique_journals"] == 2
 
@@ -221,7 +224,7 @@ class TestAsyncDBWriterIntegration:
             ]
 
             result2 = db_writer._batch_write_journals(
-                "source_two", "legitimate", second_batch
+                "source_two", AssessmentType.LEGITIMATE, second_batch
             )
             assert result2["unique_journals"] == 2
 
@@ -252,8 +255,8 @@ class TestAsyncDBWriterIntegration:
             )
             assessments = cursor.fetchall()
             assert len(assessments) == 2
-            assert ("source_one", "predatory") in assessments
-            assert ("source_two", "legitimate") in assessments
+            assert ("source_one", AssessmentType.PREDATORY.value) in assessments
+            assert ("source_two", AssessmentType.LEGITIMATE.value) in assessments
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -280,7 +283,9 @@ class TestAsyncDBWriterIntegration:
             mock_dsm.db_path = temp_db
             mock_dsm_class.return_value = mock_dsm
 
-            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            db_writer._batch_write_journals(
+                "test_source", AssessmentType.PREDATORY, test_journals
+            )
 
         # Verify URL deduplication using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -316,7 +321,9 @@ class TestAsyncDBWriterIntegration:
             mock_dsm_class.return_value = mock_dsm
 
             # First write
-            db_writer._batch_write_journals("test_source", "predatory", test_journals)
+            db_writer._batch_write_journals(
+                "test_source", AssessmentType.PREDATORY, test_journals
+            )
 
         # Verify only one journal entry exists using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -376,7 +383,7 @@ class TestAsyncDBWriterIntegration:
                 pytest.raises(sqlite3.Error),
             ):
                 db_writer._batch_write_journals(
-                    "test_source", "predatory", test_journals
+                    "test_source", AssessmentType.PREDATORY, test_journals
                 )
 
         # Verify rollback: no journals should be in database
@@ -411,8 +418,12 @@ class TestAsyncDBWriterIntegration:
             await db_writer.start_writer()
 
             # Queue multiple write operations
-            await db_writer.queue_write("source_1", "predatory", test_journals)
-            await db_writer.queue_write("source_2", "legitimate", test_journals)
+            await db_writer.queue_write(
+                "source_1", AssessmentType.PREDATORY, test_journals
+            )
+            await db_writer.queue_write(
+                "source_2", AssessmentType.LEGITIMATE, test_journals
+            )
 
             # Give time for processing
             await asyncio.sleep(0.2)
