@@ -369,7 +369,7 @@ Another Journal,9876-5432,Another Publisher
             commands = [
                 # Sync FIRST with retraction_watch enabled - populates data
                 ["--config", str(self.config_default_path), "sync"],
-                # Sync AGAIN with retraction_watch disabled - triggers cleanup (remove_source_data)
+                # Sync AGAIN with bealls disabled - triggers cleanup (remove_source_data)
                 ["--config", str(self.config_disabled_path), "sync"],
                 # Config operations
                 ["--config", str(self.config_default_path), "config"],
