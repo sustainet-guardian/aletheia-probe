@@ -122,11 +122,6 @@ class TestCacheSyncManager:
     async def test_sync_cache_with_config_force_override(
         self, sync_manager, mock_config
     ):
-        mock_config_manager = Mock()
-        mock_config_manager.load_config.return_value = mock_config
-        mock_config_manager.get_enabled_backends.return_value = []
-        mock_get_config_manager.return_value = mock_config_manager
-
         """Test sync with force override when auto sync is disabled."""
         mock_config.cache.auto_sync = False
 
@@ -175,14 +170,13 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            ),
             patch.object(
                 sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock
             ) as mock_ensure,
         ):
             mock_config_manager = Mock()
             mock_config_manager.load_config.return_value = mock_config
-            mock_config_manager.get_enabled_backends.return_value = []
+            mock_config_manager.get_enabled_backends.return_value = ["test_backend"]
             mock_get_config_manager.return_value = mock_config_manager
 
             mock_registry = Mock()
@@ -209,7 +203,6 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            ),
             patch.object(
                 sync_manager, "_cleanup_disabled_backend_data", new_callable=AsyncMock
             ) as mock_cleanup,
@@ -493,7 +486,9 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch("aletheia_probe.cache_sync.sync_manager.get_config_manager") as mock_get_config_manager,
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager,
         ):
             mock_config_manager = Mock()
             mock_config_manager.load_config.return_value = mock_config
@@ -617,7 +612,6 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            ),
             patch(
                 "aletheia_probe.cache_sync.sync_manager.DataSourceManager"
             ) as mock_get_cache_manager,
@@ -659,7 +653,6 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            ),
             patch.object(
                 sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock
             ) as mock_ensure,
@@ -706,7 +699,6 @@ class TestCacheSyncManager:
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            ),
             patch("asyncio.Semaphore") as mock_semaphore_class,
             patch.object(
                 sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock

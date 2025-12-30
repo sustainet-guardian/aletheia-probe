@@ -108,9 +108,13 @@ class TestCacheSyncManager:
         """Test sync when auto sync is disabled."""
         mock_config.cache.auto_sync = False
 
-        with patch.object(
-            sync_manager.config_manager, "load_config", return_value=mock_config
-        ):
+        with patch(
+            "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+        ) as mock_get_config_manager:
+            mock_config_manager = Mock()
+            mock_config_manager.load_config.return_value = mock_config
+            mock_get_config_manager.return_value = mock_config_manager
+
             result = await sync_manager.sync_cache_with_config(force=False)
 
             assert result["status"] == "skipped"
@@ -124,16 +128,18 @@ class TestCacheSyncManager:
         mock_config.cache.auto_sync = False
 
         with (
-            patch.object(
-                sync_manager.config_manager, "load_config", return_value=mock_config
-            ),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager,
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            patch.object(
-                sync_manager.config_manager, "get_enabled_backends", return_value=[]
-            ),
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.load_config.return_value = mock_config
+            mock_config_manager.get_enabled_backends.return_value = []
+            mock_get_config_manager.return_value = mock_config_manager
+
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = []
             mock_get_registry.return_value = mock_registry
@@ -160,21 +166,21 @@ class TestCacheSyncManager:
         backend = MockCachedBackend("test_backend", "test_source")
 
         with (
-            patch.object(
-                sync_manager.config_manager, "load_config", return_value=mock_config
-            ),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager,
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
             patch.object(
-                sync_manager.config_manager,
-                "get_enabled_backends",
-                return_value=["test_backend"],
-            ),
-            patch.object(
                 sync_manager, "_ensure_backend_data_available", new_callable=AsyncMock
             ) as mock_ensure,
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.load_config.return_value = mock_config
+            mock_config_manager.get_enabled_backends.return_value = ["test_backend"]
+            mock_get_config_manager.return_value = mock_config_manager
+
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["test_backend"]
             mock_registry.get_backend.return_value = backend
@@ -251,18 +257,18 @@ class TestCacheSyncManager:
     async def test_sync_cache_backend_error(self, sync_manager, mock_config):
         """Test sync when backend raises an error."""
         with (
-            patch.object(
-                sync_manager.config_manager, "load_config", return_value=mock_config
-            ),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager,
             patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            patch.object(
-                sync_manager.config_manager,
-                "get_enabled_backends",
-                return_value=["error_backend"],
-            ),
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.load_config.return_value = mock_config
+            mock_config_manager.get_enabled_backends.return_value = ["error_backend"]
+            mock_get_config_manager.return_value = mock_config_manager
+
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["error_backend"]
             mock_registry.get_backend.side_effect = RuntimeError("Backend error")
@@ -472,14 +478,20 @@ class TestCacheSyncManager:
             assert result["status"] == "error"
             assert "Update failed" in result["error"]
 
-    def test_should_update_source_never_updated(self, sync_manager):
+    def test_should_update_source_never_updated(self, sync_manager, mock_config):
         """Test should update for source that was never updated."""
         with (
             patch(
                 "aletheia_probe.cache_sync.sync_manager.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch.object(sync_manager.config_manager, "load_config"),
+            patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager_func,
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.load_config.return_value = mock_config
+            mock_get_config_manager_func.return_value = mock_config_manager
+
             mock_cache_manager = Mock()
             mock_get_cache_manager.return_value = mock_cache_manager
             mock_cache_manager.get_source_last_updated.return_value = None
@@ -541,17 +553,19 @@ class TestCacheSyncManager:
 
         with (
             patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager_func,
+            patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            patch.object(
-                sync_manager.config_manager,
-                "get_enabled_backends",
-                return_value=["cached_backend"],
-            ),
             patch(
                 "aletheia_probe.cache_sync.sync_manager.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.get_enabled_backends.return_value = ["cached_backend"]
+            mock_get_config_manager_func.return_value = mock_config_manager
+
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = [
                 "cached_backend",
@@ -589,15 +603,19 @@ class TestCacheSyncManager:
         """Test getting sync status with backend error."""
         with (
             patch(
+                "aletheia_probe.cache_sync.sync_manager.get_config_manager"
+            ) as mock_get_config_manager_func,
+            patch(
                 "aletheia_probe.cache_sync.sync_manager.get_backend_registry"
             ) as mock_get_registry,
-            patch.object(
-                sync_manager.config_manager, "get_enabled_backends", return_value=[]
-            ),
             patch(
                 "aletheia_probe.cache_sync.sync_manager.DataSourceManager"
             ) as mock_get_cache_manager,
         ):
+            mock_config_manager = Mock()
+            mock_config_manager.get_enabled_backends.return_value = []
+            mock_get_config_manager_func.return_value = mock_config_manager
+
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = ["error_backend"]
             mock_registry.get_backend.side_effect = RuntimeError("Backend error")
