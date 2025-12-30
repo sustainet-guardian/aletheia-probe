@@ -104,35 +104,6 @@ class DataSourceManager(CacheBase):
             detail_logger.debug(f"Retrieved statistics for {len(stats)} data sources")
             return stats
 
-    def find_conflicts(self) -> list[dict[str, Any]]:
-        """Find journals with conflicting assessments from different sources.
-
-        Returns:
-            List of journals with conflicting assessments
-        """
-        detail_logger.debug("Searching for journals with conflicting assessments")
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT j.normalized_name, j.display_name,
-                       GROUP_CONCAT(ds.name || ':' || sa.assessment) as conflicting_assessments,
-                       COUNT(DISTINCT sa.assessment) as assessment_count
-                FROM journals j
-                JOIN source_assessments sa ON j.id = sa.journal_id
-                JOIN data_sources ds ON sa.source_id = ds.id
-                GROUP BY j.id
-                HAVING COUNT(DISTINCT sa.assessment) > 1
-                ORDER BY j.display_name
-            """
-            )
-
-            conflicts = [dict(row) for row in cursor.fetchall()]
-            detail_logger.debug(
-                f"Found {len(conflicts)} journals with conflicting assessments"
-            )
-            return conflicts
-
     def log_update(
         self,
         source_name: str,

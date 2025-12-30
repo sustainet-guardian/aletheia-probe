@@ -494,43 +494,6 @@ class TestCacheIntegrationJournalDataSource:
         )
         assert len(results) == 1
 
-    def test_find_conflicts(self, temp_cache):
-        """Test finding journals with conflicting assessments."""
-        temp_cache.data_source_manager.register_data_source(
-            name="source1",
-            display_name="Source 1",
-            source_type="unknown",
-        )
-
-        temp_cache.data_source_manager.register_data_source(
-            name="source2",
-            display_name="Source 2",
-            source_type="unknown",
-        )
-
-        # Add same journal to both sources with different assessments
-        entry1 = JournalEntryData(
-            source_name="source1",
-            assessment=AssessmentType.PREDATORY,
-            journal_name="Test Journal",
-            normalized_name="test_journal",
-        )
-
-        entry2 = JournalEntryData(
-            source_name="source2",
-            assessment=AssessmentType.LEGITIMATE,
-            journal_name="Test Journal",
-            normalized_name="test_journal",
-        )
-
-        temp_cache.journal_cache.add_journal_entry(entry1)
-        temp_cache.journal_cache.add_journal_entry(entry2)
-
-        conflicts = temp_cache.data_source_manager.find_conflicts()
-
-        assert len(conflicts) == 1
-        assert conflicts[0]["normalized_name"] == "test_journal"
-
     def test_cache_special_characters_handling(self, temp_cache):
         """Test cache handles special characters in journal names.
 

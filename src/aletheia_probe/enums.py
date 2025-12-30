@@ -62,6 +62,7 @@ class UpdateType(str, Enum):
     FULL = "full"
     INCREMENTAL = "incremental"
     VERIFICATION = "verification"
+    CLEANUP = "cleanup"
 
 
 class NameType(str, Enum):
