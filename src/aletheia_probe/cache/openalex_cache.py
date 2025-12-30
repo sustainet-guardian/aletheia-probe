@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
-from ..logging_config import get_detail_logger
+from ..logging_config import get_detail_logger, get_status_logger
 from .base import CacheBase
 
 
@@ -14,6 +14,7 @@ from .base import CacheBase
 MAX_TTL_HOURS = 8760
 
 detail_logger = get_detail_logger()
+status_logger = get_status_logger()
 
 
 class OpenAlexCache(CacheBase):
@@ -71,10 +72,25 @@ class OpenAlexCache(CacheBase):
         if fetched_at_str:
             try:
                 fetched_at = datetime.fromisoformat(fetched_at_str)
-            except (ValueError, TypeError):
+                detail_logger.debug(
+                    f"Successfully parsed fetched_at timestamp: {fetched_at_str}"
+                )
+            except (ValueError, TypeError) as e:
+                # Log the parsing failure with details for debugging
+                detail_logger.warning(
+                    f"Failed to parse fetched_at timestamp '{fetched_at_str}': {type(e).__name__}: {e}. "
+                    f"Using current timestamp as fallback."
+                )
+                status_logger.warning(
+                    f"Invalid timestamp format in OpenAlex data. "
+                    f"Check data integrity for ISSN={issn}, journal={journal_name}"
+                )
                 fetched_at = datetime.now()
         else:
             fetched_at = datetime.now()
+            detail_logger.debug(
+                "No fetched_at timestamp provided, using current timestamp"
+            )
 
         detail_logger.debug(
             f"Storing OpenAlex cache entry: issn={issn}, journal_name={journal_name}"
