@@ -393,6 +393,10 @@ Another Journal,9876-5432,Another Publisher
                 ["journal", "IEEE Transactions on Pattern Analysis"],  # IEEE
                 ["journal", "Lancet"],  # Well-known medical journal
                 ["journal", "Test Journal That Does Not Exist"],  # Non-existent
+                # Journal assessment with explicit ISSN (triggers ISSN search path)
+                ["journal", "Nature (ISSN: 0028-0836)"],
+                ["journal", "JMLR (ISSN: 1532-4435)"],
+                ["journal", "PLOS ONE (ISSN: 1932-6203)"],
                 # Conference assessment - legitimate
                 ["conference", "ICML"],
                 ["conference", "ICML", "--verbose"],
@@ -416,6 +420,9 @@ Another Journal,9876-5432,Another Publisher
                 ["add-list", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
                 # Status after adding custom lists
                 ["status"],
+                # Query custom list journals WITH ISSNs (triggers ISSN-based search)
+                ["journal", "Test Journal (ISSN: 1234-5678)"],
+                ["journal", "JSON Test Journal (ISSN: 1111-2222)"],
                 # Acronym operations
                 ["acronym", "status"],
                 ["acronym", "stats"],
