@@ -9,7 +9,7 @@ from typing import Any
 from ..backends.base import Backend, CachedBackend, HybridBackend, get_backend_registry
 from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, RetractionCache
 from ..config import get_config_manager
-from ..enums import UpdateStatus
+from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..updater import data_updater  # Global updater instance from updater package
 from .db_writer import AsyncDBWriter
@@ -23,7 +23,6 @@ class CacheSyncManager:
 
     def __init__(self) -> None:
         self.sync_in_progress = False
-        self.config_manager = get_config_manager()
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
         self.db_writer = AsyncDBWriter()
@@ -64,7 +63,8 @@ class CacheSyncManager:
                 )
 
             # Get configuration settings
-            config = self.config_manager.load_config()
+            config_manager = get_config_manager()
+            config = config_manager.load_config()
             cache_config = getattr(config, "cache", None)
             auto_sync = (
                 getattr(cache_config, "auto_sync", True) if cache_config else True
@@ -89,7 +89,7 @@ class CacheSyncManager:
             # Get all registered backends and their enabled status
             backend_registry = get_backend_registry()
             all_backend_names = backend_registry.get_backend_names()
-            enabled_backend_names = self.config_manager.get_enabled_backends()
+            enabled_backend_names = config_manager.get_enabled_backends()
 
             # Apply backend filter if provided
             backends_to_sync = self._filter_backends_to_sync(
@@ -353,12 +353,7 @@ class CacheSyncManager:
                         backend, show_progress
                     )
                     return result
-                except (
-                    sqlite3.Error,
-                    ValueError,
-                    KeyError,
-                    AttributeError,
-                ) as e:
+                except Exception as e:
                     self.detail_logger.exception(
                         f"Error cleaning up {backend_name}: {e}"
                     )
@@ -501,21 +496,13 @@ class CacheSyncManager:
         source_name = backend.source_name
         data_source_manager = DataSourceManager()
 
-        # Check if data exists to clean up
-        if not data_source_manager.has_source_data(source_name):
-            self.detail_logger.debug(f"{backend_name}: No data to cleanup")
-            return {
-                "status": UpdateStatus.SKIPPED.value,
-                "reason": "no_data_to_cleanup",
-            }
-
-        # Remove data from cache
+        # Remove data from cache (method returns 0 if no data exists)
         try:
             deleted_count = data_source_manager.remove_source_data(source_name)
             data_source_manager.log_update(
                 source_name,
-                "cleanup",
-                "success",
+                UpdateType.CLEANUP.value,
+                UpdateStatus.SUCCESS.value,
                 0,
                 error_message=f"Cleaned up {deleted_count} records for disabled backend",
             )
@@ -528,10 +515,16 @@ class CacheSyncManager:
                 "records_removed": deleted_count,
             }
 
-        except (sqlite3.Error, ValueError, KeyError) as e:
-            self.detail_logger.error(f"Failed to cleanup data for {backend_name}: {e}")
+        except Exception as e:
+            self.detail_logger.exception(
+                f"Failed to cleanup data for {backend_name}: {e}"
+            )
             data_source_manager.log_update(
-                source_name, "cleanup", "failed", 0, error_message=str(e)
+                source_name,
+                UpdateType.CLEANUP.value,
+                UpdateStatus.FAILED.value,
+                0,
+                error_message=str(e),
             )
             return {"status": UpdateStatus.ERROR.value, "error": str(e)}
 
@@ -593,7 +586,8 @@ class CacheSyncManager:
             True if source should be updated
         """
         # Get configuration settings
-        config = self.config_manager.load_config()
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
         cache_config = getattr(config, "cache", None)
         threshold_days = (
             getattr(cache_config, "update_threshold_days", 7) if cache_config else 7
@@ -621,7 +615,8 @@ class CacheSyncManager:
 
         backend_registry = get_backend_registry()
         all_backend_names = backend_registry.get_backend_names()
-        enabled_backend_names = self.config_manager.get_enabled_backends()
+        config_manager = get_config_manager()
+        enabled_backend_names = config_manager.get_enabled_backends()
         data_source_manager = DataSourceManager()
         available_sources = data_source_manager.get_available_sources()
 

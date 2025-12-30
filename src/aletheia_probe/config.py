@@ -383,16 +383,19 @@ class ConfigManager:
 _config_manager_instance: ConfigManager | None = None
 
 
-def get_config_manager(config_path: Path | None = None) -> ConfigManager:
+def get_config_manager(
+    config_path: Path | None = None, force_reload: bool = False
+) -> ConfigManager:
     """Get or create the global config manager instance.
 
     Args:
-        config_path: Optional path to config file (only used on first call)
+        config_path: Optional path to config file (only used on first call or with force_reload)
+        force_reload: Force recreation of config manager with new path
 
     Returns:
         The global ConfigManager instance
     """
     global _config_manager_instance
-    if _config_manager_instance is None:
+    if _config_manager_instance is None or force_reload:
         _config_manager_instance = ConfigManager(config_path)
     return _config_manager_instance

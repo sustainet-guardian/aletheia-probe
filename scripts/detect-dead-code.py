@@ -212,29 +212,44 @@ class CLIRunner:
         os.environ["ALETHEIA_PROBE_CACHE_UPDATE_THRESHOLD_DAYS"] = "14"
         os.environ["ALETHEIA_PROBE_HEURISTICS_CONFIDENCE_THRESHOLD"] = "0.8"
 
-        # Create temporary config file to trigger config._deep_merge_configs
-        config_content = """backends:
+        # Create temporary config directory
+        config_dir = Path.cwd() / ".aletheia-probe"
+        config_dir.mkdir(exist_ok=True)
+
+        # Create default config with retraction_watch enabled
+        config_default = """cache:
+  cleanup_disabled: true
+backends:
   doaj:
     enabled: true
-    weight: 1.5
-  scopus:
-    timeout: 60
+  retraction_watch:
+    enabled: true
 heuristics:
   confidence_threshold: 0.7
   unknown_threshold: 0.25
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False, dir=Path.cwd()
-        ) as tmp_config:
-            tmp_config.write(config_content)
-            self.temp_config_file = tmp_config.name
+        self.config_default_path = config_dir / "config-default.yaml"
+        with open(self.config_default_path, "w", encoding="utf-8") as f:
+            f.write(config_default)
 
-        # Ensure config manager finds this file by placing in standard location
-        config_dir = Path.cwd() / ".aletheia-probe"
-        config_dir.mkdir(exist_ok=True)
-        self.config_path = config_dir / "config.yaml"
-        with open(self.config_path, "w", encoding="utf-8") as f:
-            f.write(config_content)
+        # Create config with retraction_watch disabled (to trigger cleanup)
+        config_disabled = """cache:
+  cleanup_disabled: true
+backends:
+  doaj:
+    enabled: true
+  bealls:
+    enabled: false
+heuristics:
+  confidence_threshold: 0.7
+  unknown_threshold: 0.25
+"""
+        self.config_disabled_path = config_dir / "config-disabled.yaml"
+        with open(self.config_disabled_path, "w", encoding="utf-8") as f:
+            f.write(config_disabled)
+
+        # Store paths for cleanup
+        self.config_paths = [self.config_default_path, self.config_disabled_path]
 
         # NOW import CLI - config manager will use the setup we just created
         from click.testing import CliRunner
@@ -352,13 +367,12 @@ Another Journal,9876-5432,Another Publisher
         try:
             # List of commands to run
             commands = [
-                # Sync FIRST - all other commands rely on cached data
-                ["sync"],
-                # Sync specific backends
-                ["sync", "doaj"],
-                ["sync", "bealls"],
+                # Sync FIRST with retraction_watch enabled - populates data
+                ["--config", str(self.config_default_path), "sync"],
+                # Sync AGAIN with retraction_watch disabled - triggers cleanup (remove_source_data)
+                ["--config", str(self.config_disabled_path), "sync"],
                 # Config operations
-                ["config"],
+                ["--config", str(self.config_default_path), "config"],
                 # Cache operations
                 ["status"],
                 # Journal assessment - legitimate journals
@@ -432,8 +446,9 @@ Another Journal,9876-5432,Another Publisher
             Path(bibtex_file).unlink(missing_ok=True)
             Path(csv_file).unlink(missing_ok=True)
             Path(json_file).unlink(missing_ok=True)
-            Path(self.temp_config_file).unlink(missing_ok=True)
-            self.config_path.unlink(missing_ok=True)
+            # Clean up config files
+            for config_path in self.config_paths:
+                config_path.unlink(missing_ok=True)
             # Clean up env vars
             for key in [
                 "ALETHEIA_PROBE_OUTPUT_VERBOSE",

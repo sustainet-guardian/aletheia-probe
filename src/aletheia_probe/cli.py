@@ -84,11 +84,22 @@ def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> No
     is_eager=True,
     help="Show version information and exit",
 )
-def main() -> None:
+@click.option(
+    "--config",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to configuration file",
+)
+@click.pass_context
+def main(ctx: click.Context, config: Path | None) -> None:
     """Aletheia-Probe - Assess whether journals are predatory or legitimate."""
     # Initialize logging on first command invocation
     detail_logger, status_logger = setup_logging()
     detail_logger.debug("CLI initialized")
+
+    # Initialize config manager with custom path if provided
+    if config:
+        detail_logger.debug(f"Using config file: {config}")
+        get_config_manager(config, force_reload=True)
 
 
 @main.command()
