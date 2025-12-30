@@ -7,13 +7,19 @@ import inspect
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
 from ..cache import AssessmentCache, JournalCache, OpenAlexCache
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
+
+
+# Import DataSyncCapable for explicit protocol implementation
+# Note: Import is placed here to avoid circular import issues
+if TYPE_CHECKING:
+    from .protocols import DataSyncCapable
 
 
 class Backend(ABC):
@@ -98,13 +104,21 @@ class Backend(ABC):
 
 
 class CachedBackend(Backend):
-    """Base class for backends that use local cached data."""
+    """Base class for backends that use local cached data.
+
+    Explicitly implements DataSyncCapable protocol to enable automatic data synchronization.
+    All CachedBackend subclasses inherit sync capability and will be processed by sync manager.
+
+    Inheritance: Backend + DataSyncCapable (via runtime registration)
+    Query Pattern: Local cache only (ISSN → normalized name → aliases)
+    Sync Behavior: Always needs sync (can be overridden by subclasses)
+    """
 
     def __init__(
         self, source_name: str, list_type: AssessmentType, cache_ttl_hours: int = 24
     ):
         super().__init__(cache_ttl_hours)
-        self.source_name = source_name
+        self._source_name = source_name
         self.list_type = list_type
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
@@ -223,9 +237,54 @@ class CachedBackend(Backend):
         # This shouldn't happen with our new exact matching, so low confidence
         return 0.3
 
+    # =============================================================================
+    # DataSyncCapable Protocol Implementation
+    # =============================================================================
+    # The following methods implement the DataSyncCapable protocol, making this
+    # backend eligible for automatic data synchronization by the sync manager.
+    # CachedBackend is registered as a DataSyncCapable via DataSyncCapable.register()
 
-class HybridBackend(Backend):
-    """Base class for backends that check cache first, then fallback to API."""
+    @property
+    def source_name(self) -> str:
+        """Name of the data source for synchronization (DataSyncCapable protocol)."""
+        return self._source_name
+
+    def get_data_source(self) -> "Any | None":
+        """Get data source for synchronization (DataSyncCapable protocol).
+
+        CachedBackend subclasses should override this to return their specific DataSource.
+        Returns None by default since not all cached backends may have data sources.
+
+        Returns:
+            DataSource instance or None if no data source available
+        """
+        return None
+
+    def needs_sync(self) -> bool:
+        """Check if backend needs data synchronization (DataSyncCapable protocol).
+
+        For CachedBackend, we assume sync is always needed unless overridden.
+        Subclasses can implement more sophisticated logic (e.g., check if data exists).
+
+        Returns:
+            True if backend data needs to be synced, False otherwise
+        """
+        return True
+
+
+class ApiBackendWithCache(Backend):
+    """Base class for backends that check cache first, then fallback to live API queries.
+
+    Implements ApiQueryCapable protocol for cache-first + API fallback behavior.
+    This class provides the infrastructure for backends that:
+    1. Check assessment cache first (fast response for repeated queries)
+    2. Query live APIs on cache miss (via _query_api implementation)
+    3. Cache API results with configurable TTL (prevents redundant API calls)
+
+    Inheritance: Backend + ApiQueryCapable (via runtime registration)
+    Query Pattern: Cache first, then API fallback
+    Caching Strategy: TTL-based with MD5 cache keys
+    """
 
     def __init__(self, cache_ttl_hours: int = 24):
         super().__init__(cache_ttl_hours)
@@ -235,7 +294,7 @@ class HybridBackend(Backend):
         self.openalex_cache = OpenAlexCache()
 
     def get_evidence_type(self) -> EvidenceType:
-        """HybridBackend provides heuristic evidence by default."""
+        """ApiBackendWithCache provides heuristic evidence by default."""
         return EvidenceType.HEURISTIC
 
     async def query(self, query_input: QueryInput) -> BackendResult:
@@ -281,13 +340,42 @@ class HybridBackend(Backend):
 
         return result
 
+    # =============================================================================
+    # ApiQueryCapable Protocol Implementation
+    # =============================================================================
+    # The following methods implement the ApiQueryCapable protocol, defining the
+    # interface for cache-first + API fallback behavior.
+    # ApiBackendWithCache is registered as ApiQueryCapable via runtime registration
+
     @abstractmethod
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query the live API. Must be implemented by subclasses."""
+        """Query the live API when cache misses (ApiQueryCapable protocol).
+
+        This method must be implemented by subclasses to define how to query
+        the specific external API. Called automatically by the cache-first logic
+        when no cached result is found.
+
+        Args:
+            query_input: Normalized query input with journal information
+
+        Returns:
+            BackendResult with API query findings
+        """
         pass
 
     def _generate_cache_key(self, query_input: QueryInput) -> str:
-        """Generate a cache key for the query."""
+        """Generate a cache key for the query (ApiQueryCapable protocol).
+
+        Creates a consistent MD5 hash based on query components for caching API results.
+        The cache key includes backend name, normalized name, ISSN, and DOI to ensure
+        proper cache isolation and lookup.
+
+        Args:
+            query_input: Query input to generate cache key for
+
+        Returns:
+            MD5 hash string used as cache key
+        """
         # Use normalized name and identifiers to create a consistent key
         key_parts = [
             self.get_name(),
@@ -449,3 +537,21 @@ def reset_backend_registry() -> None:
     """Reset the backend registry instance (primarily for testing)."""
     global _backend_registry_instance
     _backend_registry_instance = None
+
+
+# Explicitly register backend classes as implementing their respective protocols
+# This makes the protocol compliance visible and intentional rather than hidden
+try:
+    from .protocols import ApiQueryCapable, DataSyncCapable
+
+    # Register CachedBackend as implementing DataSyncCapable protocol
+    # This enables isinstance(cached_backend, DataSyncCapable) checks
+    DataSyncCapable.register(CachedBackend)  # type: ignore[type-abstract]
+
+    # Register ApiBackendWithCache as implementing ApiQueryCapable protocol
+    # This enables isinstance(api_backend, ApiQueryCapable) checks
+    ApiQueryCapable.register(ApiBackendWithCache)  # type: ignore[type-abstract]
+
+except ImportError:
+    # Graceful fallback if protocols module is not available
+    pass

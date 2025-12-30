@@ -6,7 +6,13 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
-from ..backends.base import Backend, CachedBackend, HybridBackend, get_backend_registry
+from ..backends.base import (
+    ApiBackendWithCache,
+    Backend,
+    CachedBackend,
+    get_backend_registry,
+)
+from ..backends.protocols import DataSyncCapable
 from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, RetractionCache
 from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
@@ -102,22 +108,22 @@ class CacheSyncManager:
                 }
 
             # Filter to only backends that actually need processing:
-            # - CachedBackend or HybridBackend types (need data syncing)
+            # - Backends with data sync capabilities (DataSyncCapable protocol)
             # - OR disabled backends that need cleanup
             backends_needing_sync = []
             for backend_name in backends_to_sync:
                 try:
                     backend = backend_registry.get_backend(backend_name)
-                    is_cached = isinstance(backend, (CachedBackend, HybridBackend))
+                    has_sync_capability = isinstance(backend, DataSyncCapable)
                     is_disabled = backend_name not in enabled_backend_names
 
-                    if is_cached or (is_disabled and cleanup_disabled):
+                    if has_sync_capability or (is_disabled and cleanup_disabled):
                         backends_needing_sync.append(backend_name)
                     else:
-                        # Skip non-cached backends that don't need cleanup
+                        # Skip backends without sync capability that don't need cleanup
                         sync_results[backend_name] = {
                             "status": UpdateStatus.SKIPPED.value,
-                            "reason": "not_cached_backend",
+                            "reason": "no_sync_capability",
                         }
                 except (
                     KeyError,
@@ -441,12 +447,22 @@ class CacheSyncManager:
         """
         backend_name = backend.get_name()
 
-        # Only handle CachedBackend types (bealls, algerian_ministry)
-        if not isinstance(backend, CachedBackend):
-            self.detail_logger.debug(f"{backend_name}: Skipped (not a cached backend)")
+        # Only handle backends with data sync capabilities
+        if not isinstance(backend, DataSyncCapable):
+            self.detail_logger.debug(
+                f"{backend_name}: Skipped (no data sync capability)"
+            )
             return {
                 "status": UpdateStatus.SKIPPED.value,
-                "reason": "not_cached_backend",
+                "reason": "no_sync_capability",
+            }
+
+        # Check if backend actually needs sync
+        if not backend.needs_sync():
+            self.detail_logger.debug(f"{backend_name}: Skipped (no sync needed)")
+            return {
+                "status": UpdateStatus.SKIPPED.value,
+                "reason": "no_sync_needed",
             }
 
         source_name = backend.source_name
@@ -628,7 +644,9 @@ class CacheSyncManager:
                 backend_status: dict[str, bool | str | int | datetime | None] = {
                     "enabled": is_enabled,
                     "type": (
-                        "hybrid" if isinstance(backend, HybridBackend) else "cached"
+                        "api_cached"
+                        if isinstance(backend, ApiBackendWithCache)
+                        else "cached"
                     ),
                     "has_data": False,
                     "last_updated": None,

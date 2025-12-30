@@ -7,12 +7,12 @@ from typing import Any
 
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
-from .base import HybridBackend, get_backend_registry
+from .base import ApiBackendWithCache, get_backend_registry
 from .crossref_analyzer import CrossrefAnalyzerBackend
 from .openalex_analyzer import OpenAlexAnalyzerBackend
 
 
-class CrossValidatorBackend(HybridBackend):
+class CrossValidatorBackend(ApiBackendWithCache):
     """Backend that combines and cross-validates OpenAlex and Crossref data."""
 
     def __init__(
@@ -121,7 +121,7 @@ class CrossValidatorBackend(HybridBackend):
                 sources=list(set(openalex_result.sources + crossref_result.sources)),
                 error_message=None,
                 response_time=response_time,
-                cached=False,  # Will be set by HybridBackend.query() when result is cached
+                cached=False,  # Will be set by ApiBackendWithCache.query() when result is cached
             )
 
         except Exception as e:

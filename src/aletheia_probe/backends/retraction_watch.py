@@ -3,7 +3,7 @@
 
 import asyncio
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
@@ -11,15 +11,27 @@ from ..cache import RetractionCache
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
-from .base import HybridBackend, get_backend_registry
+from .base import ApiBackendWithCache, get_backend_registry
+from .protocols import DataSyncCapable
+
+
+if TYPE_CHECKING:
+    from ..updater.core import DataSource
+    from ..updater.sources.retraction_watch import RetractionWatchSource
 
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
-class RetractionWatchBackend(HybridBackend):
-    """Backend that checks retraction history from Retraction Watch database."""
+class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
+    """Backend that checks retraction history from Retraction Watch database.
+
+    This backend implements both ApiBackendWithCache patterns (cache-first queries with
+    API fallback) and DataSyncCapable protocol (local data synchronization from
+    external sources). It needs local retraction statistics data to function
+    properly, which is synced from the Retraction Watch GitLab repository.
+    """
 
     def __init__(self, cache_ttl_hours: int = 24) -> None:
         """Initialize backend with configurable cache TTL.
@@ -28,8 +40,8 @@ class RetractionWatchBackend(HybridBackend):
             cache_ttl_hours: Cache time-to-live in hours (default: 24)
         """
         super().__init__(cache_ttl_hours=cache_ttl_hours)
-        self.source_name = "retraction_watch"
         self.list_type = "quality_indicator"
+        self._data_source: RetractionWatchSource | None = None
 
     def get_name(self) -> str:
         return "retraction_watch"
@@ -37,11 +49,43 @@ class RetractionWatchBackend(HybridBackend):
     def get_description(self) -> str:
         return "Checks journal retraction history from Retraction Watch database"
 
+    # DataSyncCapable protocol implementation
+    @property
+    def source_name(self) -> str:
+        """Name of the data source for synchronization."""
+        return "retraction_watch"
+
+    def get_data_source(self) -> "DataSource | None":
+        """Get the RetractionWatchSource instance for data synchronization."""
+        if self._data_source is None:
+            from ..updater.sources.retraction_watch import RetractionWatchSource
+
+            self._data_source = RetractionWatchSource()
+        return self._data_source
+
+    def needs_sync(self) -> bool:
+        """Check if retraction statistics data needs synchronization.
+
+        Returns True if the retraction_statistics table is empty or
+        data appears to be missing.
+        """
+        try:
+            retraction_cache = RetractionCache()
+            # Check if we have any retraction statistics by querying a simple journal
+            # If the cache returns None for a basic query, we likely need sync
+            test_result = retraction_cache.get_retraction_statistics(1)
+            # If we get None but the cache exists, the table is probably empty
+            return test_result is None
+        except Exception as e:
+            detail_logger.warning(f"Error checking retraction statistics: {e}")
+            # If we can't check, assume we need sync
+            return True
+
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query retraction data for journal information.
 
         This method performs the actual query against the Retraction Watch database
-        and OpenAlex API. Results are automatically cached by the HybridBackend parent.
+        and OpenAlex API. Results are automatically cached by the ApiBackendWithCache parent.
 
         Args:
             query_input: Normalized query input with journal information
@@ -49,11 +93,13 @@ class RetractionWatchBackend(HybridBackend):
         Returns:
             BackendResult with retraction assessment and metadata
         """
+        detail_logger.debug("RetractionWatch._query_api called")
         start_time = time.time()
 
         try:
             # Use parent's search methods for consistency
             # Search by ISSN first (though we don't have ISSN in retraction data)
+            detail_logger.debug("RetractionWatch._query_api try issn search")
             if query_input.identifiers.get("issn"):
                 results = self.journal_cache.search_journals(
                     issn=query_input.identifiers["issn"],
@@ -63,16 +109,21 @@ class RetractionWatchBackend(HybridBackend):
                 results = []
 
             # If no ISSN match, try exact normalized name match
+            detail_logger.debug("RetractionWatch._query_api try normalized name")
             if not results and query_input.normalized_name:
                 results = self._search_exact_match(query_input.normalized_name)
 
             # Try aliases for exact matches only
+            detail_logger.debug("RetractionWatch._query_api try search exact match")
             if not results:
                 for alias in query_input.aliases:
                     results = self._search_exact_match(alias)
                     if results:
                         break
 
+            detail_logger.debug(
+                f"RetractionWatch._query_api: results {len(results) if results else None}"
+            )
             if results:
                 match = results[0]
                 journal_id = match.get("id")

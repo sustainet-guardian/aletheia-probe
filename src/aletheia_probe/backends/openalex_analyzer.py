@@ -15,10 +15,10 @@ from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
 from ..validation import validate_email
-from .base import HybridBackend, get_backend_registry
+from .base import ApiBackendWithCache, get_backend_registry
 
 
-class OpenAlexAnalyzerBackend(HybridBackend):
+class OpenAlexAnalyzerBackend(ApiBackendWithCache):
     """Backend that analyzes OpenAlex data patterns to assess journal legitimacy."""
 
     def __init__(

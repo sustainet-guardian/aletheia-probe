@@ -14,10 +14,10 @@ from ..constants import (
 )
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
-from .base import HybridBackend, get_backend_registry
+from .base import ApiBackendWithCache, get_backend_registry
 
 
-class CrossrefAnalyzerBackend(HybridBackend):
+class CrossrefAnalyzerBackend(ApiBackendWithCache):
     """Backend that analyzes Crossref metadata quality to assess journal legitimacy."""
 
     def __init__(
