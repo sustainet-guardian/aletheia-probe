@@ -12,6 +12,7 @@ from aletheia_probe.cache import DataSourceManager, JournalCache
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.data_models import JournalEntryData
 from aletheia_probe.enums import AssessmentType
+from tests.conftest import add_test_journal_entry
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ class TestCacheJournal:
             publisher="Test Publisher",
             metadata={"key": "value"},
         )
-        temp_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Verify entry was added using the cache API
         results = temp_cache.search_journals(normalized_name="test journal")
@@ -87,7 +88,7 @@ class TestCacheJournal:
             journal_name="Journal of Computer Science",
             normalized_name="journal of computer science",
         )
-        temp_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Search by normalized name
         results = temp_cache.search_journals(
@@ -112,7 +113,7 @@ class TestCacheJournal:
             normalized_name="nature",
             issn="0028-0836",
         )
-        temp_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Search by ISSN
         results = temp_cache.search_journals(issn="0028-0836")
@@ -134,14 +135,14 @@ class TestCacheJournal:
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
         entry2 = JournalEntryData(
             source_name="doaj",
             assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Search by source
         bealls_results = temp_cache.search_journals(source_name="bealls")
@@ -166,14 +167,14 @@ class TestCacheJournal:
             journal_name="Predatory Journal",
             normalized_name="predatory journal",
         )
-        temp_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
         entry2 = JournalEntryData(
             source_name="test_source",
             assessment=AssessmentType.LEGITIMATE,
             journal_name="Legitimate Journal",
             normalized_name="legitimate journal",
         )
-        temp_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Search by assessment (list_type maps to assessment in normalized schema)
         predatory_results = temp_cache.search_journals(
@@ -217,7 +218,7 @@ class TestCacheJournalAdditional:
             normalized_name="ai journal",
             metadata=metadata,
         )
-        temp_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Verify journal was added successfully
         results = temp_cache.search_journals(
@@ -242,7 +243,7 @@ class TestCacheJournalAdditional:
                     journal_name=f"Journal {source_suffix}_{i}",
                     normalized_name=f"journal {source_suffix} {i}",
                 )
-                temp_cache.add_journal_entry(entry)
+                add_test_journal_entry(temp_cache.db_path, entry)
 
         # Create multiple threads
         threads = []
@@ -270,7 +271,7 @@ class TestCacheManagerWithJournalEntryData:
     def test_add_journal_entry_with_invalid_entry_type(self, temp_cache):
         """Test that invalid entry type raises TypeError."""
         with pytest.raises(TypeError):
-            temp_cache.add_journal_entry("invalid_entry")
+            add_test_journal_entry(temp_cache.db_path, "invalid_entry")
 
     def test_add_journal_entry_validation_errors(self, temp_cache):
         """Test validation error handling for required fields."""
@@ -312,4 +313,4 @@ class TestCacheManagerWithJournalEntryData:
         )
 
         with pytest.raises(ValueError, match="Source.*not registered"):
-            temp_cache.add_journal_entry(entry)
+            add_test_journal_entry(temp_cache.db_path, entry)
