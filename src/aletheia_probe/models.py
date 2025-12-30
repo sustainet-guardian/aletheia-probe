@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from .utils.dead_code import code_is_used
 from .validation import validate_email as _validate_email
 
 
@@ -165,6 +166,7 @@ class ConfigBackend(BaseModel):
         default_factory=dict, description="Backend-specific settings"
     )
 
+    @code_is_used
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str | None) -> str | None:

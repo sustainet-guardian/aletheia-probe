@@ -7,6 +7,14 @@ This script:
 2. Runs representative CLI commands in real environment
 3. Tracks which functions are actually called
 4. Reports functions that were never executed
+
+Functions can be excluded from dead code detection by decorating them
+with @code_is_used from aletheia_probe.utils.dead_code. This should be
+used for:
+- Functions called by frameworks (e.g., Pydantic validators)
+- Dynamically called functions (getattr, reflection, etc.)
+- Plugin entry points
+- Python magic methods (__init__, __str__, etc.)
 """
 
 import ast
@@ -99,6 +107,7 @@ class FunctionDiscoverer:
         """
         self.src_root = src_root
         self.all_functions: set[tuple[str, str, int]] = set()
+        self.excluded_functions: set[tuple[str, str]] = set()
 
     def discover(self) -> None:
         """Discover all functions in src directory."""
@@ -128,6 +137,27 @@ class FunctionDiscoverer:
         except SyntaxError as e:
             print(f"Warning: Could not parse {file_path}: {e}")
 
+    def _has_code_is_used_decorator(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> bool:
+        """Check if function has @code_is_used decorator.
+
+        Args:
+            node: Function definition node
+
+        Returns:
+            True if function has @code_is_used decorator
+        """
+        for decorator in node.decorator_list:
+            # Handle simple decorator: @code_is_used
+            if isinstance(decorator, ast.Name) and decorator.id == "code_is_used":
+                return True
+            # Handle attribute decorator: @dead_code.code_is_used
+            if isinstance(decorator, ast.Attribute):
+                if decorator.attr == "code_is_used":
+                    return True
+        return False
+
     def _walk_ast(
         self, node: ast.AST, module_str: str, parent_class: str | None
     ) -> None:
@@ -151,6 +181,10 @@ class FunctionDiscoverer:
                     qualified_name = child.name
 
                 self.all_functions.add((module_str, qualified_name, child.lineno))
+
+                # Check if function is marked as excluded
+                if self._has_code_is_used_decorator(child):
+                    self.excluded_functions.add((module_str, qualified_name))
 
                 # Don't recurse into nested functions to keep it function-level
                 # (user wants function-level, not nested functions)
@@ -410,7 +444,10 @@ Another Journal,9876-5432,Another Publisher
 
 
 def _should_ignore(module: str, qualified_name: str) -> bool:
-    """Filter known false positives.
+    """Filter universal patterns that should always be ignored.
+
+    Only filters test files and module-level code. Everything else
+    must be explicitly marked with @code_is_used decorator.
 
     Args:
         module: Module name
@@ -419,34 +456,12 @@ def _should_ignore(module: str, qualified_name: str) -> bool:
     Returns:
         True if should be ignored
     """
-    # Ignore magic methods
-    if qualified_name.startswith("__") and qualified_name.endswith("__"):
-        return True
-
     # Ignore test files (shouldn't be in src but just in case)
     if "test" in module.lower():
         return True
 
     # Ignore module-level code
     if qualified_name == "<module>":
-        return True
-
-    # Ignore Pydantic field validators - these are called automatically by Pydantic
-    # during object instantiation/validation, not directly by application code
-    pydantic_validators = {
-        'strip_strings', 'strip_publisher', 'validate_issn_format',
-        'validate_email', 'validate_url', 'validate_doi',
-        'normalize_name', 'validate_confidence', 'strip_whitespace',
-        'validate_year', 'validate_pages', 'validate_volume',
-        # Helper validator functions called by Pydantic field validators
-        'strip_whitespace_validator', 'strip_publisher_validator',
-        'validate_issn_format_validator', 'validate_email_validator',
-        'validate_url_validator', 'validate_doi_validator'
-    }
-
-    # Check if this is a known Pydantic validator method
-    method_name = qualified_name.split('.')[-1] if '.' in qualified_name else qualified_name
-    if method_name in pydantic_validators:
         return True
 
     return False
@@ -495,7 +510,10 @@ def main() -> None:
     dead_functions = []
     for module, qualified_name, line in discoverer.all_functions:
         if (module, qualified_name) not in called_lookup:
-            # Filter out common false positives
+            # Skip if explicitly marked with @code_is_used decorator
+            if (module, qualified_name) in discoverer.excluded_functions:
+                continue
+            # Filter out universal patterns (test files, module-level)
             if not _should_ignore(module, qualified_name):
                 dead_functions.append((module, qualified_name, line))
 
@@ -527,6 +545,7 @@ def main() -> None:
     print("Summary:")
     print(f"  Total functions discovered: {len(discoverer.all_functions)}")
     print(f"  Functions called: {len(tracer.called_functions)}")
+    print(f"  Excluded by @code_is_used: {len(discoverer.excluded_functions)}")
     print(f"  Dead code candidates: {len(dead_functions)}")
     coverage = len(tracer.called_functions) / len(discoverer.all_functions) * 100
     print(f"  Coverage: {coverage:.1f}%")
