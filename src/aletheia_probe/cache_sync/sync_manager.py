@@ -92,31 +92,14 @@ class CacheSyncManager:
             enabled_backend_names = self.config_manager.get_enabled_backends()
 
             # Apply backend filter if provided
-            if backend_filter:
-                backends_to_sync = [
-                    name for name in all_backend_names if name in backend_filter
-                ]
-                if not backends_to_sync:
-                    self.detail_logger.warning(
-                        f"No matching backends found for filter: {backend_filter}"
-                    )
-                    self.status_logger.warning(
-                        f"No matching backends found for filter: {backend_filter}"
-                    )
-                    return {
-                        "status": UpdateStatus.ERROR.value,
-                        "error": "No matching backends found",
-                    }
-                self.detail_logger.info(f"Syncing only: {', '.join(backends_to_sync)}")
-                if show_progress:
-                    self.status_logger.info(
-                        f"Syncing backends: {', '.join(backends_to_sync)}"
-                    )
-            else:
-                backends_to_sync = all_backend_names
-                self.detail_logger.debug(
-                    f"Syncing all backends: {', '.join(backends_to_sync)}"
-                )
+            backends_to_sync = self._filter_backends_to_sync(
+                all_backend_names, backend_filter, show_progress
+            )
+            if not backends_to_sync:
+                return {
+                    "status": UpdateStatus.ERROR.value,
+                    "error": "No matching backends found",
+                }
 
             # Filter to only backends that actually need processing:
             # - CachedBackend or HybridBackend types (need data syncing)
@@ -255,6 +238,47 @@ class CacheSyncManager:
             # Stop the database writer
             await self.db_writer.stop_writer()
             self.sync_in_progress = False
+
+    def _filter_backends_to_sync(
+        self,
+        all_backend_names: list[str],
+        backend_filter: list[str] | None,
+        show_progress: bool,
+    ) -> list[str]:
+        """Filter backends based on optional backend_filter parameter.
+
+        Args:
+            all_backend_names: List of all registered backend names
+            backend_filter: Optional list of backend names to sync. If None, syncs all backends.
+            show_progress: Show progress output to console
+
+        Returns:
+            List of backend names to sync. Empty list if filter provided but no matches found.
+        """
+        if backend_filter:
+            backends_to_sync = [
+                name for name in all_backend_names if name in backend_filter
+            ]
+            if not backends_to_sync:
+                self.detail_logger.warning(
+                    f"No matching backends found for filter: {backend_filter}"
+                )
+                self.status_logger.warning(
+                    f"No matching backends found for filter: {backend_filter}"
+                )
+            else:
+                self.detail_logger.info(f"Syncing only: {', '.join(backends_to_sync)}")
+                if show_progress:
+                    self.status_logger.info(
+                        f"Syncing backends: {', '.join(backends_to_sync)}"
+                    )
+        else:
+            backends_to_sync = all_backend_names
+            self.detail_logger.debug(
+                f"Syncing all backends: {', '.join(backends_to_sync)}"
+            )
+
+        return backends_to_sync
 
     def _log_backend_result(
         self, backend_name: str, result_value: str | dict[str, Any], show_progress: bool
