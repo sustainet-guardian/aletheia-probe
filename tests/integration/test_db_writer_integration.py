@@ -11,6 +11,7 @@ schema to catch logic errors that mocked tests might miss.
 import asyncio
 import sqlite3
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -25,7 +26,7 @@ class TestAsyncDBWriterIntegration:
     """Integration tests for AsyncDBWriter with real database."""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self) -> Generator[Path, None, None]:
         """Create a temporary database file with initialized schema."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = Path(tmp.name)
@@ -34,13 +35,15 @@ class TestAsyncDBWriterIntegration:
         db_path.unlink()
 
     @pytest.fixture
-    def db_writer(self):
+    def db_writer(self) -> AsyncDBWriter:
         """Create AsyncDBWriter instance for testing."""
         return AsyncDBWriter()
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_single_sync_operation_data_persistence(self, temp_db, db_writer):
+    async def test_single_sync_operation_data_persistence(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test data persistence with real database for single sync operation."""
         test_journals = [
             {
@@ -100,7 +103,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_foreign_key_constraints(self, temp_db, db_writer):
+    async def test_foreign_key_constraints(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test that foreign key constraints are properly enforced."""
         test_journals = [
             {
@@ -170,7 +175,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_multiple_sync_operations_data_integrity(self, temp_db, db_writer):
+    async def test_multiple_sync_operations_data_integrity(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test data integrity across multiple sync operations."""
         # First sync operation
         first_batch = [
@@ -250,7 +257,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_url_deduplication_and_persistence(self, temp_db, db_writer):
+    async def test_url_deduplication_and_persistence(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test that URLs are properly deduplicated and persisted."""
         test_journals = [
             {
@@ -287,7 +296,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_unique_constraint_enforcement(self, temp_db, db_writer):
+    async def test_unique_constraint_enforcement(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test that unique constraints are properly enforced."""
         test_journals = [
             {
@@ -324,7 +335,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_transaction_rollback_on_error(self, temp_db, db_writer):
+    async def test_transaction_rollback_on_error(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test that database transaction is rolled back on error."""
         # Create invalid journal data that will cause an error
         test_journals = [
@@ -375,7 +388,9 @@ class TestAsyncDBWriterIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_async_queue_with_real_database(self, temp_db, db_writer):
+    async def test_async_queue_with_real_database(
+        self, temp_db: Path, db_writer: AsyncDBWriter
+    ) -> None:
         """Test async queue operations with real database writes."""
         test_journals = [
             {
