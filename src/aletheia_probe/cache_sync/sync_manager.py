@@ -73,13 +73,9 @@ class CacheSyncManager:
         config = config_manager.load_config()
         cache_config = getattr(config, "cache", None)
 
-        auto_sync = (
-            getattr(cache_config, "auto_sync", True) if cache_config else True
-        )
+        auto_sync = getattr(cache_config, "auto_sync", True) if cache_config else True
         cleanup_disabled = (
-            getattr(cache_config, "cleanup_disabled", True)
-            if cache_config
-            else True
+            getattr(cache_config, "cleanup_disabled", True) if cache_config else True
         )
         threshold_days = (
             getattr(cache_config, "update_threshold_days", 7) if cache_config else 7
@@ -128,7 +124,9 @@ class CacheSyncManager:
                 has_sync_capability = isinstance(backend, DataSyncCapable)
                 is_disabled = backend_name not in enabled_backend_names
 
-                if has_sync_capability or (is_disabled and cache_config.cleanup_disabled):
+                if has_sync_capability or (
+                    is_disabled and cache_config.cleanup_disabled
+                ):
                     backends_needing_sync.append(backend_name)
                 else:
                     # Skip backends without sync capability that don't need cleanup
@@ -212,8 +210,8 @@ class CacheSyncManager:
                 }
 
             # Get backends that need synchronization
-            backends_needing_sync, enabled_backend_names, sync_results = self._get_backends_for_sync(
-                backend_filter, cache_config, show_progress
+            backends_needing_sync, enabled_backend_names, sync_results = (
+                self._get_backends_for_sync(backend_filter, cache_config, show_progress)
             )
             if not backends_needing_sync:
                 if not sync_results:
