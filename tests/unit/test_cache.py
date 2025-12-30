@@ -39,6 +39,7 @@ from aletheia_probe.models import (
     BackendStatus,
     QueryInput,
 )
+from tests.conftest import add_test_journal_entry
 
 
 @pytest.fixture
@@ -91,14 +92,14 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
         entry2 = JournalEntryData(
             source_name="source_to_keep",
             assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.journal_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Clear one source
         cleared_count = temp_cache.data_source_manager.remove_source_data(
@@ -131,7 +132,7 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Test Journal",
             normalized_name="test journal",
         )
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Should now have data
         assert temp_cache.data_source_manager.has_source_data("test_source")
@@ -150,21 +151,21 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
         entry2 = JournalEntryData(
             source_name="test_source",
             assessment=AssessmentType.PREDATORY,
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.journal_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
         entry3 = JournalEntryData(
             source_name="test_source",
             assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal C",
             normalized_name="journal c",
         )
-        temp_cache.journal_cache.add_journal_entry(entry3)
+        add_test_journal_entry(temp_cache.db_path, entry3)
 
         stats = temp_cache.data_source_manager.get_source_statistics()
 
@@ -189,14 +190,14 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Journal A",
             normalized_name="journal a",
         )
-        temp_cache.journal_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
         entry2 = JournalEntryData(
             source_name="source_to_remove",
             assessment=AssessmentType.LEGITIMATE,
             journal_name="Journal B",
             normalized_name="journal b",
         )
-        temp_cache.journal_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Remove source data
         removed_count = temp_cache.data_source_manager.remove_source_data(
@@ -235,7 +236,7 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # This should exercise JournalEntryData handling
-        temp_cache.journal_cache.add_journal_entry(entry_data)
+        add_test_journal_entry(temp_cache.db_path, entry_data)
 
         # Verify the entry was added correctly
         journals = temp_cache.journal_cache.search_journals(
@@ -262,7 +263,7 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # This exercises enum value handling
-        temp_cache.journal_cache.add_journal_entry(entry_data)
+        add_test_journal_entry(temp_cache.db_path, entry_data)
 
         journals = temp_cache.journal_cache.search_journals(
             normalized_name="legitimate_journal"
@@ -287,7 +288,7 @@ class TestCacheIntegrationJournalDataSource:
             normalized_name="test_journal_1",
             issn="1234-5678",
         )
-        temp_cache.journal_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
 
         entry2 = JournalEntryData(
             source_name="source2",
@@ -296,7 +297,7 @@ class TestCacheIntegrationJournalDataSource:
             normalized_name="test_journal_2",
             issn="0028-0836",
         )
-        temp_cache.journal_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Test search by ISSN with different patterns
         results = temp_cache.journal_cache.search_journals(issn="1234-5678")
@@ -333,7 +334,7 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Journal Name 1",
             normalized_name="same_normalized_name",
         )
-        temp_cache.journal_cache.add_journal_entry(entry1)
+        add_test_journal_entry(temp_cache.db_path, entry1)
 
         entry2 = JournalEntryData(
             source_name="source2",
@@ -341,7 +342,7 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Journal Name 2",
             normalized_name="same_normalized_name",
         )
-        temp_cache.journal_cache.add_journal_entry(entry2)
+        add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Should handle duplicates gracefully
         results = temp_cache.journal_cache.search_journals(
@@ -368,7 +369,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"key1": "value1", "key2": {"nested": "value"}},
             aliases=["CJ", "Complex J", "The Complex Journal"],
         )
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         results = temp_cache.journal_cache.search_journals(
             normalized_name="complex_journal"
@@ -391,7 +392,7 @@ class TestCacheIntegrationJournalDataSource:
                 journal_name=f"Journal {i}",
                 normalized_name=f"journal_{i}",
             )
-            temp_cache.journal_cache.add_journal_entry(entry)
+            add_test_journal_entry(temp_cache.db_path, entry)
 
         stats = temp_cache.data_source_manager.get_source_statistics()
         assert len(stats) == 5
@@ -415,7 +416,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"count": 42},
         )
 
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Verify metadata was stored
         results = temp_cache.journal_cache.search_journals(
@@ -439,7 +440,7 @@ class TestCacheIntegrationJournalDataSource:
             metadata={"is_active": True},
         )
 
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         results = temp_cache.journal_cache.search_journals(
             normalized_name="test_journal"
@@ -461,7 +462,7 @@ class TestCacheIntegrationJournalDataSource:
             normalized_name="international_journal_testing",
         )
 
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Search with journal_name parameter
         results = temp_cache.journal_cache.search_journals(journal_name="Testing")
@@ -486,7 +487,7 @@ class TestCacheIntegrationJournalDataSource:
         )
 
         # Verify that adding entry with integer metadata doesn't crash
-        temp_cache.journal_cache.add_journal_entry(entry)
+        add_test_journal_entry(temp_cache.db_path, entry)
 
         # Verify journal was stored successfully
         results = temp_cache.journal_cache.search_journals(
@@ -524,7 +525,7 @@ class TestCacheIntegrationJournalDataSource:
                 journal_name=journal,
                 normalized_name=f"special {i}",
             )
-            temp_cache.journal_cache.add_journal_entry(entry)
+            add_test_journal_entry(temp_cache.db_path, entry)
 
         # Verify all can be retrieved
         for i, journal in enumerate(special_journals):
@@ -563,7 +564,7 @@ class TestCacheIntegrationJournalDataSource:
                 journal_name=f"Journal {i:04d}",
                 normalized_name=f"journal {i:04d}",
             )
-            temp_cache.journal_cache.add_journal_entry(entry)
+            add_test_journal_entry(temp_cache.db_path, entry)
 
         # Test searching still works
         results = temp_cache.journal_cache.search_journals(

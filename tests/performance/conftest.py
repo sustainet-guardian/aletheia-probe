@@ -7,6 +7,7 @@ import pytest
 
 from aletheia_probe.data_models import JournalEntryData
 from aletheia_probe.enums import AssessmentType
+from tests.conftest import add_test_journal_entry
 
 
 @pytest.fixture
@@ -102,7 +103,7 @@ def populated_cache(isolated_test_cache):
                 else AssessmentType.UNKNOWN,
                 confidence=0.5 + (i % 50) / 100.0,
             )
-            cache.add_journal_entry(entry)
+            add_test_journal_entry(cache, entry)
 
         return cache
 
