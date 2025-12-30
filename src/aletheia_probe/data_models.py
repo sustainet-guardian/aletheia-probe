@@ -7,19 +7,23 @@ from pydantic import BaseModel, Field, field_validator
 from typing_extensions import NotRequired
 
 from .enums import AssessmentType
+from .utils.dead_code import code_is_used
 from .validation import validate_issn
 
 
+@code_is_used
 def strip_whitespace_validator(v: str) -> str:
     """Strip whitespace from string fields."""
     return v.strip()
 
 
+@code_is_used
 def strip_publisher_validator(v: str | None) -> str | None:
     """Strip whitespace from publisher field."""
     return v.strip() if v else v
 
 
+@code_is_used
 def validate_issn_format_validator(v: str | None) -> str | None:
     """Validate ISSN format."""
     if v and not validate_issn(v):
@@ -67,16 +71,19 @@ class JournalEntryData(BaseModel):
         default_factory=list, description="List of journal name aliases"
     )
 
+    @code_is_used
     @field_validator("source_name", "journal_name", "normalized_name", mode="after")
     @classmethod
     def strip_strings(cls, v: str) -> str:
         return strip_whitespace_validator(v)
 
+    @code_is_used
     @field_validator("publisher", mode="after")
     @classmethod
     def strip_publisher(cls, v: str | None) -> str | None:
         return strip_publisher_validator(v)
 
+    @code_is_used
     @field_validator("issn", "eissn", mode="after")
     @classmethod
     def validate_issn_format(cls, v: str | None) -> str | None:
