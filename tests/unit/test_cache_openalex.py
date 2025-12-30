@@ -288,3 +288,155 @@ class TestOpenAlexCache:
         assert result["publisher"] is None
         assert result["issns"] == []
         assert result["recent_publications_by_year"] == {}
+
+    def test_invalid_timestamp_handling_with_logging(self, temp_cache, caplog):
+        """Test that invalid fetched_at timestamps are handled with proper logging."""
+        import logging
+
+        # Data with invalid timestamp
+        data_with_invalid_timestamp = {
+            "openalex_id": "S123",
+            "display_name": "Test Journal",
+            "total_publications": 100,
+            "recent_publications": 10,
+            "fetched_at": "invalid-timestamp-format",  # Invalid format
+        }
+
+        with caplog.at_level(logging.WARNING):
+            temp_cache.set_openalex_data(
+                issn="1234-5678",
+                journal_name="test_journal",
+                openalex_data=data_with_invalid_timestamp,
+                ttl_hours=720,
+            )
+
+        # Check that data was still stored (fallback worked)
+        result = temp_cache.get_openalex_data(issn="1234-5678")
+        assert result is not None
+        assert result["openalex_id"] == "S123"
+
+        # Check that appropriate warnings were logged
+        warning_messages = [
+            record.message
+            for record in caplog.records
+            if record.levelno >= logging.WARNING
+        ]
+        assert any(
+            "Failed to parse fetched_at timestamp" in msg for msg in warning_messages
+        )
+        assert any(
+            "Invalid timestamp format in OpenAlex data" in msg
+            for msg in warning_messages
+        )
+
+    def test_none_timestamp_handling(self, temp_cache, caplog):
+        """Test that TypeError (None timestamp) is handled correctly."""
+        import logging
+
+        # Data with None timestamp (will cause TypeError)
+        data_with_none_timestamp = {
+            "openalex_id": "S124",
+            "display_name": "Test Journal 2",
+            "total_publications": 200,
+            "recent_publications": 20,
+            "fetched_at": None,  # This will cause issues in datetime.fromisoformat
+        }
+
+        # Remove fetched_at to simulate None being passed to datetime.fromisoformat
+        # Actually, let's modify the data to have an integer which would cause TypeError
+        data_with_none_timestamp["fetched_at"] = 12345  # Integer instead of string
+
+        with caplog.at_level(logging.WARNING):
+            temp_cache.set_openalex_data(
+                issn="1234-5679",
+                journal_name="test_journal_2",
+                openalex_data=data_with_none_timestamp,
+                ttl_hours=720,
+            )
+
+        # Check that data was still stored (fallback worked)
+        result = temp_cache.get_openalex_data(issn="1234-5679")
+        assert result is not None
+        assert result["openalex_id"] == "S124"
+
+        # Check that TypeError was caught and logged
+        warning_messages = [
+            record.message
+            for record in caplog.records
+            if record.levelno >= logging.WARNING
+        ]
+        assert any(
+            "Failed to parse fetched_at timestamp" in msg and "TypeError" in msg
+            for msg in warning_messages
+        )
+
+    def test_missing_timestamp_handling(self, temp_cache, caplog):
+        """Test that missing fetched_at timestamp is handled with debug logging."""
+        import logging
+
+        # Data without fetched_at field
+        data_without_timestamp = {
+            "openalex_id": "S125",
+            "display_name": "Test Journal 3",
+            "total_publications": 300,
+            "recent_publications": 30,
+            # No fetched_at field
+        }
+
+        with caplog.at_level(logging.DEBUG):
+            temp_cache.set_openalex_data(
+                issn="1234-5680",
+                journal_name="test_journal_3",
+                openalex_data=data_without_timestamp,
+                ttl_hours=720,
+            )
+
+        # Check that data was stored
+        result = temp_cache.get_openalex_data(issn="1234-5680")
+        assert result is not None
+        assert result["openalex_id"] == "S125"
+
+        # Check debug message for missing timestamp
+        debug_messages = [
+            record.message
+            for record in caplog.records
+            if record.levelno == logging.DEBUG
+        ]
+        assert any("No fetched_at timestamp provided" in msg for msg in debug_messages)
+
+    def test_valid_timestamp_success_logging(self, temp_cache, caplog):
+        """Test that valid timestamps are logged at debug level."""
+        import logging
+
+        valid_timestamp = datetime.now().isoformat()
+        data_with_valid_timestamp = {
+            "openalex_id": "S126",
+            "display_name": "Test Journal 4",
+            "total_publications": 400,
+            "recent_publications": 40,
+            "fetched_at": valid_timestamp,
+        }
+
+        with caplog.at_level(logging.DEBUG):
+            temp_cache.set_openalex_data(
+                issn="1234-5681",
+                journal_name="test_journal_4",
+                openalex_data=data_with_valid_timestamp,
+                ttl_hours=720,
+            )
+
+        # Check that data was stored
+        result = temp_cache.get_openalex_data(issn="1234-5681")
+        assert result is not None
+        assert result["openalex_id"] == "S126"
+
+        # Check debug message for successful parsing
+        debug_messages = [
+            record.message
+            for record in caplog.records
+            if record.levelno == logging.DEBUG
+        ]
+        assert any(
+            f"Successfully parsed fetched_at timestamp: {valid_timestamp}" in msg
+            for msg in debug_messages
+        )
