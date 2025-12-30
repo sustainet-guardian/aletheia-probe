@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from aletheia_probe.backends.protocols import DataSyncCapable
 from aletheia_probe.backends.retraction_watch import RetractionWatchBackend
 from aletheia_probe.models import (
     AssessmentResult,
@@ -15,7 +16,7 @@ from aletheia_probe.models import (
 
 
 class TestRetractionWatchBackend:
-    """Test cases for RetractionWatchBackend with HybridBackend pattern."""
+    """Test cases for RetractionWatchBackend with ApiBackendWithCache pattern."""
 
     @pytest.fixture
     def backend(self):
@@ -92,7 +93,7 @@ class TestRetractionWatchBackend:
                     data={"total_retractions": 5, "from_cache": True},
                     sources=["retraction_watch"],
                     response_time=0.01,
-                    cached=False,  # Will be set to True by HybridBackend
+                    cached=False,  # Will be set to True by ApiBackendWithCache
                 )
             ],
             metadata=None,
@@ -279,14 +280,14 @@ class TestRetractionWatchBackend:
             # Verify OpenAlex cache was checked
             mock_openalex_cache_get.assert_called_once()
 
-    def test_backend_inherits_from_hybrid_backend(self, backend):
-        """Test that RetractionWatchBackend inherits from HybridBackend."""
-        from aletheia_probe.backends.base import HybridBackend
+    def test_backend_inherits_from_api_backend_with_cache(self, backend):
+        """Test that RetractionWatchBackend inherits from ApiBackendWithCache."""
+        from aletheia_probe.backends.base import ApiBackendWithCache
 
-        assert isinstance(backend, HybridBackend)
+        assert isinstance(backend, ApiBackendWithCache)
 
     def test_backend_has_query_api_method(self, backend):
-        """Test that backend has _query_api method (required by HybridBackend)."""
+        """Test that backend has _query_api method (required by ApiBackendWithCache)."""
         assert hasattr(backend, "_query_api")
         assert callable(getattr(backend, "_query_api"))
 
@@ -316,3 +317,110 @@ class TestRetractionWatchBackend:
             assert result.status == BackendStatus.NOT_FOUND
             # Still cached because NOT_FOUND should be cached
             mock_cache_result.assert_called_once()
+
+
+class TestRetractionWatchBackendDataSyncCapable:
+    """Test cases for RetractionWatchBackend DataSyncCapable protocol implementation."""
+
+    @pytest.fixture
+    def backend(self):
+        """Create a RetractionWatchBackend instance."""
+        return RetractionWatchBackend(cache_ttl_hours=24)
+
+    def test_implements_data_sync_capable_protocol(self, backend):
+        """Test that RetractionWatchBackend implements DataSyncCapable protocol."""
+        assert isinstance(backend, DataSyncCapable)
+
+    def test_source_name_property(self, backend):
+        """Test that source_name property returns correct value."""
+        assert backend.source_name == "retraction_watch"
+
+    def test_get_data_source_returns_retraction_watch_source(self, backend):
+        """Test that get_data_source returns RetractionWatchSource instance."""
+        data_source = backend.get_data_source()
+
+        assert data_source is not None
+        assert data_source.__class__.__name__ == "RetractionWatchSource"
+        assert data_source.get_name() == "retraction_watch"
+
+    def test_get_data_source_caches_instance(self, backend):
+        """Test that get_data_source caches and reuses the same instance."""
+        data_source1 = backend.get_data_source()
+        data_source2 = backend.get_data_source()
+
+        # Should return the same cached instance
+        assert data_source1 is data_source2
+
+    @patch("aletheia_probe.backends.retraction_watch.RetractionCache")
+    def test_needs_sync_returns_true_when_no_data(
+        self, mock_retraction_cache_class, backend
+    ):
+        """Test that needs_sync returns True when retraction statistics are empty."""
+        # Mock empty retraction statistics
+        mock_cache_instance = Mock()
+        mock_cache_instance.get_retraction_statistics.return_value = None
+        mock_retraction_cache_class.return_value = mock_cache_instance
+
+        assert backend.needs_sync() is True
+        mock_cache_instance.get_retraction_statistics.assert_called_once_with(1)
+
+    @patch("aletheia_probe.backends.retraction_watch.RetractionCache")
+    def test_needs_sync_returns_false_when_data_exists(
+        self, mock_retraction_cache_class, backend
+    ):
+        """Test that needs_sync returns False when retraction statistics exist."""
+        # Mock existing retraction statistics
+        mock_cache_instance = Mock()
+        mock_cache_instance.get_retraction_statistics.return_value = {
+            "journal_id": 1,
+            "total_retractions": 5,
+        }
+        mock_retraction_cache_class.return_value = mock_cache_instance
+
+        assert backend.needs_sync() is False
+        mock_cache_instance.get_retraction_statistics.assert_called_once_with(1)
+
+    @patch("aletheia_probe.backends.retraction_watch.RetractionCache")
+    def test_needs_sync_returns_true_on_exception(
+        self, mock_retraction_cache_class, backend
+    ):
+        """Test that needs_sync returns True when exception occurs checking data."""
+        # Mock exception when accessing cache
+        mock_cache_instance = Mock()
+        mock_cache_instance.get_retraction_statistics.side_effect = Exception(
+            "Database error"
+        )
+        mock_retraction_cache_class.return_value = mock_cache_instance
+
+        # Should return True (assume sync needed) when error occurs
+        assert backend.needs_sync() is True
+
+    def test_protocol_methods_are_callable(self, backend):
+        """Test that all DataSyncCapable protocol methods are implemented and callable."""
+        # Verify source_name is a property
+        assert hasattr(type(backend), "source_name")
+        assert isinstance(getattr(type(backend), "source_name"), property)
+
+        # Verify methods are callable
+        assert hasattr(backend, "get_data_source")
+        assert callable(getattr(backend, "get_data_source"))
+
+        assert hasattr(backend, "needs_sync")
+        assert callable(getattr(backend, "needs_sync"))
+
+    def test_backend_maintains_api_cached_behavior_with_protocol(self, backend):
+        """Test that adding protocol doesn't break existing ApiBackendWithCache functionality."""
+        from aletheia_probe.backends.base import ApiBackendWithCache
+
+        # Should still be an ApiBackendWithCache
+        assert isinstance(backend, ApiBackendWithCache)
+
+        # Should still have ApiBackendWithCache methods
+        assert hasattr(backend, "_query_api")
+        assert hasattr(backend, "_generate_cache_key")
+        assert hasattr(backend, "query")
+
+        # Should still have cache instances
+        assert hasattr(backend, "journal_cache")
+        assert hasattr(backend, "assessment_cache")
+        assert hasattr(backend, "openalex_cache")

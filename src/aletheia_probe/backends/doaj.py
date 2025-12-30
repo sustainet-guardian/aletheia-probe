@@ -12,7 +12,7 @@ from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
-from .base import HybridBackend, get_backend_registry
+from .base import ApiBackendWithCache, get_backend_registry
 
 
 detail_logger = get_detail_logger()
@@ -27,7 +27,7 @@ class RateLimitError(Exception):
         super().__init__(f"DOAJ API rate limit hit. Retry after {retry_after}s")
 
 
-class DOAJBackend(HybridBackend):
+class DOAJBackend(ApiBackendWithCache):
     """Backend that checks DOAJ for legitimate open access journals."""
 
     def __init__(self, cache_ttl_hours: int = 24) -> None:

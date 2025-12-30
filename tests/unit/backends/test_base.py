@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from aletheia_probe.backends.base import (
+    ApiBackendWithCache,
     Backend,
     CachedBackend,
-    HybridBackend,
     get_backend_registry,
 )
 from aletheia_probe.enums import EvidenceType
@@ -236,10 +236,10 @@ class TestCachedBackend:
         assert 0.3 <= confidence < 0.8
 
 
-class TestHybridBackend:
-    """Test cases for HybridBackend."""
+class TestApiBackendWithCache:
+    """Test cases for ApiBackendWithCache."""
 
-    class MockHybridBackend(HybridBackend):
+    class MockApiBackendWithCache(ApiBackendWithCache):
         """Mock hybrid backend for testing."""
 
         def __init__(self):
@@ -266,7 +266,7 @@ class TestHybridBackend:
     @pytest.fixture
     def mock_hybrid_backend(self):
         """Create mock hybrid backend."""
-        return self.MockHybridBackend()
+        return self.MockApiBackendWithCache()
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_cache_hit(
@@ -338,7 +338,7 @@ class TestHybridBackend:
     ):
         """Test hybrid backend when both cache and API miss."""
 
-        class MissHybridBackend(TestHybridBackend.MockHybridBackend):
+        class MissApiBackendWithCache(TestApiBackendWithCache.MockApiBackendWithCache):
             async def _query_api(self, query_input: QueryInput) -> BackendResult:
                 return BackendResult(
                     backend_name="mock_hybrid",
@@ -350,7 +350,7 @@ class TestHybridBackend:
                     response_time=0.1,
                 )
 
-        backend = MissHybridBackend()
+        backend = MissApiBackendWithCache()
 
         with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
             mock_cache = Mock()

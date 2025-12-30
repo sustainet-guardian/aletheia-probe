@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from aletheia_probe.backends.base import CachedBackend, HybridBackend
+from aletheia_probe.backends.base import ApiBackendWithCache, CachedBackend
 from aletheia_probe.cache_sync import CacheSyncManager
 
 
@@ -24,7 +24,7 @@ class MockCachedBackend(CachedBackend):
         return f"Mock cached backend {self._name}"
 
 
-class MockHybridBackend(HybridBackend):
+class MockApiBackendWithCache(ApiBackendWithCache):
     """Mock hybrid backend for testing."""
 
     def __init__(self, name: str):
@@ -356,12 +356,12 @@ class TestCacheSyncManager:
     @pytest.mark.asyncio
     async def test_ensure_backend_data_not_cached_backend(self, sync_manager):
         """Test ensuring data for non-cached backend."""
-        backend = MockHybridBackend("hybrid_backend")
+        backend = MockApiBackendWithCache("api_backend")
 
         result = await sync_manager._ensure_backend_data_available(backend)
 
         assert result["status"] == "skipped"
-        assert result["reason"] == "not_cached_backend"
+        assert result["reason"] == "no_sync_capability"
 
     @pytest.mark.asyncio
     async def test_cleanup_disabled_backend_data(self, sync_manager):
@@ -556,7 +556,7 @@ class TestCacheSyncManager:
     def test_get_sync_status(self, sync_manager):
         """Test getting sync status."""
         cached_backend = MockCachedBackend("cached_backend", "cached_source")
-        hybrid_backend = MockHybridBackend("hybrid_backend")
+        api_backend = MockApiBackendWithCache("api_backend")
 
         with (
             patch(
@@ -576,10 +576,10 @@ class TestCacheSyncManager:
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = [
                 "cached_backend",
-                "hybrid_backend",
+                "api_backend",
             ]
             mock_registry.get_backend.side_effect = lambda name: (
-                cached_backend if name == "cached_backend" else hybrid_backend
+                cached_backend if name == "cached_backend" else api_backend
             )
             mock_get_registry.return_value = mock_registry
             mock_cache_manager = Mock()
@@ -594,17 +594,17 @@ class TestCacheSyncManager:
 
             assert status["sync_in_progress"] is False
             assert "cached_backend" in status["backends"]
-            assert "hybrid_backend" in status["backends"]
+            assert "api_backend" in status["backends"]
 
             cached_status = status["backends"]["cached_backend"]
-            hybrid_status = status["backends"]["hybrid_backend"]
+            api_status = status["backends"]["api_backend"]
 
             assert cached_status["enabled"] is True
             assert cached_status["type"] == "cached"
             assert cached_status["has_data"] is True
 
-            assert hybrid_status["enabled"] is False
-            assert hybrid_status["type"] == "hybrid"
+            assert api_status["enabled"] is False
+            assert api_status["type"] == "api_cached"
 
     def test_get_sync_status_backend_error(self, sync_manager):
         """Test getting sync status with backend error."""
