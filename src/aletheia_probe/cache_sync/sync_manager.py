@@ -18,7 +18,17 @@ from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..updater import data_updater  # Global updater instance from updater package
+from .cache_cleanup_registry import CacheCleanupRegistry
 from .db_writer import AsyncDBWriter
+
+
+class _CacheConfig:
+    """Simple container for cache configuration settings."""
+
+    def __init__(self, auto_sync: bool, cleanup_disabled: bool, threshold_days: int):
+        self.auto_sync = auto_sync
+        self.cleanup_disabled = cleanup_disabled
+        self.threshold_days = threshold_days
 
 
 class CacheSyncManager:
@@ -32,6 +42,127 @@ class CacheSyncManager:
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
         self.db_writer = AsyncDBWriter()
+        self.cleanup_registry = CacheCleanupRegistry()
+        self._register_cache_cleaners()
+
+    def _register_cache_cleaners(self) -> None:
+        """Register all cache cleanup functions with the registry."""
+        # Register TTL-based cache cleaners
+        assessment_cache = AssessmentCache()
+        self.cleanup_registry.register(
+            "assessment", assessment_cache.cleanup_expired_cache
+        )
+
+        retraction_cache = RetractionCache()
+        self.cleanup_registry.register(
+            "retraction", retraction_cache.cleanup_expired_article_retractions
+        )
+
+        openalex_cache = OpenAlexCache()
+        self.cleanup_registry.register(
+            "openalex", openalex_cache.cleanup_expired_entries
+        )
+
+    def _load_cache_config(self) -> _CacheConfig:
+        """Load cache configuration settings.
+
+        Returns:
+            Cache configuration object with auto_sync, cleanup_disabled, and threshold_days
+        """
+        config_manager = get_config_manager()
+        config = config_manager.load_config()
+        cache_config = getattr(config, "cache", None)
+
+        auto_sync = (
+            getattr(cache_config, "auto_sync", True) if cache_config else True
+        )
+        cleanup_disabled = (
+            getattr(cache_config, "cleanup_disabled", True)
+            if cache_config
+            else True
+        )
+        threshold_days = (
+            getattr(cache_config, "update_threshold_days", 7) if cache_config else 7
+        )
+
+        return _CacheConfig(auto_sync, cleanup_disabled, threshold_days)
+
+    def _get_backends_for_sync(
+        self,
+        backend_filter: list[str] | None,
+        cache_config: _CacheConfig,
+        show_progress: bool,
+    ) -> tuple[list[str], list[str], dict[str, str | dict[str, Any]]]:
+        """Get list of backends that need synchronization.
+
+        Args:
+            backend_filter: Optional list of backend names to sync
+            cache_config: Cache configuration settings
+            show_progress: Whether to show progress output
+
+        Returns:
+            Tuple of (backends_needing_sync, enabled_backend_names, sync_results_with_errors)
+        """
+        sync_results: dict[str, str | dict[str, Any]] = {}
+
+        # Get all registered backends and their enabled status
+        backend_registry = get_backend_registry()
+        all_backend_names = backend_registry.get_backend_names()
+        config_manager = get_config_manager()
+        enabled_backend_names = config_manager.get_enabled_backends()
+
+        # Apply backend filter if provided
+        backends_to_sync = self._filter_backends_to_sync(
+            all_backend_names, backend_filter, show_progress
+        )
+        if not backends_to_sync:
+            return ([], enabled_backend_names, sync_results)
+
+        # Filter to only backends that actually need processing:
+        # - Backends with data sync capabilities (DataSyncCapable protocol)
+        # - OR disabled backends that need cleanup
+        backends_needing_sync = []
+        for backend_name in backends_to_sync:
+            try:
+                backend = backend_registry.get_backend(backend_name)
+                has_sync_capability = isinstance(backend, DataSyncCapable)
+                is_disabled = backend_name not in enabled_backend_names
+
+                if has_sync_capability or (is_disabled and cache_config.cleanup_disabled):
+                    backends_needing_sync.append(backend_name)
+                else:
+                    # Skip backends without sync capability that don't need cleanup
+                    sync_results[backend_name] = {
+                        "status": UpdateStatus.SKIPPED.value,
+                        "reason": "no_sync_capability",
+                    }
+            except (
+                KeyError,
+                AttributeError,
+                ValueError,
+                TypeError,
+                ImportError,
+                RuntimeError,
+            ) as e:
+                # If we can't get the backend, mark as error and skip
+                self.detail_logger.exception(
+                    f"Error getting backend {backend_name}: {e}"
+                )
+                sync_results[backend_name] = {
+                    "status": UpdateStatus.ERROR.value,
+                    "error": str(e),
+                    "type": type(e).__name__,
+                }
+                if show_progress:
+                    self.status_logger.error(
+                        f"  {backend_name}: {type(e).__name__} - {e}"
+                    )
+
+        self.detail_logger.debug(
+            f"Backends needing sync: {', '.join(backends_needing_sync)}"
+        )
+
+        return (backends_needing_sync, enabled_backend_names, sync_results)
 
     async def sync_cache_with_config(
         self,
@@ -69,19 +200,9 @@ class CacheSyncManager:
                 )
 
             # Get configuration settings
-            config_manager = get_config_manager()
-            config = config_manager.load_config()
-            cache_config = getattr(config, "cache", None)
-            auto_sync = (
-                getattr(cache_config, "auto_sync", True) if cache_config else True
-            )
-            cleanup_disabled = (
-                getattr(cache_config, "cleanup_disabled", True)
-                if cache_config
-                else True
-            )
+            cache_config = self._load_cache_config()
 
-            if not auto_sync and not force:
+            if not cache_config.auto_sync and not force:
                 self.detail_logger.info("Auto sync disabled in configuration")
                 if show_progress:
                     self.status_logger.info("Auto sync disabled in configuration")
@@ -90,66 +211,19 @@ class CacheSyncManager:
                     "reason": "auto_sync_disabled",
                 }
 
-            sync_results: dict[str, str | dict[str, Any]] = {}
-
-            # Get all registered backends and their enabled status
-            backend_registry = get_backend_registry()
-            all_backend_names = backend_registry.get_backend_names()
-            enabled_backend_names = config_manager.get_enabled_backends()
-
-            # Apply backend filter if provided
-            backends_to_sync = self._filter_backends_to_sync(
-                all_backend_names, backend_filter, show_progress
+            # Get backends that need synchronization
+            backends_needing_sync, enabled_backend_names, sync_results = self._get_backends_for_sync(
+                backend_filter, cache_config, show_progress
             )
-            if not backends_to_sync:
-                return {
-                    "status": UpdateStatus.ERROR.value,
-                    "error": "No matching backends found",
-                }
-
-            # Filter to only backends that actually need processing:
-            # - Backends with data sync capabilities (DataSyncCapable protocol)
-            # - OR disabled backends that need cleanup
-            backends_needing_sync = []
-            for backend_name in backends_to_sync:
-                try:
-                    backend = backend_registry.get_backend(backend_name)
-                    has_sync_capability = isinstance(backend, DataSyncCapable)
-                    is_disabled = backend_name not in enabled_backend_names
-
-                    if has_sync_capability or (is_disabled and cleanup_disabled):
-                        backends_needing_sync.append(backend_name)
-                    else:
-                        # Skip backends without sync capability that don't need cleanup
-                        sync_results[backend_name] = {
-                            "status": UpdateStatus.SKIPPED.value,
-                            "reason": "no_sync_capability",
-                        }
-                except (
-                    KeyError,
-                    AttributeError,
-                    ValueError,
-                    TypeError,
-                    ImportError,
-                    RuntimeError,
-                ) as e:
-                    # If we can't get the backend, mark as error and skip
-                    self.detail_logger.exception(
-                        f"Error getting backend {backend_name}: {e}"
-                    )
-                    sync_results[backend_name] = {
+            if not backends_needing_sync:
+                if not sync_results:
+                    # No backends found at all
+                    return {
                         "status": UpdateStatus.ERROR.value,
-                        "error": str(e),
-                        "type": type(e).__name__,
+                        "error": "No matching backends found",
                     }
-                    if show_progress:
-                        self.status_logger.error(
-                            f"  {backend_name}: {type(e).__name__} - {e}"
-                        )
-
-            self.detail_logger.debug(
-                f"Backends needing sync: {', '.join(backends_needing_sync)}"
-            )
+                # Return early if no backends need sync (all were skipped/errored)
+                return sync_results
 
             # Process all backends with controlled concurrency (5 at a time)
             self.detail_logger.debug(
@@ -167,7 +241,7 @@ class CacheSyncManager:
                 self._process_backend_with_semaphore(
                     backend_name,
                     enabled_backend_names,
-                    cleanup_disabled,
+                    cache_config.cleanup_disabled,
                     force,
                     show_progress,
                     semaphore,
@@ -213,29 +287,10 @@ class CacheSyncManager:
 
             # Clean up expired cache entries from all TTL-based caches
             self.detail_logger.info("Cleaning up expired cache entries...")
-
-            assessment_cache = AssessmentCache()
-            assessment_expired = assessment_cache.cleanup_expired_cache()
-            self.detail_logger.info(
-                f"Cleaned up {assessment_expired} expired assessment cache entries"
-            )
-
-            retraction_cache = RetractionCache()
-            retraction_expired = retraction_cache.cleanup_expired_article_retractions()
-            self.detail_logger.info(
-                f"Cleaned up {retraction_expired} expired retraction cache entries"
-            )
-
-            openalex_cache = OpenAlexCache()
-            openalex_expired = openalex_cache.cleanup_expired_entries()
-            self.detail_logger.info(
-                f"Cleaned up {openalex_expired} expired OpenAlex cache entries"
-            )
-
-            total_expired = assessment_expired + retraction_expired + openalex_expired
+            cleanup_results = self.cleanup_registry.cleanup_all()
             if show_progress:
                 self.status_logger.info(
-                    f"Cache cleanup: {total_expired} total expired entries removed"
+                    f"Cache cleanup: {cleanup_results['total']} total expired entries removed"
                 )
 
             return sync_results
