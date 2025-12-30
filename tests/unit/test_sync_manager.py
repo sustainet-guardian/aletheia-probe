@@ -301,10 +301,10 @@ class TestCacheSyncManager:
             result = await sync_manager._ensure_backend_data_available(backend)
 
             assert result["status"] == "success"
-            # Verify call was made (signature now includes AsyncDBWriter as 3rd param)
+            # Verify call was made with correct parameters
             mock_fetch.assert_called_once()
             assert mock_fetch.call_args[0][0] == "test_source"
-            assert not mock_fetch.call_args[0][1]
+            assert mock_fetch.call_args[0][1] is sync_manager.db_writer
 
     @pytest.mark.asyncio
     async def test_ensure_backend_data_available_stale_data(self, sync_manager):
@@ -328,10 +328,10 @@ class TestCacheSyncManager:
             result = await sync_manager._ensure_backend_data_available(backend)
 
             assert result["status"] == "success"
-            # Verify call was made (signature now includes AsyncDBWriter as 3rd param)
+            # Verify call was made with correct parameters
             mock_fetch.assert_called_once()
             assert mock_fetch.call_args[0][0] == "test_source"
-            assert not mock_fetch.call_args[0][1]
+            assert mock_fetch.call_args[0][1] is sync_manager.db_writer
 
     @pytest.mark.asyncio
     async def test_ensure_backend_data_available_fresh_data(self, sync_manager):
@@ -443,7 +443,9 @@ class TestCacheSyncManager:
                 return_value={"status": "success", "records_updated": 100}
             )
 
-            result = await sync_manager._fetch_backend_data("test_source")
+            result = await sync_manager._fetch_backend_data(
+                "test_source", sync_manager.db_writer
+            )
 
             assert result["status"] == "success"
             assert result["records_updated"] == 100
@@ -456,7 +458,9 @@ class TestCacheSyncManager:
         ) as mock_updater:
             mock_updater.sources = []
 
-            result = await sync_manager._fetch_backend_data("unknown_source")
+            result = await sync_manager._fetch_backend_data(
+                "unknown_source", sync_manager.db_writer
+            )
 
             assert result["status"] == "error"
             assert "No data source configured" in result["error"]
@@ -475,7 +479,9 @@ class TestCacheSyncManager:
                 side_effect=ValueError("Update failed")
             )
 
-            result = await sync_manager._fetch_backend_data("test_source")
+            result = await sync_manager._fetch_backend_data(
+                "test_source", sync_manager.db_writer
+            )
 
             assert result["status"] == "error"
             assert "Update failed" in result["error"]

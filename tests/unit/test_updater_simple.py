@@ -89,19 +89,24 @@ class TestDataUpdater:
         updater = DataUpdater()
         source = MockDataSource("test_source")
 
+        # Create mock AsyncDBWriter
+        mock_db_writer = AsyncMock()
+        mock_db_writer.queue_write = AsyncMock()
+
         with patch(
             "aletheia_probe.updater.core.DataSourceManager"
         ) as mock_get_cache_manager:
             mock_cache = Mock()
             mock_cache.clear_source_data.return_value = 0
             mock_cache.log_update = Mock()
-            mock_cache.add_journal_entry = Mock()
             mock_get_cache_manager.return_value = mock_cache
 
-            result = await updater.update_source(source)
+            result = await updater.update_source(source, mock_db_writer)
 
             assert result["status"] == "success"
             assert result["records_updated"] == 2  # Mock returns 2 records
+            # Verify queue_write was called
+            mock_db_writer.queue_write.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_source_error(self):
@@ -114,6 +119,10 @@ class TestDataUpdater:
         updater = DataUpdater()
         source = ErrorDataSource("error_source")
 
+        # Create mock AsyncDBWriter
+        mock_db_writer = AsyncMock()
+        mock_db_writer.queue_write = AsyncMock()
+
         with patch(
             "aletheia_probe.updater.core.DataSourceManager"
         ) as mock_get_cache_manager:
@@ -121,7 +130,7 @@ class TestDataUpdater:
             mock_cache.log_update = Mock()
             mock_get_cache_manager.return_value = mock_cache
 
-            result = await updater.update_source(source)
+            result = await updater.update_source(source, mock_db_writer)
 
             assert result["status"] == "failed"
             assert "Fetch failed" in result["error"]

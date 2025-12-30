@@ -459,12 +459,12 @@ class CacheSyncManager:
             self.detail_logger.info(
                 f"No data found for enabled backend {backend_name}, fetching..."
             )
-            return await self._fetch_backend_data(source_name, force, self.db_writer)
+            return await self._fetch_backend_data(source_name, self.db_writer, force)
 
         # Check if data is stale
         if self._should_update_source(source_name) or force:
             self.detail_logger.info(f"Data for {backend_name} is stale, updating...")
-            return await self._fetch_backend_data(source_name, force, self.db_writer)
+            return await self._fetch_backend_data(source_name, self.db_writer, force)
 
         self.detail_logger.debug(f"Data for {backend_name} is fresh, no update needed")
         return {"status": UpdateStatus.CURRENT.value, "reason": "data_fresh"}
@@ -531,8 +531,8 @@ class CacheSyncManager:
     async def _fetch_backend_data(
         self,
         source_name: str,
+        db_writer: AsyncDBWriter,
         force: bool = False,
-        db_writer: AsyncDBWriter | None = None,
     ) -> dict[str, str | int]:
         """Fetch data for a specific source.
 
@@ -551,7 +551,7 @@ class CacheSyncManager:
                         f"Fetching data for source {source_name} (force={force})"
                     )
                     result = await data_updater.update_source(
-                        source, force=force, db_writer=db_writer
+                        source, db_writer=db_writer, force=force
                     )
                     self.detail_logger.info(
                         f"Successfully fetched data for {source_name}: {result}"
