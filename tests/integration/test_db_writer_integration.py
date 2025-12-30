@@ -40,10 +40,21 @@ class TestAsyncDBWriterIntegration:
         """Create AsyncDBWriter instance for testing."""
         return AsyncDBWriter()
 
+    @pytest.fixture
+    def mock_data_source_manager(self, temp_db: Path):
+        """Mock DataSourceManager to use temporary test database."""
+        with patch(
+            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
+        ) as mock_dsm_class:
+            mock_dsm = DataSourceManager()
+            mock_dsm.db_path = temp_db
+            mock_dsm_class.return_value = mock_dsm
+            yield mock_dsm
+
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_single_sync_operation_data_persistence(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test data persistence with real database for single sync operation."""
         test_journals = [
@@ -62,22 +73,14 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        # Patch DataSourceManager to use our test database
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
+        # Perform the write operation
+        result = db_writer._batch_write_journals(
+            "test_source", AssessmentType.PREDATORY, test_journals
+        )
 
-            # Perform the write operation
-            result = db_writer._batch_write_journals(
-                "test_source", AssessmentType.PREDATORY, test_journals
-            )
-
-            assert result["total_records"] == 2
-            assert result["unique_journals"] == 2
-            assert result["duplicates"] == 0
+        assert result["total_records"] == 2
+        assert result["unique_journals"] == 2
+        assert result["duplicates"] == 0
 
         # Verify data persistence using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -105,7 +108,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_foreign_key_constraints(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test that foreign key constraints are properly enforced."""
         test_journals = [
@@ -116,17 +119,10 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
-
-            # Perform the write operation
-            db_writer._batch_write_journals(
-                "test_source", AssessmentType.PREDATORY, test_journals
-            )
+        # Perform the write operation
+        db_writer._batch_write_journals(
+            "test_source", AssessmentType.PREDATORY, test_journals
+        )
 
         # Verify foreign key relationships
         with sqlite3.connect(temp_db) as conn:
@@ -179,7 +175,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_multiple_sync_operations_data_integrity(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test data integrity across multiple sync operations."""
         # First sync operation
@@ -196,37 +192,30 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
+        result1 = db_writer._batch_write_journals(
+            "source_one", AssessmentType.PREDATORY, first_batch
+        )
+        assert result1["unique_journals"] == 2
 
-            result1 = db_writer._batch_write_journals(
-                "source_one", AssessmentType.PREDATORY, first_batch
-            )
-            assert result1["unique_journals"] == 2
+        # Second sync operation with overlapping data (upsert test)
+        second_batch = [
+            {
+                "journal_name": "Journal One Updated",  # Updated display name
+                "normalized_name": "journal_one",  # Same normalized name
+                "issn": "1111-1111",
+                "publisher": "New Publisher",  # Added publisher
+            },
+            {
+                "journal_name": "Journal Three",
+                "normalized_name": "journal_three",
+                "issn": "3333-3333",
+            },
+        ]
 
-            # Second sync operation with overlapping data (upsert test)
-            second_batch = [
-                {
-                    "journal_name": "Journal One Updated",  # Updated display name
-                    "normalized_name": "journal_one",  # Same normalized name
-                    "issn": "1111-1111",
-                    "publisher": "New Publisher",  # Added publisher
-                },
-                {
-                    "journal_name": "Journal Three",
-                    "normalized_name": "journal_three",
-                    "issn": "3333-3333",
-                },
-            ]
-
-            result2 = db_writer._batch_write_journals(
-                "source_two", AssessmentType.LEGITIMATE, second_batch
-            )
-            assert result2["unique_journals"] == 2
+        result2 = db_writer._batch_write_journals(
+            "source_two", AssessmentType.LEGITIMATE, second_batch
+        )
+        assert result2["unique_journals"] == 2
 
         # Verify data integrity after multiple syncs using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -261,7 +250,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_url_deduplication_and_persistence(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test that URLs are properly deduplicated and persisted."""
         test_journals = [
@@ -276,16 +265,9 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
-
-            db_writer._batch_write_journals(
-                "test_source", AssessmentType.PREDATORY, test_journals
-            )
+        db_writer._batch_write_journals(
+            "test_source", AssessmentType.PREDATORY, test_journals
+        )
 
         # Verify URL deduplication using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -302,7 +284,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_unique_constraint_enforcement(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test that unique constraints are properly enforced."""
         test_journals = [
@@ -313,17 +295,10 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
-
-            # First write
-            db_writer._batch_write_journals(
-                "test_source", AssessmentType.PREDATORY, test_journals
-            )
+        # First write
+        db_writer._batch_write_journals(
+            "test_source", AssessmentType.PREDATORY, test_journals
+        )
 
         # Verify only one journal entry exists using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -343,7 +318,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_transaction_rollback_on_error(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test that database transaction is rolled back on error."""
         # Create invalid journal data that will cause an error
@@ -358,33 +333,26 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
+        # Patch _execute_batch_inserts to raise an error mid-transaction
+        original_method = db_writer._execute_batch_inserts
 
-            # Patch _execute_batch_inserts to raise an error mid-transaction
-            original_method = db_writer._execute_batch_inserts
+        def failing_batch_insert(*args, **kwargs):
+            # Insert some data first
+            original_method(*args, **kwargs)
+            # Then raise an error
+            raise sqlite3.Error("Simulated database error")
 
-            def failing_batch_insert(*args, **kwargs):
-                # Insert some data first
-                original_method(*args, **kwargs)
-                # Then raise an error
-                raise sqlite3.Error("Simulated database error")
-
-            with (
-                patch.object(
-                    db_writer,
-                    "_execute_batch_inserts",
-                    side_effect=failing_batch_insert,
-                ),
-                pytest.raises(sqlite3.Error),
-            ):
-                db_writer._batch_write_journals(
-                    "test_source", AssessmentType.PREDATORY, test_journals
-                )
+        with (
+            patch.object(
+                db_writer,
+                "_execute_batch_inserts",
+                side_effect=failing_batch_insert,
+            ),
+            pytest.raises(sqlite3.Error),
+        ):
+            db_writer._batch_write_journals(
+                "test_source", AssessmentType.PREDATORY, test_journals
+            )
 
         # Verify rollback: no journals should be in database
         with sqlite3.connect(temp_db) as conn:
@@ -396,7 +364,7 @@ class TestAsyncDBWriterIntegration:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_async_queue_with_real_database(
-        self, temp_db: Path, db_writer: AsyncDBWriter
+        self, temp_db: Path, db_writer: AsyncDBWriter, mock_data_source_manager
     ) -> None:
         """Test async queue operations with real database writes."""
         test_journals = [
@@ -407,29 +375,20 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        with patch(
-            "aletheia_probe.cache_sync.db_writer.DataSourceManager"
-        ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
-            mock_dsm_class.return_value = mock_dsm
+        # Start the async writer
+        await db_writer.start_writer()
 
-            # Start the async writer
-            await db_writer.start_writer()
+        # Queue multiple write operations
+        await db_writer.queue_write("source_1", AssessmentType.PREDATORY, test_journals)
+        await db_writer.queue_write(
+            "source_2", AssessmentType.LEGITIMATE, test_journals
+        )
 
-            # Queue multiple write operations
-            await db_writer.queue_write(
-                "source_1", AssessmentType.PREDATORY, test_journals
-            )
-            await db_writer.queue_write(
-                "source_2", AssessmentType.LEGITIMATE, test_journals
-            )
+        # Give time for processing
+        await asyncio.sleep(0.2)
 
-            # Give time for processing
-            await asyncio.sleep(0.2)
-
-            # Stop the writer
-            await db_writer.stop_writer()
+        # Stop the writer
+        await db_writer.stop_writer()
 
         # Verify both syncs were processed using cache classes
         journal_cache = JournalCache(db_path=temp_db)
