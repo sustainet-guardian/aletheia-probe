@@ -317,6 +317,17 @@ and to the point.
 In the issues link to the sub-epics if the found issue is related to one
 of the sub-epics.
 
+Use the following labels based on severity:
+- Critical Issues -> priority:high
+- Important Improvements -> priority:medium
+- Suggestions -> priority:low
+
+Always set the "code-review" label.
+
+Depending on the found problem, add one or more of the following labels:
+architecture, async-issue, bug, documentation, enhancement, security,
+standards-violation, technical-debt
+
 ---
 
 ## Important Guidelines
