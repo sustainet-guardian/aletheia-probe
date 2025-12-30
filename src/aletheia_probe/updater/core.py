@@ -8,9 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
-from ..cache import DataSourceManager, JournalCache
+from ..cache import DataSourceManager
 from ..cache_sync.db_writer import AsyncDBWriter
-from ..data_models import JournalDataDict, JournalEntryData
+from ..data_models import JournalDataDict
 from ..enums import AssessmentType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
 
@@ -224,8 +224,8 @@ class DataUpdater:
     async def update_source(
         self,
         source: DataSource,
+        db_writer: AsyncDBWriter,
         force: bool = False,
-        db_writer: AsyncDBWriter | None = None,
     ) -> dict[str, Any]:
         """Update a specific data source."""
         source_name = source.get_name()
@@ -267,49 +267,18 @@ class DataUpdater:
                 )
                 return {"status": "failed", "error": "No data received"}
 
-            # Store in cache - use queue if db_writer provided, else direct writes
-            if db_writer is not None:
-                # Queue the data for asynchronous writing
-                # Cast to JournalDataDict list - data sources return dicts that conform to this structure
-                await db_writer.queue_write(
-                    source_name,
-                    source.get_list_type(),
-                    cast(list[JournalDataDict], journals),
-                )
-                records_updated = len(journals)
-                status_logger.info(
-                    f"    {source_name}: Queued {records_updated} records for writing"
-                )
-                # Note: log_update will be called by the db_writer when actually writing
-            else:
-                # Fallback to direct database writes (legacy behavior)
-                status_logger.info(
-                    f"    {source_name}: Processing {len(journals)} records..."
-                )
-                records_updated = 0
-                journal_cache = JournalCache()
-                for journal in journals:
-                    entry = JournalEntryData(
-                        source_name=source_name,
-                        assessment=source.get_list_type(),
-                        journal_name=journal["journal_name"],
-                        normalized_name=journal.get("normalized_name"),
-                        issn=journal.get("issn"),
-                        eissn=journal.get("eissn"),
-                        publisher=journal.get("publisher"),
-                        metadata=journal.get("metadata", {}),
-                    )
-                    journal_cache.add_journal_entry(entry)
-                    records_updated += 1
-
-                status_logger.info(f"    {source_name}: Writing to database...")
-
-                data_source_manager.log_update(
-                    source_name,
-                    UpdateType.FULL.value,
-                    UpdateStatus.SUCCESS.value,
-                    records_updated=records_updated,
-                )
+            # Queue the data for asynchronous writing
+            # Cast to JournalDataDict list - data sources return dicts that conform to this structure
+            await db_writer.queue_write(
+                source_name,
+                source.get_list_type(),
+                cast(list[JournalDataDict], journals),
+            )
+            records_updated = len(journals)
+            status_logger.info(
+                f"    {source_name}: Queued {records_updated} records for writing"
+            )
+            # Note: log_update will be called by the db_writer when actually writing
 
             detail_logger.info(
                 f"Successfully updated {source_name}: {records_updated} records"
