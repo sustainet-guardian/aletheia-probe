@@ -1,12 +1,15 @@
+# SPDX-License-Identifier: MIT
 """Dead code detection utilities.
 
 This module provides decorators for marking code that should be excluded
 from dead code detection.
 """
 
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
-F = TypeVar("F", bound=Callable)
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def code_is_used(func: F) -> F:
