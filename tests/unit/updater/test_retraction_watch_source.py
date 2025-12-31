@@ -218,16 +218,14 @@ class TestRetractionWatchSource:
             source._calculate_risk_level(20, 10, 1000, 500) == "high"
         )  # 2.0% overall rate
 
-    @pytest.mark.asyncio
-    async def test_batch_cache_article_retractions_empty(self, source):
-        """Test _batch_cache_article_retractions with empty batch."""
+    def test_collect_article_retractions_empty(self, source):
+        """Test _collect_article_retractions with empty batch."""
         # Should handle empty batch gracefully
-        await source._batch_cache_article_retractions([])
+        source._collect_article_retractions([])
         # No assertion needed - just ensure no exception
 
-    @pytest.mark.asyncio
-    async def test_batch_cache_article_retractions_success(self, source):
-        """Test successful _batch_cache_article_retractions."""
+    def test_collect_article_retractions_success(self, source):
+        """Test successful _collect_article_retractions."""
         article_batch = [
             {
                 "doi": "10.1234/test.doi.1",
@@ -245,36 +243,29 @@ class TestRetractionWatchSource:
             },
         ]
 
-        with patch("aletheia_probe.cache.DataSourceManager") as mock_DataSourceManager:
-            mock_cache = Mock()
-            mock_cache.db_path = ":memory:"
-            mock_DataSourceManager.return_value = mock_cache
+        # Clear any existing article retractions
+        source.article_retractions = []
 
-            # Create in-memory database for testing
-            with sqlite3.connect(":memory:") as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE article_retractions (
-                        doi TEXT PRIMARY KEY,
-                        is_retracted BOOLEAN,
-                        retraction_type TEXT,
-                        retraction_date TEXT,
-                        retraction_doi TEXT,
-                        retraction_reason TEXT,
-                        source TEXT,
-                        metadata TEXT,
-                        checked_at TIMESTAMP,
-                        expires_at TEXT
-                    )
-                """)
+        # Collect article retractions
+        source._collect_article_retractions(article_batch)
 
-                with patch("sqlite3.connect", return_value=conn):
-                    await source._batch_cache_article_retractions(article_batch)
+        # Verify records were collected
+        assert len(source.article_retractions) == 2
 
-                # Verify records were inserted
-                cursor.execute("SELECT COUNT(*) FROM article_retractions")
-                count = cursor.fetchone()[0]
-                assert count == 2
+        # Verify first record
+        assert source.article_retractions[0]["doi"] == "10.1234/test.doi.1"
+        assert source.article_retractions[0]["is_retracted"] is True
+        assert source.article_retractions[0]["retraction_type"] == "Plagiarism"
+        assert source.article_retractions[0]["retraction_date"] == "2023-12-25"
+        assert source.article_retractions[0]["retraction_reason"] == "Data fabrication"
+        assert source.article_retractions[0]["source"] == "retraction_watch"
+
+        # Verify second record (with empty fields)
+        assert source.article_retractions[1]["doi"] == "10.1234/test.doi.2"
+        assert source.article_retractions[1]["is_retracted"] is True
+        assert source.article_retractions[1]["retraction_type"] == "Retraction"
+        assert source.article_retractions[1]["retraction_date"] is None
+        assert source.article_retractions[1]["retraction_reason"] is None
 
     @pytest.mark.asyncio
     async def test_parse_and_aggregate_csv_simple(self, source):
@@ -310,16 +301,16 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            with patch.object(
-                source, "_batch_cache_article_retractions", new=AsyncMock()
-            ):
-                result = await source._parse_and_aggregate_csv(csv_path)
+            result = await source._parse_and_aggregate_csv(csv_path)
 
             assert len(result) == 1
             journal = result[0]
             assert journal["journal_name"] == "Test Journal"
             assert journal["publisher"] == "Test Publisher"
             assert journal["metadata"]["total_retractions"] == 1
+            # Verify article retractions were collected
+            assert len(source.article_retractions) == 1
+            assert source.article_retractions[0]["doi"] == "10.1234/test.doi"
 
         finally:
             csv_path.unlink(missing_ok=True)
@@ -337,14 +328,9 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            with (
-                patch.object(
-                    source, "_batch_cache_article_retractions", new=AsyncMock()
-                ),
-                patch(
-                    "aletheia_probe.normalizer.input_normalizer.normalize",
-                    side_effect=Exception("Normalization failed"),
-                ),
+            with patch(
+                "aletheia_probe.normalizer.input_normalizer.normalize",
+                side_effect=Exception("Normalization failed"),
             ):
                 result = await source._parse_and_aggregate_csv(csv_path)
 
@@ -424,10 +410,7 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            with patch.object(
-                source, "_batch_cache_article_retractions", new=AsyncMock()
-            ):
-                result = await source._parse_and_aggregate_csv(csv_path)
+            result = await source._parse_and_aggregate_csv(csv_path)
 
             assert len(result) == 2
 
@@ -472,10 +455,7 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            with patch.object(
-                source, "_batch_cache_article_retractions", new=AsyncMock()
-            ):
-                result = await source._parse_and_aggregate_csv(csv_path)
+            result = await source._parse_and_aggregate_csv(csv_path)
 
             # Should only have the valid journal
             assert len(result) == 1
