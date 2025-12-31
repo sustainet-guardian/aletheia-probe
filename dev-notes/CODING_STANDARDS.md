@@ -390,7 +390,7 @@ Do NOT introduce these code quality issues:
 
 - **Code Duplication** - Extract common code into reusable functions or classes
 - **Magic Numbers/Strings** - Use named constants or enums (see Project-Specific Conventions above)
-- **Long Functions** - Break down functions longer than 50 LOC (lines of code) into smaller, focused functions. LOC counts only executable code and declarations - comments, docstrings, and empty lines do not count.
+- **Long Functions** - Break down functions longer than 50 LOC (lines of code) into smaller, focused functions. LOC counts only executable code and declarations - comments, docstrings, and empty lines do not count. 50 LOC is a rule of thumb. Single functions can exceed this if they have only one dedicated task.
 - **Deep Nesting** - Use guard clauses and early returns to flatten conditionals
 - **Mutable Default Arguments** - Use `None` as default and initialize inside the function
 - **Bare Exceptions** - Catch specific exception types instead of generic `except:`
