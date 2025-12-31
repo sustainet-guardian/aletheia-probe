@@ -46,6 +46,8 @@ class RetractionCache(CacheBase):
             row = cursor.fetchone()
             if row:
                 result = dict(row)
+                # Convert SQLite boolean fields to Python bool types
+                result["is_retracted"] = bool(result["is_retracted"])
                 detail_logger.debug(
                     f"Cache hit for DOI '{normalized_doi}': "
                     f"is_retracted={result['is_retracted']}, source={result['source']}"
