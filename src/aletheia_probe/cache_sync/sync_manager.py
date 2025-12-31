@@ -35,7 +35,7 @@ class CacheSyncManager:
     """Manages automatic synchronization of cache data based on backend configuration."""
 
     # Maximum number of backends to sync concurrently
-    MAX_CONCURRENT_SOURCES = 999
+    MAX_CONCURRENT_SOURCES = 15
 
     def __init__(self) -> None:
         self.sync_in_progress = False
