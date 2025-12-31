@@ -56,10 +56,12 @@ class CustomListSource(DataSource):
             elif self.file_path.suffix.lower() == ".csv":
                 journals = await self._load_csv()
             else:
-                status_logger.error(f"Unsupported file format: {self.file_path}")
+                status_logger.error(
+                    f"    {self.get_name()}: Unsupported file format - {self.file_path.suffix}"
+                )
 
         except Exception as e:
-            status_logger.error(f"Failed to load {self.file_path}: {e}")
+            status_logger.error(f"    {self.get_name()}: Failed to load file - {e}")
 
         return journals
 

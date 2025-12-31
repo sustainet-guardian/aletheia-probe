@@ -95,53 +95,36 @@ class PredatoryJournalsSource(DataSource):
         async with ClientSession(timeout=self.timeout) as session:
             # Fetch journals list
             try:
-                status_logger.info(
-                    "Fetching predatory journals list from predatoryjournals.org"
-                )
                 journals_url = str(self.sources["journals"]["fallback_url"])
                 journals = await self._fetch_google_sheet(
                     session, "journals", journals_url
                 )
                 all_entries.extend(journals)
                 status_logger.info(
-                    f"Successfully fetched {len(journals)} journal entries"
-                )
-                status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(journals)} journal entries"
                 )
             except Exception as e:
-                status_logger.error(f"Failed to fetch journals list: {e}")
                 status_logger.error(
                     f"    {self.get_name()}: Failed to fetch journals - {e}"
                 )
 
             # Fetch publishers list
             try:
-                status_logger.info(
-                    "Fetching predatory publishers list from predatoryjournals.org"
-                )
                 publishers_url = str(self.sources["publishers"]["fallback_url"])
                 publishers = await self._fetch_google_sheet(
                     session, "publishers", publishers_url
                 )
                 all_entries.extend(publishers)
                 status_logger.info(
-                    f"Successfully fetched {len(publishers)} publisher entries"
-                )
-                status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(publishers)} publisher entries"
                 )
             except Exception as e:
-                status_logger.error(f"Failed to fetch publishers list: {e}")
                 status_logger.error(
                     f"    {self.get_name()}: Failed to fetch publishers - {e}"
                 )
 
         # Remove duplicates based on normalized name
         unique_entries = deduplicate_journals(all_entries)
-        status_logger.info(
-            f"Total unique entries after deduplication: {len(unique_entries)}"
-        )
         status_logger.info(
             f"    {self.get_name()}: Processed {len(unique_entries)} unique entries"
         )
@@ -175,26 +158,18 @@ class PredatoryJournalsSource(DataSource):
                         entries = self._parse_csv(csv_content, sheet_type)
                     else:
                         status_logger.warning(
-                            f"HTTP {response.status} when fetching CSV from {csv_url}"
-                        )
-                        status_logger.warning(
                             f"    {self.get_name()}: HTTP {response.status} from CSV URL"
                         )
             else:
-                status_logger.warning(
-                    f"Could not discover Google Sheet URL from {page_url}"
-                )
                 status_logger.warning(
                     f"    {self.get_name()}: Could not discover sheet URL from page"
                 )
 
         except asyncio.TimeoutError:
-            status_logger.error(f"Timeout fetching Google Sheet for {sheet_type}")
             status_logger.error(
                 f"    {self.get_name()}: Timeout fetching {sheet_type} sheet"
             )
         except Exception as e:
-            status_logger.error(f"Error fetching Google Sheet for {sheet_type}: {e}")
             status_logger.error(
                 f"    {self.get_name()}: Error fetching {sheet_type} sheet - {e}"
             )
@@ -229,11 +204,10 @@ class PredatoryJournalsSource(DataSource):
                         sheet_id = matches[0]
                         # Convert to CSV export URL
                         csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-                        status_logger.info(f"Discovered Google Sheet: {csv_url}")
+                        detail_logger.info(f"Discovered Google Sheet: {csv_url}")
                         return csv_url
 
         except Exception as e:
-            status_logger.error(f"Error discovering sheet URL from {page_url}: {e}")
             status_logger.error(
                 f"    {self.get_name()}: Error discovering sheet URL - {e}"
             )
@@ -265,7 +239,6 @@ class PredatoryJournalsSource(DataSource):
                     entries.append(entry)
 
         except Exception as e:
-            status_logger.error(f"Error parsing CSV for {sheet_type}: {e}")
             status_logger.error(
                 f"    {self.get_name()}: Error parsing CSV for {sheet_type} - {e}"
             )
