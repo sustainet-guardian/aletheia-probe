@@ -36,7 +36,7 @@ class TestAsyncDBWriterIntegration:
         db_path.unlink()
 
     @pytest.fixture
-    def db_writer(self) -> AsyncDBWriter:
+    def db_writer(self, mock_data_source_manager) -> AsyncDBWriter:
         """Create AsyncDBWriter instance for testing."""
         return AsyncDBWriter()
 
