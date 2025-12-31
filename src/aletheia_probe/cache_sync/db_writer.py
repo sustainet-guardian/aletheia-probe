@@ -459,6 +459,66 @@ class AsyncDBWriter:
                 assessment_inserts,
             )
 
+    def _insert_article_retractions(
+        self,
+        source_name: str,
+        journals: list[JournalDataDict],
+    ) -> None:
+        """Insert article retractions for RetractionWatch.
+
+        Args:
+            source_name: Name of the data source
+            journals: List of journal data dictionaries
+        """
+        if source_name != "retraction_watch":
+            return
+
+        # Extract article retractions from metadata (stored in first journal)
+        article_retractions = []
+        if journals:
+            metadata: dict[str, Any] = journals[0].get("metadata", {})
+            article_retractions = metadata.get("_article_retractions", [])
+
+        if not article_retractions:
+            return
+
+        retraction_cache = RetractionCache()
+
+        # Batch insert article retractions
+        with sqlite3.connect(retraction_cache.db_path) as conn:
+            cursor = conn.cursor()
+            records = [
+                (
+                    article["doi"],
+                    article["is_retracted"],
+                    article["retraction_type"],
+                    article["retraction_date"],
+                    article["retraction_doi"],
+                    article["retraction_reason"],
+                    article["source"],
+                    article["expires_at"],
+                )
+                for article in article_retractions
+            ]
+
+            cursor.executemany(
+                """
+                INSERT OR REPLACE INTO article_retractions
+                (doi, is_retracted, retraction_type, retraction_date, retraction_doi,
+                 retraction_reason, source, checked_at, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+                """,
+                records,
+            )
+            conn.commit()
+
+        self.detail_logger.debug(
+            f"Inserted {len(article_retractions)} article retraction records"
+        )
+        self.status_logger.info(
+            f"    DBWriter: Inserted {len(article_retractions):,} article retraction records"
+        )
+
     def _insert_retraction_statistics(
         self,
         source_name: str,
@@ -579,6 +639,9 @@ class AsyncDBWriter:
         self._execute_batch_inserts(
             cursor, name_inserts, assessment_inserts, url_inserts
         )
+
+        # Insert article retractions for retraction_watch source (before statistics)
+        self._insert_article_retractions(source_name, journals)
 
         # Insert retraction statistics for retraction_watch source
         self._insert_retraction_statistics(source_name, journals, existing_journals)
