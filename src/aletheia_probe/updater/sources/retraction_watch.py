@@ -3,7 +3,6 @@
 
 import asyncio
 import csv
-import sqlite3
 import subprocess
 import tempfile
 from collections import defaultdict
@@ -11,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from ...cache import DataSourceManager, RetractionCache
+from ...cache import DataSourceManager
 from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
@@ -33,6 +32,7 @@ class RetractionWatchSource(DataSource):
 
         self.repo_url = url_config.retraction_watch_repo_url
         self.csv_filename = url_config.retraction_watch_csv_filename
+        self.article_retractions: list[dict[str, Any]] = []
 
     def get_name(self) -> str:
         return "retraction_watch"
@@ -137,6 +137,9 @@ class RetractionWatchSource(DataSource):
 
     async def _parse_and_aggregate_csv(self, csv_path: Path) -> list[dict[str, Any]]:
         """Parse CSV and aggregate retractions by journal."""
+        # Reset article retractions list for this sync
+        self.article_retractions = []
+
         journal_stats: defaultdict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total_retractions": 0,
@@ -156,7 +159,7 @@ class RetractionWatchSource(DataSource):
         records_processed = 0
         articles_cached = 0
         article_batch = []  # Batch for article retractions
-        batch_size = 1000  # Commit every 1000 articles
+        batch_size = 1000  # Collect every 1000 articles
 
         def _read_csv_sync() -> list[dict[str, Any]]:
             """Read CSV file synchronously."""
@@ -187,7 +190,7 @@ class RetractionWatchSource(DataSource):
                 original_paper_doi = row.get("OriginalPaperDOI", "").strip()
                 retraction_doi = row.get("RetractionDOI", "").strip()
 
-                # Collect article retraction for batch insert
+                # Collect article retraction data
                 if original_paper_doi:
                     article_batch.append(
                         {
@@ -200,9 +203,9 @@ class RetractionWatchSource(DataSource):
                     )
                     articles_cached += 1
 
-                    # Batch insert every batch_size articles
+                    # Collect in batches for memory efficiency
                     if len(article_batch) >= batch_size:
-                        await self._batch_cache_article_retractions(article_batch)
+                        self._collect_article_retractions(article_batch)
                         article_batch = []
 
                 if not journal:
@@ -263,9 +266,9 @@ class RetractionWatchSource(DataSource):
                 if publisher:
                     stats["publishers"].add(publisher)
 
-            # Insert any remaining articles in the batch
+            # Collect any remaining articles in the batch
             if article_batch:
-                await self._batch_cache_article_retractions(article_batch)
+                self._collect_article_retractions(article_batch)
 
             status_logger.info(
                 f"    Completed CSV parsing: {records_processed:,} total records, {articles_cached:,} articles cached by DOI"
@@ -360,11 +363,23 @@ class RetractionWatchSource(DataSource):
             )
 
         status_logger.info(
-            f"    Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs cached"
+            f"    Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs collected"
         )
         detail_logger.info(
             "Retraction data aggregation complete (OpenAlex data will be fetched on-demand)"
         )
+
+        # Store article retractions in metadata for AsyncDBWriter to process
+        # We add this to the first journal's metadata as a special field
+        if final_journals and self.article_retractions:
+            first_journal = final_journals[0]
+            # Ensure metadata exists and is a dict
+            if "metadata" not in first_journal or not isinstance(
+                first_journal["metadata"], dict
+            ):
+                first_journal["metadata"] = {}
+            # Add article retractions to metadata (dict indexing is safe after check above)
+            first_journal["metadata"]["_article_retractions"] = self.article_retractions  # type: ignore[call-overload, assignment, index]
 
         return final_journals
 
@@ -404,25 +419,22 @@ class RetractionWatchSource(DataSource):
             total, recent, total_publications, recent_publications
         )
 
-    async def _batch_cache_article_retractions(
-        self, article_batch: list[dict[str, str]]
-    ) -> None:
+    def _collect_article_retractions(self, article_batch: list[dict[str, str]]) -> None:
         """
-        Cache multiple article retractions in a single transaction (batch insert).
+        Collect article retraction data for later database insertion.
 
-        This is much faster than individual inserts as it commits all records at once.
+        This method prepares article retraction records without writing to the database,
+        allowing AsyncDBWriter to handle all database writes sequentially.
 
         Args:
-            article_batch: List of article retraction records to cache
+            article_batch: List of article retraction records to collect
         """
         if not article_batch:
             return
 
-        retraction_cache = RetractionCache()
         expires_at = datetime.now() + timedelta(hours=24 * 365)  # 1 year
 
         # Prepare batch data
-        records = []
         for article in article_batch:
             doi = article.get("doi", "").strip()
             if not doi:
@@ -438,33 +450,18 @@ class RetractionWatchSource(DataSource):
             reason = article.get("reason", "")
             retraction_doi = article.get("retraction_doi", "")
 
-            records.append(
-                (
-                    doi.lower().strip(),
-                    True,  # is_retracted
-                    retraction_nature or "Retraction",
-                    retraction_date_formatted,
-                    retraction_doi if retraction_doi else None,
-                    reason if reason else None,
-                    "retraction_watch",
-                    expires_at.isoformat(),
-                )
+            self.article_retractions.append(
+                {
+                    "doi": doi.lower().strip(),
+                    "is_retracted": True,
+                    "retraction_type": retraction_nature or "Retraction",
+                    "retraction_date": retraction_date_formatted,
+                    "retraction_doi": retraction_doi if retraction_doi else None,
+                    "retraction_reason": reason if reason else None,
+                    "source": "retraction_watch",
+                    "expires_at": expires_at.isoformat(),
+                }
             )
-
-        # Batch insert
-        if records:
-            with sqlite3.connect(retraction_cache.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.executemany(
-                    """
-                    INSERT OR REPLACE INTO article_retractions
-                    (doi, is_retracted, retraction_type, retraction_date, retraction_doi,
-                     retraction_reason, source, checked_at, expires_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-                    """,
-                    records,
-                )
-                conn.commit()
 
 
 # Register the update source factory
