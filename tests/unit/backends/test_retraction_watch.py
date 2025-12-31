@@ -19,9 +19,13 @@ class TestRetractionWatchBackend:
     """Test cases for RetractionWatchBackend with ApiBackendWithCache pattern."""
 
     @pytest.fixture
-    def backend(self):
-        """Create a RetractionWatchBackend instance."""
-        return RetractionWatchBackend(cache_ttl_hours=24)
+    def backend(self, isolated_test_cache):
+        """Create a RetractionWatchBackend instance with isolated test cache."""
+        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+            mock_config.return_value.load_config.return_value.cache.db_path = str(
+                isolated_test_cache
+            )
+            return RetractionWatchBackend(cache_ttl_hours=24)
 
     @pytest.fixture
     def sample_query_input(self):
@@ -323,9 +327,13 @@ class TestRetractionWatchBackendDataSyncCapable:
     """Test cases for RetractionWatchBackend DataSyncCapable protocol implementation."""
 
     @pytest.fixture
-    def backend(self):
-        """Create a RetractionWatchBackend instance."""
-        return RetractionWatchBackend(cache_ttl_hours=24)
+    def backend(self, isolated_test_cache):
+        """Create a RetractionWatchBackend instance with isolated test cache."""
+        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+            mock_config.return_value.load_config.return_value.cache.db_path = str(
+                isolated_test_cache
+            )
+            return RetractionWatchBackend(cache_ttl_hours=24)
 
     def test_implements_data_sync_capable_protocol(self, backend):
         """Test that RetractionWatchBackend implements DataSyncCapable protocol."""
