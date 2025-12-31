@@ -179,10 +179,10 @@ class TestCacheRetraction:
             initial_created_at = row[0]
             initial_updated_at = row[1]
 
-        # Wait a small amount to ensure timestamp difference
+        # Wait at least 1 second to ensure timestamp difference (SQLite CURRENT_TIMESTAMP has second precision)
         import time
 
-        time.sleep(0.01)
+        time.sleep(1.1)
 
         # Update the same record
         temp_cache.upsert_retraction_statistics(
