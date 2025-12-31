@@ -13,7 +13,7 @@ import sqlite3
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -46,8 +46,8 @@ class TestAsyncDBWriterIntegration:
         with patch(
             "aletheia_probe.cache_sync.db_writer.DataSourceManager"
         ) as mock_dsm_class:
-            mock_dsm = DataSourceManager()
-            mock_dsm.db_path = temp_db
+            # Create real instance with explicit db_path to avoid I/O operations
+            mock_dsm = DataSourceManager(db_path=temp_db)
             mock_dsm_class.return_value = mock_dsm
             yield mock_dsm
 
