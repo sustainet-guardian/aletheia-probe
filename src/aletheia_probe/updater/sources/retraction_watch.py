@@ -58,19 +58,21 @@ class RetractionWatchSource(DataSource):
             # Clone the repository
             repo_path = await self._clone_repository(temp_dir)
             if not repo_path:
-                status_logger.error("Failed to clone Retraction Watch repository")
+                status_logger.error(
+                    f"    {self.get_name()}: Failed to clone repository"
+                )
                 return []
 
             # Find and parse the CSV file
             csv_path = repo_path / self.csv_filename
             if not csv_path.exists():
-                status_logger.error(f"CSV file not found: {csv_path}")
+                status_logger.error(f"    {self.get_name()}: CSV file not found")
                 return []
 
             # Parse and aggregate the data
             journals = await self._parse_and_aggregate_csv(csv_path)
             status_logger.info(
-                f"Successfully aggregated data for {len(journals)} journals"
+                f"    {self.get_name()}: Aggregated data for {len(journals)} journals"
             )
 
             return journals
@@ -271,12 +273,12 @@ class RetractionWatchSource(DataSource):
                 self._collect_article_retractions(article_batch)
 
             status_logger.info(
-                f"    Completed CSV parsing: {records_processed:,} total records, {articles_cached:,} articles cached by DOI"
+                f"    {self.get_name()}: Completed CSV parsing - {records_processed:,} records, {articles_cached:,} articles cached"
             )
             detail_logger.info(f"Processed {records_processed} retraction records")
 
         except Exception as e:
-            status_logger.error(f"Error parsing CSV: {e}")
+            status_logger.error(f"    {self.get_name()}: Error parsing CSV - {e}")
             return []
 
         # Convert aggregated stats to journal list format
