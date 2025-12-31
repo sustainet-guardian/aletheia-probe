@@ -166,12 +166,8 @@ class TestAlgerianMinistrySource:
         mock_journals = [{"journal_name": "Test Journal"}]
 
         with (
-            patch.object(
-                source, "_download_archive", return_value="/path/to/file.zip"
-            ),
-            patch.object(
-                source, "_extract_archive", return_value="/path/to/extracted"
-            ),
+            patch.object(source, "_download_archive", return_value="/path/to/file.zip"),
+            patch.object(source, "_extract_archive", return_value="/path/to/extracted"),
             patch.object(source, "_process_pdf_files", return_value=mock_journals),
         ):
             result = await source._fetch_year_data(2024, "zip")
@@ -191,9 +187,7 @@ class TestAlgerianMinistrySource:
     async def test_fetch_year_data_extraction_fails(self, source):
         """Test _fetch_year_data when extraction fails."""
         with (
-            patch.object(
-                source, "_download_archive", return_value="/path/to/file.zip"
-            ),
+            patch.object(source, "_download_archive", return_value="/path/to/file.zip"),
             patch.object(source, "_extract_archive", return_value=None),
         ):
             result = await source._fetch_year_data(2024, "zip")
