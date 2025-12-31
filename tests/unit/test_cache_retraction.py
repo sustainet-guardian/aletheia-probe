@@ -47,13 +47,41 @@ class TestCacheRetraction:
         result = temp_cache.get_article_retraction(doi="10.1234/test")
 
         assert result is not None
-        assert result["is_retracted"]  # SQLite stores booleans as integers
+        assert result["is_retracted"] is True
         assert result["retraction_type"] == "full"
 
     def test_get_article_retraction_nonexistent(self, temp_cache):
         """Test that non-existent DOI returns None."""
         result = temp_cache.get_article_retraction(doi="10.1234/nonexistent")
         assert result is None
+
+    def test_get_article_retraction_boolean_types(self, temp_cache):
+        """Test that boolean fields are returned as strict Python bool types."""
+        # Test with is_retracted=True
+        temp_cache.cache_article_retraction(
+            doi="10.1234/retracted",
+            is_retracted=True,
+            source="test_source",
+        )
+
+        # Test with is_retracted=False
+        temp_cache.cache_article_retraction(
+            doi="10.1234/not-retracted",
+            is_retracted=False,
+            source="test_source",
+        )
+
+        # Verify True case
+        result_true = temp_cache.get_article_retraction(doi="10.1234/retracted")
+        assert result_true is not None
+        assert result_true["is_retracted"] is True
+        assert isinstance(result_true["is_retracted"], bool)
+
+        # Verify False case
+        result_false = temp_cache.get_article_retraction(doi="10.1234/not-retracted")
+        assert result_false is not None
+        assert result_false["is_retracted"] is False
+        assert isinstance(result_false["is_retracted"], bool)
 
     def test_cleanup_expired_article_retractions(self, temp_cache):
         """Test cleanup of expired article retraction entries."""
@@ -92,7 +120,7 @@ class TestCacheRetraction:
         # Verify non-expired entry still exists
         result = temp_cache.get_article_retraction(doi="10.1234/valid")
         assert result is not None
-        assert result["is_retracted"]
+        assert result["is_retracted"] is True
 
     def test_datetime_format_consistency(self, temp_cache):
         """Test that expires_at format is consistent with SQLite CURRENT_TIMESTAMP."""
