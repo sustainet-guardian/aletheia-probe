@@ -15,6 +15,30 @@ detail_logger = get_detail_logger()
 class RetractionCache(CacheBase):
     """Manages article retraction information and journal retraction statistics caching."""
 
+    def _parse_json_fields(
+        self, result: dict[str, Any], fields: list[str]
+    ) -> dict[str, Any]:
+        """Parse JSON fields in a result dictionary with centralized error handling.
+
+        Args:
+            result: Dictionary containing the database row data
+            fields: List of field names that should be parsed as JSON
+
+        Returns:
+            Dictionary with JSON fields parsed, or original values if parsing fails
+        """
+        for field in fields:
+            if result.get(field):
+                try:
+                    result[field] = json.loads(result[field])
+                except (json.JSONDecodeError, TypeError) as e:
+                    detail_logger.warning(
+                        f"Failed to parse JSON field '{field}': {e}. "
+                        f"Keeping original value: {result[field]}"
+                    )
+                    # Keep original value if parsing fails
+        return result
+
     def get_article_retraction(self, doi: str) -> dict[str, Any] | None:
         """Get cached retraction information for a DOI.
 
@@ -236,13 +260,10 @@ class RetractionCache(CacheBase):
             row = cursor.fetchone()
             if row:
                 result = dict(row)
-                # Parse JSON fields
-                if result.get("retraction_types"):
-                    result["retraction_types"] = json.loads(result["retraction_types"])
-                if result.get("top_reasons"):
-                    result["top_reasons"] = json.loads(result["top_reasons"])
-                if result.get("publishers"):
-                    result["publishers"] = json.loads(result["publishers"])
+                # Parse JSON fields using helper method
+                result = self._parse_json_fields(
+                    result, ["retraction_types", "top_reasons", "publishers"]
+                )
 
                 detail_logger.debug(
                     f"Found retraction statistics for journal_id {journal_id}: "

@@ -291,3 +291,145 @@ class TestCacheRetraction:
 
             # Data should be correct
             assert total_ret == 3
+
+    def test_parse_json_fields_valid_json(self, temp_cache):
+        """Test that _parse_json_fields correctly parses valid JSON."""
+        result = {
+            "retraction_types": '{"retraction": 3, "correction": 2}',
+            "top_reasons": '[["error", 3], ["fraud", 2]]',
+            "publishers": '["TestPub", "OtherPub"]',
+            "other_field": "regular_value",
+        }
+
+        parsed_result = temp_cache._parse_json_fields(
+            result, ["retraction_types", "top_reasons", "publishers"]
+        )
+
+        # JSON fields should be parsed
+        assert parsed_result["retraction_types"] == {"retraction": 3, "correction": 2}
+        assert parsed_result["top_reasons"] == [["error", 3], ["fraud", 2]]
+        assert parsed_result["publishers"] == ["TestPub", "OtherPub"]
+
+        # Non-JSON fields should remain unchanged
+        assert parsed_result["other_field"] == "regular_value"
+
+    def test_parse_json_fields_invalid_json(self, temp_cache):
+        """Test that _parse_json_fields handles invalid JSON gracefully."""
+        result = {
+            "retraction_types": "invalid json {",
+            "top_reasons": None,
+            "publishers": '["valid", "json"]',
+            "empty_field": "",
+        }
+
+        parsed_result = temp_cache._parse_json_fields(
+            result, ["retraction_types", "top_reasons", "publishers", "empty_field"]
+        )
+
+        # Invalid JSON should keep original value
+        assert parsed_result["retraction_types"] == "invalid json {"
+
+        # None/empty values should remain unchanged
+        assert parsed_result["top_reasons"] is None
+        assert parsed_result["empty_field"] == ""
+
+        # Valid JSON should be parsed
+        assert parsed_result["publishers"] == ["valid", "json"]
+
+    def test_parse_json_fields_nonexistent_fields(self, temp_cache):
+        """Test that _parse_json_fields handles nonexistent fields gracefully."""
+        result = {"existing_field": "value"}
+
+        parsed_result = temp_cache._parse_json_fields(
+            result, ["nonexistent_field", "also_missing"]
+        )
+
+        # Should not add new fields or modify existing ones
+        assert parsed_result == {"existing_field": "value"}
+
+    def test_get_retraction_statistics_with_json_parsing(self, temp_cache):
+        """Test that get_retraction_statistics correctly parses JSON fields."""
+        # Insert a basic journal record
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO journals (normalized_name, display_name) VALUES (?, ?)""",
+                ("test-journal", "Test Journal"),
+            )
+            journal_id = cursor.lastrowid
+            conn.commit()
+
+        # Insert retraction statistics with JSON data
+        temp_cache.upsert_retraction_statistics(
+            journal_id=journal_id,
+            total_retractions=5,
+            recent_retractions=2,
+            very_recent_retractions=1,
+            retraction_types={"retraction": 3, "correction": 2},
+            top_reasons=[["error", 3], ["fraud", 2]],
+            publishers=["TestPub", "OtherPub"],
+            first_retraction_date="2020-01-01",
+            last_retraction_date="2023-12-01",
+        )
+
+        # Retrieve and verify parsing
+        result = temp_cache.get_retraction_statistics(journal_id)
+
+        assert result is not None
+        assert result["total_retractions"] == 5
+
+        # Verify JSON fields are properly parsed as Python objects
+        assert isinstance(result["retraction_types"], dict)
+        assert result["retraction_types"] == {"retraction": 3, "correction": 2}
+
+        assert isinstance(result["top_reasons"], list)
+        assert result["top_reasons"] == [["error", 3], ["fraud", 2]]
+
+        assert isinstance(result["publishers"], list)
+        assert result["publishers"] == ["TestPub", "OtherPub"]
+
+    def test_get_retraction_statistics_with_corrupted_json(self, temp_cache):
+        """Test that get_retraction_statistics handles corrupted JSON gracefully."""
+        # Insert a basic journal record
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO journals (normalized_name, display_name) VALUES (?, ?)""",
+                ("test-journal-corrupt", "Test Journal Corrupt"),
+            )
+            journal_id = cursor.lastrowid
+
+            # Insert retraction statistics with corrupted JSON directly
+            cursor.execute(
+                """
+                INSERT INTO retraction_statistics
+                (journal_id, total_retractions, recent_retractions, very_recent_retractions,
+                 retraction_types, top_reasons, publishers, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (
+                    journal_id,
+                    5,
+                    2,
+                    1,
+                    "invalid json {",  # Corrupted JSON
+                    '["valid", "json"]',  # Valid JSON
+                    None,  # Null value
+                ),
+            )
+            conn.commit()
+
+        # Should not raise exception and return data with available fields
+        result = temp_cache.get_retraction_statistics(journal_id)
+
+        assert result is not None
+        assert result["total_retractions"] == 5
+
+        # Corrupted JSON should remain as string
+        assert result["retraction_types"] == "invalid json {"
+
+        # Valid JSON should be parsed
+        assert result["top_reasons"] == ["valid", "json"]
+
+        # Null values should remain null
+        assert result["publishers"] is None
