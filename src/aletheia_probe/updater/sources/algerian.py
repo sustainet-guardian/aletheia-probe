@@ -14,7 +14,7 @@ from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource, get_update_source_registry
 from ..utils import deduplicate_journals
-from .algerian_helpers import PDFTextExtractor, RARDownloader, RARExtractor
+from .algerian_helpers import ArchiveDownloader, ArchiveExtractor, PDFTextExtractor
 
 
 detail_logger = get_detail_logger()
@@ -40,8 +40,8 @@ class AlgerianMinistrySource(DataSource):
         )  # 5 minutes timeout for large RAR files (18MB+)
 
         # Initialize helper classes
-        self.downloader = RARDownloader()
-        self.extractor = RARExtractor()
+        self.downloader = ArchiveDownloader()
+        self.extractor = ArchiveExtractor()
         self.pdf_parser = PDFTextExtractor()
 
     def get_name(self) -> str:
@@ -61,30 +61,34 @@ class AlgerianMinistrySource(DataSource):
         return (datetime.now() - last_update).days >= 30
 
     async def fetch_data(self) -> list[dict[str, Any]]:
-        """Fetch and process Algerian predatory journal data from RAR archives."""
+        """Fetch and process Algerian predatory journal data from archives (RAR/ZIP)."""
         all_journals = []
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
 
-        # Try 2024 first (known to exist), then current year if different, then previous year
+        # Try current year first, then previous years
+        # Note: 2022+ are in ZIP format, older years are in RAR format
         years_to_try = []
-        if self.current_year != 2024:
-            years_to_try = [2024, self.current_year, self.current_year - 1]
+        if self.current_year >= 2024:
+            years_to_try = [2024, 2023, 2022]
         else:
-            years_to_try = [2024, 2023]
+            years_to_try = [self.current_year, self.current_year - 1]
 
         detail_logger.info(
             f"Algerian Ministry: Will try years in order: {years_to_try}"
         )
 
         for year in years_to_try:
+            # Determine format: ZIP for 2022+, RAR for earlier years
+            file_format = "zip" if year >= 2022 else "rar"
+
             try:
                 status_logger.info(
-                    f"    {self.get_name()}: Attempting to fetch data for year {year}"
+                    f"    {self.get_name()}: Attempting to fetch data for year {year} ({file_format.upper()} format)"
                 )
                 detail_logger.info(
-                    f"Algerian Ministry: Starting download for year {year}"
+                    f"Algerian Ministry: Starting download for year {year} ({file_format.upper()} format)"
                 )
-                journals = await self._fetch_year_data(year)
+                journals = await self._fetch_year_data(year, file_format)
                 if journals:
                     all_journals.extend(journals)
                     detail_logger.info(
@@ -110,72 +114,98 @@ class AlgerianMinistrySource(DataSource):
 
         return deduplicate_journals(all_journals)
 
-    async def _fetch_year_data(self, year: int) -> list[dict[str, Any]]:
+    async def _fetch_year_data(
+        self, year: int, file_format: str = "rar"
+    ) -> list[dict[str, Any]]:
         """Fetch and process data for a specific year.
 
         Args:
             year: Year to fetch data for
+            file_format: Archive format ("rar" or "zip")
 
         Returns:
             List of journal entries
         """
-        url = f"{self.base_url}/{year}.rar"
-        detail_logger.info(f"Algerian Ministry: Downloading RAR file from {url}")
+        url = f"{self.base_url}/{year}.{file_format}"
+        detail_logger.info(
+            f"Algerian Ministry: Downloading {file_format.upper()} file from {url}"
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Download RAR file
-            detail_logger.info("Algerian Ministry: Starting RAR download...")
-            rar_path = await self._download_rar(url, temp_dir)
-            if not rar_path:
-                detail_logger.warning("Algerian Ministry: RAR download failed")
-                status_logger.warning(f"    {self.get_name()}: RAR download failed")
+            # Download archive file
+            detail_logger.info(
+                f"Algerian Ministry: Starting {file_format.upper()} download..."
+            )
+            archive_path = await self._download_archive(url, temp_dir, file_format)
+            if not archive_path:
+                detail_logger.warning(
+                    f"Algerian Ministry: {file_format.upper()} download failed"
+                )
+                status_logger.warning(
+                    f"    {self.get_name()}: {file_format.upper()} download failed"
+                )
                 return []
 
             detail_logger.info(
-                "Algerian Ministry: RAR downloaded, starting extraction..."
+                f"Algerian Ministry: {file_format.upper()} downloaded, starting extraction..."
             )
 
-            # Extract RAR contents
-            extract_dir = await self._extract_rar(rar_path, temp_dir)
+            # Extract archive contents
+            extract_dir = await self._extract_archive(
+                archive_path, temp_dir, file_format
+            )
             if not extract_dir:
-                detail_logger.warning("Algerian Ministry: RAR extraction failed")
-                status_logger.warning(f"    {self.get_name()}: RAR extraction failed")
+                detail_logger.warning(
+                    f"Algerian Ministry: {file_format.upper()} extraction failed"
+                )
+                status_logger.warning(
+                    f"    {self.get_name()}: {file_format.upper()} extraction failed"
+                )
                 return []
 
             detail_logger.info(
-                "Algerian Ministry: RAR extracted, processing PDF files..."
+                f"Algerian Ministry: {file_format.upper()} extracted, processing PDF files..."
             )
 
             # Find and process PDF files
             return self._process_pdf_files(extract_dir, year)
 
-    async def _download_rar(self, url: str, temp_dir: str) -> str | None:
-        """Download RAR file to temporary directory.
+    async def _download_archive(
+        self, url: str, temp_dir: str, file_format: str
+    ) -> str | None:
+        """Download archive file to temporary directory.
 
         Args:
-            url: URL of the RAR file
+            url: URL of the archive file
             temp_dir: Temporary directory path
+            file_format: Archive format ("rar" or "zip")
 
         Returns:
-            Path to downloaded RAR file, or None if failed
+            Path to downloaded archive file, or None if failed
         """
         async with ClientSession(timeout=self.timeout) as session:
-            result: str | None = await self.downloader.download_rar(
-                session, url, temp_dir
+            result: str | None = await self.downloader.download_archive(
+                session, url, temp_dir, f".{file_format}"
             )
             return result
 
-    async def _extract_rar(self, rar_path: str, temp_dir: str) -> str | None:
-        """Extract RAR file using command line tool.
+    async def _extract_archive(
+        self, archive_path: str, temp_dir: str, file_format: str
+    ) -> str | None:
+        """Extract archive file using appropriate extractor.
 
         Args:
-            rar_path: Path to RAR file
+            archive_path: Path to archive file
             temp_dir: Temporary directory
+            file_format: Archive format ("rar" or "zip")
 
         Returns:
             Path to extraction directory, or None if failed
         """
-        return await self.extractor.extract_rar(rar_path, temp_dir)
+        if file_format == "zip":
+            return await self.extractor.extract_zip(archive_path, temp_dir)
+        else:
+            return await self.extractor.extract_rar(archive_path, temp_dir)
 
     def _process_pdf_files(self, extract_dir: str, year: int) -> list[dict[str, Any]]:
         """Process PDF files to extract journal and publisher lists from the target year only.
