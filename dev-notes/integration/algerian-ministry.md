@@ -7,8 +7,8 @@ The Algerian Ministry of Higher Education (DGRSDT) provides an authoritative lis
 ## Data Source
 
 - **Authority**: Algerian Ministry of Higher Education (DGRSDT)
-- **URL Pattern**: `https://dgrsdt.dz/storage/revus/Liste%20des%20Revues%20Pr%C3%A9datrices,%20Editeurs%20pr%C3%A9dateurs/{YEAR}.rar`
-- **Format**: Annual RAR archives containing PDF lists
+- **URL Pattern**: `https://dgrsdt.dz/storage/revus/Liste%20des%20Revues%20Pr%C3%A9datrices,%20Editeurs%20pr%C3%A9dateurs/{YEAR}.{zip|rar}`
+- **Format**: Annual archives containing PDF lists (ZIP format for 2022+, RAR for earlier years)
 - **Content**: Numbered lists of predatory journals with multiple URLs per journal
 - **Classification**: Predatory journals only
 - **Volume**: ~3,300 unique journals (as of 2024)
@@ -30,13 +30,13 @@ The Algerian Ministry of Higher Education (DGRSDT) provides an authoritative lis
 ## Data Processing Pipeline
 
 ```
-Download RAR → Extract PDFs → Parse Text → Normalize Names → Store in Cache
+Download Archive (ZIP/RAR) → Extract PDFs → Parse Text → Normalize Names → Store in Cache
 ```
 
 ### Processing Steps
 
-1. **Download**: Fetches RAR archive for current/previous year
-2. **Extraction**: Uses system `unrar` command to extract PDF files
+1. **Download**: Fetches archive for current/previous year (ZIP for 2022+, RAR for earlier years)
+2. **Extraction**: Uses Python's zipfile module for ZIP files, system `unrar` command for RAR files
 3. **PDF Parsing**: PyPDF2 extracts text from PDF documents
 4. **Text Processing**: Regex patterns identify numbered journal entries (`N° Journal Name URL1 URL2...`)
 5. **URL Handling**: Preserves multiple URLs associated with each journal
@@ -47,13 +47,13 @@ Download RAR → Extract PDFs → Parse Text → Normalize Names → Store in Ca
 ## Dependencies
 
 ### Python Packages
-- `rarfile>=4.1` - RAR archive handling
 - `PyPDF2>=3.0.0` - PDF text extraction
+- Built-in `zipfile` module - ZIP archive handling (Python standard library)
 
 See **[pyproject.toml](../../pyproject.toml)** for complete dependency list.
 
 ### System Requirements
-RAR extraction tool required. See **[DEPENDENCIES.md](../DEPENDENCIES.md)** for installation instructions.
+RAR extraction tool (`unrar`) required for processing archives from years before 2022. See **[DEPENDENCIES.md](../DEPENDENCIES.md)** for installation instructions. ZIP archives (2022+) use Python's built-in zipfile module and require no additional system packages.
 
 ## Data Characteristics
 
@@ -68,7 +68,7 @@ RAR extraction tool required. See **[DEPENDENCIES.md](../DEPENDENCIES.md)** for 
 - **PDF Processing**: ~3,300 journals in <30 seconds
 - **Database Storage**: ~100 journals/second
 - **Search Performance**: <100ms with indexing
-- **RAR Archive Size**: ~17MB download
+- **Archive Size**: ~17MB download (varies by year and format)
 - **Storage Impact**: ~3,000 database records plus URLs
 
 ## Integration Points

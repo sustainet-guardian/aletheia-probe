@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""RAR file downloading for Algerian Ministry data."""
+"""Archive file downloading for Algerian Ministry data (RAR and ZIP)."""
 
 import asyncio
 import ssl
@@ -17,11 +17,11 @@ detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
-class RARDownloader:
-    """Downloads RAR files from Algerian Ministry website."""
+class ArchiveDownloader:
+    """Downloads archive files (RAR and ZIP) from Algerian Ministry website."""
 
     def __init__(self) -> None:
-        """Initialize the RARDownloader with configuration."""
+        """Initialize the downloader with configuration."""
         config = get_config_manager().load_config()
         self.chunk_size = config.data_source_processing.download_chunk_size
 
@@ -58,27 +58,30 @@ class RARDownloader:
             ConnectionError,
         ),
     )
-    async def download_rar(
-        self, session: ClientSession, url: str, temp_dir: str
+    async def download_archive(
+        self, session: ClientSession, url: str, temp_dir: str, file_extension: str
     ) -> str | None:
-        """Download RAR file to temporary directory with retry logic.
+        """Download archive file (RAR or ZIP) to temporary directory with retry logic.
 
         Uses exponential backoff for transient failures (network issues, timeouts).
 
         Args:
             session: HTTP session
-            url: URL of the RAR file
+            url: URL of the archive file
             temp_dir: Temporary directory path
+            file_extension: File extension (.rar or .zip)
 
         Returns:
-            Path to downloaded RAR file, or None if download failed
+            Path to downloaded archive file, or None if download failed
 
         Raises:
             ClientError: On persistent HTTP client errors
             ServerTimeoutError: On persistent server timeout errors
             asyncio.TimeoutError: On persistent timeout errors
         """
-        rar_path = Path(temp_dir) / f"algerian_{datetime.now().year}.rar"
+        archive_path = (
+            Path(temp_dir) / f"algerian_{datetime.now().year}{file_extension}"
+        )
 
         try:
             detail_logger.info(f"Algerian downloader: Starting download from {url}")
@@ -114,7 +117,7 @@ class RARDownloader:
                             f"Algerian downloader: Got response {response.status}"
                         )
                         return await self._process_download_response(
-                            response, rar_path, url
+                            response, archive_path, url
                         )
                 else:
                     raise ssl.SSLError("SSL context creation failed")
@@ -197,12 +200,12 @@ class RARDownloader:
                         f"Algerian downloader: Got response {response.status} (no SSL)"
                     )
                     return await self._process_download_response(
-                        response, rar_path, url
+                        response, archive_path, url
                     )
 
         except (ClientError, ServerTimeoutError, asyncio.TimeoutError) as e:
             detail_logger.warning(
-                f"Algerian downloader: Retryable error downloading RAR from {url}: {e}"
+                f"Algerian downloader: Retryable error downloading archive from {url}: {e}"
             )
             status_logger.info(
                 f"    algerian_ministry: Download error (will retry): {type(e).__name__}"
@@ -210,19 +213,36 @@ class RARDownloader:
             raise  # Let retry decorator handle it
         except Exception as e:
             detail_logger.error(
-                f"Algerian downloader: Non-retryable error downloading RAR from {url}: {e}"
+                f"Algerian downloader: Non-retryable error downloading archive from {url}: {e}"
             )
             status_logger.warning(f"    algerian_ministry: Download failed: {e}")
             return None
 
+    async def download_rar(
+        self, session: ClientSession, url: str, temp_dir: str
+    ) -> str | None:
+        """Download RAR file to temporary directory with retry logic.
+
+        Backwards compatibility wrapper for download_archive.
+
+        Args:
+            session: HTTP session
+            url: URL of the RAR file
+            temp_dir: Temporary directory path
+
+        Returns:
+            Path to downloaded RAR file, or None if download failed
+        """
+        return await self.download_archive(session, url, temp_dir, ".rar")
+
     async def _process_download_response(
-        self, response: ClientResponse, rar_path: Path, url: str
+        self, response: ClientResponse, archive_path: Path, url: str
     ) -> str | None:
         """Process HTTP response and download file content.
 
         Args:
             response: aiohttp response object
-            rar_path: Path where to save the downloaded file
+            archive_path: Path where to save the downloaded file
             url: Source URL for logging
 
         Returns:
@@ -232,7 +252,7 @@ class RARDownloader:
 
         if response.status == 200:
             detail_logger.info(
-                f"Algerian downloader: Starting file write to {rar_path}"
+                f"Algerian downloader: Starting file write to {archive_path}"
             )
             content_length = response.headers.get("content-length")
             if content_length:
@@ -242,7 +262,7 @@ class RARDownloader:
 
             bytes_written = 0
             last_log_mb = 0
-            with open(rar_path, "wb") as f:
+            with open(archive_path, "wb") as f:
                 async for chunk in response.content.iter_chunked(self.chunk_size):
                     f.write(chunk)
                     bytes_written += len(chunk)
@@ -257,14 +277,14 @@ class RARDownloader:
                         last_log_mb = current_mb
 
             detail_logger.info(
-                f"Algerian downloader: Successfully downloaded {bytes_written} bytes to {rar_path}"
+                f"Algerian downloader: Successfully downloaded {bytes_written} bytes to {archive_path}"
             )
             status_logger.info(
-                f"    algerian_ministry: Downloaded RAR file ({bytes_written // (1024 * 1024)} MB)"
+                f"    algerian_ministry: Downloaded archive file ({bytes_written // (1024 * 1024)} MB)"
             )
-            return str(rar_path)
+            return str(archive_path)
         else:
             detail_logger.warning(
-                f"Algerian downloader: Failed to download RAR: HTTP {response.status}"
+                f"Algerian downloader: Failed to download archive: HTTP {response.status}"
             )
             return None
