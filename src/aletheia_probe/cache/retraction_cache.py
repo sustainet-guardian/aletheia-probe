@@ -2,7 +2,6 @@
 """Article retraction tracking and journal retraction statistics for the cache system."""
 
 import json
-import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -30,8 +29,7 @@ class RetractionCache(CacheBase):
             f"Looking up retraction info for DOI '{doi}' (normalized: '{normalized_doi}')"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -88,7 +86,7 @@ class RetractionCache(CacheBase):
             f"is_retracted={is_retracted}, source={source}, ttl_hours={ttl_hours}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -121,7 +119,7 @@ class RetractionCache(CacheBase):
         """
         detail_logger.debug("Starting cleanup of expired article retraction entries")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -130,7 +128,7 @@ class RetractionCache(CacheBase):
                 """
             )
             conn.commit()
-            removed_count = cursor.rowcount
+            removed_count = int(cursor.rowcount)
 
             detail_logger.debug(
                 f"Cleanup completed: removed {removed_count} expired retraction entries"
@@ -168,7 +166,7 @@ class RetractionCache(CacheBase):
             f"total={total_retractions}, recent={recent_retractions}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -208,8 +206,7 @@ class RetractionCache(CacheBase):
             f"Looking up retraction statistics for journal_id {journal_id}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
