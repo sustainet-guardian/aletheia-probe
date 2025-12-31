@@ -181,7 +181,7 @@ class RetractionWatchSource(DataSource):
                 # Log progress every 5000 records
                 if records_processed % 5000 == 0:
                     status_logger.info(
-                        f"    Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
+                        f"    {self.get_name()}: Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
                     )
 
                 journal = row.get("Journal", "").strip()
@@ -321,7 +321,7 @@ class RetractionWatchSource(DataSource):
             )
 
         status_logger.info(
-            f"    Aggregating journal statistics: {len(journals):,} journals found"
+            f"    {self.get_name()}: Aggregating journal statistics: {len(journals):,} journals found"
         )
         detail_logger.info(f"Aggregated {len(journals)} journals from retraction data")
 
@@ -365,7 +365,7 @@ class RetractionWatchSource(DataSource):
             )
 
         status_logger.info(
-            f"    Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs collected"
+            f"    {self.get_name()}: Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs collected"
         )
         detail_logger.info(
             "Retraction data aggregation complete (OpenAlex data will be fetched on-demand)"
