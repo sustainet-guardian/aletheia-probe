@@ -11,6 +11,7 @@ cache components in the system. It handles shared functionality including:
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from ..logging_config import get_detail_logger, get_status_logger
 from ..utils.dead_code import code_is_used
@@ -86,3 +87,48 @@ class CacheBase:
                 raise RuntimeError(error_msg) from e
 
         self.db_path = db_path
+
+    def get_connection(self, timeout: float = 30.0, enable_wal: bool = True) -> Any:
+        """Get a configured SQLite connection to this cache's database.
+
+        This method provides the standard way to access the database with
+        consistent configuration across all cache components. Uses the
+        centralized connection configuration with proper timeout and WAL mode.
+
+        Args:
+            timeout: Connection timeout in seconds (default: 30.0)
+            enable_wal: Whether to enable WAL mode (default: True)
+
+        Returns:
+            Context manager yielding a configured SQLite connection
+
+        Example:
+            ```python
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM table")
+                results = cursor.fetchall()
+            ```
+        """
+        from .connection_utils import get_configured_connection
+
+        return get_configured_connection(self.db_path, timeout, enable_wal)
+
+    def get_connection_with_row_factory(
+        self, timeout: float = 30.0, enable_wal: bool = True
+    ) -> Any:
+        """Get a configured SQLite connection with Row factory for dict-like access.
+
+        Same as get_connection() but with sqlite3.Row factory enabled
+        for dictionary-style access to query results.
+
+        Args:
+            timeout: Connection timeout in seconds (default: 30.0)
+            enable_wal: Whether to enable WAL mode (default: True)
+
+        Returns:
+            Context manager yielding a configured SQLite connection with Row factory
+        """
+        from .connection_utils import get_connection_with_row_factory
+
+        return get_connection_with_row_factory(self.db_path, timeout, enable_wal)

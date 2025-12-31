@@ -485,7 +485,7 @@ class AsyncDBWriter:
         retraction_cache = RetractionCache()
 
         # Batch insert article retractions
-        with sqlite3.connect(retraction_cache.db_path) as conn:
+        with retraction_cache.get_connection() as conn:
             cursor = conn.cursor()
             records = [
                 (
@@ -565,6 +565,39 @@ class AsyncDBWriter:
                 f"Inserted {stats_count} retraction statistics records"
             )
 
+    def _handle_retraction_operations_post_transaction(
+        self,
+        source_name: str,
+        journals: list[JournalDataDict],
+        existing_journals: dict[str, int],
+    ) -> None:
+        """Handle retraction cache operations outside the main database transaction.
+
+        This method is called after the main database transaction completes to avoid
+        deadlock conflicts between the main database and retraction cache database.
+
+        Args:
+            source_name: Name of the data source
+            journals: List of journal data dictionaries
+            existing_journals: Mapping of normalized names to journal IDs
+        """
+        if source_name != "retraction_watch":
+            return
+
+        try:
+            # Insert article retractions (moved from within transaction)
+            self._insert_article_retractions(source_name, journals)
+
+            # Insert retraction statistics (moved from within transaction)
+            self._insert_retraction_statistics(source_name, journals, existing_journals)
+
+        except Exception as e:
+            # Log error but don't fail the entire operation since main data is already committed
+            self.status_logger.error(f"Error handling retraction cache operations: {e}")
+            self.detail_logger.exception(
+                f"Failed to process retraction cache operations for {source_name}"
+            )
+
     def _insert_urls(
         self, cursor: sqlite3.Cursor, url_inserts: list[tuple[int, str]]
     ) -> None:
@@ -612,7 +645,7 @@ class AsyncDBWriter:
         source_id: int,
         source_name: str,
         list_type: str,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, dict[str, int]]:
         """Execute database transaction for journal batch write.
 
         Args:
@@ -640,13 +673,10 @@ class AsyncDBWriter:
             cursor, name_inserts, assessment_inserts, url_inserts
         )
 
-        # Insert article retractions for retraction_watch source (before statistics)
-        self._insert_article_retractions(source_name, journals)
+        # Note: Retraction cache operations moved outside transaction to avoid deadlocks
+        # See _handle_retraction_operations_post_transaction method
 
-        # Insert retraction statistics for retraction_watch source
-        self._insert_retraction_statistics(source_name, journals, existing_journals)
-
-        return unique_journals, total_input_records
+        return unique_journals, total_input_records, existing_journals
 
     @contextmanager
     def _database_transaction(
@@ -715,12 +745,19 @@ class AsyncDBWriter:
             )
 
             with self._database_transaction(conn):
-                unique_journals, total_input_records = self._execute_transaction(
-                    cursor, conn, journals, source_id, source_name, list_type
+                unique_journals, total_input_records, existing_journals = (
+                    self._execute_transaction(
+                        cursor, conn, journals, source_id, source_name, list_type
+                    )
                 )
 
-                return {
-                    "total_records": total_input_records,
-                    "unique_journals": unique_journals,
-                    "duplicates": total_input_records - unique_journals,
-                }
+            # Handle retraction cache operations OUTSIDE the main transaction to avoid deadlocks
+            self._handle_retraction_operations_post_transaction(
+                source_name, journals, existing_journals
+            )
+
+            return {
+                "total_records": total_input_records,
+                "unique_journals": unique_journals,
+                "duplicates": total_input_records - unique_journals,
+            }
