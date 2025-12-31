@@ -136,3 +136,130 @@ class TestCacheRetraction:
             count = cursor.fetchone()[0]
             # Should find the entry since it expires in 1 hour (future)
             assert count == 1
+
+    def test_upsert_retraction_statistics_preserves_created_at(self, temp_cache):
+        """Test that upsert preserves original created_at timestamp on updates."""
+        # First, we need a journal_id to work with
+        # Insert a basic journal record directly since RetractionCache doesn't manage journals
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO journals (normalized_name, display_name) VALUES (?, ?)""",
+                ("test-journal", "Test Journal"),
+            )
+            journal_id = cursor.lastrowid
+            conn.commit()
+
+        # Initial insert
+        temp_cache.upsert_retraction_statistics(
+            journal_id=journal_id,
+            total_retractions=5,
+            recent_retractions=2,
+            very_recent_retractions=1,
+            retraction_types={"retraction": 3, "correction": 2},
+            top_reasons=[("error", 3), ("fraud", 2)],
+            publishers=["TestPub"],
+            first_retraction_date="2020-01-01",
+            last_retraction_date="2023-12-01",
+        )
+
+        # Get the initial created_at timestamp
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT created_at, updated_at
+                FROM retraction_statistics
+                WHERE journal_id = ?
+                """,
+                (journal_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            initial_created_at = row[0]
+            initial_updated_at = row[1]
+
+        # Wait at least 1 second to ensure timestamp difference (SQLite CURRENT_TIMESTAMP has second precision)
+        import time
+
+        time.sleep(1.1)
+
+        # Update the same record
+        temp_cache.upsert_retraction_statistics(
+            journal_id=journal_id,
+            total_retractions=6,  # Changed
+            recent_retractions=3,  # Changed
+            very_recent_retractions=1,
+            retraction_types={"retraction": 4, "correction": 2},  # Changed
+            top_reasons=[("error", 3), ("fraud", 3)],  # Changed
+            publishers=["TestPub"],
+            first_retraction_date="2020-01-01",
+            last_retraction_date="2024-01-01",  # Changed
+        )
+
+        # Verify created_at is preserved, updated_at is changed
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT created_at, updated_at, total_retractions, recent_retractions
+                FROM retraction_statistics
+                WHERE journal_id = ?
+                """,
+                (journal_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            final_created_at, final_updated_at, total_ret, recent_ret = row
+
+            # created_at should be unchanged
+            assert final_created_at == initial_created_at
+
+            # updated_at should be different (newer)
+            assert final_updated_at != initial_updated_at
+
+            # Data should be updated
+            assert total_ret == 6
+            assert recent_ret == 3
+
+    def test_upsert_retraction_statistics_new_record(self, temp_cache):
+        """Test that upsert creates new record with both timestamps set."""
+        # Insert a basic journal record
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO journals (normalized_name, display_name) VALUES (?, ?)""",
+                ("new-journal", "New Journal"),
+            )
+            journal_id = cursor.lastrowid
+            conn.commit()
+
+        # Insert new record
+        temp_cache.upsert_retraction_statistics(
+            journal_id=journal_id,
+            total_retractions=3,
+            recent_retractions=1,
+            very_recent_retractions=0,
+        )
+
+        # Verify both timestamps are set and equal
+        with temp_cache.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT created_at, updated_at, total_retractions
+                FROM retraction_statistics
+                WHERE journal_id = ?
+                """,
+                (journal_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            created_at, updated_at, total_ret = row
+
+            # Both timestamps should be set
+            assert created_at is not None
+            assert updated_at is not None
+
+            # Data should be correct
+            assert total_ret == 3

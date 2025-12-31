@@ -170,11 +170,21 @@ class RetractionCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO retraction_statistics
+                INSERT INTO retraction_statistics
                 (journal_id, total_retractions, recent_retractions, very_recent_retractions,
                  retraction_types, top_reasons, publishers, first_retraction_date,
-                 last_retraction_date, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 last_retraction_date, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(journal_id) DO UPDATE SET
+                    total_retractions = excluded.total_retractions,
+                    recent_retractions = excluded.recent_retractions,
+                    very_recent_retractions = excluded.very_recent_retractions,
+                    retraction_types = excluded.retraction_types,
+                    top_reasons = excluded.top_reasons,
+                    publishers = excluded.publishers,
+                    first_retraction_date = excluded.first_retraction_date,
+                    last_retraction_date = excluded.last_retraction_date,
+                    updated_at = CURRENT_TIMESTAMP
                 """,
                 (
                     journal_id,
