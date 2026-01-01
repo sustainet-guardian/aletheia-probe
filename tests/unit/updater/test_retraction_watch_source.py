@@ -352,6 +352,9 @@ class TestRetractionWatchSource:
     @pytest.mark.asyncio
     async def test_parse_and_aggregate_csv_multiple_journals(self, source):
         """Test CSV parsing with multiple journals and aggregation."""
+        # Mock datetime.now() to return a fixed date for consistent test behavior
+        fixed_date = datetime(2025, 6, 15)  # Mid-2025 as reference
+
         # Create temporary CSV file with multiple entries
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="utf-8"
@@ -410,7 +413,17 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            result = await source._parse_and_aggregate_csv(csv_path)
+            # Mock datetime.now() to return fixed date
+            with patch(
+                "aletheia_probe.updater.sources.retraction_watch.datetime"
+            ) as mock_datetime:
+                mock_datetime.now.return_value = fixed_date
+                mock_datetime.strptime = (
+                    datetime.strptime
+                )  # Keep strptime functionality
+                mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+                result = await source._parse_and_aggregate_csv(csv_path)
 
             assert len(result) == 2
 
@@ -419,9 +432,8 @@ class TestRetractionWatchSource:
                 j for j in result if j["journal_name"] == "Test Journal"
             )
             assert test_journal["metadata"]["total_retractions"] == 2
-            assert (
-                test_journal["metadata"]["recent_retractions"] == 1
-            )  # Only 2022 is > 2 years ago
+            # With fixed date 2025-06-15: 2023 is 2 years ago (recent), 2022 is 3 years ago (not recent)
+            assert test_journal["metadata"]["recent_retractions"] == 1
             assert (
                 test_journal["metadata"]["very_recent_retractions"] == 0
             )  # None in last year
