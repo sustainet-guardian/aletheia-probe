@@ -102,7 +102,8 @@ run_check "Mypy type checking" mypy src/ --strict
 # Use -n auto to automatically detect CPU cores and run tests in parallel
 # Exclude performance tests to avoid pytest-xdist conflicts with benchmarks
 # Note: Coverage collection works correctly with pytest-xdist
-run_check "Pytest with coverage" pytest -n auto --cov=src --cov-report=term-missing tests/ --ignore=tests/performance/
+# -W default shows all warnings including DeprecationWarnings
+run_check "Pytest with coverage" pytest -n auto --cov=src --cov-report=term-missing -W default tests/ --ignore=tests/performance/
 
 # 10. Performance benchmarks (mandatory - run without parallelization)
 # Benchmark tests should run sequentially for accurate timing
