@@ -5,7 +5,6 @@ import re
 
 
 ISSN_PATTERN = re.compile(r"^\d{4}-?\d{3}[\dXx]$")
-DOI_PATTERN = re.compile(r"^10\.\d{4,}/[\S]+$")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
@@ -107,28 +106,6 @@ def _verify_issn_checksum(issn: str) -> bool:
         expected = str(11 - calculated_check)
 
     return digits[7] == expected
-
-
-def validate_doi(doi: str | None) -> bool:
-    """
-    Validate DOI format.
-
-    Args:
-        doi: DOI string to validate
-
-    Returns:
-        True if valid DOI format
-
-    Examples:
-        >>> validate_doi("10.1234/example")
-        True
-        >>> validate_doi("invalid")
-        False
-    """
-    if not doi:
-        return False
-
-    return bool(DOI_PATTERN.match(doi))
 
 
 def validate_email(email: str) -> str:
