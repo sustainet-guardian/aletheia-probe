@@ -352,6 +352,11 @@ class TestRetractionWatchSource:
     @pytest.mark.asyncio
     async def test_parse_and_aggregate_csv_multiple_journals(self, source):
         """Test CSV parsing with multiple journals and aggregation."""
+        # Use relative dates based on current year for consistent test behavior
+        current_year = datetime.now().year
+        recent_year = current_year - 1  # 1 year ago - should be recent (<=2 years)
+        old_year = current_year - 3  # 3 years ago - should NOT be recent (>2 years)
+
         # Create temporary CSV file with multiple entries
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="utf-8"
@@ -375,7 +380,7 @@ class TestRetractionWatchSource:
                 {
                     "Journal": "Test Journal",
                     "Publisher": "Test Publisher",
-                    "RetractionDate": "12/25/2023 14:30",
+                    "RetractionDate": f"12/25/{recent_year} 14:30",
                     "RetractionNature": "Plagiarism",
                     "Reason": "Data fabrication",
                     "OriginalPaperDOI": "10.1234/test.doi.1",
@@ -386,7 +391,7 @@ class TestRetractionWatchSource:
                 {
                     "Journal": "Test Journal",
                     "Publisher": "Test Publisher",
-                    "RetractionDate": "01/15/2022 10:00",
+                    "RetractionDate": f"01/15/{old_year} 10:00",
                     "RetractionNature": "Misconduct",
                     "Reason": "Ethical violation;Plagiarism",
                     "OriginalPaperDOI": "10.1234/test.doi.2",
@@ -399,7 +404,7 @@ class TestRetractionWatchSource:
                 {
                     "Journal": "Another Journal",
                     "Publisher": "Another Publisher",
-                    "RetractionDate": "06/01/2024 16:00",
+                    "RetractionDate": f"06/01/{current_year} 16:00",
                     "RetractionNature": "Error",
                     "Reason": "Statistical error",
                     "OriginalPaperDOI": "10.1234/another.doi",
@@ -419,12 +424,11 @@ class TestRetractionWatchSource:
                 j for j in result if j["journal_name"] == "Test Journal"
             )
             assert test_journal["metadata"]["total_retractions"] == 2
+            # One retraction from recent_year (1 year ago, recent) and one from old_year (3 years ago, not recent)
+            assert test_journal["metadata"]["recent_retractions"] == 1
             assert (
-                test_journal["metadata"]["recent_retractions"] == 1
-            )  # Only 2022 is > 2 years ago
-            assert (
-                test_journal["metadata"]["very_recent_retractions"] == 0
-            )  # None in last year
+                test_journal["metadata"]["very_recent_retractions"] == 1
+            )  # One retraction from 1 year ago (recent_year)
             assert len(test_journal["metadata"]["retraction_types"]) == 2
             assert "Plagiarism" in test_journal["metadata"]["retraction_types"]
             assert "Misconduct" in test_journal["metadata"]["retraction_types"]
