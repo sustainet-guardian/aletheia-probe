@@ -198,9 +198,7 @@ class TestAsyncDBWriterIntegration:
 
         # Start the async writer and perform first write operation
         await db_writer.start_writer()
-        await db_writer.queue_write(
-            "source_one", AssessmentType.PREDATORY, first_batch
-        )
+        await db_writer.queue_write("source_one", AssessmentType.PREDATORY, first_batch)
         # Give time for processing
         await asyncio.sleep(0.1)
 
