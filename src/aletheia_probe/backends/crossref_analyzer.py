@@ -12,6 +12,7 @@ from ..constants import (
     MIN_AUTHOR_INFO_COMPLETENESS,
     MIN_REFERENCE_COUNT,
 )
+from ..enums import AssessmentType
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
@@ -542,16 +543,16 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         # Base confidence on metadata quality and flags
         if red_flag_weight >= 2:
-            assessment = "predatory"
+            assessment = AssessmentType.PREDATORY
             confidence = min(0.80, 0.55 + red_flag_weight * 0.05)
         elif green_flag_weight >= 2:
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = min(0.85, 0.65 + green_flag_weight * 0.04)
         elif red_flag_weight == 1 and green_flag_weight == 0:
-            assessment = "predatory"
+            assessment = AssessmentType.PREDATORY
             confidence = 0.50
         elif green_flag_weight == 1 and red_flag_weight == 0:
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = 0.55
         else:
             assessment = None

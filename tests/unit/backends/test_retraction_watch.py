@@ -7,6 +7,7 @@ import pytest
 
 from aletheia_probe.backends.protocols import DataSyncCapable
 from aletheia_probe.backends.retraction_watch import RetractionWatchBackend
+from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -85,7 +86,7 @@ class TestRetractionWatchBackend:
         # Create a mock cached assessment result
         mock_cached_result = AssessmentResult(
             input_query="Nature",
-            assessment="low",
+            assessment=AssessmentType.SUSPICIOUS,
             confidence=0.9,
             overall_score=0.9,
             backend_results=[
@@ -93,7 +94,7 @@ class TestRetractionWatchBackend:
                     backend_name="retraction_watch",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
-                    assessment="low",
+                    assessment=AssessmentType.SUSPICIOUS,
                     data={"total_retractions": 5, "from_cache": True},
                     sources=["retraction_watch"],
                     response_time=0.01,
@@ -201,7 +202,7 @@ class TestRetractionWatchBackend:
         """Test that cached queries complete in under 50ms (success criterion)."""
         mock_cached_result = AssessmentResult(
             input_query="Nature",
-            assessment="low",
+            assessment=AssessmentType.SUSPICIOUS,
             confidence=0.9,
             overall_score=0.9,
             backend_results=[
@@ -209,7 +210,7 @@ class TestRetractionWatchBackend:
                     backend_name="retraction_watch",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
-                    assessment="low",
+                    assessment=AssessmentType.SUSPICIOUS,
                     data={"total_retractions": 5},
                     sources=["retraction_watch"],
                     response_time=0.005,  # 5ms

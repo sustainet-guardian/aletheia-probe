@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import aiohttp
 
 from ..cache import RetractionCache
+from ..enums import AssessmentType, RiskLevel
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
@@ -22,6 +23,26 @@ if TYPE_CHECKING:
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
+
+
+def _risk_level_to_assessment(risk_level: str) -> AssessmentType:
+    """Convert risk level to assessment type.
+
+    Args:
+        risk_level: Risk level from retraction analysis
+
+    Returns:
+        Corresponding assessment type
+    """
+    mapping = {
+        RiskLevel.NONE.value: AssessmentType.LEGITIMATE,
+        RiskLevel.NOTE.value: AssessmentType.LEGITIMATE,
+        RiskLevel.LOW.value: AssessmentType.SUSPICIOUS,
+        RiskLevel.MODERATE.value: AssessmentType.PREDATORY,
+        RiskLevel.HIGH.value: AssessmentType.PREDATORY,
+        RiskLevel.CRITICAL.value: AssessmentType.PREDATORY,
+    }
+    return mapping.get(risk_level, AssessmentType.UNKNOWN)
 
 
 class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
@@ -230,7 +251,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
                     backend_name=self.get_name(),
                     status=BackendStatus.FOUND,
                     confidence=confidence,
-                    assessment=risk_level,  # Use risk level as assessment
+                    assessment=_risk_level_to_assessment(risk_level),
                     data=result_data,
                     sources=[self.source_name],
                     error_message=None,
