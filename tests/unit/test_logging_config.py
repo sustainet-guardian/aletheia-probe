@@ -36,15 +36,23 @@ def reset_logging():
     """
     # Clear all existing handlers before test
     detail_logger = logging.getLogger(DETAIL_LOGGER_NAME)
+    for handler in detail_logger.handlers[:]:
+        handler.close()
     detail_logger.handlers.clear()
 
     status_logger = logging.getLogger(STATUS_LOGGER_NAME)
+    for handler in status_logger.handlers[:]:
+        handler.close()
     status_logger.handlers.clear()
 
     yield
 
     # Cleanup after test
+    for handler in detail_logger.handlers[:]:
+        handler.close()
     detail_logger.handlers.clear()
+    for handler in status_logger.handlers[:]:
+        handler.close()
     status_logger.handlers.clear()
 
 
@@ -190,6 +198,8 @@ class TestSetupLogging:
         first_content = log_file.read_text()
 
         # Reset logging
+        for handler in detail_logger1.handlers[:]:
+            handler.close()
         detail_logger1.handlers.clear()
 
         # Second setup and write
