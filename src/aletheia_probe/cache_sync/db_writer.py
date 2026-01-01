@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from ..cache import DataSourceManager, RetractionCache
+from ..cache.connection_utils import get_configured_connection
 from ..data_models import JournalDataDict
 from ..enums import NameType, UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
@@ -736,7 +737,7 @@ class AsyncDBWriter:
         )
         data_source_manager = DataSourceManager()
 
-        with sqlite3.connect(data_source_manager.db_path) as conn:
+        with get_configured_connection(data_source_manager.db_path) as conn:
             self._setup_db_connection(conn)
             cursor = conn.cursor()
 

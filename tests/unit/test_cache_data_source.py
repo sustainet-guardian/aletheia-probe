@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from aletheia_probe.cache import DataSourceManager
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.enums import AssessmentType, UpdateStatus, UpdateType
 
@@ -76,7 +77,7 @@ class TestDataSourceManager:
         )
 
         # Verify log entry in the new source_updates table
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """

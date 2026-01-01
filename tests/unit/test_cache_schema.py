@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.schema import init_database
 
 
@@ -60,7 +61,7 @@ class TestCacheSchema:
             "venue_acronyms",
         }
 
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             # SQLite automatically creates sqlite_sequence for AUTOINCREMENT
@@ -85,7 +86,7 @@ class TestCacheSchema:
             "venue_acronyms",
         ]
 
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             for table in tables_to_check:
                 cursor.execute(f"PRAGMA table_info({table})")
@@ -102,7 +103,7 @@ class TestCacheSchema:
             "source_updates": ["source_id"],
         }
 
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             for table, expected_fks in tables_with_fks.items():
                 cursor.execute(f"PRAGMA foreign_key_list({table})")
@@ -115,7 +116,7 @@ class TestCacheSchema:
 
     def test_indexes_created(self, temp_db):
         """Test that indexes are created."""
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='index'")
             indexes = {row[0] for row in cursor.fetchall()}

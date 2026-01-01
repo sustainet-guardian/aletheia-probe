@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from aletheia_probe.cache import DataSourceManager
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.cache_sync import AsyncDBWriter
 from aletheia_probe.data_models import JournalDataDict
@@ -210,7 +211,7 @@ class TestAsyncDBWriter:
             assert result["duplicates"] == 0
 
         # Verify data was actually written to database
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
 
             # Check journals were created
@@ -253,7 +254,7 @@ class TestAsyncDBWriter:
             assert result["unique_journals"] == 1
 
         # Verify source was registered in the database
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT name, source_type FROM data_sources WHERE name = ?",
@@ -297,7 +298,7 @@ class TestAsyncDBWriter:
             assert result["duplicates"] == 1
 
         # Verify only one journal entry in database (deduplication worked)
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
@@ -339,7 +340,7 @@ class TestAsyncDBWriter:
             assert result["unique_journals"] == 1
 
         # Verify only valid journal was written
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT normalized_name FROM journals")
             journals = cursor.fetchall()
@@ -367,7 +368,7 @@ class TestAsyncDBWriter:
             db_writer._batch_write_journals("test_source", "predatory", test_journals)
 
         # Verify data was written
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             conn.execute("PRAGMA foreign_keys = ON")
             cursor = conn.cursor()
 
@@ -426,7 +427,7 @@ class TestAsyncDBWriter:
             db_writer._batch_write_journals("test_source", "predatory", test_journals)
 
         # Verify only one journal exists
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT COUNT(*) FROM journals WHERE normalized_name = ?",
@@ -516,7 +517,7 @@ class TestAsyncDBWriter:
             "test_journal'; DELETE FROM journals WHERE '1'='1",
         ]
 
-        with sqlite3.connect(memory_db) as conn:
+        with get_configured_connection(memory_db) as conn:
             cursor = conn.cursor()
 
             # Verify that malicious inputs are safely handled as literal strings

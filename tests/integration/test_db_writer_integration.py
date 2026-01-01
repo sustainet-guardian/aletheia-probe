@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aletheia_probe.cache import DataSourceManager, JournalCache, RetractionCache
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.cache_sync.db_writer import AsyncDBWriter
 from aletheia_probe.enums import AssessmentType
@@ -129,7 +130,7 @@ class TestAsyncDBWriterIntegration:
         await db_writer.stop_writer()
 
         # Verify foreign key relationships
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             conn.execute("PRAGMA foreign_keys = ON")
             cursor = conn.cursor()
 
@@ -239,7 +240,7 @@ class TestAsyncDBWriterIntegration:
 
         # Journal One should have assessments from both sources
         # Use raw SQL only for multi-table assessment verification (not abstracted by cache)
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """SELECT ds.name, sa.assessment FROM source_assessments sa
@@ -322,7 +323,7 @@ class TestAsyncDBWriterIntegration:
         assert len(journals) == 1
 
         # Test unique constraint enforcement at database level
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             # Try to manually insert duplicate (should fail due to UNIQUE constraint)
             with pytest.raises(sqlite3.IntegrityError):
@@ -373,7 +374,7 @@ class TestAsyncDBWriterIntegration:
             await db_writer.stop_writer()
 
         # Verify rollback: no journals should be in database
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM journals")
             # Transaction should have been rolled back
@@ -416,7 +417,7 @@ class TestAsyncDBWriterIntegration:
         assert len(journals) == 1
 
         # Use raw SQL for counts not provided by cache API
-        with sqlite3.connect(temp_db) as conn:
+        with get_configured_connection(temp_db) as conn:
             cursor = conn.cursor()
 
             # Should have 2 sources

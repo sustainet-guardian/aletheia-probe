@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Database schema initialization for the cache system."""
 
-import sqlite3
 from pathlib import Path
 
 from ..enums import AssessmentType, NameType, UpdateStatus, UpdateType
 from ..models import VenueType
+from .connection_utils import get_configured_connection
 
 
 def init_database(db_path: Path) -> None:
@@ -21,7 +21,7 @@ def init_database(db_path: Path) -> None:
     update_type_values = ", ".join(f"'{t.value}'" for t in UpdateType)
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
-    with sqlite3.connect(db_path) as conn:
+    with get_configured_connection(db_path) as conn:
         conn.executescript(
             f"""
             -- Core journals table (normalized, one entry per unique journal)

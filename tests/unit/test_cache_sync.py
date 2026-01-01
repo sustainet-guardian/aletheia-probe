@@ -808,7 +808,9 @@ class TestAsyncDBWriter:
             patch(
                 "aletheia_probe.cache_sync.db_writer.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
+            patch(
+                "aletheia_probe.cache_sync.db_writer.get_configured_connection"
+            ) as mock_connect,
         ):
             # Mock cache manager
             mock_cache_manager = Mock()
@@ -840,8 +842,7 @@ class TestAsyncDBWriter:
             assert result["unique_journals"] == 2
             assert result["duplicates"] == 0
 
-            # Verify database operations were called
-            mock_connection.execute.assert_any_call("PRAGMA journal_mode = WAL")
+            # Verify database operations were called (connection setup)
             mock_connection.execute.assert_any_call("BEGIN TRANSACTION")
             mock_connection.execute.assert_any_call("COMMIT")
 
@@ -860,7 +861,9 @@ class TestAsyncDBWriter:
             patch(
                 "aletheia_probe.cache_sync.db_writer.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
+            patch(
+                "aletheia_probe.cache_sync.db_writer.get_configured_connection"
+            ) as mock_connect,
         ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
@@ -906,7 +909,9 @@ class TestAsyncDBWriter:
             patch(
                 "aletheia_probe.cache_sync.db_writer.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
+            patch(
+                "aletheia_probe.cache_sync.db_writer.get_configured_connection"
+            ) as mock_connect,
         ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"
@@ -950,7 +955,9 @@ class TestAsyncDBWriter:
             patch(
                 "aletheia_probe.cache_sync.db_writer.DataSourceManager"
             ) as mock_get_cache_manager,
-            patch("sqlite3.connect") as mock_connect,
+            patch(
+                "aletheia_probe.cache_sync.db_writer.get_configured_connection"
+            ) as mock_connect,
         ):
             mock_cache_manager = Mock()
             mock_cache_manager.db_path = ":memory:"

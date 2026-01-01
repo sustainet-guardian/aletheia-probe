@@ -2,7 +2,6 @@
 """OpenAlex caching for publication statistics."""
 
 import json
-import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -96,7 +95,7 @@ class OpenAlexCache(CacheBase):
             f"Storing OpenAlex cache entry: issn={issn}, journal_name={journal_name}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO openalex_cache (
@@ -158,9 +157,7 @@ class OpenAlexCache(CacheBase):
             f"Looking up OpenAlex cache entry for issn={issn}, journal_name={journal_name}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-
+        with self.get_connection_with_row_factory() as conn:
             # Build query based on available parameters
             params: tuple[str, ...] | tuple[str | None, ...]
             if issn and journal_name:
@@ -237,11 +234,11 @@ class OpenAlexCache(CacheBase):
         """
         detail_logger.debug("Starting cleanup of expired OpenAlex cache entries")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM openalex_cache WHERE expires_at <= CURRENT_TIMESTAMP"
             )
-            removed_count = cursor.rowcount
+            removed_count: int = cursor.rowcount
             conn.commit()
 
             detail_logger.debug(

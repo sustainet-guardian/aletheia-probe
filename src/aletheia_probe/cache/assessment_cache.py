@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Assessment result caching for the cache system."""
 
-import sqlite3
 from datetime import datetime, timedelta
 
 from ..logging_config import get_detail_logger, get_status_logger
@@ -64,7 +63,7 @@ class AssessmentCache(CacheBase):
         expires_at = datetime.now() + timedelta(hours=ttl_hours)
         result_json = result.model_dump_json()
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO assessment_cache
@@ -92,7 +91,7 @@ class AssessmentCache(CacheBase):
             f"Looking up cached assessment for query_hash '{query_hash}'"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT assessment_result FROM assessment_cache
@@ -122,11 +121,11 @@ class AssessmentCache(CacheBase):
         """
         detail_logger.debug("Starting cleanup of expired assessment cache entries")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM assessment_cache WHERE expires_at <= ?", (datetime.now(),)
             )
-            removed_count = cursor.rowcount
+            removed_count: int = cursor.rowcount
             detail_logger.debug(
                 f"Cleanup completed: removed {removed_count} expired assessment cache entries"
             )
@@ -140,7 +139,7 @@ class AssessmentCache(CacheBase):
         """
         detail_logger.debug("Getting assessment cache count")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM assessment_cache")
             result = cursor.fetchone()
             count = int(result[0]) if result else 0
@@ -155,10 +154,10 @@ class AssessmentCache(CacheBase):
         """
         detail_logger.debug("Starting to clear all assessment cache entries")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute("DELETE FROM assessment_cache")
             conn.commit()
-            cleared_count = cursor.rowcount
+            cleared_count: int = cursor.rowcount
             detail_logger.debug(
                 f"Assessment cache cleared: {cleared_count} entries removed"
             )
