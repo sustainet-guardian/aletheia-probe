@@ -448,10 +448,10 @@ class TestOutputFormatter:
         )
 
         assert "Backend Results (3):" in output
-        assert "✓ openalex_analyzer: BackendStatus.FOUND" in output
+        assert "✓ openalex_analyzer: found" in output
         assert "predatory (confidence: 0.90)" in output
-        assert "✓ bealls: BackendStatus.FOUND" in output
-        assert "✗ doaj: BackendStatus.NOT_FOUND" in output
+        assert "✓ bealls: found" in output
+        assert "✗ doaj: not_found" in output
 
     def test_find_backend_result(self, formatter, predatory_result_with_details):
         """Test finding specific backend results."""

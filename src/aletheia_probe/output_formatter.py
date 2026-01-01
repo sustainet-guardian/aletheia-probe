@@ -244,7 +244,7 @@ class OutputFormatter:
                 timing_info = f" ({backend_result.execution_time_ms:.2f}ms)"
 
             lines.append(
-                f"  {status_emoji} {backend_result.backend_name}: {backend_result.status}{cache_indicator}{timing_info}"
+                f"  {status_emoji} {backend_result.backend_name}: {backend_result.status.value}{cache_indicator}{timing_info}"
             )
 
             if backend_result.assessment:
