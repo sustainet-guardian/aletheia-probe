@@ -62,18 +62,24 @@ class FunctionTracer:
         # Get function name
         func_name = code.co_name
 
-        # Try to get class name from frame locals
-        class_name = None
-        if "self" in frame.f_locals:
-            class_name = frame.f_locals["self"].__class__.__name__
-        elif "cls" in frame.f_locals:
-            class_name = frame.f_locals["cls"].__name__
-
-        # Build qualified name
-        if class_name:
-            qualified_name = f"{class_name}.{func_name}"
+        # Use co_qualname for Python 3.11+ to get the fully qualified name (Class.method)
+        # This correctly handles static methods, class methods, and regular methods
+        if hasattr(code, "co_qualname"):
+            qualified_name = code.co_qualname
         else:
-            qualified_name = func_name
+            # Fallback for older Python versions
+            # Try to get class name from frame locals
+            class_name = None
+            if "self" in frame.f_locals:
+                class_name = frame.f_locals["self"].__class__.__name__
+            elif "cls" in frame.f_locals:
+                class_name = frame.f_locals["cls"].__name__
+
+            # Build qualified name
+            if class_name:
+                qualified_name = f"{class_name}.{func_name}"
+            else:
+                qualified_name = func_name
 
         # Get module path relative to src
         try:
