@@ -291,13 +291,13 @@ class TestOpenAlexCache:
         }
 
         temp_cache.set_openalex_data(
-            issn="1234-5678",
+            issn="1234-5679",
             journal_name=None,
             openalex_data=minimal_data,
             ttl_hours=720,
         )
 
-        result = temp_cache.get_openalex_data(issn="1234-5678")
+        result = temp_cache.get_openalex_data(issn="1234-5679")
         assert result is not None
         assert result["openalex_id"] == "S123"
         assert result["publisher"] is None
@@ -319,14 +319,14 @@ class TestOpenAlexCache:
 
         with caplog.at_level(logging.WARNING):
             temp_cache.set_openalex_data(
-                issn="1234-5678",
+                issn="1234-5679",
                 journal_name="test_journal",
                 openalex_data=data_with_invalid_timestamp,
                 ttl_hours=720,
             )
 
         # Check that data was still stored (fallback worked)
-        result = temp_cache.get_openalex_data(issn="1234-5678")
+        result = temp_cache.get_openalex_data(issn="1234-5679")
         assert result is not None
         assert result["openalex_id"] == "S123"
 

@@ -47,7 +47,7 @@ def sample_query_input():
     return QueryInput(
         raw_input="Journal of Advanced Computer Science",
         normalized_name="Journal of Advanced Computer Science",
-        identifiers={"issn": "1234-5678"},
+        identifiers={"issn": "1234-5679"},
         aliases=["Advanced Computer Science"],
     )
 

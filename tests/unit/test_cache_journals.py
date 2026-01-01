@@ -45,7 +45,7 @@ class TestCacheJournal:
             assessment=AssessmentType.PREDATORY,
             journal_name="Test Journal",
             normalized_name="test journal",
-            issn="1234-5678",
+            issn="1234-5679",
             eissn="0028-0836",  # Nature's ISSN - valid checksum
             publisher="Test Publisher",
             metadata={"key": "value"},
@@ -59,7 +59,7 @@ class TestCacheJournal:
         journal = results[0]
         assert journal["normalized_name"] == "test journal"
         assert journal["display_name"] == "Test Journal"
-        assert journal["issn"] == "1234-5678"
+        assert journal["issn"] == "1234-5679"
         assert journal["eissn"] == "0028-0836"
         assert journal["publisher"] == "Test Publisher"
 

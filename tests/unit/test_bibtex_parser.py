@@ -35,7 +35,7 @@ class TestBibtexParser:
     journal={Another Journal},
     author={Alice Johnson},
     year={2024},
-    issn={1234-5678}
+    issn={1234-5679}
 }
 """
         test_file = tmp_path / "test.bib"
@@ -62,7 +62,7 @@ class TestBibtexParser:
         entry2 = entries[1]
         assert entry2.key == "test2"
         assert entry2.journal_name == "Another Journal"
-        assert entry2.issn == "1234-5678"
+        assert entry2.issn == "1234-5679"
 
     def test_parse_bibtex_file_latin1_encoding(self, tmp_path):
         """Test parsing of a Latin-1 encoded BibTeX file."""

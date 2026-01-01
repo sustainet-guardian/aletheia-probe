@@ -86,7 +86,7 @@ class TestOpenAlexClient:
                 {
                     "id": "https://openalex.org/S123456789",
                     "display_name": "Journal of Computer Science",
-                    "issn_l": "1234-5678",
+                    "issn_l": "1234-5679",
                     "works_count": 1000,
                     "cited_by_count": 50000,
                     "first_publication_year": 2000,
@@ -245,7 +245,7 @@ class TestOpenAlexClient:
             )
             mock_client_class.return_value = mock_client
 
-            result = await get_publication_stats("Test Journal", issn="1234-5678")
+            result = await get_publication_stats("Test Journal", issn="1234-5679")
 
             assert result is not None
             assert result["total_publications"] == 1000
@@ -266,9 +266,9 @@ class TestOpenAlexClient:
         from aletheia_probe.openalex import normalize_issn
 
         # Test valid ISSN normalization
-        assert normalize_issn("1234-5678") == "1234-5678"
-        assert normalize_issn("12345678") == "1234-5678"
-        assert normalize_issn("1234 5678") == "1234-5678"
+        assert normalize_issn("1234-5679") == "1234-5679"
+        assert normalize_issn("12345679") == "1234-5679"
+        assert normalize_issn("1234 5679") == "1234-5679"
 
         # Test invalid ISSN
         assert normalize_issn("invalid") is None
@@ -309,16 +309,16 @@ class TestOpenAlexHelperFunctions:
         from aletheia_probe.openalex import build_source_query
 
         # Test with ISSN
-        query = build_source_query(issn="1234-5678")
-        assert "issn:1234-5678" in query
+        query = build_source_query(issn="1234-5679")
+        assert "issn:1234-5679" in query
 
         # Test with journal name
         query = build_source_query(journal_name="Test Journal")
         assert "Test Journal" in query
 
         # Test with both
-        query = build_source_query(journal_name="Test Journal", issn="1234-5678")
-        assert "Test Journal" in query and "1234-5678" in query
+        query = build_source_query(journal_name="Test Journal", issn="1234-5679")
+        assert "Test Journal" in query and "1234-5679" in query
 
     def test_extract_source_info(self):
         """Test extracting source information from OpenAlex response."""
@@ -327,8 +327,8 @@ class TestOpenAlexHelperFunctions:
         mock_source_data = {
             "id": "https://openalex.org/S123456789",
             "display_name": "Test Journal",
-            "issn_l": "1234-5678",
-            "issn": ["1234-5678", "2345-6789"],
+            "issn_l": "1234-5679",
+            "issn": ["1234-5679", "2345-6789"],
             "works_count": 1500,
             "cited_by_count": 25000,
         }
@@ -336,7 +336,7 @@ class TestOpenAlexHelperFunctions:
         info = extract_source_info(mock_source_data)
 
         assert info["name"] == "Test Journal"
-        assert info["issn_l"] == "1234-5678"
+        assert info["issn_l"] == "1234-5679"
         assert info["total_works"] == 1500
         assert info["total_citations"] == 25000
 

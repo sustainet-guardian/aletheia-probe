@@ -499,7 +499,7 @@ async def get_publication_stats(
 # Helper utility functions
 def normalize_issn(issn: str | None) -> str | None:
     """
-    Normalize ISSN to standard format (1234-5678).
+    Normalize ISSN to standard format (1234-5679).
 
     This is a wrapper around the centralized validation module.
 

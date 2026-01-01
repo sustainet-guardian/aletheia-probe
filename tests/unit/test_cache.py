@@ -227,7 +227,7 @@ class TestCacheIntegrationJournalDataSource:
             journal_name="Test Predatory Journal",
             normalized_name="test_predatory_journal",
             confidence=0.9,
-            issn="1234-5678",
+            issn="1234-5679",
             eissn="1234-5679",
             publisher="Sketchy Publisher",
             urls=["http://fake-journal.com"],
@@ -286,7 +286,7 @@ class TestCacheIntegrationJournalDataSource:
             assessment=AssessmentType.PREDATORY,
             journal_name="Test Journal 1",
             normalized_name="test_journal_1",
-            issn="1234-5678",
+            issn="1234-5679",
         )
         add_test_journal_entry(temp_cache.db_path, entry1)
 
@@ -300,7 +300,7 @@ class TestCacheIntegrationJournalDataSource:
         add_test_journal_entry(temp_cache.db_path, entry2)
 
         # Test search by ISSN with different patterns
-        results = temp_cache.journal_cache.search_journals(issn="1234-5678")
+        results = temp_cache.journal_cache.search_journals(issn="1234-5679")
         assert len(results) == 1
 
         # Test search by source

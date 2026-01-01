@@ -35,7 +35,7 @@ async def test_query_api_with_eissn_fallback(backend):
     """Test that the backend uses eissn if issn is not found."""
     query_input = QueryInput(
         raw_input="Test Journal",
-        identifiers={"issn": "1234-5678", "eissn": "8765-4321"},
+        identifiers={"issn": "1234-5679", "eissn": "8765-4321"},
     )
     with (
         patch.object(
@@ -57,7 +57,7 @@ async def test_query_api_with_eissn_fallback(backend):
         result = await backend.query(query_input)
         assert result.status == BackendStatus.FOUND
         assert mock_get.call_count == 2
-        mock_get.assert_any_call("1234-5678")
+        mock_get.assert_any_call("1234-5679")
         mock_get.assert_any_call("8765-4321")
 
 
@@ -65,7 +65,7 @@ async def test_query_api_with_eissn_fallback(backend):
 async def test_query_api_exception_handling(backend):
     """Test that the backend handles exceptions during API query."""
     query_input = QueryInput(
-        raw_input="Test Journal", identifiers={"issn": "1234-5678"}
+        raw_input="Test Journal", identifiers={"issn": "1234-5679"}
     )
     with (
         patch.object(
@@ -90,7 +90,7 @@ async def test_get_journal_by_issn_api_error(backend):
         mock_get.return_value.__aenter__.return_value = mock_response
 
         with pytest.raises(Exception, match="Crossref API returned status 500"):
-            await backend._get_journal_by_issn("1234-5678")
+            await backend._get_journal_by_issn("1234-5679")
 
 
 @pytest.mark.asyncio
@@ -99,7 +99,7 @@ async def test_get_journal_by_issn_timeout(backend):
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_get.side_effect = asyncio.TimeoutError
         with pytest.raises(Exception, match="Crossref API timeout"):
-            await backend._get_journal_by_issn("1234-5678")
+            await backend._get_journal_by_issn("1234-5679")
 
 
 def test_calculate_metadata_metrics_invalid_dois(backend):

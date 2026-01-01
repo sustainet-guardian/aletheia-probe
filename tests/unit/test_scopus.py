@@ -143,7 +143,7 @@ class TestScopusSource:
             ws.append(
                 [
                     "Test Journal of Science",
-                    "1234-5678",
+                    "1234-5679",
                     "2049-3630",
                     "Test Publisher",
                     "Active",
@@ -205,7 +205,7 @@ class TestScopusSource:
 
                 # Check first journal
                 assert data[0]["journal_name"] == "Test Journal of Science"
-                assert data[0]["issn"] == "1234-5678"
+                assert data[0]["issn"] == "1234-5679"
                 assert data[0]["eissn"] == "2049-3630"
                 assert data[0]["publisher"] == "Test Publisher"
                 assert "quality_flagged" not in data[0]["metadata"]
@@ -306,14 +306,14 @@ class TestScopusBackend:
         query_input = QueryInput(
             raw_input="Test Journal",
             normalized_name="test journal",
-            identifiers={"issn": "1234-5678"},
+            identifiers={"issn": "1234-5679"},
         )
 
         mock_results = [
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
                 "publisher": "Test Publisher",
                 "metadata": {"source_type": "Journal"},
             }

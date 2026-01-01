@@ -384,7 +384,7 @@ class TestAsyncMain:
             mock_normalizer.normalize.return_value = Mock(
                 raw_input="Test Journal",
                 normalized_name="test journal",
-                identifiers={"issn": "1234-5678"},
+                identifiers={"issn": "1234-5679"},
                 extracted_acronym_mappings={},
             )
             mock_dispatcher.assess_journal = AsyncMock(
@@ -450,7 +450,7 @@ class TestAsyncMain:
             mock_query_input = Mock(
                 raw_input="Test Journal",
                 normalized_name="test journal",
-                identifiers={"issn": "1234-5678"},
+                identifiers={"issn": "1234-5679"},
                 extracted_acronym_mappings={},
             )
             mock_normalizer.normalize.return_value = mock_query_input

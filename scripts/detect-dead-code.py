@@ -336,7 +336,7 @@ heuristics:
 
         # Create temporary CSV file for custom list testing
         csv_content = """journal_name,issn,publisher
-Test Journal,1234-5678,Test Publisher
+Test Journal,1234-5679,Test Publisher
 Another Journal,9876-5432,Another Publisher
 """
         with tempfile.NamedTemporaryFile(
@@ -421,7 +421,7 @@ Another Journal,9876-5432,Another Publisher
                 # Status after adding custom lists
                 ["status"],
                 # Query custom list journals WITH ISSNs (triggers ISSN-based search)
-                ["journal", "Test Journal (ISSN: 1234-5678)"],
+                ["journal", "Test Journal (ISSN: 1234-5679)"],
                 ["journal", "JSON Test Journal (ISSN: 1111-2222)"],
                 # Acronym operations
                 ["acronym", "status"],

@@ -19,10 +19,10 @@ def normalize_issn(issn: str | None) -> str | None:
         Normalized ISSN with hyphen, or None if invalid format
 
     Examples:
-        >>> normalize_issn("12345678")
-        '1234-5678'
-        >>> normalize_issn("1234-5678")
-        '1234-5678'
+        >>> normalize_issn("12345679")
+        '1234-5679'
+        >>> normalize_issn("1234-5679")
+        '1234-5679'
         >>> normalize_issn("invalid")
         None
     """
@@ -57,9 +57,9 @@ def validate_issn(issn: str | None) -> bool:
     Examples:
         >>> validate_issn("0028-0836")  # Nature
         True
-        >>> validate_issn("1234-5678")  # Test ISSN
+        >>> validate_issn("1234-5679")  # Test ISSN
         True
-        >>> validate_issn("0000-0000")
+        >>> validate_issn("1234-5678")  # Invalid Checksum
         False
     """
     if not issn or len(issn) != 9:
@@ -69,10 +69,6 @@ def validate_issn(issn: str | None) -> bool:
     normalized = normalize_issn(issn)
     if not normalized:
         return False
-
-    # For test compatibility, accept known test cases
-    if normalized in ["1234-5678", "0028-0836"]:
-        return True
 
     # Verify checksum
     return _verify_issn_checksum(normalized)

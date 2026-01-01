@@ -227,7 +227,7 @@ class TestCrossValidatorLogic:
         query_input = QueryInput(
             raw_input="Test Journal",
             normalized_name="test journal",
-            identifiers={"issn": "1234-5678"},
+            identifiers={"issn": "1234-5679"},
         )
 
         # Mock both backends to return specific results
