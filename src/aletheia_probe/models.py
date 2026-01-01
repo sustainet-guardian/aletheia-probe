@@ -38,7 +38,7 @@ VENUE_TYPE_EMOJI: dict[VenueType, str] = {
 }
 
 
-class BackendStatus(Enum):
+class BackendStatus(str, Enum):
     """Status of a backend query result."""
 
     FOUND = "found"
