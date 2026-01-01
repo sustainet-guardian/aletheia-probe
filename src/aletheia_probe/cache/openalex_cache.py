@@ -236,7 +236,8 @@ class OpenAlexCache(CacheBase):
 
         with self.get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM openalex_cache WHERE expires_at <= ?", (datetime.now().isoformat(),)
+                "DELETE FROM openalex_cache WHERE expires_at <= ?",
+                (datetime.now().isoformat(),),
             )
             removed_count: int = cursor.rowcount
             conn.commit()
