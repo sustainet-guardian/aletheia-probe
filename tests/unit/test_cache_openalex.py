@@ -178,7 +178,14 @@ class TestOpenAlexCache:
                 )
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ("9999-9999", "expired_journal", "S999", "Expired", 100, expired_time),
+                (
+                    "9999-9999",
+                    "expired_journal",
+                    "S999",
+                    "Expired",
+                    100,
+                    expired_time.isoformat(),
+                ),
             )
             conn.commit()
 
@@ -212,7 +219,14 @@ class TestOpenAlexCache:
                 )
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ("9999-9999", "expired_journal", "S999", "Expired", 100, expired_time),
+                (
+                    "9999-9999",
+                    "expired_journal",
+                    "S999",
+                    "Expired",
+                    100,
+                    expired_time.isoformat(),
+                ),
             )
             conn.commit()
 

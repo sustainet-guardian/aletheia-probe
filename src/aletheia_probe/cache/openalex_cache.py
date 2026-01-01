@@ -126,8 +126,8 @@ class OpenAlexCache(CacheBase):
                     last_publication_year,
                     cited_by_count,
                     is_in_doaj,
-                    fetched_at,
-                    expires_at,
+                    fetched_at.isoformat(),
+                    expires_at.isoformat(),
                 ),
             )
             conn.commit()
@@ -164,27 +164,27 @@ class OpenAlexCache(CacheBase):
                 query = """
                     SELECT * FROM openalex_cache
                     WHERE (issn = ? OR normalized_journal_name = ?)
-                    AND expires_at > CURRENT_TIMESTAMP
+                    AND expires_at > ?
                     ORDER BY created_at DESC
                     LIMIT 1
                 """
-                params = (issn, journal_name)
+                params = (issn, journal_name, datetime.now().isoformat())
             elif issn:
                 query = """
                     SELECT * FROM openalex_cache
-                    WHERE issn = ? AND expires_at > CURRENT_TIMESTAMP
+                    WHERE issn = ? AND expires_at > ?
                     ORDER BY created_at DESC
                     LIMIT 1
                 """
-                params = (issn,)
+                params = (issn, datetime.now().isoformat())
             else:  # journal_name only
                 query = """
                     SELECT * FROM openalex_cache
-                    WHERE normalized_journal_name = ? AND expires_at > CURRENT_TIMESTAMP
+                    WHERE normalized_journal_name = ? AND expires_at > ?
                     ORDER BY created_at DESC
                     LIMIT 1
                 """
-                params = (journal_name,)
+                params = (journal_name, datetime.now().isoformat())
 
             cursor = conn.execute(query, params)
             row = cursor.fetchone()
@@ -236,7 +236,8 @@ class OpenAlexCache(CacheBase):
 
         with self.get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM openalex_cache WHERE expires_at <= CURRENT_TIMESTAMP"
+                "DELETE FROM openalex_cache WHERE expires_at <= ?",
+                (datetime.now().isoformat(),),
             )
             removed_count: int = cursor.rowcount
             conn.commit()
