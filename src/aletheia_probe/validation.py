@@ -4,7 +4,6 @@
 import re
 
 
-ISSN_PATTERN = re.compile(r"^\d{4}-?\d{3}[\dXx]$")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
