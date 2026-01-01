@@ -70,7 +70,7 @@ class AssessmentCache(CacheBase):
                 (query_hash, query_input, assessment_result, expires_at)
                 VALUES (?, ?, ?, ?)
             """,
-                (query_hash, query_input, result_json, expires_at),
+                (query_hash, query_input, result_json, expires_at.isoformat()),
             )
             detail_logger.debug(
                 f"Successfully cached assessment result for query_hash '{query_hash}'"
@@ -97,7 +97,7 @@ class AssessmentCache(CacheBase):
                 SELECT assessment_result FROM assessment_cache
                 WHERE query_hash = ? AND expires_at > ?
             """,
-                (query_hash, datetime.now()),
+                (query_hash, datetime.now().isoformat()),
             )
 
             row = cursor.fetchone()
@@ -123,7 +123,8 @@ class AssessmentCache(CacheBase):
 
         with self.get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM assessment_cache WHERE expires_at <= ?", (datetime.now(),)
+                "DELETE FROM assessment_cache WHERE expires_at <= ?",
+                (datetime.now().isoformat(),),
             )
             removed_count: int = cursor.rowcount
             detail_logger.debug(

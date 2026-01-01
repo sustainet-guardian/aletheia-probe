@@ -126,8 +126,8 @@ class OpenAlexCache(CacheBase):
                     last_publication_year,
                     cited_by_count,
                     is_in_doaj,
-                    fetched_at,
-                    expires_at,
+                    fetched_at.isoformat(),
+                    expires_at.isoformat(),
                 ),
             )
             conn.commit()
