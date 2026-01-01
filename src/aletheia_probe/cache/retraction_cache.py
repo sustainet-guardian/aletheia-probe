@@ -2,7 +2,7 @@
 """Article retraction tracking and journal retraction statistics for the cache system."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..logging_config import get_detail_logger
@@ -106,7 +106,7 @@ class RetractionCache(CacheBase):
             ttl_hours: Cache TTL in hours
         """
         normalized_doi = doi.lower().strip()
-        expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
         detail_logger.debug(
             f"Caching retraction info for DOI '{doi}' (normalized: '{normalized_doi}'): "
             f"is_retracted={is_retracted}, source={source}, ttl_hours={ttl_hours}"
