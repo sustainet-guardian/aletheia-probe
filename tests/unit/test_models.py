@@ -8,6 +8,7 @@ import pytest
 from aletheia_probe.models import (
     VENUE_TYPE_EMOJI,
     AssessmentResult,
+    AssessmentType,
     BackendResult,
     BackendStatus,
     BibtexAssessmentResult,
@@ -128,13 +129,13 @@ class TestAssessmentResult:
         """Test creating an assessment result."""
         result = AssessmentResult(
             input_query="Test Journal",
-            assessment="legitimate",
+            assessment=AssessmentType.LEGITIMATE,
             confidence=0.9,
             overall_score=0.85,
             processing_time=2.5,
         )
         assert result.input_query == "Test Journal"
-        assert result.assessment == "legitimate"
+        assert result.assessment == AssessmentType.LEGITIMATE
         assert result.confidence == 0.9
         assert isinstance(result.timestamp, datetime)
 
