@@ -46,6 +46,8 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     # Configure root logger to capture everything
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
+    for handler in root_logger.handlers[:]:
+        handler.close()
     root_logger.handlers.clear()
 
     # Create shared file handler for both loggers
@@ -62,6 +64,8 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     # This logger writes verbose technical details to file only
     detail_logger = logging.getLogger(DETAIL_LOGGER_NAME)
     detail_logger.setLevel(logging.DEBUG)
+    for handler in detail_logger.handlers[:]:
+        handler.close()
     detail_logger.handlers.clear()
     detail_logger.addHandler(file_handler)
     detail_logger.propagate = False  # Don't propagate to root logger
@@ -70,6 +74,8 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     # This logger writes user-facing status to both console and file
     status_logger = logging.getLogger(STATUS_LOGGER_NAME)
     status_logger.setLevel(logging.INFO)
+    for handler in status_logger.handlers[:]:
+        handler.close()
     status_logger.handlers.clear()
 
     # Console formatter for status logger
