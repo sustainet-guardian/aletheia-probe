@@ -248,7 +248,7 @@ class BibtexBatchAssessor:
                 # Create a mock assessment result for errors
                 error_assessment = AssessmentResult(
                     input_query=entry.journal_name,
-                    assessment="insufficient_data",
+                    assessment=AssessmentType.INSUFFICIENT_DATA,
                     confidence=0.0,
                     overall_score=0.0,
                     backend_results=[],

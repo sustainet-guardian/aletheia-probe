@@ -5,6 +5,7 @@ import asyncio
 import time
 from typing import Any
 
+from ..enums import AssessmentType
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
@@ -86,7 +87,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
                     backend_name=self.get_name(),
                     status=BackendStatus.ERROR,
                     confidence=0.0,
-                    assessment="insufficient_data",
+                    assessment=AssessmentType.INSUFFICIENT_DATA,
                     data={},
                     sources=[],
                     error_message="Backend error during cross-validation",
@@ -366,12 +367,16 @@ class CrossValidatorBackend(ApiBackendWithCache):
         elif openalex_assessment != crossref_assessment:
             # Disagreement between backends
             if openalex_confidence > crossref_confidence * 1.2:
-                final_assessment = openalex_assessment or "insufficient_data"
+                final_assessment = (
+                    openalex_assessment or AssessmentType.INSUFFICIENT_DATA
+                )
                 base_confidence = (
                     openalex_confidence * 0.7
                 )  # Reduce confidence for disagreement
             elif crossref_confidence > openalex_confidence * 1.2:
-                final_assessment = crossref_assessment or "insufficient_data"
+                final_assessment = (
+                    crossref_assessment or AssessmentType.INSUFFICIENT_DATA
+                )
                 base_confidence = (
                     crossref_confidence * 0.7
                 )  # Reduce confidence for disagreement

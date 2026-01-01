@@ -23,6 +23,7 @@ class AssessmentType(str, Enum):
     LEGITIMATE = "legitimate"
     SUSPICIOUS = "suspicious"
     UNKNOWN = "unknown"
+    INSUFFICIENT_DATA = "insufficient_data"
     QUESTIONABLE = "questionable"
     QUALITY_INDICATOR = "quality_indicator"
     HIJACKED = "hijacked"

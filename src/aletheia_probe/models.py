@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from .enums import AssessmentType
 from .utils.dead_code import code_is_used
 from .validation import validate_email as _validate_email
 
@@ -76,8 +77,8 @@ class BackendResult(BaseModel):
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Confidence score 0.0-1.0"
     )
-    assessment: str | None = Field(
-        None, description="predatory, legitimate, suspicious, or unknown"
+    assessment: AssessmentType | None = Field(
+        None, description="Assessment type (predatory, legitimate, suspicious, unknown)"
     )
     data: dict[str, Any] = Field(
         default_factory=dict, description="Backend-specific raw data"
@@ -120,8 +121,9 @@ class AssessmentResult(BaseModel):
     """Final assessment result for a journal query."""
 
     input_query: str = Field(..., description="Original query string")
-    assessment: str = Field(
-        ..., description="predatory, legitimate, suspicious, or insufficient_data"
+    assessment: AssessmentType = Field(
+        ...,
+        description="Assessment type (predatory, legitimate, suspicious, insufficient_data)",
     )
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Overall confidence score"
