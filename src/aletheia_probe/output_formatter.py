@@ -206,7 +206,11 @@ class OutputFormatter:
 
             if backend_result.status == BackendStatus.FOUND:
                 assessment = backend_result.assessment or "unknown"
-                assessment_text = assessment.value if hasattr(assessment, 'value') else str(assessment)
+                assessment_text = (
+                    assessment.value
+                    if hasattr(assessment, "value")
+                    else str(assessment)
+                )
                 confidence = backend_result.confidence
                 emoji = "•" if assessment == AssessmentType.PREDATORY else "✓"
                 lines.append(
@@ -244,7 +248,11 @@ class OutputFormatter:
             )
 
             if backend_result.assessment:
-                assessment_text = backend_result.assessment.value if hasattr(backend_result.assessment, 'value') else str(backend_result.assessment)
+                assessment_text = (
+                    backend_result.assessment.value
+                    if hasattr(backend_result.assessment, "value")
+                    else str(backend_result.assessment)
+                )
                 lines.append(
                     f"    → {assessment_text} (confidence: {backend_result.confidence:.2f})"
                 )
