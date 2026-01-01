@@ -292,9 +292,6 @@ class TestCacheRetraction:
             # Data should be correct
             assert total_ret == 3
 
-
-
-
     def test_get_retraction_statistics_with_json_parsing(self, temp_cache):
         """Test that get_retraction_statistics correctly parses JSON fields."""
         # Insert a basic journal record
