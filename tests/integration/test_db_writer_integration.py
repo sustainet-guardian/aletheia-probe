@@ -62,7 +62,7 @@ class TestAsyncDBWriterIntegration:
             {
                 "journal_name": "Test Journal Alpha",
                 "normalized_name": "test_journal_alpha",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
                 "eissn": "1234-5679",
                 "publisher": "Test Publisher Inc",
             },
@@ -97,7 +97,7 @@ class TestAsyncDBWriterIntegration:
         assert len(alpha_journals) == 1
         alpha = alpha_journals[0]
         assert alpha["display_name"] == "Test Journal Alpha"
-        assert alpha["issn"] == "1234-5678"
+        assert alpha["issn"] == "1234-5679"
         assert alpha["eissn"] == "1234-5679"
         assert alpha["publisher"] == "Test Publisher Inc"
 
@@ -116,7 +116,7 @@ class TestAsyncDBWriterIntegration:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             }
         ]
 
@@ -304,7 +304,7 @@ class TestAsyncDBWriterIntegration:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             }
         ]
 

@@ -233,7 +233,7 @@ class InputNormalizer:
         Examples:
             "IEEE Conference on Computer Vision (CVPR)" -> ["CVPR"]
             "Neural Information Processing Systems (NeurIPS)" -> ["NeurIPS"]
-            "Conference (ISSN: 1234-5678)" -> []  # Not an acronym
+            "Conference (ISSN: 1234-5679)" -> []  # Not an acronym
 
         Args:
             text: Input text that may contain parenthesized acronyms
@@ -308,7 +308,7 @@ class InputNormalizer:
         """Remove content within brackets and parentheses that could interfere with journal matching.
 
         Examples:
-            "Journal of Science (ISSN: 1234-5678)" -> "Journal of Science"
+            "Journal of Science (ISSN: 1234-5679)" -> "Journal of Science"
             "{{IEEE}} Conference on {{Cloud Computing}} ({{CLOUD}})" -> "IEEE Conference on Cloud Computing"
             "Advances in Neural Information Processing Systems (NeurIPS)" -> "Advances in Neural Information Processing Systems"
 

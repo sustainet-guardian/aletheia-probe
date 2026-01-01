@@ -148,7 +148,7 @@ backends:
             query = QueryInput(
                 raw_input="Test Journal",
                 normalized_name="Test Journal",
-                identifiers={"issn": "1234-5678"},
+                identifiers={"issn": "1234-5679"},
             )
 
             # Run assessment - this should create backends with email configuration

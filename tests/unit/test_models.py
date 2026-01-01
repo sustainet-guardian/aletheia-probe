@@ -36,12 +36,12 @@ class TestQueryInput:
         query = QueryInput(
             raw_input="J. Test Sci.",
             normalized_name="Journal of Test Science",
-            identifiers={"issn": "1234-5678"},
+            identifiers={"issn": "1234-5679"},
             aliases=["Test Science Journal"],
         )
         assert query.raw_input == "J. Test Sci."
         assert query.normalized_name == "Journal of Test Science"
-        assert query.identifiers["issn"] == "1234-5678"
+        assert query.identifiers["issn"] == "1234-5679"
         assert "Test Science Journal" in query.aliases
 
 
@@ -106,7 +106,7 @@ class TestJournalMetadata:
         """Test creating full journal metadata."""
         metadata = JournalMetadata(
             name="International Journal of Testing",
-            issn="1234-5678",
+            issn="1234-5679",
             eissn="8765-4321",
             publisher="Test Publisher",
             subject_areas=["Computer Science", "Testing"],
@@ -117,7 +117,7 @@ class TestJournalMetadata:
             peer_reviewed=True,
         )
         assert metadata.name == "International Journal of Testing"
-        assert metadata.issn == "1234-5678"
+        assert metadata.issn == "1234-5679"
         assert "Computer Science" in metadata.subject_areas
         assert metadata.open_access is True
 
@@ -272,7 +272,7 @@ class TestBibtexEntry:
             authors="Smith, J. and Doe, A.",
             year="2024",
             doi="10.1234/test.2024",
-            issn="1234-5678",
+            issn="1234-5679",
             url="https://example.com/article",
             publisher="Test Publisher",
         )
@@ -284,7 +284,7 @@ class TestBibtexEntry:
         assert entry.authors == "Smith, J. and Doe, A."
         assert entry.year == "2024"
         assert entry.doi == "10.1234/test.2024"
-        assert entry.issn == "1234-5678"
+        assert entry.issn == "1234-5679"
         assert entry.url == "https://example.com/article"
         assert entry.publisher == "Test Publisher"
 

@@ -134,7 +134,7 @@ class TestCachedBackend:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
                 "publisher": "Test Publisher",
             }
         ]
@@ -194,12 +194,12 @@ class TestCachedBackend:
         query_input = QueryInput(
             raw_input="Test Journal",
             normalized_name="test journal",
-            identifiers={"issn": "1234-5678"},
+            identifiers={"issn": "1234-5679"},
         )
 
         match = {
             "journal_name": "Test Journal",
-            "issn": "1234-5678",
+            "issn": "1234-5679",
             "normalized_name": "test journal",
         }
 

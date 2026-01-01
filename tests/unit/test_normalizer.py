@@ -38,11 +38,11 @@ class TestInputNormalizer:
     def test_issn_extraction(self):
         """Test ISSN extraction from input."""
         normalizer = InputNormalizer()
-        result = normalizer.normalize("Journal of Testing (ISSN: 1234-5678)")
+        result = normalizer.normalize("Journal of Testing (ISSN: 1234-5679)")
 
-        assert result.identifiers.get("issn") == "1234-5678"
+        assert result.identifiers.get("issn") == "1234-5679"
         assert result.normalized_name is not None
-        assert "1234-5678" not in result.normalized_name
+        assert "1234-5679" not in result.normalized_name
 
     def test_whitespace_normalization(self):
         """Test whitespace normalization."""

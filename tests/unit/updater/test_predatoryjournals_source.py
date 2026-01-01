@@ -83,7 +83,7 @@ class TestPredatoryJournalsSource:
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test journal 1",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             }
         ]
         mock_publishers = [
@@ -143,7 +143,7 @@ class TestPredatoryJournalsSource:
     @pytest.mark.asyncio
     async def test_fetch_google_sheet_success(self, source):
         """Test successful _fetch_google_sheet."""
-        mock_csv_data = "Journal Name,ISSN\nTest Journal,1234-5678\n"
+        mock_csv_data = "Journal Name,ISSN\nTest Journal,1234-5679\n"
         mock_session = Mock()
 
         with (
@@ -318,11 +318,11 @@ class TestPredatoryJournalsSource:
 
     def test_parse_csv_success(self, source):
         """Test successful CSV parsing."""
-        csv_content = "Journal Name,ISSN,Publisher\nTest Journal,1234-5678,Test Publisher\nAnother Journal,2345-6789,Another Publisher\n"
+        csv_content = "Journal Name,ISSN,Publisher\nTest Journal,1234-5679,Test Publisher\nAnother Journal,2345-6789,Another Publisher\n"
 
         with patch.object(source, "_parse_row") as mock_parse_row:
             mock_parse_row.side_effect = [
-                {"journal_name": "Test Journal", "issn": "1234-5678"},
+                {"journal_name": "Test Journal", "issn": "1234-5679"},
                 {"journal_name": "Another Journal", "issn": "2345-6789"},
             ]
 
@@ -334,7 +334,7 @@ class TestPredatoryJournalsSource:
     def test_parse_csv_empty_rows(self, source):
         """Test CSV parsing with empty rows."""
         csv_content = (
-            "Journal Name,ISSN\nTest Journal,1234-5678\n,\nAnother Journal,2345-6789\n"
+            "Journal Name,ISSN\nTest Journal,1234-5679\n,\nAnother Journal,2345-6789\n"
         )
 
         with patch.object(source, "_parse_row") as mock_parse_row:
@@ -361,7 +361,7 @@ class TestPredatoryJournalsSource:
         """Test _parse_row for journal with standard column names."""
         row = {
             "Journal Name": "Test Journal",
-            "ISSN": "1234-5678",
+            "ISSN": "1234-5679",
             "eISSN": "2345-6789",
             "Publisher": "Test Publisher",
         }
@@ -370,19 +370,19 @@ class TestPredatoryJournalsSource:
 
         assert result is not None
         assert result["journal_name"] == "Test Journal"
-        assert result["issn"] == "1234-5678"
+        assert result["issn"] == "1234-5679"
         assert result["eissn"] == "2345-6789"
         assert result["publisher"] == "Test Publisher"
 
     def test_parse_row_publisher_with_alternative_columns(self, source):
         """Test _parse_row for publisher with alternative column names."""
-        row = {"Publisher Name": "Test Publisher", "issn": "1234-5678"}
+        row = {"Publisher Name": "Test Publisher", "issn": "1234-5679"}
 
         result = source._parse_row(row, "publishers")
 
         assert result is not None
         assert result["journal_name"] == "Test Publisher"
-        assert result["issn"] == "1234-5678"
+        assert result["issn"] == "1234-5679"
         assert "publisher" not in result  # Publishers don't have publisher field
 
     def test_parse_row_fallback_name_detection(self, source):
@@ -422,9 +422,9 @@ class TestPredatoryJournalsSource:
     def test_parse_row_all_issn_variations(self, source):
         """Test _parse_row with various ISSN column names."""
         # Test Print ISSN
-        row1 = {"Journal Name": "Test Journal", "Print ISSN": "1234-5678"}
+        row1 = {"Journal Name": "Test Journal", "Print ISSN": "1234-5679"}
         result1 = source._parse_row(row1, "journals")
-        assert result1["issn"] == "1234-5678"
+        assert result1["issn"] == "1234-5679"
 
         # Test Online ISSN
         row2 = {"Journal Name": "Test Journal", "Online ISSN": "2345-6789"}

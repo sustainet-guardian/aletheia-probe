@@ -48,7 +48,7 @@ class MockDataSource(DataSource):
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test journal 1",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             },
             {
                 "journal_name": "Test Journal 2",
@@ -223,7 +223,7 @@ class TestHelperFunctions:
         """Test ISSN validation."""
 
         # Valid ISSNs
-        assert validate_issn("1234-5678") is True
+        assert validate_issn("1234-5679") is True
         assert validate_issn("0028-0836") is True
 
         # Invalid ISSNs
@@ -269,8 +269,8 @@ class TestHelperFunctions:
         """Test journal deduplication."""
 
         journals = [
-            {"journal_name": "Test Journal", "issn": "1234-5678"},
-            {"journal_name": "Test Journal", "issn": "1234-5678"},  # Duplicate
+            {"journal_name": "Test Journal", "issn": "1234-5679"},
+            {"journal_name": "Test Journal", "issn": "1234-5679"},  # Duplicate
             {"journal_name": "Another Journal", "issn": "2345-6789"},
         ]
 

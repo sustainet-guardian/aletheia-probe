@@ -115,7 +115,7 @@ python -m aletheia_probe.cli "Journal Name"
 **Solutions**:
 ```bash
 # Try with ISSN
-aletheia-probe journal "Journal Name (ISSN: 1234-5678)"
+aletheia-probe journal "Journal Name (ISSN: 1234-5679)"
 
 # Check official journal name
 aletheia-probe journal "Official Journal Title"
@@ -385,7 +385,7 @@ yamllint config.yaml
 **Solution**:
 ```bash
 # Correct ISSN format: XXXX-XXXX
-aletheia-probe "Journal (ISSN: 1234-5678)"
+aletheia-probe "Journal (ISSN: 1234-5679)"
 
 # Not: 12345678 or 1234-567X (wrong format)
 ```

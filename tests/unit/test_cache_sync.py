@@ -719,7 +719,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
                 "eissn": "1234-5679",
                 "publisher": "Test Publisher",
             }
@@ -792,7 +792,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
                 "eissn": "1234-5679",
                 "publisher": "Test Publisher",
             },
@@ -853,7 +853,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             }
         ]
 
@@ -896,7 +896,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal",
                 "normalized_name": "test_journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             },
             {
                 "journal_name": "Test Journal Same",  # Different name but same normalized
@@ -942,7 +942,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Valid Journal",
                 "normalized_name": "valid_journal",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             },
             {
                 "journal_name": "Invalid Journal",
@@ -987,7 +987,7 @@ class TestAsyncDBWriter:
             {
                 "journal_name": "Test Journal 1",
                 "normalized_name": "test_journal_1",
-                "issn": "1234-5678",
+                "issn": "1234-5679",
             }
         ]
 
