@@ -414,7 +414,10 @@ class TestRetractionWatchSource:
 
         try:
             # Mock datetime.now() to return fixed date - target specific method
-            with patch("aletheia_probe.updater.sources.retraction_watch.datetime.now", return_value=fixed_date):
+            with patch(
+                "aletheia_probe.updater.sources.retraction_watch.datetime.now",
+                return_value=fixed_date,
+            ):
                 result = await source._parse_and_aggregate_csv(csv_path)
 
             assert len(result) == 2
