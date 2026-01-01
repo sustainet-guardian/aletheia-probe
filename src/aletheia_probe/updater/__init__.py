@@ -4,7 +4,7 @@
 # Import dependencies used by sources and tests
 from ..cache import DataSourceManager
 from ..normalizer import input_normalizer
-from ..validation import extract_issn_from_text, validate_issn
+from ..validation import validate_issn
 from .core import DataSource, DataUpdater, get_update_source_registry
 from .sources import (
     AlgerianMinistrySource,
@@ -66,7 +66,6 @@ __all__ = [
     "clean_html_tags",
     "clean_publisher_name",
     "deduplicate_journals",
-    "extract_issn_from_text",
     "extract_year_from_text",
     "normalize_journal_name",
     "parse_date_string",

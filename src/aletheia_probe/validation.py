@@ -131,35 +131,6 @@ def validate_doi(doi: str | None) -> bool:
     return bool(DOI_PATTERN.match(doi))
 
 
-def extract_issn_from_text(text: str) -> str | None:
-    """
-    Extract ISSN from text using regex pattern.
-
-    Args:
-        text: Text containing potential ISSN
-
-    Returns:
-        First ISSN found in normalized format, or None
-
-    Examples:
-        >>> extract_issn_from_text("ISSN: 1234-5678")
-        '1234-5678'
-        >>> extract_issn_from_text("No ISSN here")
-        None
-    """
-    if not text:
-        return None
-
-    # ISSN format: NNNN-NNNN or NNNNNNNN
-    issn_pattern = r"\b\d{4}-?\d{3}[\dXx]\b"
-    match = re.search(issn_pattern, text)
-
-    if match:
-        return normalize_issn(match.group())
-
-    return None
-
-
 def validate_email(email: str) -> str:
     """Validate email format.
 

@@ -18,7 +18,7 @@ from aletheia_probe.updater.utils import (
     normalize_journal_name,
     parse_date_string,
 )
-from aletheia_probe.validation import extract_issn_from_text, validate_issn
+from aletheia_probe.validation import validate_issn
 
 
 class MockDataSource(DataSource):
@@ -170,17 +170,6 @@ class TestDataUpdater:
 
         # Test whitespace normalization
         assert normalize_journal_name("  Multiple   Spaces  ") == "multiple spaces"
-
-    def test_extract_issn_from_text(self):
-        """Test ISSN extraction from text."""
-
-        # Test various ISSN formats
-        assert extract_issn_from_text("ISSN: 1234-5678") == "1234-5678"
-        assert extract_issn_from_text("ISSN 1234-5678") == "1234-5678"
-        assert extract_issn_from_text("(ISSN: 1234-5678)") == "1234-5678"
-
-        # Test no ISSN found
-        assert extract_issn_from_text("No ISSN here") is None
 
     def test_clean_publisher_name(self):
         """Test publisher name cleaning."""
