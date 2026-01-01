@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from aletheia_probe.cache import OpenAlexCache
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.openalex_cache import MAX_TTL_HOURS
 from aletheia_probe.cache.schema import init_database
 
@@ -168,7 +169,7 @@ class TestOpenAlexCache:
 
         # Manually insert an expired entry
         expired_time = datetime.now() - timedelta(hours=1)
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO openalex_cache (
@@ -182,7 +183,7 @@ class TestOpenAlexCache:
             conn.commit()
 
         # Verify both entries exist before cleanup
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM openalex_cache")
             assert cursor.fetchone()[0] == 2
 
@@ -202,7 +203,7 @@ class TestOpenAlexCache:
         """Test that get_openalex_data automatically ignores expired entries."""
         # Manually insert an expired entry
         expired_time = datetime.now() - timedelta(hours=1)
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO openalex_cache (
@@ -244,7 +245,7 @@ class TestOpenAlexCache:
         assert result["total_publications"] == 500000
 
         # Verify only one entry exists
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM openalex_cache")
             assert cursor.fetchone()[0] == 1
 

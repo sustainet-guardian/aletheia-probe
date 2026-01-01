@@ -70,9 +70,7 @@ class JournalCache(CacheBase):
             f"source: {source_name}, assessment: {assessment}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-
+        with self.get_connection_with_row_factory() as conn:
             query = """
                 SELECT DISTINCT j.*,
                        sa.assessment as list_type,
@@ -234,9 +232,7 @@ class JournalCache(CacheBase):
             f"assessment={assessment}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-
+        with self.get_connection_with_row_factory() as conn:
             query, params = self._build_search_query(
                 normalized_name, journal_name, issn, source_name, assessment
             )

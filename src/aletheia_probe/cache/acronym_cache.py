@@ -46,8 +46,7 @@ class AcronymCache(CacheBase):
             f"Looking up acronym '{acronym}' for entity_type '{entity_type}'"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -228,8 +227,7 @@ class AcronymCache(CacheBase):
 
         normalized_name = self._normalize_venue_name(full_name)
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             self._check_existing_mapping(cursor, acronym, entity_type, normalized_name)
@@ -252,8 +250,7 @@ class AcronymCache(CacheBase):
         else:
             detail_logger.debug("Getting stats for all entity types")
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             if entity_type:
@@ -368,8 +365,7 @@ class AcronymCache(CacheBase):
             f"Listing acronyms with filters: entity_type={entity_type}, limit={limit}, offset={offset}"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             params: list[str | int]
@@ -433,7 +429,7 @@ class AcronymCache(CacheBase):
         else:
             detail_logger.debug("Clearing entire acronym database")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
 
             if entity_type:

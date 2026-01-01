@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 import aletheia_probe.backends  # Import backends to register them
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.data_models import JournalEntryData
 from aletheia_probe.enums import NameType
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
@@ -101,7 +102,7 @@ def add_test_journal_entry(db_path: Path, entry: JournalEntryData) -> int:
         else entry.assessment
     )
 
-    with sqlite3.connect(db_path) as conn:
+    with get_configured_connection(db_path) as conn:
         cursor = conn.cursor()
 
         # Get source ID

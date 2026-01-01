@@ -98,6 +98,12 @@ def get_configured_connection(
         # Apply standard configuration
         configure_sqlite_connection(conn, enable_wal=enable_wal)
         yield conn
+        # Commit on successful completion (mimics sqlite3.Connection context manager)
+        conn.commit()
+    except Exception:
+        # Rollback on exception (mimics sqlite3.Connection context manager)
+        conn.rollback()
+        raise
     finally:
         conn.close()
         detail_logger.debug(f"Closed SQLite connection to {db_path}")

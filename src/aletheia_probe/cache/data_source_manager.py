@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Data source management for the cache system."""
 
-import sqlite3
 from datetime import datetime
 from typing import Any
 
@@ -42,7 +41,7 @@ class DataSourceManager(CacheBase):
         detail_logger.debug(
             f"Registering data source: {name} (type: {source_type}, authority: {authority_level})"
         )
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -77,7 +76,7 @@ class DataSourceManager(CacheBase):
             Dictionary mapping source names to their statistics
         """
         detail_logger.debug("Retrieving source statistics from database")
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT ds.name, ds.display_name, sa.assessment, COUNT(*) as count
@@ -129,7 +128,7 @@ class DataSourceManager(CacheBase):
             f"Logging update for source '{source_name}': type={update_type}, status={status}, "
             f"added={records_added}, updated={records_updated}, removed={records_removed}"
         )
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM data_sources WHERE name = ?", (source_name,))
             source_row = cursor.fetchone()
@@ -169,7 +168,7 @@ class DataSourceManager(CacheBase):
             Datetime of last successful update or None if never updated
         """
         detail_logger.debug(f"Checking last update time for source '{source_name}'")
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT MAX(completed_at) FROM source_updates su
@@ -199,7 +198,7 @@ class DataSourceManager(CacheBase):
             True if source has data, False otherwise
         """
         detail_logger.debug(f"Checking if source '{source_name}' has data")
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT COUNT(*) FROM source_assessments sa
@@ -222,7 +221,7 @@ class DataSourceManager(CacheBase):
             Number of records removed
         """
         detail_logger.debug(f"Removing data for source '{source_name}'")
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             # Get source ID
             cursor = conn.execute(
                 "SELECT id FROM data_sources WHERE name = ?", (source_name,)
@@ -274,7 +273,7 @@ class DataSourceManager(CacheBase):
             List of source names
         """
         detail_logger.debug("Retrieving list of available data sources")
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 "SELECT DISTINCT name FROM data_sources ORDER BY name"
             )

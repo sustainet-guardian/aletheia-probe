@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from aletheia_probe.cache import RetractionCache
+from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.cache.schema import init_database
 
 
@@ -133,7 +134,7 @@ class TestCacheRetraction:
         )
 
         # Query the database directly to check the stored format
-        with sqlite3.connect(temp_cache.db_path) as conn:
+        with get_configured_connection(temp_cache.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
