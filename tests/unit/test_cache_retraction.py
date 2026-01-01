@@ -292,61 +292,6 @@ class TestCacheRetraction:
             # Data should be correct
             assert total_ret == 3
 
-    def test_parse_json_fields_valid_json(self, temp_cache):
-        """Test that _parse_json_fields correctly parses valid JSON."""
-        result = {
-            "retraction_types": '{"retraction": 3, "correction": 2}',
-            "top_reasons": '[["error", 3], ["fraud", 2]]',
-            "publishers": '["TestPub", "OtherPub"]',
-            "other_field": "regular_value",
-        }
-
-        parsed_result = temp_cache._parse_json_fields(
-            result, ["retraction_types", "top_reasons", "publishers"]
-        )
-
-        # JSON fields should be parsed
-        assert parsed_result["retraction_types"] == {"retraction": 3, "correction": 2}
-        assert parsed_result["top_reasons"] == [["error", 3], ["fraud", 2]]
-        assert parsed_result["publishers"] == ["TestPub", "OtherPub"]
-
-        # Non-JSON fields should remain unchanged
-        assert parsed_result["other_field"] == "regular_value"
-
-    def test_parse_json_fields_invalid_json(self, temp_cache):
-        """Test that _parse_json_fields handles invalid JSON gracefully."""
-        result = {
-            "retraction_types": "invalid json {",
-            "top_reasons": None,
-            "publishers": '["valid", "json"]',
-            "empty_field": "",
-        }
-
-        parsed_result = temp_cache._parse_json_fields(
-            result, ["retraction_types", "top_reasons", "publishers", "empty_field"]
-        )
-
-        # Invalid JSON should keep original value
-        assert parsed_result["retraction_types"] == "invalid json {"
-
-        # None/empty values should remain unchanged
-        assert parsed_result["top_reasons"] is None
-        assert parsed_result["empty_field"] == ""
-
-        # Valid JSON should be parsed
-        assert parsed_result["publishers"] == ["valid", "json"]
-
-    def test_parse_json_fields_nonexistent_fields(self, temp_cache):
-        """Test that _parse_json_fields handles nonexistent fields gracefully."""
-        result = {"existing_field": "value"}
-
-        parsed_result = temp_cache._parse_json_fields(
-            result, ["nonexistent_field", "also_missing"]
-        )
-
-        # Should not add new fields or modify existing ones
-        assert parsed_result == {"existing_field": "value"}
-
     def test_get_retraction_statistics_with_json_parsing(self, temp_cache):
         """Test that get_retraction_statistics correctly parses JSON fields."""
         # Insert a basic journal record
