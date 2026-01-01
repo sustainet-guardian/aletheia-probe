@@ -413,16 +413,8 @@ class TestRetractionWatchSource:
             csv_path = Path(f.name)
 
         try:
-            # Mock datetime.now() to return fixed date
-            with patch(
-                "aletheia_probe.updater.sources.retraction_watch.datetime"
-            ) as mock_datetime:
-                mock_datetime.now.return_value = fixed_date
-                mock_datetime.strptime = (
-                    datetime.strptime
-                )  # Keep strptime functionality
-                mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
-
+            # Mock datetime.now() to return fixed date - target specific method
+            with patch("aletheia_probe.updater.sources.retraction_watch.datetime.now", return_value=fixed_date):
                 result = await source._parse_and_aggregate_csv(csv_path)
 
             assert len(result) == 2
