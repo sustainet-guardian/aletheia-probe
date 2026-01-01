@@ -87,7 +87,9 @@ async def fetch_kscien_data(
                 )
 
                 # Check if there's a next page
-                if not _has_next_page(html_content, page):
+                if not _has_next_page(
+                    html_content, page, expected_count, len(all_publications)
+                ):
                     detail_logger.info(f"Reached last page at page {page}")
                     break
 
@@ -224,6 +226,29 @@ def _parse_kscien_page(
 
         # Alternative pattern for publications without "Visit Website" links
         if not publications:
+            # UI elements to exclude - these are common page elements, not publications
+            ui_elements = {
+                "lorem ipsum dolor sit amet consectetur adipiscing elit",
+                "contact",
+                "publishing search",
+                "publishing list",
+                "reset",
+                "publishing resault count",
+                "publishing result count",
+                "publishing sort list",
+                "visit website",
+                "read more",
+                "learn more",
+                "search",
+                "filter",
+                "sort by",
+                "show all",
+                "hide all",
+                "next",
+                "previous",
+                "page",
+            }
+
             simple_pattern = r"<h4[^>]*>(.*?)</h4>"
             simple_matches = re.findall(simple_pattern, html, re.DOTALL | re.IGNORECASE)
 
@@ -232,9 +257,11 @@ def _parse_kscien_page(
                     publication_name = re.sub(
                         r"<[^>]+>", "", publication_name_raw
                     ).strip()
-                    if (
-                        not publication_name or len(publication_name) < 5
-                    ):  # Skip very short names
+                    if not publication_name or len(publication_name) < 5:
+                        continue
+
+                    # Skip UI elements
+                    if publication_name.lower() in ui_elements:
                         continue
 
                     publication_entry = {
@@ -277,25 +304,35 @@ def _parse_kscien_page(
     return publications
 
 
-def _has_next_page(html: str, current_page: int) -> bool:
-    """Check if there's a next page in Kscien pagination using regex."""
-    try:
-        # Look for pagination indicators
-        # Kscien shows pagination like "1 - 90 of 3539 Publishings"
-        pagination_match = re.search(
-            r"(\d+)\s*-\s*(\d+)\s*of\s*(\d+)\s*Publishings?", html, re.IGNORECASE
-        )
-        if pagination_match:
-            end_item = int(pagination_match.group(2))
-            total_items = int(pagination_match.group(3))
-            has_more = end_item < total_items
-            detail_logger.debug(
-                f"Pagination info: showing items up to {end_item} of {total_items}, "
-                f"has_more: {has_more}"
-            )
-            return has_more
+def _has_next_page(
+    html: str, current_page: int, expected_count: int | None, items_fetched: int
+) -> bool:
+    """Check if there's a next page in Kscien pagination.
 
-        # Also check for numbered pagination links to next page
+    Args:
+        html: The HTML content of the current page
+        current_page: The current page number
+        expected_count: Expected total count for this publication type (if available)
+        items_fetched: Number of items fetched so far
+
+    Returns:
+        True if there are more pages to fetch, False otherwise
+    """
+    try:
+        # If we have the expected count for this specific publication type, use it
+        if expected_count is not None:
+            # If we've fetched all expected items, no more pages
+            if items_fetched >= expected_count:
+                detail_logger.debug(
+                    f"Fetched {items_fetched}/{expected_count} items, no more pages"
+                )
+                return False
+
+            detail_logger.debug(
+                f"Fetched {items_fetched}/{expected_count} items so far, continuing"
+            )
+
+        # Check for numbered pagination links to next page
         next_page = current_page + 1
         next_page_pattern = (
             rf'<a[^>]*href=["\'][^"\']*_pagination={next_page}[^"\']*["\'][^>]*>'
@@ -303,6 +340,10 @@ def _has_next_page(html: str, current_page: int) -> bool:
         if re.search(next_page_pattern, html, re.IGNORECASE):
             detail_logger.debug(f"Found link to page {next_page}")
             return True
+
+        # Note: The pagination text "1 - 90 of 3539" is static and shows the total
+        # across ALL categories, not the specific publication type, so we don't use it
+        detail_logger.debug(f"No pagination link found for page {next_page}")
 
     except Exception as e:
         detail_logger.debug(f"Error checking pagination: {e}")
