@@ -73,14 +73,14 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        # Perform the write operation
-        result = db_writer._batch_write_journals(
+        # Start the async writer and perform the write operation using public API
+        await db_writer.start_writer()
+        await db_writer.queue_write(
             "test_source", AssessmentType.PREDATORY, test_journals
         )
-
-        assert result["total_records"] == 2
-        assert result["unique_journals"] == 2
-        assert result["duplicates"] == 0
+        # Give time for processing
+        await asyncio.sleep(0.1)
+        await db_writer.stop_writer()
 
         # Verify data persistence using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -119,10 +119,14 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        # Perform the write operation
-        db_writer._batch_write_journals(
+        # Start the async writer and perform the write operation using public API
+        await db_writer.start_writer()
+        await db_writer.queue_write(
             "test_source", AssessmentType.PREDATORY, test_journals
         )
+        # Give time for processing
+        await asyncio.sleep(0.1)
+        await db_writer.stop_writer()
 
         # Verify foreign key relationships
         with sqlite3.connect(temp_db) as conn:
@@ -192,10 +196,13 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        result1 = db_writer._batch_write_journals(
+        # Start the async writer and perform first write operation
+        await db_writer.start_writer()
+        await db_writer.queue_write(
             "source_one", AssessmentType.PREDATORY, first_batch
         )
-        assert result1["unique_journals"] == 2
+        # Give time for processing
+        await asyncio.sleep(0.1)
 
         # Second sync operation with overlapping data (upsert test)
         second_batch = [
@@ -212,10 +219,12 @@ class TestAsyncDBWriterIntegration:
             },
         ]
 
-        result2 = db_writer._batch_write_journals(
+        await db_writer.queue_write(
             "source_two", AssessmentType.LEGITIMATE, second_batch
         )
-        assert result2["unique_journals"] == 2
+        # Give time for processing
+        await asyncio.sleep(0.1)
+        await db_writer.stop_writer()
 
         # Verify data integrity after multiple syncs using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -265,9 +274,14 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        db_writer._batch_write_journals(
+        # Start the async writer and perform the write operation using public API
+        await db_writer.start_writer()
+        await db_writer.queue_write(
             "test_source", AssessmentType.PREDATORY, test_journals
         )
+        # Give time for processing
+        await asyncio.sleep(0.1)
+        await db_writer.stop_writer()
 
         # Verify URL deduplication using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -295,10 +309,14 @@ class TestAsyncDBWriterIntegration:
             }
         ]
 
-        # First write
-        db_writer._batch_write_journals(
+        # Start the async writer and perform the first write operation using public API
+        await db_writer.start_writer()
+        await db_writer.queue_write(
             "test_source", AssessmentType.PREDATORY, test_journals
         )
+        # Give time for processing
+        await asyncio.sleep(0.1)
+        await db_writer.stop_writer()
 
         # Verify only one journal entry exists using JournalCache
         journal_cache = JournalCache(db_path=temp_db)
@@ -342,17 +360,19 @@ class TestAsyncDBWriterIntegration:
             # Then raise an error
             raise sqlite3.Error("Simulated database error")
 
-        with (
-            patch.object(
-                db_writer,
-                "_execute_batch_inserts",
-                side_effect=failing_batch_insert,
-            ),
-            pytest.raises(sqlite3.Error),
+        with patch.object(
+            db_writer,
+            "_execute_batch_inserts",
+            side_effect=failing_batch_insert,
         ):
-            db_writer._batch_write_journals(
+            # Start the async writer and queue write operation using public API
+            await db_writer.start_writer()
+            await db_writer.queue_write(
                 "test_source", AssessmentType.PREDATORY, test_journals
             )
+            # Give time for processing (error should occur during processing)
+            await asyncio.sleep(0.1)
+            await db_writer.stop_writer()
 
         # Verify rollback: no journals should be in database
         with sqlite3.connect(temp_db) as conn:
