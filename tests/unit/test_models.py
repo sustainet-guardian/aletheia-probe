@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 
 from aletheia_probe.models import (
+    VENUE_TYPE_EMOJI,
     AssessmentResult,
     BackendResult,
     BackendStatus,
@@ -15,7 +16,6 @@ from aletheia_probe.models import (
     JournalMetadata,
     QueryInput,
     VenueType,
-    VENUE_TYPE_EMOJI,
 )
 
 
