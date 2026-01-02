@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Tests for acronym normalization functionality."""
 
+import logging
+
 import pytest
 
 from aletheia_probe.cache import AcronymCache
@@ -31,7 +33,7 @@ def test_clean_text_html_unescape(normalizer):
     )
 
 
-def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
+def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache, caplog):
     """
     Test that store_acronym_mapping does not log a warning when overwriting with an equivalent name.
     """
@@ -46,11 +48,18 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
     # Store the first mapping
     cache.store_acronym_mapping(acronym, full_name1, entity_type, source="test")
 
+    # Clear previous logs
+    caplog.clear()
+
     # Attempt to store the second, equivalent mapping
     # This should not trigger a warning
-    cache.store_acronym_mapping(
-        acronym, full_name2, entity_type, source="test_overwrite"
-    )
+    with caplog.at_level(logging.WARNING):
+        cache.store_acronym_mapping(
+            acronym, full_name2, entity_type, source="test_overwrite"
+        )
+
+    # Check that no warning was logged
+    assert len(caplog.records) == 0
 
     # Verify that the mapping exists and is the second one (as it overwrites)
     stored_name = cache.get_full_name_for_acronym(acronym, entity_type)
@@ -60,13 +69,20 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache):
     norm_stored_name = normalize_for_comparison(stored_name)
 
     assert norm_stored_name == norm_full_name2
-    # Check that no warning was logged (requires mocking the logger, but for now, rely on equivalence check)
 
     # Test with a different normalized name, should overwrite and possibly warn (if not equivalent)
     full_name3 = "International Journal of Completely Different Research"
-    cache.store_acronym_mapping(
-        acronym, full_name3, entity_type, source="test_different"
-    )
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        cache.store_acronym_mapping(
+            acronym, full_name3, entity_type, source="test_different"
+        )
+
+    # Should warn now because names are different
+    assert len(caplog.records) > 0
+    assert "already maps to" in caplog.text
+
     stored_name_different = cache.get_full_name_for_acronym(acronym, entity_type)
     assert normalize_for_comparison(stored_name_different) == normalize_for_comparison(
         full_name3
