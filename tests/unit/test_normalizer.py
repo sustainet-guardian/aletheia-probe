@@ -83,7 +83,10 @@ class TestInputNormalizer:
             "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
         )
 
-        assert result.normalized_name == "2018 IEEE 11th International Conference on CLOUD Computing"
+        assert (
+            result.normalized_name
+            == "2018 IEEE 11th International Conference on CLOUD Computing"
+        )
         # Should have generated an alias without the year and ordinal
         aliases_lower = [a.lower() for a in result.aliases]
         # Check that at least one alias has removed year/ordinal patterns
@@ -98,7 +101,10 @@ class TestInputNormalizer:
             "Proceedings of Semantic Web Information Management"
         )
 
-        assert result.normalized_name == "Proceedings of Semantic Web Information Management"
+        assert (
+            result.normalized_name
+            == "Proceedings of Semantic Web Information Management"
+        )
         # Should have an alias without the "Proceedings of" prefix
         assert "Semantic Web Information Management" in result.aliases
 
@@ -127,7 +133,10 @@ class TestInputNormalizer:
             "2022 IEEE/ACM 15th International Conference on Utility and Cloud Computing (UCC)"
         )
 
-        assert result.normalized_name == "2022 IEEE ACM 15th International Conference on Utility and CLOUD Computing"
+        assert (
+            result.normalized_name
+            == "2022 IEEE ACM 15th International Conference on Utility and CLOUD Computing"
+        )
         # Should generate aliases with year and ordinal removed
         clean_aliases = [
             a
