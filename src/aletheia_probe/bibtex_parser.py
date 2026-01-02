@@ -13,7 +13,6 @@ from pybtex.database import (  # type: ignore
     BibliographyData,
     Entry,
     parse_file,
-    parse_string,
 )
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
@@ -214,11 +213,12 @@ class BibtexParser:
             PermissionError: If the file cannot be read
         """
         # Try different encoding strategies
+        # Note: Latin-1 and cp1252 accept all byte values, so they effectively
+        # never raise UnicodeDecodeError
         encoding_strategies = [
             ("utf-8", "UTF-8"),
             ("latin-1", "Latin-1"),
             ("cp1252", "Windows-1252"),
-            ("utf-8", "UTF-8 with errors='replace'"),
         ]
 
         last_error = None
@@ -229,14 +229,7 @@ class BibtexParser:
                     f"Attempting to parse {file_path.name} with {description}"
                 )
 
-                if description.endswith("with errors='replace'"):
-                    # For the final attempt, use error handling to replace problematic characters
-                    bib_data = BibtexParser._parse_with_error_handling(
-                        file_path, encoding
-                    )
-                else:
-                    # Standard parsing attempt
-                    bib_data = parse_file(str(file_path), encoding=encoding)
+                bib_data = parse_file(str(file_path), encoding=encoding)
 
                 # Process all entries in parallel
                 entries, skipped_entries, preprint_entries = (
@@ -369,18 +362,6 @@ class BibtexParser:
             return {"type": "processed", "entry": processed_entry}
         else:
             return {"type": "skipped", "key": entry_key}
-
-    @staticmethod
-    def _parse_with_error_handling(file_path: Path, encoding: str) -> BibliographyData:
-        """Parse a BibTeX file with error handling for encoding issues."""
-        try:
-            with open(file_path, encoding=encoding, errors="replace") as f:
-                content = f.read()
-
-            # Parse from the string content
-            return parse_string(content, bib_format="bibtex")
-        except (OSError, UnicodeError, ValueError, AttributeError) as e:
-            raise PybtexError(f"Error parsing with error handling: {e}") from e
 
     @staticmethod
     def _process_entry_safely(entry_key: str, entry: Entry) -> BibtexEntry | None:
