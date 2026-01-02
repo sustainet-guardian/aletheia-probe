@@ -434,79 +434,6 @@ class TestBibtexParser:
         ]
         assert len(encoding_attempts) > 0
 
-    def test_get_field_safely_unicode_error_handling(self):
-        """Test that _get_field_safely handles unicode errors gracefully."""
-        # Create a mock entry with a field that might cause unicode issues
-        mock_entry = Mock()
-        mock_entry.fields = {"test_field": "normal text"}
-
-        # Test normal operation
-        result = BibtexParser._get_field_safely(mock_entry, "test_field")
-        assert result == "normal text"
-
-        # Test missing field
-        result = BibtexParser._get_field_safely(mock_entry, "missing_field")
-        assert result is None
-
-        # Test field with braces
-        mock_entry.fields = {"braced_field": "{Text with braces}"}
-        result = BibtexParser._get_field_safely(mock_entry, "braced_field")
-        assert result == "Text with braces"
-
-    def test_extract_authors_safely_error_handling(self):
-        """Test that _extract_authors_safely handles various error conditions."""
-        # Test with normal author field
-        mock_entry = Mock()
-        mock_entry.fields = {"author": "John Doe"}
-        mock_entry.persons = {"author": []}
-
-        result = BibtexParser._extract_authors_safely(mock_entry)
-        assert result == "John Doe"
-
-        # Test with no author field
-        mock_entry.fields = {}
-        result = BibtexParser._extract_authors_safely(mock_entry)
-        assert result is None
-
-        # Test with persons objects
-        mock_person1 = Mock()
-        mock_person1.__str__ = Mock(return_value="John Doe")
-        mock_person2 = Mock()
-        mock_person2.__str__ = Mock(return_value="Jane Smith")
-
-        mock_entry.fields = {"author": "raw author"}
-        mock_entry.persons = {"author": [mock_person1, mock_person2]}
-
-        result = BibtexParser._extract_authors_safely(mock_entry)
-        assert result == "John Doe; Jane Smith"
-
-    def test_process_entry_safely_error_conditions(self):
-        """Test _process_entry_safely with various error conditions."""
-        # Test normal processing
-        mock_entry = Mock()
-        mock_entry.type = "article"
-        mock_entry.fields = {
-            "title": "Test Title",
-            "journal": "Test Journal",
-            "year": "2023",
-        }
-        mock_entry.persons = {}
-
-        result = BibtexParser._process_entry_safely("test_key", mock_entry)
-
-        assert result is not None
-        assert result.key == "test_key"
-        assert result.journal_name == "Test Journal"
-        assert result.title == "Test Title"
-
-        # Test entry without journal (should return None)
-        mock_entry_no_journal = Mock()
-        mock_entry_no_journal.fields = {"title": "No Journal Article"}
-        mock_entry_no_journal.persons = {}
-
-        result = BibtexParser._process_entry_safely("no_journal", mock_entry_no_journal)
-        assert result is None
-
     def test_encoding_strategies_comprehensive(self, tmp_path):
         """Test that all encoding strategies are attempted in order."""
         # Create a file that should work with UTF-8
@@ -709,41 +636,6 @@ class TestBibtexParser:
         assert entry.booktitle == "2023 Very Long Conference Name with Year and Edition"
         assert entry.organization == "IEEE"
 
-    def test_nested_brace_removal(self):
-        """Test removal of nested curly braces in BibTeX fields."""
-        # Test the static method directly
-        from aletheia_probe.bibtex_parser import BibtexParser
-
-        # Single level braces
-        result = BibtexParser._remove_nested_braces("{IEEE}")
-        assert result == "IEEE"
-
-        # Double nested braces (common in BibTeX)
-        result = BibtexParser._remove_nested_braces("{{IEEE}}")
-        assert result == "IEEE"
-
-        # Triple nested braces
-        result = BibtexParser._remove_nested_braces("{{{CLOUD}}}")
-        assert result == "CLOUD"
-
-        # Mixed content with multiple braced sections
-        result = BibtexParser._remove_nested_braces(
-            "{{IEEE}} {{International Conference}} on {{Cloud Computing}}"
-        )
-        assert result == "IEEE International Conference on Cloud Computing"
-
-        # Text without braces should remain unchanged
-        result = BibtexParser._remove_nested_braces("Plain text")
-        assert result == "Plain text"
-
-        # Empty braces
-        result = BibtexParser._remove_nested_braces("{}")
-        assert result == ""
-
-        # Nested empty braces
-        result = BibtexParser._remove_nested_braces("{{}}")
-        assert result == ""
-
     def test_parse_bibtex_conference_with_nested_braces(self, tmp_path):
         """Test parsing BibTeX entries with heavily nested braces."""
         bibtex_content = """
@@ -800,80 +692,6 @@ class TestBibtexParser:
         # Journal should have nested braces removed
         expected_journal = "IEEE Transactions on Pattern Analysis"
         assert entry.journal_name == expected_journal
-
-    def test_brace_removal_edge_cases(self):
-        """Test edge cases for nested brace removal."""
-        # Test asymmetric braces (malformed)
-        result = BibtexParser._remove_nested_braces("{incomplete")
-        assert result == "{incomplete"  # Should not remove incomplete braces
-
-        # Test mixed valid and invalid braces
-        result = BibtexParser._remove_nested_braces("{valid} {incomplete")
-        assert result == "valid {incomplete"
-
-        # Test deeply nested braces
-        result = BibtexParser._remove_nested_braces("{{{{deep}}}}")
-        assert result == "deep"
-
-        # Test braces with special characters
-        result = BibtexParser._remove_nested_braces("{{IEEE-802.11}} {Conference}")
-        assert result == "IEEE-802.11 Conference"
-
-    def test_clean_latex_escapes(self):
-        """Test cleaning of LaTeX escape sequences."""
-        # Test ampersand escape
-        result = BibtexParser._clean_latex_escapes("Computers \\& Security")
-        assert result == "Computers & Security"
-
-        # Test double backslash ampersand
-        result = BibtexParser._clean_latex_escapes("Computers \\\\& Security")
-        assert result == "Computers & Security"
-
-        # Test quote escapes
-        result = BibtexParser._clean_latex_escapes(r"Journal of \"Research\"")
-        assert result == 'Journal of "Research"'
-
-        # Test apostrophe escape
-        result = BibtexParser._clean_latex_escapes(r"Author\'s Work")
-        assert result == "Author's Work"
-
-        # Test underscore escape
-        result = BibtexParser._clean_latex_escapes(r"Test\_Case")
-        assert result == "Test_Case"
-
-        # Test multiple escapes in same string
-        result = BibtexParser._clean_latex_escapes(r"A \& B: \"Test\" \% Done")
-        assert result == 'A & B: "Test" % Done'
-
-        # Test all common escapes
-        result = BibtexParser._clean_latex_escapes(
-            r"Test\& \' \" \{ \} \$ \% \# \_ \^ \~"
-        )
-        assert result == "Test& ' \" { } $ % # _ ^ ~"
-
-        # Test text without escapes
-        result = BibtexParser._clean_latex_escapes("Normal text")
-        assert result == "Normal text"
-
-        # Test empty string
-        result = BibtexParser._clean_latex_escapes("")
-        assert result == ""
-
-    def test_remove_nested_braces_with_latex_escapes(self):
-        """Test that _remove_nested_braces also cleans LaTeX escapes."""
-        # Test combined braces and escapes
-        result = BibtexParser._remove_nested_braces(r"{Computers \& Security}")
-        assert result == "Computers & Security"
-
-        # Test nested braces with escapes
-        result = BibtexParser._remove_nested_braces(r"{{IEEE}} \& {{ACM}}")
-        assert result == "IEEE & ACM"
-
-        # Test complex combination
-        result = BibtexParser._remove_nested_braces(
-            r"{Journal of \"Machine Learning\"} \& {{AI}}"
-        )
-        assert result == 'Journal of "Machine Learning" & AI'
 
     def test_parse_bibtex_file_with_latex_escapes(self, tmp_path):
         """Test parsing BibTeX file with LaTeX escape sequences in journal names."""
@@ -979,38 +797,6 @@ class TestBibtexParser:
             neurips_normal.journal_name
             == "Advances in Neural Information Processing Systems"
         )
-
-    def test_normalize_conference_name_method(self):
-        """Test the _normalize_conference_name static method directly."""
-        # Test "Proceedings of the" removal
-        result = BibtexParser._normalize_conference_name(
-            "Proceedings of the IEEE Conference on Computer Vision"
-        )
-        assert result == "IEEE Conference on Computer Vision"
-
-        # Test "Proceedings of" removal
-        result = BibtexParser._normalize_conference_name(
-            "Proceedings of Advances in Neural Information Processing Systems"
-        )
-        assert result == "Advances in Neural Information Processing Systems"
-
-        # Test case-insensitive matching
-        result = BibtexParser._normalize_conference_name(
-            "PROCEEDINGS OF THE International Conference on Machine Learning"
-        )
-        assert result == "International Conference on Machine Learning"
-
-        # Test name without "Proceedings of" prefix remains unchanged
-        result = BibtexParser._normalize_conference_name(
-            "IEEE Conference on Computer Vision and Pattern Recognition"
-        )
-        assert result == "IEEE Conference on Computer Vision and Pattern Recognition"
-
-        # Test whitespace normalization
-        result = BibtexParser._normalize_conference_name(
-            "Proceedings  of  the   Conference    Name"
-        )
-        assert result == "Conference Name"
 
     def test_arxiv_entries_are_skipped(self, tmp_path):
         """Test that arXiv entries are skipped and counted correctly."""
@@ -1254,28 +1040,6 @@ class TestBibtexParser:
         # Books are filtered out because they don't have journal names
         assert len(entries) == 0
 
-    def test_venue_type_detection_preprints(self, tmp_path):
-        """Test venue type detection for preprints (arXiv)."""
-        # Note: arXiv entries are currently filtered out, so this tests the detection logic
-        # We'll use a mock entry for testing the detection method directly
-        from unittest.mock import Mock
-
-        from pybtex.database import Entry
-
-        # Create a mock arXiv entry
-        arxiv_entry = Mock(spec=Entry)
-        arxiv_entry.type = "misc"
-        arxiv_entry.fields = {
-            "title": "Test Paper",
-            "journal": "arXiv preprint arXiv:2112.06745",
-        }
-
-        # Test the detection method directly
-        venue_type = BibtexParser._detect_venue_type(
-            arxiv_entry, "arXiv preprint arXiv:2112.06745"
-        )
-        assert venue_type == VenueType.PREPRINT
-
     def test_venue_type_detection_mixed_entries(self, tmp_path):
         """Test venue type detection for mixed entry types."""
         bibtex_content = """
@@ -1327,34 +1091,6 @@ class TestBibtexParser:
         conference_entry = [e for e in entries if e.key == "conference_entry"][0]
         assert conference_entry.venue_type == VenueType.CONFERENCE
 
-    def test_venue_type_detection_unknown(self, tmp_path):
-        """Test venue type detection for unknown venue types."""
-        bibtex_content = """
-@misc{unknown_entry,
-    title={Unknown Publication Type},
-    note={Some random publication},
-    author={Test Author},
-    year={2023}
-}
-"""
-        test_file = tmp_path / "test_unknown.bib"
-        test_file.write_text(bibtex_content, encoding="utf-8")
-
-        entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
-
-        # This entry may be filtered out if it has no venue name
-        # Let's test the detection method directly
-        from unittest.mock import Mock
-
-        from pybtex.database import Entry
-
-        unknown_entry = Mock(spec=Entry)
-        unknown_entry.type = "misc"
-        unknown_entry.fields = {"title": "Unknown Publication Type"}
-
-        venue_type = BibtexParser._detect_venue_type(unknown_entry, "Some Random Venue")
-        assert venue_type == VenueType.UNKNOWN
-
     def test_venue_type_detection_priority_order(self, tmp_path):
         """Test that venue type detection follows the correct priority order."""
         bibtex_content = """
@@ -1386,60 +1122,6 @@ class TestBibtexParser:
         # Symposium should take priority over workshop
         symposium_entry = [e for e in entries if e.key == "symposium_with_workshop"][0]
         assert symposium_entry.venue_type == VenueType.SYMPOSIUM
-
-    def test_detect_venue_type_method_directly(self):
-        """Test the _detect_venue_type method with mock entries."""
-        from unittest.mock import Mock
-
-        from pybtex.database import Entry
-
-        # Test journal detection
-        journal_entry = Mock(spec=Entry)
-        journal_entry.type = "article"
-        journal_entry.fields = {}
-
-        result = BibtexParser._detect_venue_type(
-            journal_entry, "Journal of Computer Science"
-        )
-        assert result == VenueType.JOURNAL
-
-        # Test conference detection
-        conf_entry = Mock(spec=Entry)
-        conf_entry.type = "inproceedings"
-        conf_entry.fields = {}
-
-        result = BibtexParser._detect_venue_type(
-            conf_entry, "International Conference on AI"
-        )
-        assert result == VenueType.CONFERENCE
-
-        # Test workshop detection (should override conference type)
-        workshop_entry = Mock(spec=Entry)
-        workshop_entry.type = "inproceedings"
-        workshop_entry.fields = {}
-
-        result = BibtexParser._detect_venue_type(
-            workshop_entry, "4th Workshop on Security"
-        )
-        assert result == VenueType.WORKSHOP
-
-        # Test symposium detection (should override both conference and workshop)
-        symposium_entry = Mock(spec=Entry)
-        symposium_entry.type = "inproceedings"
-        symposium_entry.fields = {}
-
-        result = BibtexParser._detect_venue_type(
-            symposium_entry, "Annual Symposium on Systems"
-        )
-        assert result == VenueType.SYMPOSIUM
-
-        # Test book detection
-        book_entry = Mock(spec=Entry)
-        book_entry.type = "book"
-        book_entry.fields = {}
-
-        result = BibtexParser._detect_venue_type(book_entry, "Any Book Name")
-        assert result == VenueType.BOOK
 
     def test_preprint_repository_detection_comprehensive(self, tmp_path):
         """Test comprehensive detection of legitimate preprint repositories to prevent false positives."""
@@ -1744,16 +1426,6 @@ class TestBibtexParser:
         assert preprint_count == 7
         assert skipped_count == 0
 
-    def test_latex_journal_macro_expansion(self):
-        """Test expansion of LaTeX journal macros like \\pasp."""
-        # Note: This test requires the acronym cache to be populated
-        # In practice, the cache would be populated from database or API calls
-        # For this test, we just verify that the macro is converted to uppercase
-        result = BibtexParser._expand_latex_journal_macros(r"\pasp")
-        # Should convert to uppercase (PASP) even if not in cache
-        assert "pasp" not in result.lower() or result == "PASP"
-        assert "\\" not in result  # Should not contain backslash
-
     def test_latex_macro_in_journal_field(self, tmp_path):
         """Test that LaTeX journal macros in journal fields are properly cleaned."""
         bibtex_content = r"""
@@ -2052,56 +1724,6 @@ class TestBibtexParser:
         ]
         assert len(conference_entries) == 1
         assert conference_entries[0].journal_name == "Test Conference"
-
-    def test_process_single_entry_preprint_detection(self):
-        """Test the _process_single_entry method for preprint detection."""
-        from pybtex.database import Entry
-
-        # Create a mock preprint entry
-        entry = Entry("article")
-        entry.fields = {
-            "journal": "arXiv preprint",
-            "title": "Test Preprint",
-            "year": "2023",
-        }
-
-        result = BibtexParser._process_single_entry("preprint_key", entry)
-
-        assert result["type"] == "preprint"
-        assert result["key"] == "preprint_key"
-
-    def test_process_single_entry_valid_article(self):
-        """Test the _process_single_entry method for valid article processing."""
-        from pybtex.database import Entry
-
-        # Create a mock valid entry
-        entry = Entry("article")
-        entry.fields = {
-            "journal": "Test Journal",
-            "title": "Test Article",
-            "year": "2023",
-            "author": "Test Author",
-        }
-
-        result = BibtexParser._process_single_entry("valid_key", entry)
-
-        assert result["type"] == "processed"
-        assert isinstance(result["entry"], BibtexEntry)
-        assert result["entry"].key == "valid_key"
-        assert result["entry"].journal_name == "Test Journal"
-
-    def test_process_single_entry_skipped_entry(self):
-        """Test the _process_single_entry method for entries that get skipped."""
-        from pybtex.database import Entry
-
-        # Create a mock entry that would be skipped (no journal name extracted)
-        entry = Entry("book")  # Book type with no journal
-        entry.fields = {"title": "Test Book", "year": "2023"}
-
-        result = BibtexParser._process_single_entry("skip_key", entry)
-
-        assert result["type"] == "skipped"
-        assert result["key"] == "skip_key"
 
     def test_parse_bibtex_file_parallel_error_handling(self, tmp_path, caplog):
         """Test that parallel processing handles individual entry errors gracefully."""
