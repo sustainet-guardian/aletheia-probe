@@ -112,6 +112,22 @@ class TestArticleRetractionCheckerInit:
         expected_user_agent = f"AletheiaProbe/1.0 (mailto:{custom_email})"
         assert checker.headers["User-Agent"] == expected_user_agent
 
+    def test_init_default_timeout_and_ttl(self, retraction_cache):
+        """Test ArticleRetractionChecker initialization with default timeout and TTL."""
+        checker = ArticleRetractionChecker(retraction_cache)
+
+        assert checker.api_timeout_seconds == 30
+        assert checker.cache_ttl_hours == 720
+
+    def test_init_custom_timeout_and_ttl(self, retraction_cache):
+        """Test ArticleRetractionChecker initialization with custom timeout and TTL."""
+        checker = ArticleRetractionChecker(
+            retraction_cache, api_timeout_seconds=60, cache_ttl_hours=168
+        )
+
+        assert checker.api_timeout_seconds == 60
+        assert checker.cache_ttl_hours == 168
+
 
 class TestArticleRetractionCheckerDOIValidation:
     """Test suite for DOI validation and normalization."""
@@ -622,6 +638,23 @@ class TestArticleRetractionCheckerCacheResult:
         assert cached is not None
         assert cached["is_retracted"] is False
         assert cached["source"] == "multiple"
+
+    def test_cache_result_uses_custom_ttl(self, retraction_cache):
+        """Test that custom cache TTL is used when caching results."""
+        custom_ttl = 168  # 7 days
+        checker = ArticleRetractionChecker(retraction_cache, cache_ttl_hours=custom_ttl)
+        doi = "10.1234/custom.ttl"
+
+        result = ArticleRetractionResult(doi=doi, is_retracted=True)
+
+        # Mock the cache method to verify TTL parameter
+        with patch.object(retraction_cache, "cache_article_retraction") as mock_cache:
+            checker._cache_result(result, "test")
+
+            # Verify cache was called with custom TTL
+            mock_cache.assert_called_once()
+            call_kwargs = mock_cache.call_args.kwargs
+            assert call_kwargs["ttl_hours"] == custom_ttl
 
 
 class TestArticleRetractionCheckerIntegration:

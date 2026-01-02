@@ -62,12 +62,17 @@ class ArticleRetractionChecker:
         self,
         retraction_cache: RetractionCache | None = None,
         email: str = "noreply@aletheia-probe.org",
+        api_timeout_seconds: int = 30,
+        cache_ttl_hours: int = 720,
     ):
         """
         Initialize the article retraction checker.
 
         Args:
+            retraction_cache: Optional cache instance for storing results
             email: Email for Crossref polite pool access
+            api_timeout_seconds: Timeout for API requests in seconds (default: 30)
+            cache_ttl_hours: Cache time-to-live in hours (default: 720 = 30 days)
         """
         self.email = email
         self.crossref_base_url = "https://api.crossref.org"
@@ -77,6 +82,8 @@ class ArticleRetractionChecker:
         self.retraction_cache = (
             retraction_cache if retraction_cache else RetractionCache()
         )
+        self.api_timeout_seconds = api_timeout_seconds
+        self.cache_ttl_hours = cache_ttl_hours
 
     async def check_doi(self, doi: str) -> ArticleRetractionResult:
         """
@@ -204,7 +211,8 @@ class ArticleRetractionChecker:
         url = f"{self.crossref_base_url}/works/{doi}"
 
         async with aiohttp.ClientSession(
-            headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+            headers=self.headers,
+            timeout=aiohttp.ClientTimeout(total=self.api_timeout_seconds),
         ) as session:
             try:
                 async with session.get(url) as response:
@@ -327,7 +335,7 @@ class ArticleRetractionChecker:
             retraction_date=result.retraction_date,
             retraction_doi=result.retraction_doi,
             retraction_reason=result.retraction_reason,
-            ttl_hours=24 * 30,  # Cache for 30 days
+            ttl_hours=self.cache_ttl_hours,
         )
 
 
