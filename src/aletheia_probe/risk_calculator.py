@@ -27,21 +27,16 @@ def calculate_retraction_risk_level(
         recent_publications: Number of articles in recent period (optional)
 
     Returns:
-        Risk level classification:
-        - "none": No retractions
-        - "note": Has retractions but within normal range
-        - "low": Elevated retraction rate (2-3x normal)
-        - "moderate": Concerning retraction rate (5x normal)
-        - "high": High retraction rate (10x normal)
-        - "critical": Very high retraction rate (25x+ normal)
+        RiskLevel: An enum member representing the calculated risk level.
 
     Examples:
+        >>> from .enums import RiskLevel
         >>> calculate_retraction_risk_level(0, 0)
-        'none'
+        <RiskLevel.NONE: 'none'>
         >>> calculate_retraction_risk_level(2, 1)
-        'low'
+        <RiskLevel.LOW: 'low'>
         >>> calculate_retraction_risk_level(50, 20, 5000, 1000)
-        'high'
+        <RiskLevel.HIGH: 'high'>
     """
     # No retractions
     if total_retractions == 0:
