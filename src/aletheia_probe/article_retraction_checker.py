@@ -103,8 +103,7 @@ class ArticleRetractionChecker:
         # Validate DOI format
         if not DOI_PATTERN.match(normalized_doi):
             detail_logger.warning(
-                f"Invalid DOI format: {normalized_doi}. "
-                f"Expected format: 10.xxxx/suffix"
+                f"Invalid DOI format: {normalized_doi}. Expected format: 10.xxxx/suffix"
             )
             return ArticleRetractionResult(doi=normalized_doi, is_retracted=False)
 
