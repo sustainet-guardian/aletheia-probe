@@ -493,5 +493,3 @@ async def get_publication_stats(
     except (aiohttp.ClientError, ValueError, KeyError, AttributeError) as e:
         detail_logger.error(f"Error getting publication stats: {e}")
         return None
-
-
