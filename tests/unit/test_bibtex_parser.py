@@ -85,7 +85,7 @@ class TestBibtexParser:
         assert len(entries) == 1
         entry = entries[0]
         assert entry.key == "test_latin1"
-        assert "Latin-1" in entry.title
+        assert entry.title == "Tëst Àrtïclé with Latin-1 Characters"
         assert entry.journal_name == "Jöurnal Nämé"
 
     def test_parse_bibtex_file_windows1252_encoding(self, tmp_path):
@@ -108,7 +108,7 @@ class TestBibtexParser:
         assert len(entries) == 1
         entry = entries[0]
         assert entry.key == "test_win1252"
-        assert "Smart Quotes" in entry.title
+        assert entry.title == 'Test Article with "Smart Quotes" and \x96dashes'
 
     def test_parse_bibtex_file_mixed_encoding_recovery(self, tmp_path):
         """Test parsing with error='replace' fallback for problematic characters."""
@@ -134,8 +134,8 @@ class TestBibtexParser:
         # Parse should succeed with error handling
         entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
-        # Should get at least one entry
-        assert len(entries) >= 1
+        # Should get both entries
+        assert len(entries) == 2
         # Find the good entry
         good_entries = [e for e in entries if e.key == "good_entry"]
         assert len(good_entries) == 1
@@ -1251,11 +1251,8 @@ class TestBibtexParser:
 
         entries, _, _ = BibtexParser.parse_bibtex_file(test_file)
 
-        # Note: books may not have journal_name and could be filtered out
-        # Let's check what we get
-        assert (
-            len(entries) >= 0
-        )  # May be 0 if books are filtered out due to no journal name
+        # Books are filtered out because they don't have journal names
+        assert len(entries) == 0
 
     def test_venue_type_detection_preprints(self, tmp_path):
         """Test venue type detection for preprints (arXiv)."""
