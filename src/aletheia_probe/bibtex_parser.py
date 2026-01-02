@@ -2,7 +2,9 @@
 """BibTeX parsing utilities for journal assessment."""
 
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 
 from pybtex import errors as pybtex_errors  # type: ignore
 from pybtex.database import (  # type: ignore
@@ -26,17 +28,19 @@ class BibtexParser:
 
     @staticmethod
     def parse_bibtex_file(
-        file_path: Path, relax_parsing: bool = False
+        file_path: Path, relax_parsing: bool = False, max_workers: int = 12
     ) -> tuple[list[BibtexEntry], int, int]:
-        """Parse a BibTeX file and extract journal entries.
+        """Parse a BibTeX file and extract journal entries with parallel processing.
 
         This method tries multiple encoding strategies to maximize the number
         of successfully parsed entries, even in files with mixed encodings.
+        All entries are processed in parallel for improved performance.
 
         Args:
             file_path: Path to the BibTeX file
             relax_parsing: If True, enable lenient parsing mode to handle
                          malformed BibTeX files (e.g., duplicate keys, syntax errors)
+            max_workers: Maximum number of parallel workers for entry processing (default: 12)
 
         Returns:
             A tuple containing:
@@ -95,30 +99,40 @@ class BibtexParser:
                     skipped_entries = 0
                     preprint_entries = 0
 
-                    for entry_key, entry in bib_data.entries.items():
-                        try:
-                            # First, check for preprint entries to correctly categorize skipped entries
-                            if BibtexParser._is_preprint_entry(entry):
-                                preprint_entries += 1
-                                detail_logger.debug(
-                                    f"Skipping preprint entry: {entry_key}"
-                                )
-                                continue
+                    # Process all entries in parallel for improved performance
+                    entries_list = list(bib_data.entries.items())
+                    detail_logger.debug(
+                        f"Processing {len(entries_list)} entries with {max_workers} workers"
+                    )
 
-                            # Extract each entry with individual error handling
-                            processed_entry = BibtexParser._process_entry_safely(
-                                entry_key, entry
-                            )
-                            if processed_entry:
-                                entries.append(processed_entry)
-                            else:
+                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        # Submit all entry processing tasks
+                        future_to_entry = {
+                            executor.submit(
+                                BibtexParser._process_single_entry, entry_key, entry
+                            ): entry_key
+                            for entry_key, entry in entries_list
+                        }
+
+                        # Collect results as they complete
+                        for future in as_completed(future_to_entry):
+                            entry_key = future_to_entry[future]
+                            try:
+                                result = future.result()
+                                if result["type"] == "preprint":
+                                    preprint_entries += 1
+                                    detail_logger.debug(
+                                        f"Skipping preprint entry: {entry_key}"
+                                    )
+                                elif result["type"] == "processed":
+                                    entries.append(result["entry"])
+                                elif result["type"] == "skipped":
+                                    skipped_entries += 1
+                            except Exception as e:
+                                status_logger.warning(
+                                    f"Skipping entry '{entry_key}' due to processing error: {e}"
+                                )
                                 skipped_entries += 1
-                        except (KeyError, AttributeError, ValueError, TypeError) as e:
-                            status_logger.warning(
-                                f"Skipping entry '{entry_key}' due to processing error: {e}"
-                            )
-                            skipped_entries += 1
-                            continue
 
                     # Log parsing results with clear messaging
                     detail_logger.debug(
@@ -183,6 +197,34 @@ class BibtexParser:
         finally:
             # Restore original strict mode setting
             pybtex_errors.set_strict_mode(original_strict_mode)
+
+    @staticmethod
+    def _process_single_entry(entry_key: str, entry: Entry) -> dict[str, Any]:
+        """Process a single BibTeX entry and return structured result.
+
+        Args:
+            entry_key: The BibTeX entry key
+            entry: The BibTeX entry object
+
+        Returns:
+            Dictionary containing processing result:
+            - {"type": "preprint", "key": entry_key} for preprint entries
+            - {"type": "processed", "entry": BibtexEntry} for successfully processed entries
+            - {"type": "skipped", "key": entry_key} for entries that couldn't be processed
+
+        Raises:
+            Exception: For any processing errors that need to be handled by caller
+        """
+        # First, check for preprint entries to correctly categorize skipped entries
+        if BibtexParser._is_preprint_entry(entry):
+            return {"type": "preprint", "key": entry_key}
+
+        # Extract each entry with individual error handling
+        processed_entry = BibtexParser._process_entry_safely(entry_key, entry)
+        if processed_entry:
+            return {"type": "processed", "entry": processed_entry}
+        else:
+            return {"type": "skipped", "key": entry_key}
 
     @staticmethod
     def _parse_with_error_handling(file_path: Path, encoding: str) -> BibliographyData:

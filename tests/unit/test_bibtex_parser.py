@@ -1850,3 +1850,360 @@ class TestBibtexParser:
         # Should have identified 1 preprint
         assert preprint_count == 1
         assert skipped_count == 0
+
+    def test_parse_bibtex_file_parallel_processing_large_file(self, tmp_path):
+        """Test parallel processing with large files."""
+        # Create a BibTeX file with many entries
+        bibtex_content = ""
+        for i in range(15):
+            bibtex_content += f"""
+@article{{test{i},
+    title={{Test Article {i}}},
+    journal={{Test Journal {i}}},
+    author={{Author {i}}},
+    year={{2023}}
+}}
+"""
+
+        test_file = tmp_path / "large_test.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        # Parse the file with parallel processing
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file, max_workers=2
+        )
+
+        # Verify all entries were processed correctly
+        assert len(entries) == 15
+        assert skipped_count == 0
+        assert preprint_count == 0
+
+        # Verify entries have correct data
+        for i in range(15):
+            entry = next((e for e in entries if e.key == f"test{i}"), None)
+            assert entry is not None, f"Entry test{i} not found"
+            assert entry.journal_name == f"Test Journal {i}"
+            assert entry.title == f"Test Article {i}"
+            assert entry.year == "2023"
+
+    def test_parse_bibtex_file_parallel_processing_small_file(self, tmp_path):
+        """Test that parallel processing works correctly with small files."""
+        # Create a BibTeX file with few entries
+        bibtex_content = """
+@article{small1,
+    title={Small Test Article 1},
+    journal={Small Journal 1},
+    author={Small Author 1},
+    year={2023}
+}
+
+@article{small2,
+    title={Small Test Article 2},
+    journal={Small Journal 2},
+    author={Small Author 2},
+    year={2023}
+}
+"""
+
+        test_file = tmp_path / "small_test.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        # Parse the file (parallel processing used for all files)
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file, max_workers=4
+        )
+
+        # Verify entries were processed correctly
+        assert len(entries) == 2
+        assert skipped_count == 0
+        assert preprint_count == 0
+
+        # Verify entries have correct data
+        assert entries[0].journal_name in ["Small Journal 1", "Small Journal 2"]
+        assert entries[1].journal_name in ["Small Journal 1", "Small Journal 2"]
+
+    def test_parse_bibtex_file_parallel_max_workers_configuration(self, tmp_path):
+        """Test that max_workers parameter is respected."""
+        # Create a BibTeX file with enough entries for parallel processing
+        bibtex_content = ""
+        for i in range(12):
+            bibtex_content += f"""
+@article{{config_test{i},
+    title={{Config Test Article {i}}},
+    journal={{Config Journal {i}}},
+    author={{Config Author {i}}},
+    year={{2023}}
+}}
+"""
+
+        test_file = tmp_path / "config_test.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        # Test different max_workers values
+        for max_workers in [1, 2, 8]:
+            entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+                test_file, max_workers=max_workers
+            )
+
+            # Results should be consistent regardless of worker count
+            assert len(entries) == 12
+            assert skipped_count == 0
+            assert preprint_count == 0
+
+    def test_parse_bibtex_file_parallel_with_mixed_entry_types(self, tmp_path):
+        """Test parallel processing with mix of valid, preprint, and problematic entries."""
+        bibtex_content = """
+@article{valid1,
+    title={Valid Article 1},
+    journal={Valid Journal 1},
+    author={Valid Author 1},
+    year={2023}
+}
+
+@article{arxiv_preprint,
+    title={ArXiv Preprint},
+    journal={arXiv preprint},
+    author={ArXiv Author},
+    year={2023}
+}
+
+@article{valid2,
+    title={Valid Article 2},
+    journal={Valid Journal 2},
+    author={Valid Author 2},
+    year={2023}
+}
+
+@article{biorxiv_preprint,
+    title={BioRxiv Preprint},
+    journal={bioRxiv},
+    author={BioRxiv Author},
+    year={2023}
+}
+
+@article{valid3,
+    title={Valid Article 3},
+    journal={Valid Journal 3},
+    author={Valid Author 3},
+    year={2023}
+}
+
+@inproceedings{conference_entry,
+    title={Conference Paper},
+    booktitle={Test Conference},
+    author={Conference Author},
+    year={2023}
+}
+
+@article{valid4,
+    title={Valid Article 4},
+    journal={Valid Journal 4},
+    author={Valid Author 4},
+    year={2023}
+}
+
+@article{valid5,
+    title={Valid Article 5},
+    journal={Valid Journal 5},
+    author={Valid Author 5},
+    year={2023}
+}
+
+@article{valid6,
+    title={Valid Article 6},
+    journal={Valid Journal 6},
+    author={Valid Author 6},
+    year={2023}
+}
+
+@article{valid7,
+    title={Valid Article 7},
+    journal={Valid Journal 7},
+    author={Valid Author 7},
+    year={2023}
+}
+
+@article{valid8,
+    title={Valid Article 8},
+    journal={Valid Journal 8},
+    author={Valid Author 8},
+    year={2023}
+}
+"""
+
+        test_file = tmp_path / "mixed_test.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        # Parse the file with parallel processing
+        entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+            test_file, max_workers=3
+        )
+
+        # Verify correct categorization
+        assert len(entries) == 9  # 8 valid articles + 1 conference
+        assert preprint_count == 2  # ArXiv and BioRxiv preprints
+        assert skipped_count == 0  # No skipped entries
+
+        # Verify specific entries
+        valid_journal_names = [
+            e.journal_name for e in entries if "Valid Journal" in e.journal_name
+        ]
+        assert len(valid_journal_names) == 8
+
+        conference_entries = [
+            e for e in entries if e.venue_type == VenueType.CONFERENCE
+        ]
+        assert len(conference_entries) == 1
+        assert conference_entries[0].journal_name == "Test Conference"
+
+    def test_process_single_entry_preprint_detection(self):
+        """Test the _process_single_entry method for preprint detection."""
+        from pybtex.database import Entry
+
+        # Create a mock preprint entry
+        entry = Entry("article")
+        entry.fields = {
+            "journal": "arXiv preprint",
+            "title": "Test Preprint",
+            "year": "2023",
+        }
+
+        result = BibtexParser._process_single_entry("preprint_key", entry)
+
+        assert result["type"] == "preprint"
+        assert result["key"] == "preprint_key"
+
+    def test_process_single_entry_valid_article(self):
+        """Test the _process_single_entry method for valid article processing."""
+        from pybtex.database import Entry
+
+        # Create a mock valid entry
+        entry = Entry("article")
+        entry.fields = {
+            "journal": "Test Journal",
+            "title": "Test Article",
+            "year": "2023",
+            "author": "Test Author",
+        }
+
+        result = BibtexParser._process_single_entry("valid_key", entry)
+
+        assert result["type"] == "processed"
+        assert isinstance(result["entry"], BibtexEntry)
+        assert result["entry"].key == "valid_key"
+        assert result["entry"].journal_name == "Test Journal"
+
+    def test_process_single_entry_skipped_entry(self):
+        """Test the _process_single_entry method for entries that get skipped."""
+        from pybtex.database import Entry
+
+        # Create a mock entry that would be skipped (no journal name extracted)
+        entry = Entry("book")  # Book type with no journal
+        entry.fields = {"title": "Test Book", "year": "2023"}
+
+        result = BibtexParser._process_single_entry("skip_key", entry)
+
+        assert result["type"] == "skipped"
+        assert result["key"] == "skip_key"
+
+    def test_parse_bibtex_file_parallel_error_handling(self, tmp_path, caplog):
+        """Test that parallel processing handles individual entry errors gracefully."""
+        # Create a BibTeX file with some problematic entries mixed with valid ones
+        bibtex_content = """
+@article{valid1,
+    title={Valid Article 1},
+    journal={Valid Journal 1},
+    author={Valid Author 1},
+    year={2023}
+}
+
+@article{valid2,
+    title={Valid Article 2},
+    journal={Valid Journal 2},
+    author={Valid Author 2},
+    year={2023}
+}
+
+@article{valid3,
+    title={Valid Article 3},
+    journal={Valid Journal 3},
+    author={Valid Author 3},
+    year={2023}
+}
+
+@article{valid4,
+    title={Valid Article 4},
+    journal={Valid Journal 4},
+    author={Valid Author 4},
+    year={2023}
+}
+
+@article{valid5,
+    title={Valid Article 5},
+    journal={Valid Journal 5},
+    author={Valid Author 5},
+    year={2023}
+}
+
+@article{valid6,
+    title={Valid Article 6},
+    journal={Valid Journal 6},
+    author={Valid Author 6},
+    year={2023}
+}
+
+@article{valid7,
+    title={Valid Article 7},
+    journal={Valid Journal 7},
+    author={Valid Author 7},
+    year={2023}
+}
+
+@article{valid8,
+    title={Valid Article 8},
+    journal={Valid Journal 8},
+    author={Valid Author 8},
+    year={2023}
+}
+
+@article{valid9,
+    title={Valid Article 9},
+    journal={Valid Journal 9},
+    author={Valid Author 9},
+    year={2023}
+}
+
+@article{valid10,
+    title={Valid Article 10},
+    journal={Valid Journal 10},
+    author={Valid Author 10},
+    year={2023}
+}
+
+@article{valid11,
+    title={Valid Article 11},
+    journal={Valid Journal 11},
+    author={Valid Author 11},
+    year={2023}
+}
+"""
+
+        test_file = tmp_path / "error_test.bib"
+        test_file.write_text(bibtex_content, encoding="utf-8")
+
+        # Capture logging to verify error handling
+        with caplog.at_level(logging.DEBUG):
+            entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
+                test_file, max_workers=2
+            )
+
+        # Should still successfully process all valid entries
+        assert len(entries) == 11
+        assert skipped_count == 0
+        assert preprint_count == 0
+
+        # Check that parallel processing was used (should be logged)
+        assert any(
+            "Processing 11 entries with 2 workers" in record.message
+            for record in caplog.records
+        )
