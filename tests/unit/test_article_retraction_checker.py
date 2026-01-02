@@ -176,8 +176,7 @@ class TestArticleRetractionCheckerCacheIntegration:
         result = await checker.check_doi(doi)
 
         assert result.doi == doi
-        # SQLite returns int (1) for boolean True
-        assert result.is_retracted == 1
+        assert result.is_retracted is True
         assert result.retraction_type == "misconduct"
         assert result.retraction_date == "2023-01-15"
         assert result.retraction_doi == "10.1234/retraction"
@@ -231,8 +230,7 @@ class TestArticleRetractionCheckerRetractionWatchLocal:
         result = await checker._check_retraction_watch_local(doi)
 
         assert result.doi == doi
-        # SQLite returns int (1) for boolean True
-        assert result.is_retracted == 1
+        assert result.is_retracted is True
         assert result.sources == ["retraction_watch"]
         assert result.retraction_type == "misconduct"
 

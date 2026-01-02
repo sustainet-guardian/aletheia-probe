@@ -102,7 +102,7 @@ class ArticleRetractionChecker:
             detail_logger.debug(f"Cache hit for DOI {normalized_doi}")
             return ArticleRetractionResult(
                 doi=normalized_doi,
-                is_retracted=cached.get("is_retracted", False),
+                is_retracted=bool(cached.get("is_retracted", False)),
                 retraction_type=cached.get("retraction_type"),
                 retraction_date=cached.get("retraction_date"),
                 retraction_doi=cached.get("retraction_doi"),
@@ -165,7 +165,7 @@ class ArticleRetractionChecker:
             )
             return ArticleRetractionResult(
                 doi=doi,
-                is_retracted=cached.get("is_retracted", False),
+                is_retracted=bool(cached.get("is_retracted", False)),
                 retraction_type=cached.get("retraction_type"),
                 retraction_date=cached.get("retraction_date"),
                 retraction_doi=cached.get("retraction_doi"),
