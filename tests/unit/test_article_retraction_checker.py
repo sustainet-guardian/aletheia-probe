@@ -205,8 +205,7 @@ class TestArticleRetractionCheckerCacheIntegration:
             # Verify result was cached
             cached = retraction_cache.get_article_retraction(doi)
             assert cached is not None
-            # SQLite returns int (1) for boolean True
-            assert cached["is_retracted"] == 1
+            assert cached["is_retracted"] is True
 
 
 class TestArticleRetractionCheckerRetractionWatchLocal:
@@ -534,8 +533,7 @@ class TestArticleRetractionCheckerCacheResult:
         # Verify cached
         cached = retraction_cache.get_article_retraction(doi)
         assert cached is not None
-        # SQLite returns int (1) for boolean True
-        assert cached["is_retracted"] == 1
+        assert cached["is_retracted"] is True
         assert cached["retraction_type"] == "misconduct"
         assert cached["source"] == "crossref"
 
@@ -551,8 +549,7 @@ class TestArticleRetractionCheckerCacheResult:
         # Verify cached
         cached = retraction_cache.get_article_retraction(doi)
         assert cached is not None
-        # SQLite returns int (0) for boolean False
-        assert cached["is_retracted"] == 0
+        assert cached["is_retracted"] is False
         assert cached["source"] == "multiple"
 
 
@@ -633,8 +630,7 @@ class TestArticleRetractionCheckerIntegration:
             # Verify negative result was cached
             cached = retraction_cache.get_article_retraction(doi)
             assert cached is not None
-            # SQLite returns int (0) for boolean False
-            assert cached["is_retracted"] == 0
+            assert cached["is_retracted"] is False
 
     @pytest.mark.asyncio
     async def test_check_doi_workflow_crossref_error_continues(self, retraction_cache):
