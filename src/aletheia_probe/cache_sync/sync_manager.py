@@ -705,7 +705,7 @@ class CacheSyncManager:
                     "last_updated": None,
                 }
 
-                if isinstance(backend, CachedBackend):
+                if isinstance(backend, DataSyncCapable):
                     source_name = backend.source_name
                     backend_status["source_name"] = source_name
                     backend_status["has_data"] = source_name in available_sources

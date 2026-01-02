@@ -252,7 +252,7 @@ def status() -> None:
 
         status_text = f"{status_icon} {backend_name} ({'enabled' if enabled else 'disabled'}, {backend_type})"
 
-        if backend_type == "cached":
+        if backend_type in ("cached", "api_cached") and (has_data or entry_count):
             status_text += f" {data_icon} {'has data' if has_data else 'no data'}"
             if entry_count is not None and entry_count > 0:
                 status_text += f" ({entry_count:,} entries)"
