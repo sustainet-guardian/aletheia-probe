@@ -13,7 +13,7 @@ from aletheia_probe.backends.base import (
     CachedBackend,
     get_backend_registry,
 )
-from aletheia_probe.enums import EvidenceType
+from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 
 
@@ -29,7 +29,7 @@ class MockBackend(Backend):
             backend_name="mock_backend",
             status=BackendStatus.FOUND,
             confidence=0.8,
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             data={"test": "data"},
             sources=["test_source"],
             response_time=0.1,
@@ -49,7 +49,7 @@ class MockCachedBackend(CachedBackend):
     """Mock cached backend for testing."""
 
     def __init__(self):
-        super().__init__("mock_cache", "predatory")
+        super().__init__("mock_cache", AssessmentType.PREDATORY)
 
     def get_name(self) -> str:
         return "mock_cache"
@@ -150,7 +150,7 @@ class TestCachedBackend:
             result = await mock_cached_backend.query(sample_query_input)
 
             assert result.status == BackendStatus.FOUND
-            assert result.assessment == "predatory"
+            assert result.assessment == AssessmentType.PREDATORY
             assert result.confidence == 0.9
             assert result.cached is True  # CachedBackend always returns cached=True
 
@@ -254,7 +254,7 @@ class TestApiBackendWithCache:
                 backend_name="mock_hybrid",
                 status=BackendStatus.FOUND,
                 confidence=0.7,
-                assessment="predatory",
+                assessment=AssessmentType.PREDATORY,
                 data={"api": "data"},
                 sources=["api"],
                 response_time=0.2,
@@ -278,7 +278,7 @@ class TestApiBackendWithCache:
         # Create a mock cached assessment result
         mock_cached_result = AssessmentResult(
             input_query="Test Journal",
-            assessment="predatory",
+            assessment=AssessmentType.PREDATORY,
             confidence=0.9,
             overall_score=0.9,
             backend_results=[
@@ -286,7 +286,7 @@ class TestApiBackendWithCache:
                     backend_name="mock_hybrid",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
-                    assessment="predatory",
+                    assessment=AssessmentType.PREDATORY,
                     data={"test": "cache_data"},
                     sources=["cache"],
                     response_time=0.1,
@@ -437,7 +437,7 @@ class TestBackendRegistry:
                     backend_name="mock_backend",
                     status=BackendStatus.FOUND,
                     confidence=1.0,
-                    assessment="new",
+                    assessment=AssessmentType.LEGITIMATE,
                     data={},
                     sources=[],
                     response_time=0.1,

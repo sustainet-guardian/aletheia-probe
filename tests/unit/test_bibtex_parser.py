@@ -47,8 +47,12 @@ class TestBibtexParser:
         # Verify results
         assert len(entries) == 2
 
-        entry1 = entries[0]
-        assert entry1.key == "test1"
+        # Find entries by key (order is not guaranteed due to parallel processing)
+        entries_by_key = {entry.key: entry for entry in entries}
+        assert "test1" in entries_by_key
+        assert "test2" in entries_by_key
+
+        entry1 = entries_by_key["test1"]
         assert entry1.journal_name == "Test Journal"
         assert entry1.title == "Test Article One"
         # Authors are parsed from persons field by pybtex, check if None first
@@ -59,8 +63,7 @@ class TestBibtexParser:
         assert entry1.year == "2023"
         assert entry1.doi == "10.1000/test1"
 
-        entry2 = entries[1]
-        assert entry2.key == "test2"
+        entry2 = entries_by_key["test2"]
         assert entry2.journal_name == "Another Journal"
         assert entry2.issn == "1234-5679"
 
