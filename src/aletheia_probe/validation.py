@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: MIT
-"""Validation utilities for journal identifiers."""
+"""
+Validation utilities for journal and article identifiers.
+
+This module provides validation and normalization functions for:
+- ISSN (International Standard Serial Number)
+- Email addresses
+
+It handles checksum verification, format validation, and normalization
+to canonical formats.
+"""
 
 import re
 
