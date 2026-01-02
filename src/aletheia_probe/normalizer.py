@@ -5,7 +5,26 @@ import html
 import re
 from collections.abc import Callable
 
-from .constants import MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH
+from .constants import (
+    ACRONYM_SKIP_KEYWORDS,
+    ACRONYM_UPPERCASE_THRESHOLD,
+    COMMON_ABBREVIATIONS,
+    COMMON_ACRONYMS,
+    JOURNAL_OF_PREFIX_LENGTH,
+    MAX_ACRONYM_LENGTH,
+    MAX_INPUT_LENGTH,
+    MAX_STANDALONE_ACRONYM_LENGTH,
+    MIN_ACRONYM_LENGTH,
+    MIN_ACRONYM_MAPPING_LENGTH_MULTIPLIER,
+    MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH,
+    NORMALIZER_CLEANUP_PATTERNS,
+    PREFIX_JOURNAL_OF,
+    PREFIX_PROCEEDINGS_OF,
+    PREFIX_THE,
+    PROCEEDINGS_OF_PREFIX_LENGTH,
+    STOP_WORDS,
+    THE_PREFIX_LENGTH,
+)
 from .logging_config import get_detail_logger
 from .models import QueryInput
 
@@ -16,95 +35,24 @@ class InputNormalizer:
     def __init__(self) -> None:
         self.detail_logger = get_detail_logger()
         # Common journal name cleaning patterns
-        self.cleanup_patterns = [
-            (r"[^\w\s\-&().,:]", " "),  # Replace special characters with space
-            (r"\s+", " "),  # Multiple whitespace to single space
-            (r"\s*:\s*", ": "),  # Normalize colons
-            (r"\s*-\s*", " - "),  # Normalize dashes
-            (r"\s*&\s*", " & "),  # Normalize ampersands
-        ]
+        self.cleanup_patterns = NORMALIZER_CLEANUP_PATTERNS
 
         # Common acronyms that should remain uppercase
-        self.acronyms = {
-            "IEEE",
-            "ACM",
-            "SIGCOMM",
-            "SIGCHI",
-            "SIGKDD",
-            "SIGMOD",
-            "SIGPLAN",
-            "VLDB",
-            "ICML",
-            "NIPS",
-            "NEURIPS",
-            "ICLR",
-            "AAAI",
-            "IJCAI",
-            "CIKM",
-            "WWW",
-            "KDD",
-            "ICDM",
-            "SDM",
-            "PAKDD",
-            "ECML",
-            "PKDD",
-            "CLOUD",
-            "NASA",
-            "NIH",
-            "NSF",
-            "DARPA",
-            "NIST",
-            "ISO",
-            "IEC",
-            "ITU",
-            "RFC",
-            "HTTP",
-            "TCP",
-            "IP",
-            "UDP",
-            "DNS",
-            "SSL",
-            "TLS",
-            "AI",
-            "ML",
-            "NLP",
-            "CV",
-            "HCI",
-            "DB",
-            "OS",
-            "SE",
-            "PL",
-            "UK",
-            "USA",
-            "US",
-            "EU",
-            "UN",
-            "WHO",
-            "NATO",
-        }
+        self.acronyms = COMMON_ACRONYMS
 
         # Common abbreviation expansions
-        self.abbreviations = {
-            "J.": "Journal",
-            "Jrnl": "Journal",
-            "Int.": "International",
-            "Intl": "International",
-            "Nat.": "National",
-            "Sci.": "Science",
-            "Tech.": "Technology",
-            "Rev.": "Review",
-            "Res.": "Research",
-            "Proc.": "Proceedings",
-            "Trans.": "Transactions",
-            "Ann.": "Annual",
-            "Q.": "Quarterly",
-        }
+        self.abbreviations = COMMON_ABBREVIATIONS
 
         # ISSN pattern
         self.issn_pattern = re.compile(r"\b(\d{4})-?(\d{3}[\dX])\b")
 
         # DOI pattern
         self.doi_pattern = re.compile(r"\b10\.\d{4,}[^\s]*\b")
+
+        # Acronym pattern for extraction from parentheses
+        self.acronym_pattern = re.compile(
+            rf"^[A-Z][A-Za-z0-9'\-]{{{MIN_ACRONYM_LENGTH - 1},{MAX_ACRONYM_LENGTH - 1}}}$"
+        )
 
     def extract_conference_series(self, conference_name: str) -> str | None:
         """Extract conference series name by removing years and ordinals.
@@ -153,8 +101,8 @@ class InputNormalizer:
         if not raw_input or not raw_input.strip():
             raise ValueError("Input cannot be empty")
 
-        if len(raw_input) > 1000:
-            raise ValueError("Input too long (maximum 1000 characters)")
+        if len(raw_input) > MAX_INPUT_LENGTH:
+            raise ValueError(f"Input too long (maximum {MAX_INPUT_LENGTH} characters)")
 
         # Extract identifiers first
         identifiers = self._extract_identifiers(raw_input)
@@ -251,17 +199,7 @@ class InputNormalizer:
             content = content.strip()
 
             # Skip if contains certain keywords that indicate metadata, not acronyms
-            skip_keywords = [
-                "issn",
-                "isbn",
-                "doi",
-                "online",
-                "print",
-                "invited",
-                "accepted",
-                "to appear",
-            ]
-            if any(keyword in content.lower() for keyword in skip_keywords):
+            if any(keyword in content.lower() for keyword in ACRONYM_SKIP_KEYWORDS):
                 continue
 
             # Check if content looks like a conference/journal acronym:
@@ -275,14 +213,17 @@ class InputNormalizer:
 
             # Pattern: starts with uppercase, contains mostly uppercase letters/numbers,
             # may have apostrophes, hyphens, or few lowercase letters
-            if re.match(r"^[A-Z][A-Za-z0-9'\-]{1,19}$", content):
+            if self.acronym_pattern.match(content):
                 # Additional check: should have a good proportion of uppercase letters
                 # to avoid catching things like "(Online)" or "(Invited)"
-                # Use 50% threshold to catch "NeurIPS" (57%) while excluding "Online" (17%)
+                # Use ACRONYM_UPPERCASE_THRESHOLD to catch "NeurIPS" (57%) while excluding "Online" (17%)
                 uppercase_count = sum(1 for c in content if c.isupper())
                 total_alpha = sum(1 for c in content if c.isalpha())
 
-                if total_alpha > 0 and (uppercase_count / total_alpha) >= 0.5:
+                if (
+                    total_alpha > 0
+                    and (uppercase_count / total_alpha) >= ACRONYM_UPPERCASE_THRESHOLD
+                ):
                     acronyms.append(content)
 
         return acronyms
@@ -385,16 +326,16 @@ class InputNormalizer:
         aliases = []
 
         # Add version without "Journal of" prefix
-        if normalized_name.lower().startswith("journal of "):
-            aliases.append(normalized_name[11:])
+        if normalized_name.lower().startswith(PREFIX_JOURNAL_OF.lower()):
+            aliases.append(normalized_name[JOURNAL_OF_PREFIX_LENGTH:])
 
         # Add version without "The" prefix
-        if normalized_name.lower().startswith("the "):
-            aliases.append(normalized_name[4:])
+        if normalized_name.lower().startswith(PREFIX_THE.lower()):
+            aliases.append(normalized_name[THE_PREFIX_LENGTH:])
 
         # Add version without "Proceedings of" prefix (for conferences)
-        if normalized_name.lower().startswith("proceedings of "):
-            aliases.append(normalized_name[15:])
+        if normalized_name.lower().startswith(PREFIX_PROCEEDINGS_OF.lower()):
+            aliases.append(normalized_name[PROCEEDINGS_OF_PREFIX_LENGTH:])
 
         # Add conference series name (strip year/ordinal patterns)
         series_name = self._extract_conference_series(normalized_name)
@@ -474,8 +415,8 @@ class InputNormalizer:
         Returns:
             True if text appears to be an acronym (short, mostly uppercase)
         """
-        # Must be reasonably short (2-10 characters)
-        if len(text) < 2 or len(text) > 10:
+        # Must be reasonably short
+        if len(text) < MIN_ACRONYM_LENGTH or len(text) > MAX_STANDALONE_ACRONYM_LENGTH:
             return False
 
         # Remove common punctuation/symbols for checking
@@ -492,8 +433,8 @@ class InputNormalizer:
 
         uppercase_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
 
-        # Must be at least 50% uppercase to be considered an acronym
-        return uppercase_ratio >= 0.5
+        # Must be at least ACRONYM_UPPERCASE_THRESHOLD to be considered an acronym
+        return uppercase_ratio >= ACRONYM_UPPERCASE_THRESHOLD
 
     def _extract_acronym_mappings_from_text(
         self, text: str, extracted_acronyms: list[str]
@@ -534,46 +475,14 @@ class InputNormalizer:
                     full_name = text_before.strip("'\"").strip()
 
                     # Only include if we have a reasonable full name (longer than the acronym)
-                    if full_name and len(full_name) > len(acronym) * 2:
+                    if (
+                        full_name
+                        and len(full_name)
+                        > len(acronym) * MIN_ACRONYM_MAPPING_LENGTH_MULTIPLIER
+                    ):
                         mappings[acronym] = full_name
 
         return mappings
-
-
-# Common words to ignore for comparison (e.g., "journal of", "the")
-STOP_WORDS = {
-    "a",
-    "an",
-    "and",
-    "the",
-    "of",
-    "in",
-    "on",
-    "for",
-    "with",
-    "at",
-    "by",
-    "to",
-    "from",
-    "as",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "can",
-    "will",
-    "or",
-    "but",
-    "not",
-    "do",
-    "journal",
-    "international",
-    "conference",
-    "proceedings",
-}
 
 
 def normalize_for_comparison(text: str) -> str:
