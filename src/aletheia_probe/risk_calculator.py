@@ -78,10 +78,8 @@ def calculate_retraction_risk_level(
             or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_low
         ):
             return RiskLevel.LOW  # Elevated rate (2-3x normal)
-        elif total_retractions > 0:
-            return RiskLevel.NOTE  # Within normal range but some retractions exist
         else:
-            return RiskLevel.NONE
+            return RiskLevel.NOTE  # Within normal range but some retractions exist
 
     # Fallback to absolute counts if no publication data
     # Based on analysis of retraction data patterns
