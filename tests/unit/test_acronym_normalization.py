@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: MIT
+"""Tests for acronym normalization functionality."""
+
 import pytest
 
 from aletheia_probe.cache import AcronymCache
