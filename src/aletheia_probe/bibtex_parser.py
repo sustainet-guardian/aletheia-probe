@@ -2,7 +2,9 @@
 """BibTeX parsing utilities for journal assessment."""
 
 import re
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,230 @@ status_logger = get_status_logger()
 
 class BibtexParser:
     """Parser for BibTeX files to extract journal information."""
+
+    @staticmethod
+    @contextmanager
+    def _configure_pybtex(relax_parsing: bool) -> Generator[None, None, None]:
+        """Configure pybtex parsing mode and restore original settings after use.
+
+        Args:
+            relax_parsing: If True, enable lenient parsing mode
+
+        Yields:
+            None
+        """
+        original_strict_mode = pybtex_errors.strict
+        try:
+            if relax_parsing:
+                detail_logger.debug("Enabling relaxed BibTeX parsing mode")
+                pybtex_errors.set_strict_mode(False)
+            else:
+                detail_logger.debug("Using strict BibTeX parsing mode")
+                pybtex_errors.set_strict_mode(True)
+            yield
+        finally:
+            # Restore original strict mode setting
+            pybtex_errors.set_strict_mode(original_strict_mode)
+
+    @staticmethod
+    def _process_all_entries(
+        bib_data: BibliographyData, max_workers: int
+    ) -> tuple[list[BibtexEntry], int, int]:
+        """Process all BibTeX entries in parallel and categorize results.
+
+        Args:
+            bib_data: Parsed bibliography data
+            max_workers: Maximum number of parallel workers
+
+        Returns:
+            Tuple of (processed_entries, skipped_entries, preprint_entries)
+        """
+        entries = []
+        skipped_entries = 0
+        preprint_entries = 0
+
+        # Process all entries in parallel for improved performance
+        entries_list = list(bib_data.entries.items())
+        detail_logger.debug(
+            f"Processing {len(entries_list)} entries with {max_workers} workers"
+        )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all entry processing tasks
+            future_to_entry = {
+                executor.submit(
+                    BibtexParser._process_single_entry, entry_key, entry
+                ): entry_key
+                for entry_key, entry in entries_list
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_entry):
+                entry_key = future_to_entry[future]
+                try:
+                    result = future.result()
+                    if result["type"] == "preprint":
+                        preprint_entries += 1
+                        detail_logger.debug(f"Skipping preprint entry: {entry_key}")
+                    elif result["type"] == "processed":
+                        entries.append(result["entry"])
+                    elif result["type"] == "skipped":
+                        skipped_entries += 1
+                except Exception as e:
+                    status_logger.warning(
+                        f"Skipping entry '{entry_key}' due to processing error: {e}"
+                    )
+                    skipped_entries += 1
+
+        return entries, skipped_entries, preprint_entries
+
+    @staticmethod
+    def _log_parsing_results(
+        file_path: Path,
+        encoding_description: str,
+        entries: list[BibtexEntry],
+        skipped_entries: int,
+        preprint_entries: int,
+    ) -> None:
+        """Log the results of BibTeX parsing.
+
+        Args:
+            file_path: Path to the parsed file
+            encoding_description: Description of encoding used
+            entries: List of successfully processed entries
+            skipped_entries: Number of entries skipped due to processing errors
+            preprint_entries: Number of preprint entries detected and skipped
+        """
+        # Log parsing results with clear messaging
+        detail_logger.debug(
+            f"Successfully parsed {len(entries)} entries from {file_path.name} "
+            f"with {encoding_description}"
+        )
+
+        # Inform user about preprints (if any)
+        if preprint_entries > 0:
+            status_logger.info(
+                f"Skipped {preprint_entries} preprint(s) from legitimate repositories - not publication venues"
+            )
+
+        # Log other skipped entries
+        if skipped_entries > 0:
+            detail_logger.debug(
+                f"Skipped {skipped_entries} other entries due to processing errors"
+            )
+
+    @staticmethod
+    def _parse_with_encoding_fallback(
+        file_path: Path, max_workers: int
+    ) -> tuple[list[BibtexEntry], int, int]:
+        """Parse a BibTeX file with encoding fallback strategies.
+
+        Args:
+            file_path: Path to the BibTeX file
+            max_workers: Maximum number of parallel workers
+
+        Returns:
+            Tuple of (processed_entries, skipped_entries, preprint_entries)
+
+        Raises:
+            ValueError: If the file has invalid BibTeX syntax or parsing fails
+            UnicodeDecodeError: If the file encoding is unsupported
+            PermissionError: If the file cannot be read
+        """
+        # Try different encoding strategies
+        encoding_strategies = [
+            ("utf-8", "UTF-8"),
+            ("latin-1", "Latin-1"),
+            ("cp1252", "Windows-1252"),
+            ("utf-8", "UTF-8 with errors='replace'"),
+        ]
+
+        last_error = None
+
+        for encoding, description in encoding_strategies:
+            try:
+                detail_logger.debug(
+                    f"Attempting to parse {file_path.name} with {description}"
+                )
+
+                if description.endswith("with errors='replace'"):
+                    # For the final attempt, use error handling to replace problematic characters
+                    bib_data = BibtexParser._parse_with_error_handling(
+                        file_path, encoding
+                    )
+                else:
+                    # Standard parsing attempt
+                    bib_data = parse_file(str(file_path), encoding=encoding)
+
+                # Process all entries in parallel
+                entries, skipped_entries, preprint_entries = (
+                    BibtexParser._process_all_entries(bib_data, max_workers)
+                )
+
+                # Log parsing results
+                BibtexParser._log_parsing_results(
+                    file_path, description, entries, skipped_entries, preprint_entries
+                )
+
+                return entries, skipped_entries, preprint_entries
+
+            except UnicodeDecodeError as e:
+                last_error = e
+                detail_logger.debug(
+                    f"{description} decoding failed for {file_path.name}: {e}"
+                )
+                continue
+
+            except PybtexSyntaxError as e:
+                # Syntax errors are not encoding-related, so don't try other encodings
+                raise ValueError(
+                    f"Invalid BibTeX syntax in {file_path.name}: {e}"
+                ) from e
+
+            except PermissionError as e:
+                raise PermissionError(f"Cannot read {file_path}: {e}") from e
+
+            except PybtexError as e:
+                last_error = e
+                detail_logger.debug(
+                    f"PyBTeX error with {description} for {file_path.name}: {e}"
+                )
+                continue
+
+        # If we get here, all encoding strategies failed
+        if last_error:
+            if isinstance(last_error, UnicodeDecodeError):
+                raise UnicodeDecodeError(
+                    "utf-8",
+                    b"",
+                    0,
+                    1,
+                    f"Could not decode {file_path.name} with any supported encoding "
+                    f"(tried UTF-8, Latin-1, Windows-1252).",
+                ) from last_error
+            else:
+                raise ValueError(
+                    f"Error parsing BibTeX file {file_path.name}: {last_error}"
+                ) from last_error
+        else:
+            raise ValueError(f"Unknown error parsing BibTeX file {file_path.name}")
+
+    @staticmethod
+    def _validate_file_path(file_path: Path) -> None:
+        """Validate that the file path exists and is a file.
+
+        Args:
+            file_path: Path to validate
+
+        Raises:
+            FileNotFoundError: If the BibTeX file doesn't exist
+            ValueError: If the path is not a file
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(f"BibTeX file not found: {file_path}")
+
+        if not file_path.is_file():
+            raise ValueError(f"Path is not a file: {file_path}")
 
     @staticmethod
     def parse_bibtex_file(
@@ -55,149 +281,11 @@ class BibtexParser:
             UnicodeDecodeError: If the file encoding is unsupported
             PermissionError: If the file cannot be read
         """
-        if not file_path.exists():
-            raise FileNotFoundError(f"BibTeX file not found: {file_path}")
-
-        if not file_path.is_file():
-            raise ValueError(f"Path is not a file: {file_path}")
+        BibtexParser._validate_file_path(file_path)
 
         # Configure pybtex parsing mode based on relax_parsing parameter
-        original_strict_mode = pybtex_errors.strict
-        try:
-            if relax_parsing:
-                detail_logger.debug("Enabling relaxed BibTeX parsing mode")
-                pybtex_errors.set_strict_mode(False)
-            else:
-                detail_logger.debug("Using strict BibTeX parsing mode")
-                pybtex_errors.set_strict_mode(True)
-
-            # Try different encoding strategies
-            encoding_strategies = [
-                ("utf-8", "UTF-8"),
-                ("latin-1", "Latin-1"),
-                ("cp1252", "Windows-1252"),
-                ("utf-8", "UTF-8 with errors='replace'"),
-            ]
-
-            last_error = None
-
-            for encoding, description in encoding_strategies:
-                try:
-                    detail_logger.debug(
-                        f"Attempting to parse {file_path.name} with {description}"
-                    )
-
-                    if description.endswith("with errors='replace'"):
-                        # For the final attempt, use error handling to replace problematic characters
-                        bib_data = BibtexParser._parse_with_error_handling(
-                            file_path, encoding
-                        )
-                    else:
-                        # Standard parsing attempt
-                        bib_data = parse_file(str(file_path), encoding=encoding)
-
-                    entries = []
-                    skipped_entries = 0
-                    preprint_entries = 0
-
-                    # Process all entries in parallel for improved performance
-                    entries_list = list(bib_data.entries.items())
-                    detail_logger.debug(
-                        f"Processing {len(entries_list)} entries with {max_workers} workers"
-                    )
-
-                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                        # Submit all entry processing tasks
-                        future_to_entry = {
-                            executor.submit(
-                                BibtexParser._process_single_entry, entry_key, entry
-                            ): entry_key
-                            for entry_key, entry in entries_list
-                        }
-
-                        # Collect results as they complete
-                        for future in as_completed(future_to_entry):
-                            entry_key = future_to_entry[future]
-                            try:
-                                result = future.result()
-                                if result["type"] == "preprint":
-                                    preprint_entries += 1
-                                    detail_logger.debug(
-                                        f"Skipping preprint entry: {entry_key}"
-                                    )
-                                elif result["type"] == "processed":
-                                    entries.append(result["entry"])
-                                elif result["type"] == "skipped":
-                                    skipped_entries += 1
-                            except Exception as e:
-                                status_logger.warning(
-                                    f"Skipping entry '{entry_key}' due to processing error: {e}"
-                                )
-                                skipped_entries += 1
-
-                    # Log parsing results with clear messaging
-                    detail_logger.debug(
-                        f"Successfully parsed {len(entries)} entries from {file_path.name} "
-                        f"with {description}"
-                    )
-
-                    # Inform user about preprints (if any)
-                    if preprint_entries > 0:
-                        status_logger.info(
-                            f"Skipped {preprint_entries} preprint(s) from legitimate repositories - not publication venues"
-                        )
-
-                    # Log other skipped entries
-                    if skipped_entries > 0:
-                        detail_logger.debug(
-                            f"Skipped {skipped_entries} other entries due to processing errors"
-                        )
-
-                    return entries, skipped_entries, preprint_entries
-
-                except UnicodeDecodeError as e:
-                    last_error = e
-                    detail_logger.debug(
-                        f"{description} decoding failed for {file_path.name}: {e}"
-                    )
-                    continue
-
-                except PybtexSyntaxError as e:
-                    # Syntax errors are not encoding-related, so don't try other encodings
-                    raise ValueError(
-                        f"Invalid BibTeX syntax in {file_path.name}: {e}"
-                    ) from e
-
-                except PermissionError as e:
-                    raise PermissionError(f"Cannot read {file_path}: {e}") from e
-
-                except PybtexError as e:
-                    last_error = e
-                    detail_logger.debug(
-                        f"PyBTeX error with {description} for {file_path.name}: {e}"
-                    )
-                    continue
-
-            # If we get here, all encoding strategies failed
-            if last_error:
-                if isinstance(last_error, UnicodeDecodeError):
-                    raise UnicodeDecodeError(
-                        "utf-8",
-                        b"",
-                        0,
-                        1,
-                        f"Could not decode {file_path.name} with any supported encoding "
-                        f"(tried UTF-8, Latin-1, Windows-1252).",
-                    ) from last_error
-                else:
-                    raise ValueError(
-                        f"Error parsing BibTeX file {file_path.name}: {last_error}"
-                    ) from last_error
-            else:
-                raise ValueError(f"Unknown error parsing BibTeX file {file_path.name}")
-        finally:
-            # Restore original strict mode setting
-            pybtex_errors.set_strict_mode(original_strict_mode)
+        with BibtexParser._configure_pybtex(relax_parsing):
+            return BibtexParser._parse_with_encoding_fallback(file_path, max_workers)
 
     @staticmethod
     def _process_single_entry(entry_key: str, entry: Entry) -> dict[str, Any]:
