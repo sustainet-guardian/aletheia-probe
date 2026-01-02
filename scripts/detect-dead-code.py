@@ -433,8 +433,11 @@ Another Journal,9876-5432,Another Publisher
                 ["acronym", "status"],
                 ["acronym", "stats"],
                 ["acronym", "list", "--limit", "5"],
-                ["acronym", "add", "ICML", "International Conference on Machine Learning"],
+                ["acronym", "add", "ICML", "International Conference on Machine Learning", "--entity-type", "conference"],
                 ["acronym", "add", "NeurIPS", "Neural Information Processing Systems", "--entity-type", "conference"],
+                # Test are_conference_names_equivalent: Add same acronym with abbreviation variation
+                # This triggers _check_existing_mapping -> are_conference_names_equivalent
+                ["acronym", "add", "ICML", "International Conf. on Machine Learning", "--entity-type", "conference"],
                 ["acronym", "list", "--limit", "10"],
                 ["acronym", "list", "--offset", "5", "--limit", "5"],
                 # Clear operations (at the end)
