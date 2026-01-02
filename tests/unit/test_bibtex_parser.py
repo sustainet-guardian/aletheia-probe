@@ -1852,10 +1852,10 @@ class TestBibtexParser:
         assert skipped_count == 0
 
     def test_parse_bibtex_file_parallel_processing_large_file(self, tmp_path):
-        """Test that parallel processing is used for large files."""
-        # Create a BibTeX file with many entries to trigger parallel processing
+        """Test parallel processing with large files."""
+        # Create a BibTeX file with many entries
         bibtex_content = ""
-        for i in range(15):  # More than 10 entries to trigger parallel processing
+        for i in range(15):
             bibtex_content += f"""
 @article{{test{i},
     title={{Test Article {i}}},
@@ -1887,8 +1887,8 @@ class TestBibtexParser:
             assert entry.year == "2023"
 
     def test_parse_bibtex_file_parallel_processing_small_file(self, tmp_path):
-        """Test that sequential processing is used for small files."""
-        # Create a BibTeX file with few entries (below parallel threshold)
+        """Test that parallel processing works correctly with small files."""
+        # Create a BibTeX file with few entries
         bibtex_content = """
 @article{small1,
     title={Small Test Article 1},
@@ -1908,12 +1908,12 @@ class TestBibtexParser:
         test_file = tmp_path / "small_test.bib"
         test_file.write_text(bibtex_content, encoding="utf-8")
 
-        # Parse the file (should use sequential processing)
+        # Parse the file (parallel processing used for all files)
         entries, skipped_count, preprint_count = BibtexParser.parse_bibtex_file(
             test_file, max_workers=4
         )
 
-        # Verify entries were processed correctly even with small file
+        # Verify entries were processed correctly
         assert len(entries) == 2
         assert skipped_count == 0
         assert preprint_count == 0

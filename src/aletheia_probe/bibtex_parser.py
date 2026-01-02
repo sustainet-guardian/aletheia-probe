@@ -28,19 +28,19 @@ class BibtexParser:
 
     @staticmethod
     def parse_bibtex_file(
-        file_path: Path, relax_parsing: bool = False, max_workers: int = 4
+        file_path: Path, relax_parsing: bool = False, max_workers: int = 12
     ) -> tuple[list[BibtexEntry], int, int]:
         """Parse a BibTeX file and extract journal entries with parallel processing.
 
         This method tries multiple encoding strategies to maximize the number
         of successfully parsed entries, even in files with mixed encodings.
-        Entries are processed in parallel for improved performance on large files.
+        All entries are processed in parallel for improved performance.
 
         Args:
             file_path: Path to the BibTeX file
             relax_parsing: If True, enable lenient parsing mode to handle
                          malformed BibTeX files (e.g., duplicate keys, syntax errors)
-            max_workers: Maximum number of parallel workers for entry processing (default: 4)
+            max_workers: Maximum number of parallel workers for entry processing (default: 12)
 
         Returns:
             A tuple containing:
@@ -99,54 +99,26 @@ class BibtexParser:
                     skipped_entries = 0
                     preprint_entries = 0
 
-                    # Process entries in parallel for improved performance
+                    # Process all entries in parallel for improved performance
                     entries_list = list(bib_data.entries.items())
+                    detail_logger.debug(
+                        f"Processing {len(entries_list)} entries with {max_workers} workers"
+                    )
 
-                    # Use parallel processing only if we have enough entries to benefit from it
-                    if len(entries_list) >= 10:
-                        detail_logger.debug(
-                            f"Processing {len(entries_list)} entries with {max_workers} workers"
-                        )
+                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        # Submit all entry processing tasks
+                        future_to_entry = {
+                            executor.submit(
+                                BibtexParser._process_single_entry, entry_key, entry
+                            ): entry_key
+                            for entry_key, entry in entries_list
+                        }
 
-                        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                            # Submit all entry processing tasks
-                            future_to_entry = {
-                                executor.submit(
-                                    BibtexParser._process_single_entry, entry_key, entry
-                                ): entry_key
-                                for entry_key, entry in entries_list
-                            }
-
-                            # Collect results as they complete
-                            for future in as_completed(future_to_entry):
-                                entry_key = future_to_entry[future]
-                                try:
-                                    result = future.result()
-                                    if result["type"] == "preprint":
-                                        preprint_entries += 1
-                                        detail_logger.debug(
-                                            f"Skipping preprint entry: {entry_key}"
-                                        )
-                                    elif result["type"] == "processed":
-                                        entries.append(result["entry"])
-                                    elif result["type"] == "skipped":
-                                        skipped_entries += 1
-                                except Exception as e:
-                                    status_logger.warning(
-                                        f"Skipping entry '{entry_key}' due to processing error: {e}"
-                                    )
-                                    skipped_entries += 1
-                    else:
-                        # Fall back to sequential processing for small files
-                        detail_logger.debug(
-                            f"Processing {len(entries_list)} entries sequentially (small file)"
-                        )
-
-                        for entry_key, entry in entries_list:
+                        # Collect results as they complete
+                        for future in as_completed(future_to_entry):
+                            entry_key = future_to_entry[future]
                             try:
-                                result = BibtexParser._process_single_entry(
-                                    entry_key, entry
-                                )
+                                result = future.result()
                                 if result["type"] == "preprint":
                                     preprint_entries += 1
                                     detail_logger.debug(
@@ -156,17 +128,11 @@ class BibtexParser:
                                     entries.append(result["entry"])
                                 elif result["type"] == "skipped":
                                     skipped_entries += 1
-                            except (
-                                KeyError,
-                                AttributeError,
-                                ValueError,
-                                TypeError,
-                            ) as e:
+                            except Exception as e:
                                 status_logger.warning(
                                     f"Skipping entry '{entry_key}' due to processing error: {e}"
                                 )
                                 skipped_entries += 1
-                                continue
 
                     # Log parsing results with clear messaging
                     detail_logger.debug(
