@@ -206,7 +206,7 @@ class TestCachedBackend:
         confidence = mock_cached_backend._calculate_confidence(query_input, match)
 
         # Should have high confidence for ISSN match
-        assert confidence >= 0.9
+        assert confidence == 0.95
 
     def test_calculate_confidence_name_match(self, mock_cached_backend):
         """Test confidence calculation with name match only."""
@@ -219,7 +219,7 @@ class TestCachedBackend:
         confidence = mock_cached_backend._calculate_confidence(query_input, match)
 
         # Should have good confidence for exact name match
-        assert confidence >= 0.8
+        assert confidence == 0.90
 
     def test_calculate_confidence_partial_match(self, mock_cached_backend):
         """Test confidence calculation with partial match."""
@@ -232,8 +232,8 @@ class TestCachedBackend:
 
         confidence = mock_cached_backend._calculate_confidence(query_input, match)
 
-        # Should have low to moderate confidence for partial match
-        assert 0.3 <= confidence < 0.8
+        # Should have low confidence for partial match
+        assert confidence == 0.3
 
 
 class TestApiBackendWithCache:
