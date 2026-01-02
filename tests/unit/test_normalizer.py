@@ -257,7 +257,9 @@ class TestInputNormalizer:
         result4 = normalizer.normalize("IeEe CoNfErEnCe")
         assert result4.normalized_name == "IEEE Conference"
 
-    def test_case_insensitive_normalization_produces_same_lowercase_key(self, normalizer):
+    def test_case_insensitive_normalization_produces_same_lowercase_key(
+        self, normalizer
+    ):
         """Test that different case variations normalize to the same lowercase key.
 
         This test verifies that venue names differing only in case will produce
