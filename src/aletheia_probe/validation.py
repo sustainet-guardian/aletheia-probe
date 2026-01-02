@@ -115,18 +115,21 @@ def _verify_issn_checksum(issn: str) -> bool:
 def validate_email(email: str) -> str:
     """Validate email format.
 
+    Note: This function is designed for use as a Pydantic Field Validator.
+    It returns the validated email on success or raises exceptions on failure.
+
     Args:
         email: Email string to validate
 
     Returns:
-        The email if valid
+        The validated email string
 
     Raises:
         TypeError: If email is not a string
         ValueError: If email format is invalid
     """
     if not isinstance(email, str):
-        raise TypeError(f"email must be a string, not {type(email).__name__}")
+        raise TypeError("email must be a string")
 
     if not EMAIL_PATTERN.match(email):
         raise ValueError("Invalid email format")
