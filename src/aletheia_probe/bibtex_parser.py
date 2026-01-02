@@ -737,6 +737,201 @@ class BibtexParser:
         return value.strip()
 
     @staticmethod
+    def _get_preprint_check_content(entry: Entry) -> str:
+        """Extract and combine relevant fields for preprint pattern matching.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            Lowercase string combining all relevant fields for pattern matching.
+        """
+        fields_to_check = [
+            BibtexParser._get_field_safely(entry, "journal"),
+            BibtexParser._get_field_safely(entry, "booktitle"),
+            BibtexParser._get_field_safely(entry, "eprint"),
+            BibtexParser._get_field_safely(entry, "url"),
+            BibtexParser._get_field_safely(entry, "title"),
+            BibtexParser._get_field_safely(entry, "publisher"),
+            BibtexParser._get_field_safely(entry, "howpublished"),
+        ]
+        return " ".join([f.lower() for f in fields_to_check if f is not None])
+
+    @staticmethod
+    def _is_arxiv_entry(entry: Entry) -> bool:
+        """Check if entry is from arXiv preprint repository.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from arXiv, False otherwise.
+        """
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in ARXIV_PREPRINT_PATTERNS:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected arXiv pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_biorxiv_entry(entry: Entry) -> bool:
+        """Check if entry is from bioRxiv preprint repository.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from bioRxiv, False otherwise.
+        """
+        biorxiv_patterns = [
+            r"biorxiv",
+            r"bio\s*rxiv",
+            r"www\.biorxiv\.org",
+            r"doi\.org/10\.1101/",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in biorxiv_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected bioRxiv pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_ssrn_entry(entry: Entry) -> bool:
+        """Check if entry is from SSRN preprint repository.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from SSRN, False otherwise.
+        """
+        ssrn_patterns = [
+            r"ssrn\s*electronic\s*journal",
+            r"social\s*science\s*research\s*network",
+            r"ssrn\.com",
+            r"\bssrn\b",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in ssrn_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected SSRN pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_medrxiv_entry(entry: Entry) -> bool:
+        """Check if entry is from medRxiv preprint repository.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from medRxiv, False otherwise.
+        """
+        medrxiv_patterns = [
+            r"medrxiv",
+            r"med\s*rxiv",
+            r"www\.medrxiv\.org",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in medrxiv_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected medRxiv pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_zenodo_entry(entry: Entry) -> bool:
+        """Check if entry is from Zenodo preprint repository.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from Zenodo, False otherwise.
+        """
+        zenodo_patterns = [
+            r"\bzenodo\b",
+            r"zenodo\.org",
+            r"doi\.org/10\.5281/zenodo",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in zenodo_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected Zenodo pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_other_rxiv_preprint_entry(entry: Entry) -> bool:
+        """Check if entry is from other *rxiv preprint repositories.
+
+        Checks for psyarxiv, socarxiv, eartharxiv, engrxiv, techrxiv, chemrxiv.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from an *rxiv repository, False otherwise.
+        """
+        rxiv_patterns = [
+            r"psyarxiv",
+            r"socarxiv",
+            r"eartharxiv",
+            r"engrxiv",
+            r"techrxiv",
+            r"chemrxiv",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in rxiv_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected *rxiv pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _is_other_preprint_repository_entry(entry: Entry) -> bool:
+        """Check if entry is from other preprint repositories.
+
+        Checks for preprints.org, Research Square, OSF preprints, and authorea.com.
+
+        Args:
+            entry: BibTeX entry object.
+
+        Returns:
+            True if the entry is from a recognized preprint repository, False otherwise.
+        """
+        other_patterns = [
+            r"preprints\.org",
+            r"research\s*square",
+            r"researchsquare\.com",
+            r"osf\.io/preprints",
+            r"authorea\.com",
+        ]
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        for pattern in other_patterns:
+            if re.search(pattern, checked_content, re.IGNORECASE):
+                detail_logger.debug(
+                    f"Detected preprint repository pattern '{pattern}' in entry: {entry.key}"
+                )
+                return True
+        return False
+
+    @staticmethod
     def _is_preprint_entry(entry: Entry) -> bool:
         """Detects if a BibTeX entry is a preprint from a legitimate repository.
 
@@ -749,34 +944,15 @@ class BibtexParser:
         Returns:
             True if the entry is identified as a legitimate preprint, False otherwise.
         """
-        # Combine all patterns from module-level constants
-        all_patterns = ARXIV_PREPRINT_PATTERNS + OTHER_PREPRINT_PATTERNS
-
-        # Combine all relevant fields into a single string for pattern matching
-        # Include publisher and howpublished fields based on real-world data analysis
-        fields_to_check = [
-            BibtexParser._get_field_safely(entry, "journal"),
-            BibtexParser._get_field_safely(entry, "booktitle"),
-            BibtexParser._get_field_safely(entry, "eprint"),
-            BibtexParser._get_field_safely(entry, "url"),
-            BibtexParser._get_field_safely(entry, "title"),
-            BibtexParser._get_field_safely(entry, "publisher"),
-            BibtexParser._get_field_safely(entry, "howpublished"),
-        ]
-
-        # Filter out None values and convert to lowercase for case-insensitive matching
-        checked_content = " ".join(
-            [f.lower() for f in fields_to_check if f is not None]
+        return (
+            BibtexParser._is_arxiv_entry(entry)
+            or BibtexParser._is_biorxiv_entry(entry)
+            or BibtexParser._is_ssrn_entry(entry)
+            or BibtexParser._is_medrxiv_entry(entry)
+            or BibtexParser._is_zenodo_entry(entry)
+            or BibtexParser._is_other_rxiv_preprint_entry(entry)
+            or BibtexParser._is_other_preprint_repository_entry(entry)
         )
-
-        for pattern in all_patterns:
-            if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected preprint pattern '{pattern}' in entry: {entry.key}"
-                )
-                return True
-
-        return False
 
     @staticmethod
     def _detect_venue_type(entry: Entry, venue_name: str) -> VenueType:
