@@ -30,10 +30,8 @@ class TestInputNormalizer:
         normalizer = InputNormalizer()
         result = normalizer.normalize("J. Sci. Tech.")
 
-        assert result.normalized_name is not None
-        assert "Journal" in result.normalized_name
-        assert "Science" in result.normalized_name
-        assert "Technology" in result.normalized_name
+        assert result.normalized_name == "Journal Science Technology"
+        assert "Jrnl Sci. Tech." in result.aliases
 
     def test_issn_extraction(self):
         """Test ISSN extraction from input."""
@@ -41,7 +39,7 @@ class TestInputNormalizer:
         result = normalizer.normalize("Journal of Testing (ISSN: 1234-5679)")
 
         assert result.identifiers.get("issn") == "1234-5679"
-        assert result.normalized_name is not None
+        assert result.normalized_name == "Journal of Testing"
         assert "1234-5679" not in result.normalized_name
 
     def test_whitespace_normalization(self):
@@ -75,12 +73,8 @@ class TestInputNormalizer:
         result = normalizer.normalize("Journal@#$%of^&*()Testing")
 
         # Should keep some characters like parentheses, remove others
-        assert result.normalized_name is not None
+        assert result.normalized_name == "Journal of & Testing"
         assert "@#$%^*" not in result.normalized_name
-        assert "Journal" in result.normalized_name
-        assert (
-            "testing" in result.normalized_name.lower()
-        )  # Case normalization changes case
 
     def test_conference_name_normalization(self):
         """Test conference name normalization."""
@@ -89,7 +83,7 @@ class TestInputNormalizer:
             "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
         )
 
-        assert result.normalized_name is not None
+        assert result.normalized_name == "2018 IEEE 11th International Conference on CLOUD Computing"
         # Should have generated an alias without the year and ordinal
         aliases_lower = [a.lower() for a in result.aliases]
         # Check that at least one alias has removed year/ordinal patterns
@@ -104,7 +98,7 @@ class TestInputNormalizer:
             "Proceedings of Semantic Web Information Management"
         )
 
-        assert result.normalized_name is not None
+        assert result.normalized_name == "Proceedings of Semantic Web Information Management"
         # Should have an alias without the "Proceedings of" prefix
         assert "Semantic Web Information Management" in result.aliases
 
@@ -133,7 +127,7 @@ class TestInputNormalizer:
             "2022 IEEE/ACM 15th International Conference on Utility and Cloud Computing (UCC)"
         )
 
-        assert result.normalized_name is not None
+        assert result.normalized_name == "2022 IEEE ACM 15th International Conference on Utility and CLOUD Computing"
         # Should generate aliases with year and ordinal removed
         clean_aliases = [
             a
@@ -410,19 +404,19 @@ class TestInputNormalizer:
         long_name = "A" * 500
         query = normalizer.normalize(long_name)
         assert query.raw_input == long_name
-        assert query.normalized_name is not None
+        assert query.normalized_name == "A" + "a" * 499
 
         # Test with special characters
         special_chars = "Journal of Test™ & Research® (Ω Edition)"
         query = normalizer.normalize(special_chars)
         assert query.raw_input == special_chars
-        assert query.normalized_name is not None
+        assert query.normalized_name == "Journal of Test & Research"
 
         # Test with unicode
         unicode_name = "学术期刊 (Academic Journal)"
         query = normalizer.normalize(unicode_name)
         assert query.raw_input == unicode_name
-        assert query.normalized_name is not None
+        assert query.normalized_name == "学术期刊"
 
 
 class TestNormalizerUtilityFunctions:
