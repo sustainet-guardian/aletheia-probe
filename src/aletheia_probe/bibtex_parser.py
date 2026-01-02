@@ -26,6 +26,61 @@ detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
+# Comprehensive patterns for arXiv (all variants from real-world data)
+ARXIV_PREPRINT_PATTERNS: list[str] = [
+    # Standard arXiv patterns
+    r"arxiv\s*preprint\s*(?:arxiv\s*:)?\s*\d{4}\.\d{5}(?:v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
+    r"arxiv\s*preprint\s*:?\s*\d{4}\.\d{5}(?:v\d+)?",  # ArXivPreprint:2510.09378
+    r"arxiv\s*e-?prints?",  # ArXiv e-prints, ArXive-prints
+    r"arxiv:\d{4}\.\d{5}(?:v\d+)?",  # bare arXiv identifier
+    r"arxiv:\w+\.\w+(?:v\d+)?",  # arXiv:cs.AI/9901001 (old style)
+    r"eprint:\s*arxiv",  # for entries where eprint field is "eprint = {arXiv}"
+    # ArXiv with classifications and institutional info
+    r"arxiv\s*\[[^\]]+\]",  # arXiv with subject classification (e.g., "arXiv [cs.LG]")
+    r"arxiv\s*\([^)]*\)",  # arXiv with parenthetical info (e.g., "arXiv (Cornell University)")
+    # Common variants found in real bibliographies
+    r"\barxive?\s*preprints?\b",  # ArXivpreprint, ArXivepreprint
+    r"\barxive?\b",  # Just "ArXiv" or "ArXive" as word boundary
+    r"^arxive?$",  # Just "ArXiv" or "ArXive" as whole field
+    r"^arxive?\s*preprints?",  # ArXiv preprint at start
+    r"arxive?\s*preprints?\s*$",  # ArXiv preprint at end
+]
+
+# Patterns for other legitimate preprint repositories
+OTHER_PREPRINT_PATTERNS: list[str] = [
+    # bioRxiv - biology preprints
+    r"biorxiv",
+    r"bio\s*rxiv",
+    r"www\.biorxiv\.org",
+    r"doi\.org/10\.1101/",
+    # SSRN - social sciences preprints
+    r"ssrn\s*electronic\s*journal",
+    r"social\s*science\s*research\s*network",
+    r"ssrn\.com",
+    r"\bssrn\b",
+    # medRxiv - medical preprints
+    r"medrxiv",
+    r"med\s*rxiv",
+    r"www\.medrxiv\.org",
+    # Zenodo - multidisciplinary repository
+    r"\bzenodo\b",
+    r"zenodo\.org",
+    r"doi\.org/10\.5281/zenodo",
+    # Other legitimate preprint repositories
+    r"psyarxiv",  # Psychology preprints
+    r"socarxiv",  # Social sciences preprints
+    r"eartharxiv",  # Earth sciences preprints
+    r"engrxiv",  # Engineering preprints
+    r"techrxiv",  # IEEE preprints
+    r"preprints\.org",  # MDPI preprints
+    r"research\s*square",  # Research Square preprints
+    r"researchsquare\.com",
+    r"osf\.io/preprints",  # Open Science Framework preprints
+    r"chemrxiv",  # Chemistry preprints
+    r"authorea\.com",  # Authorea preprints platform
+]
+
+
 class BibtexParser:
     """Parser for BibTeX files to extract journal information."""
 
@@ -694,62 +749,8 @@ class BibtexParser:
         Returns:
             True if the entry is identified as a legitimate preprint, False otherwise.
         """
-        # Comprehensive patterns for arXiv (all variants from real-world data)
-        arxiv_patterns = [
-            # Standard arXiv patterns
-            r"arxiv\s*preprint\s*(?:arxiv\s*:)?\s*\d{4}\.\d{5}(?:v\d+)?",  # arXiv preprint arXiv:XXXX.XXXXX
-            r"arxiv\s*preprint\s*:?\s*\d{4}\.\d{5}(?:v\d+)?",  # ArXivPreprint:2510.09378
-            r"arxiv\s*e-?prints?",  # ArXiv e-prints, ArXive-prints
-            r"arxiv:\d{4}\.\d{5}(?:v\d+)?",  # bare arXiv identifier
-            r"arxiv:\w+\.\w+(?:v\d+)?",  # arXiv:cs.AI/9901001 (old style)
-            r"eprint:\s*arxiv",  # for entries where eprint field is "eprint = {arXiv}"
-            # ArXiv with classifications and institutional info
-            r"arxiv\s*\[[^\]]+\]",  # arXiv with subject classification (e.g., "arXiv [cs.LG]")
-            r"arxiv\s*\([^)]*\)",  # arXiv with parenthetical info (e.g., "arXiv (Cornell University)")
-            # Common variants found in real bibliographies
-            r"\barxive?\s*preprints?\b",  # ArXivpreprint, ArXivepreprint
-            r"\barxive?\b",  # Just "ArXiv" or "ArXive" as word boundary
-            r"^arxive?$",  # Just "ArXiv" or "ArXive" as whole field
-            r"^arxive?\s*preprints?",  # ArXiv preprint at start
-            r"arxive?\s*preprints?\s*$",  # ArXiv preprint at end
-        ]
-
-        # Patterns for other legitimate preprint repositories
-        preprint_patterns = [
-            # bioRxiv - biology preprints
-            r"biorxiv",
-            r"bio\s*rxiv",
-            r"www\.biorxiv\.org",
-            r"doi\.org/10\.1101/",
-            # SSRN - social sciences preprints
-            r"ssrn\s*electronic\s*journal",
-            r"social\s*science\s*research\s*network",
-            r"ssrn\.com",
-            r"\bssrn\b",
-            # medRxiv - medical preprints
-            r"medrxiv",
-            r"med\s*rxiv",
-            r"www\.medrxiv\.org",
-            # Zenodo - multidisciplinary repository
-            r"\bzenodo\b",
-            r"zenodo\.org",
-            r"doi\.org/10\.5281/zenodo",
-            # Other legitimate preprint repositories
-            r"psyarxiv",  # Psychology preprints
-            r"socarxiv",  # Social sciences preprints
-            r"eartharxiv",  # Earth sciences preprints
-            r"engrxiv",  # Engineering preprints
-            r"techrxiv",  # IEEE preprints
-            r"preprints\.org",  # MDPI preprints
-            r"research\s*square",  # Research Square preprints
-            r"researchsquare\.com",
-            r"osf\.io/preprints",  # Open Science Framework preprints
-            r"chemrxiv",  # Chemistry preprints
-            r"authorea\.com",  # Authorea preprints platform
-        ]
-
-        # Combine all patterns
-        all_patterns = arxiv_patterns + preprint_patterns
+        # Combine all patterns from module-level constants
+        all_patterns = ARXIV_PREPRINT_PATTERNS + OTHER_PREPRINT_PATTERNS
 
         # Combine all relevant fields into a single string for pattern matching
         # Include publisher and howpublished fields based on real-world data analysis
