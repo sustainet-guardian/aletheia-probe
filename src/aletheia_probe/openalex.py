@@ -15,6 +15,32 @@ from .logging_config import get_detail_logger
 detail_logger = get_detail_logger()
 
 
+# Scoring weights
+SCORE_NAME_EXACT_MATCH = 0.4
+SCORE_NAME_PARTIAL_MATCH = 0.2
+
+SCORE_VOLUME_HIGH = 0.3
+SCORE_VOLUME_MEDIUM = 0.2
+SCORE_VOLUME_LOW = 0.1
+
+SCORE_CITATION_HIGH = 0.2
+SCORE_CITATION_MEDIUM = 0.15
+SCORE_CITATION_LOW = 0.1
+
+SCORE_RECENCY_ACTIVE = 0.1
+
+# Penalties (multipliers)
+PENALTY_VERY_FEW_PAPERS = 0.2
+PENALTY_LOW_IMPACT = 0.5
+PENALTY_OLD_SOURCE = 0.5
+PENALTY_SHORT_SPAN_CONFERENCE = 0.4
+
+# Conference Bonuses
+BONUS_CONF_MAJOR = 0.15
+BONUS_CONF_GOOD = 0.05
+BONUS_CONF_LONG_RUNNING = 0.1
+
+
 class OpenAlexClient:
     """Client for OpenAlex API to fetch journal publication statistics."""
 
@@ -116,29 +142,31 @@ class OpenAlexClient:
 
         # Name matching (40% of score)
         if search_name in display_name or display_name in search_name:
-            score += 0.4
+            score += SCORE_NAME_EXACT_MATCH
         elif any(word in display_name for word in search_name.split() if len(word) > 3):
-            score += 0.2
+            score += SCORE_NAME_PARTIAL_MATCH
 
         # Publication volume (30% of score)
         if works_count > 1000:
-            score += 0.3
+            score += SCORE_VOLUME_HIGH
         elif works_count > 100:
-            score += 0.2
+            score += SCORE_VOLUME_MEDIUM
         elif works_count > 10:
-            score += 0.1
+            score += SCORE_VOLUME_LOW
         elif works_count <= 2:
-            score *= 0.2  # Heavily penalize sources with very few papers
+            score *= (
+                PENALTY_VERY_FEW_PAPERS  # Heavily penalize sources with very few papers
+            )
 
         # Citation impact (20% of score)
         if cited_by_count > 50000:
-            score += 0.2
+            score += SCORE_CITATION_HIGH
         elif cited_by_count > 10000:
-            score += 0.15
+            score += SCORE_CITATION_MEDIUM
         elif cited_by_count > 1000:
-            score += 0.1
+            score += SCORE_CITATION_LOW
         elif cited_by_count <= 10:
-            score *= 0.5  # Penalize low-impact sources
+            score *= PENALTY_LOW_IMPACT  # Penalize low-impact sources
 
         # Enhanced conference scoring: Consider quality metrics before penalizing short spans
         if source_type == "conference" and first_year and last_year:
@@ -151,22 +179,22 @@ class OpenAlexClient:
             if years_active <= 2:
                 # High-quality single-year instances are legitimate (e.g., CVPR 2022)
                 if is_high_quality:
-                    score += 0.15  # Bonus for major conference instance
+                    score += BONUS_CONF_MAJOR  # Bonus for major conference instance
                 elif is_medium_quality:
-                    score += 0.05  # Small bonus for good conference instance
+                    score += BONUS_CONF_GOOD  # Small bonus for good conference instance
                 else:
                     # Only penalize low-quality short-span conferences
-                    score *= 0.4  # Reduced penalty (was 0.3)
+                    score *= PENALTY_SHORT_SPAN_CONFERENCE  # Reduced penalty (was 0.3)
             elif years_active >= 10:
-                score += 0.1  # Bonus for long-running venues
+                score += BONUS_CONF_LONG_RUNNING  # Bonus for long-running venues
 
         # Recency (10% of score) - penalize inactive sources
         if last_year:
             current_year = datetime.now().year
             if last_year >= current_year - 2:
-                score += 0.1
+                score += SCORE_RECENCY_ACTIVE
             elif last_year < current_year - 10:
-                score *= 0.5  # Penalize very old sources
+                score *= PENALTY_OLD_SOURCE  # Penalize very old sources
 
         return min(score, 1.0)
 
