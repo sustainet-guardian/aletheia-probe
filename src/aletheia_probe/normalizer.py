@@ -172,6 +172,25 @@ class InputNormalizer:
 
         return identifiers
 
+    def _is_valid_acronym_format(self, text: str) -> bool:
+        """Check if text has a valid acronym format (mostly uppercase).
+
+        Args:
+            text: Text to check
+
+        Returns:
+            True if valid acronym format
+        """
+        # Calculate proportion of uppercase letters
+        alpha_chars = [c for c in text if c.isalpha()]
+        if not alpha_chars:
+            return False
+
+        uppercase_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
+
+        # Must be at least ACRONYM_UPPERCASE_THRESHOLD to be considered an acronym
+        return uppercase_ratio >= ACRONYM_UPPERCASE_THRESHOLD
+
     def _extract_acronyms(self, text: str) -> list[str]:
         """Extract conference/journal acronyms from parentheses for use as aliases.
 
@@ -216,14 +235,7 @@ class InputNormalizer:
             if self.acronym_pattern.match(content):
                 # Additional check: should have a good proportion of uppercase letters
                 # to avoid catching things like "(Online)" or "(Invited)"
-                # Use ACRONYM_UPPERCASE_THRESHOLD to catch "NeurIPS" (57%) while excluding "Online" (17%)
-                uppercase_count = sum(1 for c in content if c.isupper())
-                total_alpha = sum(1 for c in content if c.isalpha())
-
-                if (
-                    total_alpha > 0
-                    and (uppercase_count / total_alpha) >= ACRONYM_UPPERCASE_THRESHOLD
-                ):
+                if self._is_valid_acronym_format(content):
                     acronyms.append(content)
 
         return acronyms
@@ -422,19 +434,7 @@ class InputNormalizer:
         # Remove common punctuation/symbols for checking
         clean_text = text.replace("&", "").replace("'", "").replace("-", "").strip()
 
-        # Must have at least some letters
-        if not any(c.isalpha() for c in clean_text):
-            return False
-
-        # Calculate proportion of uppercase letters
-        alpha_chars = [c for c in clean_text if c.isalpha()]
-        if not alpha_chars:
-            return False
-
-        uppercase_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
-
-        # Must be at least ACRONYM_UPPERCASE_THRESHOLD to be considered an acronym
-        return uppercase_ratio >= ACRONYM_UPPERCASE_THRESHOLD
+        return self._is_valid_acronym_format(clean_text)
 
     def _extract_acronym_mappings_from_text(
         self, text: str, extracted_acronyms: list[str]
