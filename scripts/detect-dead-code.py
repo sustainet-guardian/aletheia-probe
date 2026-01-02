@@ -27,6 +27,9 @@ from typing import Any
 class FunctionTracer:
     """Trace function calls during execution."""
 
+    # Global reference to active tracer for ThreadPoolExecutor worker initialization
+    _active_tracer: "FunctionTracer | None" = None
+
     def __init__(self, src_root: Path) -> None:
         """Initialize tracer.
 
@@ -95,11 +98,24 @@ class FunctionTracer:
 
     def start(self) -> None:
         """Start tracing."""
+        # Set global reference for ThreadPoolExecutor workers
+        FunctionTracer._active_tracer = self
         sys.settrace(self.trace_function)
 
     def stop(self) -> None:
         """Stop tracing."""
         sys.settrace(None)
+        FunctionTracer._active_tracer = None
+
+    @staticmethod
+    def _worker_thread_initializer() -> None:
+        """Initialize tracing in ThreadPoolExecutor worker threads.
+
+        This function is called once in each worker thread to set up tracing.
+        """
+        tracer = FunctionTracer._active_tracer
+        if tracer:
+            sys.settrace(tracer.trace_function)
 
 
 class FunctionDiscoverer:
@@ -474,6 +490,47 @@ Another Journal,9876-5432,Another Publisher
                 os.environ.pop(key, None)
 
 
+def _patch_threadpoolexecutor() -> None:
+    """Patch ThreadPoolExecutor to set up tracing in worker threads.
+
+    This monkey-patches concurrent.futures.ThreadPoolExecutor.__init__ to
+    automatically add a worker initializer that sets up sys.settrace in each
+    worker thread. This is necessary because sys.settrace is thread-local.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Store original __init__
+    original_init = ThreadPoolExecutor.__init__
+
+    def patched_init(
+        self: ThreadPoolExecutor,
+        max_workers: int | None = None,
+        thread_name_prefix: str = "",
+        initializer: Any = None,
+        initargs: tuple[Any, ...] = (),
+    ) -> None:
+        """Patched __init__ that chains our tracer initializer."""
+        # Chain initializers: first call ours, then call user's if provided
+        def chained_initializer(*args: Any) -> None:
+            # Set up tracing first
+            FunctionTracer._worker_thread_initializer()
+            # Then call user's initializer if provided
+            if initializer is not None:
+                initializer(*args)
+
+        # Call original __init__ with our chained initializer
+        original_init(
+            self,
+            max_workers=max_workers,
+            thread_name_prefix=thread_name_prefix,
+            initializer=chained_initializer,
+            initargs=initargs,
+        )
+
+    # Replace __init__ with patched version
+    ThreadPoolExecutor.__init__ = patched_init  # type: ignore
+
+
 def _should_ignore(module: str, qualified_name: str) -> bool:
     """Filter universal patterns that should always be ignored.
 
@@ -508,6 +565,10 @@ def main() -> None:
     print("=" * 80)
     print("Dead Code Detection - Runtime Tracing")
     print("=" * 80)
+
+    # Step 0: Patch ThreadPoolExecutor BEFORE any imports
+    print("\n[0/4] Patching ThreadPoolExecutor for worker thread tracing...")
+    _patch_threadpoolexecutor()
 
     # Step 1: Discover all functions
     print("\n[1/4] Discovering functions in src/aletheia_probe/...")
