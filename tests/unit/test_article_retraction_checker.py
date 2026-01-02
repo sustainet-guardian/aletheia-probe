@@ -151,6 +151,77 @@ class TestArticleRetractionCheckerDOIValidation:
                 # Verify normalized DOI was used
                 mock_rw.assert_called_once_with("10.1234/test")
 
+    @pytest.mark.asyncio
+    async def test_check_doi_invalid_format_no_prefix(self, retraction_cache):
+        """Test rejection of DOI without 10. prefix."""
+        checker = ArticleRetractionChecker(retraction_cache)
+        result = await checker.check_doi("1234/test")
+
+        assert result.doi == "1234/test"
+        assert result.is_retracted is False
+
+    @pytest.mark.asyncio
+    async def test_check_doi_invalid_format_no_slash(self, retraction_cache):
+        """Test rejection of DOI without slash separator."""
+        checker = ArticleRetractionChecker(retraction_cache)
+        result = await checker.check_doi("10.1234")
+
+        assert result.doi == "10.1234"
+        assert result.is_retracted is False
+
+    @pytest.mark.asyncio
+    async def test_check_doi_invalid_format_short_registrant(self, retraction_cache):
+        """Test rejection of DOI with registrant code less than 4 digits."""
+        checker = ArticleRetractionChecker(retraction_cache)
+        result = await checker.check_doi("10.123/test")
+
+        assert result.doi == "10.123/test"
+        assert result.is_retracted is False
+
+    @pytest.mark.asyncio
+    async def test_check_doi_invalid_format_no_suffix(self, retraction_cache):
+        """Test rejection of DOI with slash but no suffix."""
+        checker = ArticleRetractionChecker(retraction_cache)
+        result = await checker.check_doi("10.1234/")
+
+        assert result.doi == "10.1234/"
+        assert result.is_retracted is False
+
+    @pytest.mark.asyncio
+    async def test_check_doi_invalid_format_with_whitespace(self, retraction_cache):
+        """Test rejection of DOI with whitespace in the middle."""
+        checker = ArticleRetractionChecker(retraction_cache)
+        result = await checker.check_doi("10.1234/ test")
+
+        assert result.doi == "10.1234/ test"
+        assert result.is_retracted is False
+
+    @pytest.mark.asyncio
+    async def test_check_doi_valid_format_accepted(self, retraction_cache):
+        """Test that valid DOI format is accepted and processed."""
+        checker = ArticleRetractionChecker(retraction_cache)
+
+        # Mock the cache and API
+        with patch.object(
+            retraction_cache, "get_article_retraction", return_value=None
+        ):
+            with (
+                patch.object(checker, "_check_retraction_watch_local") as mock_rw,
+                patch.object(checker, "_check_crossref_api") as mock_crossref,
+            ):
+                mock_rw.return_value = ArticleRetractionResult(
+                    doi="10.1234/valid.doi", is_retracted=False
+                )
+                mock_crossref.return_value = ArticleRetractionResult(
+                    doi="10.1234/valid.doi", is_retracted=False
+                )
+
+                result = await checker.check_doi("10.1234/valid.doi")
+
+                # Verify DOI was processed (not rejected)
+                assert result.doi == "10.1234/valid.doi"
+                mock_rw.assert_called_once()
+
 
 class TestArticleRetractionCheckerCacheIntegration:
     """Test suite for cache integration."""

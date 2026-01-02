@@ -2,6 +2,7 @@
 """Article-level retraction checking using multiple data sources."""
 
 import asyncio
+import re
 from typing import Any
 
 import aiohttp
@@ -12,6 +13,9 @@ from .logging_config import get_detail_logger, get_status_logger
 
 status_logger = get_status_logger()
 detail_logger = get_detail_logger()
+
+# DOI format pattern - matches standard DOI structure (10.xxxx/...)
+DOI_PATTERN = re.compile(r"^10\.\d{4,}/[^\s]+$")
 
 
 class ArticleRetractionResult:
@@ -79,10 +83,11 @@ class ArticleRetractionChecker:
         Check if a DOI is retracted using multiple data sources.
 
         This method:
-        1. Checks cache first
-        2. Checks local Retraction Watch data (if available)
-        3. Queries Crossref API for retraction status
-        4. Caches the result
+        1. Validates DOI format
+        2. Checks cache first
+        3. Checks local Retraction Watch data (if available)
+        4. Queries Crossref API for retraction status
+        5. Caches the result
 
         Args:
             doi: The DOI to check
@@ -94,6 +99,14 @@ class ArticleRetractionChecker:
             return ArticleRetractionResult(doi="", is_retracted=False)
 
         normalized_doi = doi.lower().strip()
+
+        # Validate DOI format
+        if not DOI_PATTERN.match(normalized_doi):
+            detail_logger.warning(
+                f"Invalid DOI format: {normalized_doi}. Expected format: 10.xxxx/suffix"
+            )
+            return ArticleRetractionResult(doi=normalized_doi, is_retracted=False)
+
         detail_logger.debug(f"Checking retraction status for DOI: {normalized_doi}")
 
         # Check cache first
