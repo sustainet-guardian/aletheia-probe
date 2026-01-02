@@ -15,6 +15,7 @@ from pybtex.database import (  # type: ignore
 )
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
+from .cache import AcronymCache
 from .logging_config import get_detail_logger, get_status_logger
 from .models import BibtexEntry, VenueType
 
@@ -535,8 +536,6 @@ class BibtexParser:
             "\\ieee" -> "IEEE" -> (lookup in cache) -> full name or "IEEE"
             "\\unknownmacro" -> "UNKNOWNMACRO" (or removed if not in cache)
         """
-        from .cache import AcronymCache
-
         # Find all LaTeX commands (backslash followed by letters)
         latex_command_pattern = r"\\([a-zA-Z]+)"
 
