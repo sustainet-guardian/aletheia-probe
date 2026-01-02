@@ -10,48 +10,46 @@ from aletheia_probe.normalizer import (
 )
 
 
+@pytest.fixture
+def normalizer():
+    """Provide a shared InputNormalizer instance for tests."""
+    return InputNormalizer()
+
+
 class TestInputNormalizer:
     """Tests for InputNormalizer class."""
 
-    def setUp(self):
-        self.normalizer = InputNormalizer()
-
-    def test_basic_normalization(self):
+    def test_basic_normalization(self, normalizer):
         """Test basic journal name normalization."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize("Journal of Computer Science")
 
         assert result.raw_input == "Journal of Computer Science"
         assert result.normalized_name == "Journal of Computer Science"
         assert "Computer Science" in result.aliases
 
-    def test_abbreviation_expansion(self):
+    def test_abbreviation_expansion(self, normalizer):
         """Test abbreviation expansion."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize("J. Sci. Tech.")
 
         assert result.normalized_name == "Journal Science Technology"
         assert "Jrnl Sci. Tech." in result.aliases
 
-    def test_issn_extraction(self):
+    def test_issn_extraction(self, normalizer):
         """Test ISSN extraction from input."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize("Journal of Testing (ISSN: 1234-5679)")
 
         assert result.identifiers.get("issn") == "1234-5679"
         assert result.normalized_name == "Journal of Testing"
         assert "1234-5679" not in result.normalized_name
 
-    def test_whitespace_normalization(self):
+    def test_whitespace_normalization(self, normalizer):
         """Test whitespace normalization."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize("  Journal    of     Testing   ")
 
         assert result.normalized_name == "Journal of Testing"
 
-    def test_empty_input_validation(self):
+    def test_empty_input_validation(self, normalizer):
         """Test validation of empty input."""
-        normalizer = InputNormalizer()
 
         with pytest.raises(ValueError, match="Input cannot be empty"):
             normalizer.normalize("")
@@ -59,26 +57,23 @@ class TestInputNormalizer:
         with pytest.raises(ValueError, match="Input cannot be empty"):
             normalizer.normalize("   ")
 
-    def test_long_input_validation(self):
+    def test_long_input_validation(self, normalizer):
         """Test validation of overly long input."""
-        normalizer = InputNormalizer()
         long_input = "x" * 1001
 
         with pytest.raises(ValueError, match="Input too long"):
             normalizer.normalize(long_input)
 
-    def test_special_character_cleaning(self):
+    def test_special_character_cleaning(self, normalizer):
         """Test removal of special characters."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize("Journal@#$%of^&*()Testing")
 
         # Should keep some characters like parentheses, remove others
         assert result.normalized_name == "Journal of & Testing"
         assert "@#$%^*" not in result.normalized_name
 
-    def test_conference_name_normalization(self):
+    def test_conference_name_normalization(self, normalizer):
         """Test conference name normalization."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize(
             "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)"
         )
@@ -94,9 +89,8 @@ class TestInputNormalizer:
             "2018" not in alias and "11th" not in alias for alias in result.aliases
         )
 
-    def test_proceedings_prefix_removal(self):
+    def test_proceedings_prefix_removal(self, normalizer):
         """Test that 'Proceedings of' prefix generates aliases."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize(
             "Proceedings of Semantic Web Information Management"
         )
@@ -108,9 +102,8 @@ class TestInputNormalizer:
         # Should have an alias without the "Proceedings of" prefix
         assert "Semantic Web Information Management" in result.aliases
 
-    def test_conference_series_extraction(self):
+    def test_conference_series_extraction(self, normalizer):
         """Test extraction of conference series name."""
-        normalizer = InputNormalizer()
 
         # Test with year in conference name
         result1 = normalizer.normalize(
@@ -126,9 +119,8 @@ class TestInputNormalizer:
         # Should have an alias with ordinal removed
         assert any("15th" not in alias for alias in result2.aliases)
 
-    def test_conference_with_both_year_and_ordinal(self):
+    def test_conference_with_both_year_and_ordinal(self, normalizer):
         """Test conference name with both year and ordinal."""
-        normalizer = InputNormalizer()
         result = normalizer.normalize(
             "2022 IEEE/ACM 15th International Conference on Utility and Cloud Computing (UCC)"
         )
@@ -145,9 +137,8 @@ class TestInputNormalizer:
         ]
         assert len(clean_aliases) > 0
 
-    def test_bracket_removal_parentheses(self):
+    def test_bracket_removal_parentheses(self, normalizer):
         """Test removal of content within parentheses."""
-        normalizer = InputNormalizer()
 
         # Test journal name with abbreviation in parentheses
         result = normalizer.normalize(
@@ -168,9 +159,8 @@ class TestInputNormalizer:
         )
         assert result2.normalized_name == "International Conference on CLOUD Computing"
 
-    def test_bracket_removal_square_brackets(self):
+    def test_bracket_removal_square_brackets(self, normalizer):
         """Test removal of content within square brackets."""
-        normalizer = InputNormalizer()
 
         # Test with year annotation
         result = normalizer.normalize("Journal of Science [2023]")
@@ -180,9 +170,8 @@ class TestInputNormalizer:
         result2 = normalizer.normalize("Digital Library [Online]")
         assert result2.normalized_name == "Digital Library"
 
-    def test_bracket_removal_curly_braces(self):
+    def test_bracket_removal_curly_braces(self, normalizer):
         """Test removal of nested curly braces from BibTeX formatting."""
-        normalizer = InputNormalizer()
 
         # Test single level braces
         result = normalizer.normalize("{IEEE} Conference")
@@ -201,9 +190,8 @@ class TestInputNormalizer:
         result3 = normalizer.normalize("{{{CLOUD}}} Conference")
         assert result3.normalized_name == "CLOUD Conference"
 
-    def test_bracket_removal_mixed_brackets(self):
+    def test_bracket_removal_mixed_brackets(self, normalizer):
         """Test removal of mixed bracket types."""
-        normalizer = InputNormalizer()
 
         # Test combination of all bracket types
         result = normalizer.normalize(
@@ -219,9 +207,8 @@ class TestInputNormalizer:
         expected2 = "2018 IEEE 11th International Conference on CLOUD Computing"  # IEEE and CLOUD preserved as acronyms
         assert result2.normalized_name == expected2
 
-    def test_bracket_removal_preserves_valid_parentheses(self):
+    def test_bracket_removal_preserves_valid_parentheses(self, normalizer):
         """Test that meaningful parentheses in journal names are preserved."""
-        normalizer = InputNormalizer()
 
         # Note: With the current implementation, ALL parentheses are removed
         # This is intentional for better journal matching, but we document the behavior
@@ -231,9 +218,8 @@ class TestInputNormalizer:
         # If we had a case where we wanted to preserve certain parentheses,
         # we would need to implement more sophisticated logic
 
-    def test_bracket_removal_empty_brackets(self):
+    def test_bracket_removal_empty_brackets(self, normalizer):
         """Test handling of empty or whitespace-only brackets."""
-        normalizer = InputNormalizer()
 
         result = normalizer.normalize("Journal of Testing ( ) with empty brackets")
         assert result.normalized_name == "Journal of Testing with Empty Brackets"
@@ -241,9 +227,8 @@ class TestInputNormalizer:
         result2 = normalizer.normalize("Conference [ ] with spaces")
         assert result2.normalized_name == "Conference with Spaces"
 
-    def test_bracket_removal_nested_and_adjacent(self):
+    def test_bracket_removal_nested_and_adjacent(self, normalizer):
         """Test handling of nested and adjacent brackets."""
-        normalizer = InputNormalizer()
 
         # Adjacent brackets
         result = normalizer.normalize("Journal (A)(B) of Science")
@@ -253,9 +238,8 @@ class TestInputNormalizer:
         result2 = normalizer.normalize("Conference {[on]} Science")
         assert result2.normalized_name == "Conference Science"
 
-    def test_acronym_preservation(self):
+    def test_acronym_preservation(self, normalizer):
         """Test that known acronyms are preserved in uppercase."""
-        normalizer = InputNormalizer()
 
         # Test IEEE preservation
         result = normalizer.normalize("ieee computer society")
@@ -273,13 +257,12 @@ class TestInputNormalizer:
         result4 = normalizer.normalize("IeEe CoNfErEnCe")
         assert result4.normalized_name == "IEEE Conference"
 
-    def test_case_insensitive_normalization_produces_same_lowercase_key(self):
+    def test_case_insensitive_normalization_produces_same_lowercase_key(self, normalizer):
         """Test that different case variations normalize to the same lowercase key.
 
         This test verifies that venue names differing only in case will produce
         the same cache key when lowercased, enabling case-insensitive matching.
         """
-        normalizer = InputNormalizer()
 
         # Test conference names with different cases
         result1 = normalizer.normalize("International Conference on Machine Learning")
@@ -320,9 +303,8 @@ class TestInputNormalizer:
         assert result7.normalized_name.lower() == result8.normalized_name.lower()
         assert result7.normalized_name.lower() == result9.normalized_name.lower()
 
-    def test_extract_conference_series_success(self):
+    def test_extract_conference_series_success(self, normalizer):
         """Test successful conference series extraction."""
-        normalizer = InputNormalizer()
 
         # Test cases with expected outputs
         test_cases = [
@@ -356,9 +338,8 @@ class TestInputNormalizer:
                 f"Expected '{expected_output}', got '{result}' for input '{input_name}'"
             )
 
-    def test_extract_conference_series_edge_cases(self):
+    def test_extract_conference_series_edge_cases(self, normalizer):
         """Test conference series extraction edge cases."""
-        normalizer = InputNormalizer()
 
         # Edge cases that should return None
         edge_cases = [
@@ -375,9 +356,8 @@ class TestInputNormalizer:
             result = normalizer.extract_conference_series(case)
             assert result is None, f"Expected None for input '{case}', got '{result}'"
 
-    def test_extract_conference_series_no_change(self):
+    def test_extract_conference_series_no_change(self, normalizer):
         """Test cases where series extraction doesn't change the name."""
-        normalizer = InputNormalizer()
 
         # Cases where no extraction should occur (returns None)
         no_change_cases = [
@@ -390,13 +370,12 @@ class TestInputNormalizer:
             result = normalizer.extract_conference_series(case)
             assert result is None, f"Expected None for input '{case}', got '{result}'"
 
-    def test_issn_extraction_with_real_journal(self):
+    def test_issn_extraction_with_real_journal(self, normalizer):
         """Test ISSN extraction with a real journal identifier.
 
         Validates that ISSN identifiers are properly extracted from
         real journal names.
         """
-        normalizer = InputNormalizer()
 
         # Nature's ISSN
         query = normalizer.normalize("Nature (ISSN: 0028-0836)")
@@ -405,9 +384,8 @@ class TestInputNormalizer:
         assert "issn" in query.identifiers
         assert query.identifiers["issn"] == "0028-0836"
 
-    def test_edge_case_inputs(self):
+    def test_edge_case_inputs(self, normalizer):
         """Test that normalization handles edge cases gracefully."""
-        normalizer = InputNormalizer()
 
         # Test with very long journal name (but under the 1000 char limit)
         long_name = "A" * 500
