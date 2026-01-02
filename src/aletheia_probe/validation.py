@@ -86,7 +86,9 @@ def _verify_issn_checksum(issn: str) -> bool:
     """
     Verify ISSN checksum digit.
 
-    The ISSN check digit is calculated using modulus 11 with weights 8-2.
+    The ISSN check digit is calculated using modulus 11 with weights 8-1.
+    If the weighted sum of all 8 digits (where X=10) is divisible by 11,
+    the ISSN is valid.
 
     Args:
         issn: ISSN in format ####-####
@@ -97,19 +99,18 @@ def _verify_issn_checksum(issn: str) -> bool:
     # Remove hyphen
     digits = issn.replace("-", "")
 
-    # Calculate checksum
-    total = sum(int(digits[i]) * (8 - i) for i in range(7))
-    calculated_check = total % 11
+    # Calculate weighted sum
+    total = 0
+    for i, char in enumerate(digits):
+        if char == "X":
+            value = 10
+        else:
+            value = int(char)
 
-    # Check digit: 0 stays 0, 1 becomes X, others are 11 - calculated
-    if calculated_check == 0:
-        expected = "0"
-    elif calculated_check == 1:
-        expected = "X"
-    else:
-        expected = str(11 - calculated_check)
+        # Weights are 8, 7, 6, 5, 4, 3, 2, 1
+        total += value * (8 - i)
 
-    return digits[7] == expected
+    return total % 11 == 0
 
 
 def validate_email(email: str) -> str:
