@@ -251,7 +251,23 @@ class ArticleRetractionChecker:
         full_message: dict[str, Any],
         is_notice: bool = False,
     ) -> ArticleRetractionResult:
-        """Parse retraction information from Crossref update data."""
+        """
+        Parse retraction information from Crossref update data.
+
+        Extracts retraction details such as type, date, DOI, and reason from the
+        Crossref API response structures.
+
+        Args:
+            doi: The DOI of the article being checked.
+            update_info: Dictionary containing the specific update information
+                (from 'updated-by' or 'update-to').
+            full_message: The complete 'message' dictionary from the Crossref API response.
+            is_notice: Whether the update info comes from a retraction notice ('update-to')
+                rather than an update to the work itself. Defaults to False.
+
+        Returns:
+            ArticleRetractionResult containing the parsed retraction details.
+        """
         retraction_type = update_info.get("type", "retraction")
         retraction_date = None
         retraction_doi = update_info.get("DOI")
@@ -280,7 +296,16 @@ class ArticleRetractionChecker:
         )
 
     def _cache_result(self, result: ArticleRetractionResult, source: str) -> None:
-        """Cache the retraction check result."""
+        """
+        Cache the retraction check result.
+
+        Stores the retraction result in the cache with a predefined time-to-live (TTL).
+
+        Args:
+            result: The ArticleRetractionResult object containing the check findings.
+            source: The identifier of the source used for the check (e.g., 'crossref',
+                'retraction_watch').
+        """
         self.retraction_cache.cache_article_retraction(
             doi=result.doi,
             is_retracted=result.is_retracted,
