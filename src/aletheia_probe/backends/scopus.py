@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Scopus backend for legitimate journal verification."""
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -31,6 +31,14 @@ class ScopusBackend(CachedBackend):
             Backend name string
         """
         return "scopus"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the evidence type for Scopus.
+
+        Returns:
+            EvidenceType.LEGITIMATE_LIST
+        """
+        return EvidenceType.LEGITIMATE_LIST
 
 
 # Register the backend factory

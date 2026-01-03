@@ -292,6 +292,13 @@ class TestScopusBackend:
         assert backend.list_type == AssessmentType.LEGITIMATE
         assert backend.cache_ttl_hours == 24 * 30  # Monthly cache
 
+    def test_get_evidence_type(self):
+        """Test get_evidence_type returns EvidenceType.LEGITIMATE_LIST."""
+        from src.aletheia_probe.enums import EvidenceType
+
+        backend = ScopusBackend()
+        assert backend.get_evidence_type() == EvidenceType.LEGITIMATE_LIST
+
     @pytest.mark.asyncio
     async def test_query_journal_found(self):
         """Test querying a journal that exists in Scopus cache."""
