@@ -426,66 +426,60 @@ class TestCacheSyncManager:
     @pytest.mark.asyncio
     async def test_fetch_backend_data(self, sync_manager):
         """Test fetching backend data."""
-        mock_backend = Mock()
-        mock_backend.get_name.return_value = "test_backend"
-        mock_backend.source_name = "test_source"
+        mock_backend = MockCachedBackend("test_backend", "test_source")
 
         mock_data_source = Mock()
         mock_data_source.get_name.return_value = "test_source"
-        mock_backend.get_data_source.return_value = mock_data_source
 
-        with patch("aletheia_probe.updater.data_updater") as mock_updater:
-            mock_updater.update_source = AsyncMock(
-                return_value={"status": "success", "records_updated": 100}
-            )
+        with patch.object(mock_backend, 'get_data_source', return_value=mock_data_source):
+            with patch("aletheia_probe.updater.data_updater") as mock_updater:
+                mock_updater.update_source = AsyncMock(
+                    return_value={"status": "success", "records_updated": 100}
+                )
 
-            result = await sync_manager._fetch_backend_data(
-                mock_backend, sync_manager.db_writer
-            )
+                result = await sync_manager._fetch_backend_data(
+                    mock_backend, sync_manager.db_writer
+                )
 
-            assert result["status"] == "success"
-            assert result["records_updated"] == 100
-            mock_updater.update_source.assert_called_once_with(
-                mock_data_source, db_writer=sync_manager.db_writer, force=False
-            )
+                assert result["status"] == "success"
+                assert result["records_updated"] == 100
+                mock_updater.update_source.assert_called_once_with(
+                    mock_data_source, db_writer=sync_manager.db_writer, force=False
+                )
 
     @pytest.mark.asyncio
     async def test_fetch_backend_data_source_not_found(self, sync_manager):
         """Test fetching data when backend has no data source."""
-        mock_backend = Mock()
-        mock_backend.get_name.return_value = "test_backend"
-        mock_backend.source_name = "test_source"
-        mock_backend.get_data_source.return_value = None
+        mock_backend = MockCachedBackend("test_backend", "test_source")
 
-        result = await sync_manager._fetch_backend_data(
-            mock_backend, sync_manager.db_writer
-        )
-
-        assert result["status"] == "error"
-        assert "No data source available for backend test_backend" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_fetch_backend_data_update_error(self, sync_manager):
-        """Test fetching data with update error."""
-        mock_backend = Mock()
-        mock_backend.get_name.return_value = "test_backend"
-        mock_backend.source_name = "test_source"
-
-        mock_data_source = Mock()
-        mock_data_source.get_name.return_value = "test_source"
-        mock_backend.get_data_source.return_value = mock_data_source
-
-        with patch("aletheia_probe.updater.data_updater") as mock_updater:
-            mock_updater.update_source = AsyncMock(
-                side_effect=ValueError("Update failed")
-            )
-
+        with patch.object(mock_backend, 'get_data_source', return_value=None):
             result = await sync_manager._fetch_backend_data(
                 mock_backend, sync_manager.db_writer
             )
 
             assert result["status"] == "error"
-            assert "Update failed" in result["error"]
+            assert "No data source available for backend test_backend" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_backend_data_update_error(self, sync_manager):
+        """Test fetching data with update error."""
+        mock_backend = MockCachedBackend("test_backend", "test_source")
+
+        mock_data_source = Mock()
+        mock_data_source.get_name.return_value = "test_source"
+
+        with patch.object(mock_backend, 'get_data_source', return_value=mock_data_source):
+            with patch("aletheia_probe.updater.data_updater") as mock_updater:
+                mock_updater.update_source = AsyncMock(
+                    side_effect=ValueError("Update failed")
+                )
+
+                result = await sync_manager._fetch_backend_data(
+                    mock_backend, sync_manager.db_writer
+                )
+
+                assert result["status"] == "error"
+                assert "Update failed" in result["error"]
 
     def test_should_update_source_never_updated(self, sync_manager):
         """Test should update for source that was never updated."""
