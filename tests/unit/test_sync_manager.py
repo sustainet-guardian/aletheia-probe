@@ -297,7 +297,7 @@ class TestCacheSyncManager:
             assert result["status"] == "success"
             # Verify call was made with correct parameters
             mock_fetch.assert_called_once()
-            assert mock_fetch.call_args[0][0] == "test_source"
+            assert mock_fetch.call_args[0][0] is backend
             assert mock_fetch.call_args[0][1] is sync_manager.db_writer
 
     @pytest.mark.asyncio
@@ -324,7 +324,7 @@ class TestCacheSyncManager:
             assert result["status"] == "success"
             # Verify call was made with correct parameters
             mock_fetch.assert_called_once()
-            assert mock_fetch.call_args[0][0] == "test_source"
+            assert mock_fetch.call_args[0][0] is backend
             assert mock_fetch.call_args[0][1] is sync_manager.db_writer
 
     @pytest.mark.asyncio
@@ -426,49 +426,62 @@ class TestCacheSyncManager:
     @pytest.mark.asyncio
     async def test_fetch_backend_data(self, sync_manager):
         """Test fetching backend data."""
-        mock_source = Mock()
-        mock_source.get_name.return_value = "test_source"
+        mock_backend = Mock()
+        mock_backend.get_name.return_value = "test_backend"
+        mock_backend.source_name = "test_source"
+
+        mock_data_source = Mock()
+        mock_data_source.get_name.return_value = "test_source"
+        mock_backend.get_data_source.return_value = mock_data_source
 
         with patch("aletheia_probe.updater.data_updater") as mock_updater:
-            mock_updater.sources = [mock_source]
             mock_updater.update_source = AsyncMock(
                 return_value={"status": "success", "records_updated": 100}
             )
 
             result = await sync_manager._fetch_backend_data(
-                "test_source", sync_manager.db_writer
+                mock_backend, sync_manager.db_writer
             )
 
             assert result["status"] == "success"
             assert result["records_updated"] == 100
+            mock_updater.update_source.assert_called_once_with(
+                mock_data_source, db_writer=sync_manager.db_writer, force=False
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_backend_data_source_not_found(self, sync_manager):
-        """Test fetching data for unknown source."""
-        with patch("aletheia_probe.updater.data_updater") as mock_updater:
-            mock_updater.sources = []
+        """Test fetching data when backend has no data source."""
+        mock_backend = Mock()
+        mock_backend.get_name.return_value = "test_backend"
+        mock_backend.source_name = "test_source"
+        mock_backend.get_data_source.return_value = None
 
-            result = await sync_manager._fetch_backend_data(
-                "unknown_source", sync_manager.db_writer
-            )
+        result = await sync_manager._fetch_backend_data(
+            mock_backend, sync_manager.db_writer
+        )
 
-            assert result["status"] == "error"
-            assert "No data source configured" in result["error"]
+        assert result["status"] == "error"
+        assert "No data source available for backend test_backend" in result["error"]
 
     @pytest.mark.asyncio
     async def test_fetch_backend_data_update_error(self, sync_manager):
         """Test fetching data with update error."""
-        mock_source = Mock()
-        mock_source.get_name.return_value = "test_source"
+        mock_backend = Mock()
+        mock_backend.get_name.return_value = "test_backend"
+        mock_backend.source_name = "test_source"
+
+        mock_data_source = Mock()
+        mock_data_source.get_name.return_value = "test_source"
+        mock_backend.get_data_source.return_value = mock_data_source
 
         with patch("aletheia_probe.updater.data_updater") as mock_updater:
-            mock_updater.sources = [mock_source]
             mock_updater.update_source = AsyncMock(
                 side_effect=ValueError("Update failed")
             )
 
             result = await sync_manager._fetch_backend_data(
-                "test_source", sync_manager.db_writer
+                mock_backend, sync_manager.db_writer
             )
 
             assert result["status"] == "error"
