@@ -11,6 +11,7 @@ import pytest
 from openpyxl import Workbook
 
 from aletheia_probe.backends.scopus import ScopusBackend
+from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import BackendStatus, QueryInput
 from aletheia_probe.updater.sources import ScopusSource
 
@@ -25,8 +26,6 @@ class TestScopusSource:
 
     def test_get_list_type(self):
         """Test get_list_type returns AssessmentType.LEGITIMATE."""
-        from src.aletheia_probe.enums import AssessmentType
-
         source = ScopusSource()
         assert source.get_list_type() == AssessmentType.LEGITIMATE
 
@@ -292,8 +291,6 @@ class TestScopusBackend:
 
     def test_backend_configuration(self):
         """Test backend is configured correctly."""
-        from src.aletheia_probe.enums import AssessmentType
-
         backend = ScopusBackend()
         assert backend.source_name == "scopus"
         assert backend.list_type == AssessmentType.LEGITIMATE
@@ -301,8 +298,6 @@ class TestScopusBackend:
 
     def test_get_evidence_type(self):
         """Test get_evidence_type returns EvidenceType.LEGITIMATE_LIST."""
-        from src.aletheia_probe.enums import EvidenceType
-
         backend = ScopusBackend()
         assert backend.get_evidence_type() == EvidenceType.LEGITIMATE_LIST
 
