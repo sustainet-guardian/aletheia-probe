@@ -431,7 +431,9 @@ class TestCacheSyncManager:
         mock_data_source = Mock()
         mock_data_source.get_name.return_value = "test_source"
 
-        with patch.object(mock_backend, 'get_data_source', return_value=mock_data_source):
+        with patch.object(
+            mock_backend, "get_data_source", return_value=mock_data_source
+        ):
             with patch("aletheia_probe.updater.data_updater") as mock_updater:
                 mock_updater.update_source = AsyncMock(
                     return_value={"status": "success", "records_updated": 100}
@@ -452,13 +454,15 @@ class TestCacheSyncManager:
         """Test fetching data when backend has no data source."""
         mock_backend = MockCachedBackend("test_backend", "test_source")
 
-        with patch.object(mock_backend, 'get_data_source', return_value=None):
+        with patch.object(mock_backend, "get_data_source", return_value=None):
             result = await sync_manager._fetch_backend_data(
                 mock_backend, sync_manager.db_writer
             )
 
             assert result["status"] == "error"
-            assert "No data source available for backend test_backend" in result["error"]
+            assert (
+                "No data source available for backend test_backend" in result["error"]
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_backend_data_update_error(self, sync_manager):
@@ -468,7 +472,9 @@ class TestCacheSyncManager:
         mock_data_source = Mock()
         mock_data_source.get_name.return_value = "test_source"
 
-        with patch.object(mock_backend, 'get_data_source', return_value=mock_data_source):
+        with patch.object(
+            mock_backend, "get_data_source", return_value=mock_data_source
+        ):
             with patch("aletheia_probe.updater.data_updater") as mock_updater:
                 mock_updater.update_source = AsyncMock(
                     side_effect=ValueError("Update failed")
