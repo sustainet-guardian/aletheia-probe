@@ -189,18 +189,18 @@ class TestApiBackendWithCache:
     """Test cases for ApiBackendWithCache."""
 
     class MockApiBackendWithCache(ApiBackendWithCache):
-        """Mock hybrid backend for testing."""
+        """Mock ApiBackendWithCache for testing."""
 
         def __init__(self) -> None:
             super().__init__(24)
 
         def get_name(self) -> str:
-            return "mock_hybrid"
+            return "mock_api_with_cache"
 
         async def _query_api(self, query_input: QueryInput) -> BackendResult:
             """Mock API query."""
             return BackendResult(
-                backend_name="mock_hybrid",
+                backend_name="mock_api_with_cache",
                 status=BackendStatus.FOUND,
                 confidence=0.7,
                 assessment=AssessmentType.PREDATORY,
@@ -210,15 +210,17 @@ class TestApiBackendWithCache:
             )
 
     @pytest.fixture
-    def mock_hybrid_backend(self) -> MockApiBackendWithCache:
-        """Create mock hybrid backend."""
+    def mock_api_with_cache_backend(self) -> MockApiBackendWithCache:
+        """Create mock ApiBackendWithCache backend."""
         return self.MockApiBackendWithCache()
 
     @pytest.mark.asyncio
-    async def test_hybrid_backend_cache_hit(
-        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    async def test_api_with_cache_backend_cache_hit(
+        self,
+        mock_api_with_cache_backend: ApiBackendWithCache,
+        sample_query_input: QueryInput,
     ) -> None:
-        """Test hybrid backend with cache hit."""
+        """Test ApiBackendWithCache with cache hit."""
         from aletheia_probe.models import AssessmentResult, BackendResult
 
         # Create a mock cached assessment result
@@ -229,7 +231,7 @@ class TestApiBackendWithCache:
             overall_score=0.9,
             backend_results=[
                 BackendResult(
-                    backend_name="mock_hybrid",
+                    backend_name="mock_api_with_cache",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
                     assessment=AssessmentType.PREDATORY,
@@ -244,11 +246,11 @@ class TestApiBackendWithCache:
 
         # Mock the assessment_cache instance attribute directly
         with patch.object(
-            mock_hybrid_backend.assessment_cache, "get_cached_assessment"
+            mock_api_with_cache_backend.assessment_cache, "get_cached_assessment"
         ) as mock_get:
             mock_get.return_value = mock_cached_result
 
-            result = await mock_hybrid_backend.query(sample_query_input)
+            result = await mock_api_with_cache_backend.query(sample_query_input)
 
             # Should use cache result
             assert result.status == BackendStatus.FOUND
@@ -257,20 +259,22 @@ class TestApiBackendWithCache:
             assert result.cached is True  # Cache hit should set cached=True
 
     @pytest.mark.asyncio
-    async def test_hybrid_backend_cache_miss_api_hit(
-        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    async def test_api_with_cache_backend_cache_miss_api_hit(
+        self,
+        mock_api_with_cache_backend: ApiBackendWithCache,
+        sample_query_input: QueryInput,
     ) -> None:
-        """Test hybrid backend with cache miss but API hit."""
+        """Test ApiBackendWithCache with cache miss but API hit."""
         # Mock the assessment_cache instance attribute directly
         with patch.object(
-            mock_hybrid_backend.assessment_cache, "get_cached_assessment"
+            mock_api_with_cache_backend.assessment_cache, "get_cached_assessment"
         ) as mock_get:
             mock_get.return_value = None
 
             with patch.object(
-                mock_hybrid_backend.assessment_cache, "cache_assessment_result"
+                mock_api_with_cache_backend.assessment_cache, "cache_assessment_result"
             ) as mock_cache:
-                result = await mock_hybrid_backend.query(sample_query_input)
+                result = await mock_api_with_cache_backend.query(sample_query_input)
 
                 # Should fallback to API
                 assert result.status == BackendStatus.FOUND
@@ -279,15 +283,17 @@ class TestApiBackendWithCache:
                 assert result.cached is False  # API call should set cached=False
 
     @pytest.mark.asyncio
-    async def test_hybrid_backend_both_miss(
-        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    async def test_api_with_cache_backend_both_miss(
+        self,
+        mock_api_with_cache_backend: ApiBackendWithCache,
+        sample_query_input: QueryInput,
     ) -> None:
-        """Test hybrid backend when both cache and API miss."""
+        """Test ApiBackendWithCache when both cache and API miss."""
 
         class MissApiBackendWithCache(TestApiBackendWithCache.MockApiBackendWithCache):
             async def _query_api(self, query_input: QueryInput) -> BackendResult:
                 return BackendResult(
-                    backend_name="mock_hybrid",
+                    backend_name="mock_api_with_cache",
                     status=BackendStatus.NOT_FOUND,
                     confidence=0.0,
                     assessment=None,
