@@ -20,7 +20,11 @@ class KscienPublishersBackend(CachedBackend):
         )
 
     def get_name(self) -> str:
-        """Return the backend identifier."""
+        """Get the unique identifier for this backend.
+
+        Returns:
+            str: The backend identifier string "kscien_publishers".
+        """
         return "kscien_publishers"
 
 
