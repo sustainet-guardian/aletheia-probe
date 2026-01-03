@@ -11,7 +11,7 @@ class BeallsListBackend(CachedBackend):
     def __init__(self) -> None:
         """Initialize the Beall's List backend.
 
-        Sets up cache with 7-day TTL as Beall's list is static/archived.
+        Sets up cache with 7-day TTL (24 * 7 hours) as Beall's list is static/archived.
         """
         super().__init__(
             source_name="bealls",
