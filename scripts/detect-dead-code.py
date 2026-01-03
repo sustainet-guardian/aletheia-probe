@@ -635,12 +635,21 @@ def main() -> None:
     # Summary statistics
     print("\n" + "=" * 80)
     print("Summary:")
-    print(f"  Total functions discovered: {len(discoverer.all_functions)}")
-    print(f"  Functions called: {len(tracer.called_functions)}")
+    total_funcs = len(discoverer.all_functions)
+    print(f"  Total functions discovered: {total_funcs}")
+    print(f"  Functions called (runtime trace): {len(tracer.called_functions)}")
     print(f"  Excluded by @code_is_used: {len(discoverer.excluded_functions)}")
     print(f"  Dead code candidates: {len(dead_functions)}")
-    coverage = len(tracer.called_functions) / len(discoverer.all_functions) * 100
-    print(f"  Coverage: {coverage:.1f}%")
+    
+    if total_funcs > 0:
+        dead_ratio = len(dead_functions) / total_funcs * 100
+        # Coverage = Percentage of discovered functions that are NOT dead candidates
+        # (meaning they were either called or explicitly excluded)
+        coverage = (total_funcs - len(dead_functions)) / total_funcs * 100
+        print(f"  Dead code ratio: {dead_ratio:.1f}%")
+        print(f"  Coverage (Discovered - Dead): {coverage:.1f}%")
+    else:
+        print("  No functions discovered.")
 
 
 if __name__ == "__main__":
