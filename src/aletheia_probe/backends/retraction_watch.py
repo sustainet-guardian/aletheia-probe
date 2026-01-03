@@ -25,22 +25,22 @@ detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
-def _risk_level_to_assessment(risk_level: str) -> AssessmentType:
+def _risk_level_to_assessment(risk_level: RiskLevel) -> AssessmentType:
     """Convert risk level to assessment type.
 
     Args:
-        risk_level: Risk level from retraction analysis
+        risk_level: Risk level from retraction analysis (RiskLevel enum)
 
     Returns:
         Corresponding assessment type
     """
     mapping = {
-        RiskLevel.NONE.value: AssessmentType.LEGITIMATE,
-        RiskLevel.NOTE.value: AssessmentType.LEGITIMATE,
-        RiskLevel.LOW.value: AssessmentType.SUSPICIOUS,
-        RiskLevel.MODERATE.value: AssessmentType.PREDATORY,
-        RiskLevel.HIGH.value: AssessmentType.PREDATORY,
-        RiskLevel.CRITICAL.value: AssessmentType.PREDATORY,
+        RiskLevel.NONE: AssessmentType.LEGITIMATE,
+        RiskLevel.NOTE: AssessmentType.LEGITIMATE,
+        RiskLevel.LOW: AssessmentType.SUSPICIOUS,
+        RiskLevel.MODERATE: AssessmentType.PREDATORY,
+        RiskLevel.HIGH: AssessmentType.PREDATORY,
+        RiskLevel.CRITICAL: AssessmentType.PREDATORY,
     }
     return mapping.get(risk_level, AssessmentType.UNKNOWN)
 
@@ -424,7 +424,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         recent: int,
         total_publications: int | None = None,
         recent_publications: int | None = None,
-    ) -> str:
+    ) -> RiskLevel:
         """
         Calculate risk level based on retraction counts and publication volumes.
 
@@ -437,7 +437,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             recent_publications: Recent publication count (optional)
 
         Returns:
-            Risk level: 'critical', 'high', 'moderate', 'low', 'note', or 'none'
+            Risk level from RiskLevel enum (CRITICAL, HIGH, MODERATE, LOW, NOTE, NONE)
         """
         from ..risk_calculator import calculate_retraction_risk_level
 
