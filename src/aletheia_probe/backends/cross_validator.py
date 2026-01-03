@@ -38,10 +38,6 @@ class CrossValidatorBackend(ApiBackendWithCache):
         """Return backend name."""
         return "cross_validator"
 
-    def get_description(self) -> str:
-        """Return backend description."""
-        return "Cross-validates assessments between OpenAlex and Crossref data sources"
-
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query both backends and cross-validate results."""
         start_time = time.time()

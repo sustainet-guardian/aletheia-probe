@@ -35,17 +35,6 @@ class PredatoryJournalsBackend(CachedBackend):
         """
         return "predatoryjournals"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend.
-
-        Returns:
-            Description string for display purposes
-        """
-        return (
-            "Checks against predatoryjournals.org curated lists of "
-            "predatory journals and publishers"
-        )
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

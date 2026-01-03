@@ -42,10 +42,6 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         """Return backend name."""
         return "openalex_analyzer"
 
-    def get_description(self) -> str:
-        """Return backend description."""
-        return "Analyzes publication patterns and citation metrics from OpenAlex to detect predatory journals"
-
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query OpenAlex API and analyze patterns."""
         start_time = time.time()

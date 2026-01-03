@@ -23,10 +23,6 @@ class KscienStandaloneJournalsBackend(CachedBackend):
         """Return the backend identifier."""
         return "kscien_standalone_journals"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend."""
-        return "Checks against Kscien's list of standalone predatory journals (1476+ entries)"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

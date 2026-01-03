@@ -27,14 +27,6 @@ class KscienPredatoryConferencesBackend(CachedBackend):
         """
         return "kscien_predatory_conferences"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend.
-
-        Returns:
-            Description string for display purposes
-        """
-        return "Checks against Kscien predatory conference lists"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(
