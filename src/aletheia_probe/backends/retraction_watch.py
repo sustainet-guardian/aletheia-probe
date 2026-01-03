@@ -99,11 +99,202 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             # If we can't check, assume we need sync
             return True
 
+    def _search_retraction_data(self, query_input: QueryInput) -> list[dict[str, Any]]:
+        """Search for retraction data using various query strategies.
+
+        Args:
+            query_input: Normalized query input with journal information
+
+        Returns:
+            List of matching journal records from the database
+        """
+        detail_logger.debug("RetractionWatch._search_retraction_data called")
+
+        # Search by ISSN first (though we don't have ISSN in retraction data)
+        detail_logger.debug("RetractionWatch._search_retraction_data try issn search")
+        if query_input.identifiers.get("issn"):
+            results = self.journal_cache.search_journals(
+                issn=query_input.identifiers["issn"],
+                source_name=self.source_name,
+            )
+        else:
+            results = []
+
+        # If no ISSN match, try exact normalized name match
+        detail_logger.debug(
+            "RetractionWatch._search_retraction_data try normalized name"
+        )
+        if not results and query_input.normalized_name:
+            results = self._search_exact_match(query_input.normalized_name)
+
+        # Try aliases for exact matches only
+        detail_logger.debug(
+            "RetractionWatch._search_retraction_data try search exact match"
+        )
+        if not results:
+            for alias in query_input.aliases:
+                results = self._search_exact_match(alias)
+                if results:
+                    break
+
+        detail_logger.debug(
+            f"RetractionWatch._search_retraction_data: results {len(results) if results else None}"
+        )
+        return results
+
+    def _handle_not_found(self, start_time: float) -> BackendResult:
+        """Handle the case when no retraction data is found for a journal.
+
+        Args:
+            start_time: Query start time for response time calculation
+
+        Returns:
+            BackendResult indicating no data was found
+        """
+        response_time = time.time() - start_time
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.NOT_FOUND,
+            confidence=0.0,
+            assessment=None,
+            data={
+                "message": "No retractions found in Retraction Watch database",
+                "searched_in": self.source_name,
+            },
+            sources=[self.source_name],
+            error_message=None,
+            response_time=response_time,
+        )
+
+    async def _build_result_data(
+        self, query_input: QueryInput, match: dict[str, Any], start_time: float
+    ) -> BackendResult:
+        """Build comprehensive result data from retraction and publication statistics.
+
+        Args:
+            query_input: Original query input
+            match: Matching journal record from database
+            start_time: Query start time for response time calculation
+
+        Returns:
+            BackendResult with comprehensive retraction assessment
+        """
+        journal_id = match.get("id")
+
+        if not journal_id or not isinstance(journal_id, int):
+            detail_logger.error(f"Invalid journal_id from match: {journal_id}")
+            raise ValueError(f"Invalid journal_id: {journal_id}")
+
+        # Fetch retraction statistics from dedicated table
+        retraction_cache = RetractionCache()
+        stats = retraction_cache.get_retraction_statistics(journal_id)
+
+        if stats:
+            total_retractions = stats.get("total_retractions", 0)
+            recent_retractions = stats.get("recent_retractions", 0)
+            very_recent_retractions = stats.get("very_recent_retractions", 0)
+            retraction_types = stats.get("retraction_types", {})
+            top_reasons = stats.get("top_reasons", [])
+            publishers = stats.get("publishers", [])
+            first_retraction_date = stats.get("first_retraction_date")
+            last_retraction_date = stats.get("last_retraction_date")
+        else:
+            # No statistics found
+            total_retractions = 0
+            recent_retractions = 0
+            very_recent_retractions = 0
+            retraction_types = {}
+            top_reasons = []
+            publishers = []
+            first_retraction_date = None
+            last_retraction_date = None
+
+        # Fetch OpenAlex publication data on-demand
+        openalex_data = None
+        if query_input.normalized_name:
+            openalex_data = await self._get_openalex_data_cached(
+                query_input.normalized_name, query_input.identifiers.get("issn")
+            )
+
+        # Recalculate risk level with publication data if available
+        total_publications = (
+            openalex_data.get("total_publications") if openalex_data else None
+        )
+        recent_publications = (
+            openalex_data.get("recent_publications") if openalex_data else None
+        )
+
+        risk_level = self._calculate_risk_level(
+            total_retractions,
+            recent_retractions,
+            total_publications,
+            recent_publications,
+        )
+
+        # Calculate retraction rates if we have publication data
+        retraction_rate = None
+        recent_retraction_rate = None
+        if total_publications and total_publications > 0:
+            retraction_rate = (total_retractions / total_publications) * 100
+            if recent_publications and recent_publications > 0:
+                recent_retraction_rate = (
+                    recent_retractions / recent_publications
+                ) * 100
+
+        # Calculate confidence based on match quality
+        confidence = self._calculate_confidence(query_input, match)
+
+        # Prepare enriched data for result
+        result_data = {
+            "total_retractions": total_retractions,
+            "recent_retractions": recent_retractions,
+            "very_recent_retractions": very_recent_retractions,
+            "risk_level": risk_level,
+            "first_retraction_date": first_retraction_date,
+            "last_retraction_date": last_retraction_date,
+            "retraction_types": retraction_types,
+            "top_reasons": top_reasons,
+            "publishers": publishers,
+            "matches": 1,  # Single match from search
+            "source": "Retraction Watch Database (Crossref)",
+            "source_data": match,
+            # OpenAlex publication volume data (fetched on-demand)
+            "total_publications": total_publications,
+            "recent_publications": recent_publications,
+            "recent_publications_by_year": (
+                openalex_data.get("recent_publications_by_year", {})
+                if openalex_data
+                else {}
+            ),
+            "retraction_rate": retraction_rate,  # Percentage
+            "recent_retraction_rate": recent_retraction_rate,  # Percentage
+            "openalex_id": (
+                openalex_data.get("openalex_id") if openalex_data else None
+            ),
+            "openalex_url": (
+                openalex_data.get("openalex_url") if openalex_data else None
+            ),
+            "has_publication_data": openalex_data is not None,
+        }
+
+        response_time = time.time() - start_time
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.FOUND,
+            confidence=confidence,
+            assessment=_risk_level_to_assessment(risk_level),
+            data=result_data,
+            sources=[self.source_name],
+            error_message=None,
+            response_time=response_time,
+        )
+
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query retraction data for journal information.
 
-        This method performs the actual query against the Retraction Watch database
-        and OpenAlex API. Results are automatically cached by the ApiBackendWithCache parent.
+        This method orchestrates the query process by delegating to specialized methods.
+        Results are automatically cached by the ApiBackendWithCache parent.
 
         Args:
             query_input: Normalized query input with journal information
@@ -115,161 +306,16 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         start_time = time.time()
 
         try:
-            # Use parent's search methods for consistency
-            # Search by ISSN first (though we don't have ISSN in retraction data)
-            detail_logger.debug("RetractionWatch._query_api try issn search")
-            if query_input.identifiers.get("issn"):
-                results = self.journal_cache.search_journals(
-                    issn=query_input.identifiers["issn"],
-                    source_name=self.source_name,
-                )
-            else:
-                results = []
+            # Search for retraction data using multiple strategies
+            results = self._search_retraction_data(query_input)
 
-            # If no ISSN match, try exact normalized name match
-            detail_logger.debug("RetractionWatch._query_api try normalized name")
-            if not results and query_input.normalized_name:
-                results = self._search_exact_match(query_input.normalized_name)
-
-            # Try aliases for exact matches only
-            detail_logger.debug("RetractionWatch._query_api try search exact match")
-            if not results:
-                for alias in query_input.aliases:
-                    results = self._search_exact_match(alias)
-                    if results:
-                        break
-
-            detail_logger.debug(
-                f"RetractionWatch._query_api: results {len(results) if results else None}"
-            )
             if results:
+                # Found data - build comprehensive result
                 match = results[0]
-                journal_id = match.get("id")
-
-                if not journal_id or not isinstance(journal_id, int):
-                    detail_logger.error(f"Invalid journal_id from match: {journal_id}")
-                    raise ValueError(f"Invalid journal_id: {journal_id}")
-
-                # Fetch retraction statistics from dedicated table
-                retraction_cache = RetractionCache()
-                stats = retraction_cache.get_retraction_statistics(journal_id)
-
-                if stats:
-                    total_retractions = stats.get("total_retractions", 0)
-                    recent_retractions = stats.get("recent_retractions", 0)
-                    very_recent_retractions = stats.get("very_recent_retractions", 0)
-                    retraction_types = stats.get("retraction_types", {})
-                    top_reasons = stats.get("top_reasons", [])
-                    publishers = stats.get("publishers", [])
-                    first_retraction_date = stats.get("first_retraction_date")
-                    last_retraction_date = stats.get("last_retraction_date")
-                else:
-                    # No statistics found
-                    total_retractions = 0
-                    recent_retractions = 0
-                    very_recent_retractions = 0
-                    retraction_types = {}
-                    top_reasons = []
-                    publishers = []
-                    first_retraction_date = None
-                    last_retraction_date = None
-
-                # Fetch OpenAlex publication data on-demand
-                openalex_data = None
-                if query_input.normalized_name:
-                    openalex_data = await self._get_openalex_data_cached(
-                        query_input.normalized_name, query_input.identifiers.get("issn")
-                    )
-
-                # Recalculate risk level with publication data if available
-                total_publications = (
-                    openalex_data.get("total_publications") if openalex_data else None
-                )
-                recent_publications = (
-                    openalex_data.get("recent_publications") if openalex_data else None
-                )
-
-                risk_level = self._calculate_risk_level(
-                    total_retractions,
-                    recent_retractions,
-                    total_publications,
-                    recent_publications,
-                )
-
-                # Calculate retraction rates if we have publication data
-                retraction_rate = None
-                recent_retraction_rate = None
-                if total_publications and total_publications > 0:
-                    retraction_rate = (total_retractions / total_publications) * 100
-                    if recent_publications and recent_publications > 0:
-                        recent_retraction_rate = (
-                            recent_retractions / recent_publications
-                        ) * 100
-
-                # Calculate confidence based on match quality
-                confidence = self._calculate_confidence(query_input, match)
-
-                # Prepare enriched data for result
-                result_data = {
-                    "total_retractions": total_retractions,
-                    "recent_retractions": recent_retractions,
-                    "very_recent_retractions": very_recent_retractions,
-                    "risk_level": risk_level,
-                    "first_retraction_date": first_retraction_date,
-                    "last_retraction_date": last_retraction_date,
-                    "retraction_types": retraction_types,
-                    "top_reasons": top_reasons,
-                    "publishers": publishers,
-                    "matches": len(results),
-                    "source": "Retraction Watch Database (Crossref)",
-                    "source_data": match,
-                    # OpenAlex publication volume data (fetched on-demand)
-                    "total_publications": total_publications,
-                    "recent_publications": recent_publications,
-                    "recent_publications_by_year": (
-                        openalex_data.get("recent_publications_by_year", {})
-                        if openalex_data
-                        else {}
-                    ),
-                    "retraction_rate": retraction_rate,  # Percentage
-                    "recent_retraction_rate": recent_retraction_rate,  # Percentage
-                    "openalex_id": (
-                        openalex_data.get("openalex_id") if openalex_data else None
-                    ),
-                    "openalex_url": (
-                        openalex_data.get("openalex_url") if openalex_data else None
-                    ),
-                    "has_publication_data": openalex_data is not None,
-                }
-
-                response_time = time.time() - start_time
-
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.FOUND,
-                    confidence=confidence,
-                    assessment=_risk_level_to_assessment(risk_level),
-                    data=result_data,
-                    sources=[self.source_name],
-                    error_message=None,
-                    response_time=response_time,
-                )
+                return await self._build_result_data(query_input, match, start_time)
             else:
-                # Not found - journal has no retractions in database
-                response_time = time.time() - start_time
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.NOT_FOUND,
-                    confidence=0.0,
-                    assessment=None,
-                    data={
-                        "message": "No retractions found in Retraction Watch database",
-                        "searched_in": self.source_name,
-                    },
-                    sources=[self.source_name],
-                    error_message=None,
-                    response_time=response_time,
-                )
+                # No data found - return not found result
+                return self._handle_not_found(start_time)
 
         except (
             ValueError,
