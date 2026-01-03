@@ -17,9 +17,19 @@ from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, Retractio
 from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
-from ..updater import data_updater  # Global updater instance from updater package
 from .cache_cleanup_registry import CacheCleanupRegistry
 from .db_writer import AsyncDBWriter
+
+
+# Import data_updater with care to avoid circular dependencies
+data_updater: Any
+try:
+    from ..updater import data_updater as updater
+
+    data_updater = updater
+except (ImportError, AttributeError):
+    # Fallback for circular imports during initialization
+    data_updater = None
 
 
 class _CacheConfig:
@@ -612,6 +622,12 @@ class CacheSyncManager:
         Returns:
             Dictionary with operation result
         """
+        global data_updater
+        if data_updater is None:
+            from ..updater import data_updater as updater
+
+            data_updater = updater
+
         # Find the corresponding data source for this backend
         for source in data_updater.sources:
             if source.get_name() == source_name:
@@ -625,7 +641,7 @@ class CacheSyncManager:
                     self.detail_logger.info(
                         f"Successfully fetched data for {source_name}: {result}"
                     )
-                    return result
+                    return result  # type: ignore[no-any-return]
                 except (
                     OSError,
                     ValueError,

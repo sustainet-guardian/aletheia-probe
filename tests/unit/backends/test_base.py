@@ -3,6 +3,7 @@
 
 import asyncio
 import copy
+from collections.abc import Generator
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -20,7 +21,7 @@ from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 class MockBackend(Backend):
     """Mock backend for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     async def query(self, query_input: QueryInput) -> BackendResult:
@@ -48,7 +49,7 @@ class MockBackend(Backend):
 class MockCachedBackend(CachedBackend):
     """Mock cached backend for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("mock_cache", AssessmentType.PREDATORY)
 
     def get_name(self) -> str:
@@ -62,7 +63,7 @@ class TestBackendBase:
     """Test cases for Backend base class."""
 
     @pytest.mark.asyncio
-    async def test_query_with_timeout_success(self):
+    async def test_query_with_timeout_success(self) -> None:
         """Test successful query with timeout."""
         backend = MockBackend()
         query_input = QueryInput(
@@ -76,7 +77,7 @@ class TestBackendBase:
         assert result.status == BackendStatus.FOUND
 
     @pytest.mark.asyncio
-    async def test_query_with_timeout_timeout(self):
+    async def test_query_with_timeout_timeout(self) -> None:
         """Test query that times out."""
 
         class SlowBackend(MockBackend):
@@ -97,7 +98,7 @@ class TestBackendBase:
         assert result.cached is False  # Timeouts are not cached
 
     @pytest.mark.asyncio
-    async def test_query_with_timeout_exception(self):
+    async def test_query_with_timeout_exception(self) -> None:
         """Test query that raises an exception."""
 
         class ErrorBackend(MockBackend):
@@ -121,14 +122,14 @@ class TestCachedBackend:
     """Test cases for CachedBackend."""
 
     @pytest.fixture
-    def mock_cached_backend(self):
+    def mock_cached_backend(self) -> MockCachedBackend:
         """Create mock cached backend."""
         return MockCachedBackend()
 
     @pytest.mark.asyncio
     async def test_cached_backend_query_found(
-        self, mock_cached_backend, sample_query_input
-    ):
+        self, mock_cached_backend: MockCachedBackend, sample_query_input: QueryInput
+    ) -> None:
         """Test cached backend query when journal is found."""
         mock_results = [
             {
@@ -156,8 +157,8 @@ class TestCachedBackend:
 
     @pytest.mark.asyncio
     async def test_cached_backend_query_not_found(
-        self, mock_cached_backend, sample_query_input
-    ):
+        self, mock_cached_backend: MockCachedBackend, sample_query_input: QueryInput
+    ) -> None:
         """Test cached backend query when journal is not found."""
         with patch.object(mock_cached_backend, "_search_exact_match", return_value=[]):
             result = await mock_cached_backend.query(sample_query_input)
@@ -167,7 +168,7 @@ class TestCachedBackend:
             assert result.confidence == 0.0
             assert result.cached is True  # Still searched cache, just no match found
 
-    def test_search_exact_match(self, mock_cached_backend):
+    def test_search_exact_match(self, mock_cached_backend: MockCachedBackend) -> None:
         """Test exact match search functionality."""
         mock_results = [
             {"journal_name": "Test Journal", "normalized_name": "test journal"},
@@ -189,7 +190,9 @@ class TestCachedBackend:
             )
             assert results == mock_results
 
-    def test_calculate_confidence_issn_match(self, mock_cached_backend):
+    def test_calculate_confidence_issn_match(
+        self, mock_cached_backend: MockCachedBackend
+    ) -> None:
         """Test confidence calculation with ISSN match."""
         query_input = QueryInput(
             raw_input="Test Journal",
@@ -208,7 +211,9 @@ class TestCachedBackend:
         # Should have high confidence for ISSN match
         assert confidence == 0.95
 
-    def test_calculate_confidence_name_match(self, mock_cached_backend):
+    def test_calculate_confidence_name_match(
+        self, mock_cached_backend: MockCachedBackend
+    ) -> None:
         """Test confidence calculation with name match only."""
         query_input = QueryInput(
             raw_input="Test Journal", normalized_name="test journal"
@@ -221,7 +226,9 @@ class TestCachedBackend:
         # Should have good confidence for exact name match
         assert confidence == 0.90
 
-    def test_calculate_confidence_partial_match(self, mock_cached_backend):
+    def test_calculate_confidence_partial_match(
+        self, mock_cached_backend: MockCachedBackend
+    ) -> None:
         """Test confidence calculation with partial match."""
         query_input = QueryInput(
             raw_input="Test Journal of Science",
@@ -242,7 +249,7 @@ class TestApiBackendWithCache:
     class MockApiBackendWithCache(ApiBackendWithCache):
         """Mock hybrid backend for testing."""
 
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__(24)
 
         def get_name(self) -> str:
@@ -264,14 +271,14 @@ class TestApiBackendWithCache:
             return "Mock hybrid backend"
 
     @pytest.fixture
-    def mock_hybrid_backend(self):
+    def mock_hybrid_backend(self) -> MockApiBackendWithCache:
         """Create mock hybrid backend."""
         return self.MockApiBackendWithCache()
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_cache_hit(
-        self, mock_hybrid_backend, sample_query_input
-    ):
+        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    ) -> None:
         """Test hybrid backend with cache hit."""
         from aletheia_probe.models import AssessmentResult, BackendResult
 
@@ -312,8 +319,8 @@ class TestApiBackendWithCache:
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_cache_miss_api_hit(
-        self, mock_hybrid_backend, sample_query_input
-    ):
+        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    ) -> None:
         """Test hybrid backend with cache miss but API hit."""
         # Mock the assessment_cache instance attribute directly
         with patch.object(
@@ -334,8 +341,8 @@ class TestApiBackendWithCache:
 
     @pytest.mark.asyncio
     async def test_hybrid_backend_both_miss(
-        self, mock_hybrid_backend, sample_query_input
-    ):
+        self, mock_hybrid_backend: ApiBackendWithCache, sample_query_input: QueryInput
+    ) -> None:
         """Test hybrid backend when both cache and API miss."""
 
         class MissApiBackendWithCache(TestApiBackendWithCache.MockApiBackendWithCache):
@@ -368,7 +375,7 @@ class TestBackendRegistry:
     """Test cases for backend registry."""
 
     @pytest.fixture(autouse=True)
-    def save_and_restore_registry(self):
+    def save_and_restore_registry(self) -> Generator[None, None, None]:
         """Save and restore backend registry state for each test."""
         registry = get_backend_registry()
         # Save current state
@@ -381,7 +388,7 @@ class TestBackendRegistry:
         registry._factories = saved_factories
         registry._default_configs = saved_configs
 
-    def test_register_and_get_backend(self):
+    def test_register_and_get_backend(self) -> None:
         """Test registering and retrieving backends."""
         # Register backend factory
         get_backend_registry().register_factory(
@@ -392,12 +399,12 @@ class TestBackendRegistry:
         retrieved = get_backend_registry().get_backend("mock_backend")
         assert retrieved.get_name() == "mock_backend"
 
-    def test_get_nonexistent_backend(self):
+    def test_get_nonexistent_backend(self) -> None:
         """Test retrieving non-existent backend."""
         with pytest.raises(ValueError, match="Backend 'nonexistent' not found"):
             get_backend_registry().get_backend("nonexistent")
 
-    def test_get_backend_names(self):
+    def test_get_backend_names(self) -> None:
         """Test getting list of registered backend names."""
         # Clear registry first
         get_backend_registry()._factories.clear()
@@ -414,7 +421,7 @@ class TestBackendRegistry:
         assert "mock_backend" in names
         assert "mock_cache" in names
 
-    def test_register_duplicate_backend(self):
+    def test_register_duplicate_backend(self) -> None:
         """Test that registering duplicate backend replaces the old one."""
         # Register first factory
         get_backend_registry().register_factory(
@@ -432,7 +439,7 @@ class TestBackendRegistry:
             def get_evidence_type(self) -> EvidenceType:
                 return EvidenceType.HEURISTIC
 
-            async def query(self, query_input):
+            async def query(self, query_input: QueryInput) -> BackendResult:
                 return BackendResult(
                     backend_name="mock_backend",
                     status=BackendStatus.FOUND,
@@ -451,7 +458,7 @@ class TestBackendRegistry:
         retrieved = get_backend_registry().get_backend("mock_backend")
         assert retrieved.get_description() == "New mock backend"
 
-    def test_list_all_backends(self):
+    def test_list_all_backends(self) -> None:
         """Test listing all registered backends."""
         # Clear factory registrations for isolated testing
         get_backend_registry()._factories.clear()
