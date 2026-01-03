@@ -12,17 +12,19 @@ from aletheia_probe.models import BackendStatus, QueryInput
 
 
 @pytest.fixture
-def backend():
+def backend() -> CrossrefAnalyzerBackend:
     """Fixture for the CrossrefAnalyzerBackend."""
     return CrossrefAnalyzerBackend(email="test@example.com")
 
 
-def test_crossref_analyzer_backend_get_name(backend):
+def test_crossref_analyzer_backend_get_name(backend: CrossrefAnalyzerBackend) -> None:
     """Test that the backend returns the correct name."""
     assert backend.get_name() == "crossref_analyzer"
 
 
-def test_crossref_analyzer_backend_get_description(backend):
+def test_crossref_analyzer_backend_get_description(
+    backend: CrossrefAnalyzerBackend,
+) -> None:
     """Test that the backend returns the correct description."""
     assert (
         backend.get_description()
@@ -31,7 +33,7 @@ def test_crossref_analyzer_backend_get_description(backend):
 
 
 @pytest.mark.asyncio
-async def test_query_api_with_eissn_fallback(backend):
+async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -> None:
     """Test that the backend uses eissn if issn is not found."""
     query_input = QueryInput(
         raw_input="Test Journal",
@@ -62,7 +64,7 @@ async def test_query_api_with_eissn_fallback(backend):
 
 
 @pytest.mark.asyncio
-async def test_query_api_exception_handling(backend):
+async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) -> None:
     """Test that the backend handles exceptions during API query."""
     query_input = QueryInput(
         raw_input="Test Journal", identifiers={"issn": "1234-5679"}
@@ -82,7 +84,7 @@ async def test_query_api_exception_handling(backend):
 
 
 @pytest.mark.asyncio
-async def test_get_journal_by_issn_api_error(backend):
+async def test_get_journal_by_issn_api_error(backend: CrossrefAnalyzerBackend) -> None:
     """Test that _get_journal_by_issn handles API errors."""
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
@@ -94,7 +96,7 @@ async def test_get_journal_by_issn_api_error(backend):
 
 
 @pytest.mark.asyncio
-async def test_get_journal_by_issn_timeout(backend):
+async def test_get_journal_by_issn_timeout(backend: CrossrefAnalyzerBackend) -> None:
     """Test that _get_journal_by_issn handles timeouts."""
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_get.side_effect = asyncio.TimeoutError
@@ -102,7 +104,9 @@ async def test_get_journal_by_issn_timeout(backend):
             await backend._get_journal_by_issn("1234-5679")
 
 
-def test_calculate_metadata_metrics_invalid_dois(backend):
+def test_calculate_metadata_metrics_invalid_dois(
+    backend: CrossrefAnalyzerBackend,
+) -> None:
     """Test _calculate_metadata_metrics with invalid dois_by_year data."""
     journal_data = {
         "breakdowns": {"dois-by-issued-year": [[2020, 10], ["2021", 20], "invalid"]}
@@ -111,7 +115,7 @@ def test_calculate_metadata_metrics_invalid_dois(backend):
     assert "2021" not in metrics["dois_by_year"]
 
 
-def test_check_metadata_green_flags(backend):
+def test_check_metadata_green_flags(backend: CrossrefAnalyzerBackend) -> None:
     """Test various green flag conditions."""
     metrics = {
         "total_dois": 5000,
@@ -147,7 +151,7 @@ def test_check_metadata_green_flags(backend):
     assert "Substantial publication volume: 1,500 DOIs registered" in green_flags
 
 
-def test_check_metadata_red_flags(backend):
+def test_check_metadata_red_flags(backend: CrossrefAnalyzerBackend) -> None:
     """Test various red flag conditions."""
     metrics = {
         "total_dois": 600,
@@ -171,7 +175,7 @@ def test_check_metadata_red_flags(backend):
     assert "Recent publication explosion: 600 DOIs in 2022 vs 125 average" in red_flags
 
 
-def test_determine_metadata_assessment(backend):
+def test_determine_metadata_assessment(backend: CrossrefAnalyzerBackend) -> None:
     """Test various assessment and confidence conditions."""
     metrics = {"total_dois": 500}
     # Test green flags

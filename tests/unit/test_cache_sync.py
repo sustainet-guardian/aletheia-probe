@@ -433,9 +433,7 @@ class TestCacheSyncManager:
         mock_source = Mock()
         mock_source.get_name.return_value = "test_source"
 
-        with patch(
-            "aletheia_probe.cache_sync.sync_manager.data_updater"
-        ) as mock_updater:
+        with patch("aletheia_probe.updater.data_updater") as mock_updater:
             mock_updater.sources = [mock_source]
             mock_updater.update_source = AsyncMock(
                 return_value={"status": "success", "records_updated": 100}
@@ -451,9 +449,7 @@ class TestCacheSyncManager:
     @pytest.mark.asyncio
     async def test_fetch_backend_data_source_not_found(self, sync_manager):
         """Test fetching data for unknown source."""
-        with patch(
-            "aletheia_probe.cache_sync.sync_manager.data_updater"
-        ) as mock_updater:
+        with patch("aletheia_probe.updater.data_updater") as mock_updater:
             mock_updater.sources = []
 
             result = await sync_manager._fetch_backend_data(
@@ -469,9 +465,7 @@ class TestCacheSyncManager:
         mock_source = Mock()
         mock_source.get_name.return_value = "test_source"
 
-        with patch(
-            "aletheia_probe.cache_sync.sync_manager.data_updater"
-        ) as mock_updater:
+        with patch("aletheia_probe.updater.data_updater") as mock_updater:
             mock_updater.sources = [mock_source]
             mock_updater.update_source = AsyncMock(
                 side_effect=ValueError("Update failed")

@@ -2,6 +2,7 @@
 """Tests for the Cross Validator backend caching behavior."""
 
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,7 +18,7 @@ class TestCrossValidatorCaching:
     """Test cases for caching behavior in CrossValidator backend."""
 
     @pytest.fixture
-    def temp_cache(self):
+    def temp_cache(self) -> Generator[AssessmentCache, None, None]:
         """Create a temporary cache database for testing."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             cache_path = Path(f.name)
@@ -34,8 +35,8 @@ class TestCrossValidatorCaching:
 
     @pytest.mark.asyncio
     async def test_cross_validator_caches_result_on_first_query(
-        self, isolated_test_cache
-    ):
+        self, isolated_test_cache: Path
+    ) -> None:
         """Test that CrossValidator caches the complete result after first query."""
         # Patch config to use isolated test cache - patch at the import source
         with patch("aletheia_probe.config.get_config_manager") as mock_config:
@@ -74,7 +75,9 @@ class TestCrossValidatorCaching:
             assert result2.response_time < result1.response_time
 
     @pytest.mark.asyncio
-    async def test_cross_validator_cache_key_uniqueness(self, isolated_test_cache):
+    async def test_cross_validator_cache_key_uniqueness(
+        self, isolated_test_cache: Path
+    ) -> None:
         """Test that different journals produce different cache keys."""
         with patch("aletheia_probe.config.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
@@ -104,8 +107,8 @@ class TestCrossValidatorCaching:
 
     @pytest.mark.asyncio
     async def test_cross_validator_does_not_query_subbackends_when_cached(
-        self, isolated_test_cache
-    ):
+        self, isolated_test_cache: Path
+    ) -> None:
         """Test that cached results don't trigger sub-backend queries."""
         with patch("aletheia_probe.config.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
@@ -127,11 +130,11 @@ class TestCrossValidatorCaching:
             original_openalex_query = backend.openalex_backend.query
             original_crossref_query = backend.crossref_backend.query
 
-            async def mock_openalex_query(qi):
+            async def mock_openalex_query(qi: QueryInput) -> BackendResult:
                 call_count["openalex"] += 1
                 return await original_openalex_query(qi)
 
-            async def mock_crossref_query(qi):
+            async def mock_crossref_query(qi: QueryInput) -> BackendResult:
                 call_count["crossref"] += 1
                 return await original_crossref_query(qi)
 
@@ -150,8 +153,8 @@ class TestCrossValidatorCaching:
 
     @pytest.mark.asyncio
     async def test_cross_validator_not_found_results_are_cached(
-        self, isolated_test_cache
-    ):
+        self, isolated_test_cache: Path
+    ) -> None:
         """Test that NOT_FOUND results are cached (even when caused by errors)."""
         with patch("aletheia_probe.config.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
@@ -165,7 +168,7 @@ class TestCrossValidatorCaching:
                 identifiers={},
             )
 
-            async def mock_error_query(qi):
+            async def mock_error_query(qi: QueryInput) -> BackendResult:
                 raise ValueError("Simulated API error")
 
             backend.openalex_backend.query = mock_error_query
@@ -180,7 +183,9 @@ class TestCrossValidatorCaching:
             assert result2.status == BackendStatus.NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_cross_validator_respects_cache_ttl(self, isolated_test_cache):
+    async def test_cross_validator_respects_cache_ttl(
+        self, isolated_test_cache: Path
+    ) -> None:
         """Test that cache respects TTL settings."""
         with patch("aletheia_probe.config.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
@@ -198,13 +203,14 @@ class TestCrossValidatorCaching:
             assert result1.cached is False
 
             result2 = await backend.query(query_input)
+            assert result2.cached is False  # TTL is 0, so result2 should also be fresh
 
 
 class TestCrossValidatorLogic:
     """Test the cross-validation logic independent of caching."""
 
     @pytest.fixture
-    def temp_cache(self):
+    def temp_cache(self) -> Generator[AssessmentCache, None, None]:
         """Create a temporary cache database for testing."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             cache_path = Path(f.name)
@@ -220,7 +226,9 @@ class TestCrossValidatorLogic:
         cache_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
-    async def test_cross_validator_combines_sub_backend_results(self, temp_cache):
+    async def test_cross_validator_combines_sub_backend_results(
+        self, temp_cache: AssessmentCache
+    ) -> None:
         """Test that CrossValidator properly combines sub-backend results."""
         # Backend now creates its own cache instances
         backend = CrossValidatorBackend()
@@ -231,7 +239,7 @@ class TestCrossValidatorLogic:
         )
 
         # Mock both backends to return specific results
-        async def mock_openalex_query(qi):
+        async def mock_openalex_query(qi: QueryInput) -> BackendResult:
             return BackendResult(
                 backend_name="openalex_analyzer",
                 status=BackendStatus.FOUND,
@@ -250,7 +258,7 @@ class TestCrossValidatorLogic:
                 cached=False,
             )
 
-        async def mock_crossref_query(qi):
+        async def mock_crossref_query(qi: QueryInput) -> BackendResult:
             return BackendResult(
                 backend_name="crossref_analyzer",
                 status=BackendStatus.FOUND,

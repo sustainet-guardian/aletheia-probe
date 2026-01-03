@@ -17,7 +17,6 @@ from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, Retractio
 from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
-from ..updater import data_updater  # Global updater instance from updater package
 from .cache_cleanup_registry import CacheCleanupRegistry
 from .db_writer import AsyncDBWriter
 
@@ -612,6 +611,8 @@ class CacheSyncManager:
         Returns:
             Dictionary with operation result
         """
+        from ..updater import data_updater
+
         # Find the corresponding data source for this backend
         for source in data_updater.sources:
             if source.get_name() == source_name:
