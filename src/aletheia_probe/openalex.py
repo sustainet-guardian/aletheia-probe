@@ -364,7 +364,7 @@ class OpenAlexClient:
         if not source and journal_name:
             source = await self.get_source_by_name(journal_name)
 
-            # NEW: Fallback to series name if full name fails
+            # Fallback to series name if full name fails
             if not source:
                 try:
                     series_name = input_normalizer.extract_conference_series(
@@ -443,62 +443,6 @@ class OpenAlexClient:
             "is_in_doaj": source.get("is_in_doaj", False),
             "fetched_at": datetime.now().isoformat(),
         }
-
-    async def enrich_batch(
-        self,
-        journals: list[dict[str, Any]],
-        batch_size: int = 50,
-        delay_between_batches: float = 1.0,
-    ) -> list[dict[str, Any]]:
-        """Enrich multiple journals with OpenAlex data in batches.
-
-        Args:
-            journals: List of journal dictionaries with 'journal_name' and optionally 'issn'/'eissn'
-            batch_size: Number of journals to process concurrently
-            delay_between_batches: Delay in seconds between batches (to respect rate limits)
-
-        Returns:
-            List of enriched journal dictionaries
-        """
-        enriched = []
-
-        for i in range(0, len(journals), batch_size):
-            batch = journals[i : i + batch_size]
-
-            # Process batch concurrently
-            tasks = [
-                self.enrich_journal_data(
-                    journal.get("journal_name", ""),
-                    journal.get("issn"),
-                    journal.get("eissn"),
-                )
-                for journal in batch
-            ]
-
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Combine results with original journal data
-            for journal, openalex_data in zip(batch, results, strict=True):
-                if isinstance(openalex_data, Exception):
-                    detail_logger.error(
-                        f"Error enriching journal '{journal.get('journal_name')}': {openalex_data}"
-                    )
-                    journal["openalex_data"] = None
-                else:
-                    journal["openalex_data"] = openalex_data
-
-                enriched.append(journal)
-
-            # Delay between batches to be polite to the API
-            if i + batch_size < len(journals):
-                await asyncio.sleep(delay_between_batches)
-
-            # Log progress
-            detail_logger.info(
-                f"Enriched {min(i + batch_size, len(journals))}/{len(journals)} journals with OpenAlex data"
-            )
-
-        return enriched
 
 
 # Convenience function for one-off enrichment
