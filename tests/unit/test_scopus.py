@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Tests for Scopus source and backend."""
 
+import os
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -99,10 +101,15 @@ class TestScopusSource:
             wb.save(file2)
             wb.close()
 
+            # Ensure file2 is newer than file1
+            current_time = time.time()
+            os.utime(file1, (current_time - 100, current_time - 100))
+            os.utime(file2, (current_time, current_time))
+
             source = ScopusSource(data_dir=data_dir)
             assert source._find_scopus_file() is True
             # Should select the most recently modified file
-            assert source.file_path in [file1, file2]
+            assert source.file_path == file2
 
     @pytest.mark.asyncio
     async def test_fetch_data_no_file(self):
@@ -333,7 +340,7 @@ class TestScopusBackend:
 
             assert result.status == BackendStatus.FOUND
             assert result.assessment == "legitimate"
-            assert result.confidence > 0.9  # ISSN match gives high confidence
+            assert result.confidence == 0.95  # Exact ISSN match gives 0.95 confidence
 
     @pytest.mark.asyncio
     async def test_query_journal_not_found(self):
