@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Algerian Ministry backend for predatory journal verification."""
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -18,6 +18,14 @@ class AlgerianMinistryBackend(CachedBackend):
             list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=48,  # Cache for 48 hours due to less frequent updates
         )
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the evidence type for this backend.
+
+        Returns:
+            EvidenceType.PREDATORY_LIST
+        """
+        return EvidenceType.PREDATORY_LIST
 
     def get_name(self) -> str:
         """Return the backend identifier.
