@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: MIT
 """Kscien hijacked journals backend for predatory journal assessment."""
 
+from typing import TYPE_CHECKING
+
 from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
+
+
+if TYPE_CHECKING:
+    from ..updater.core import DataSource
+    from ..updater.sources.kscien_hijacked_journals import KscienHijackedJournalsSource
 
 
 class KscienHijackedJournalsBackend(CachedBackend):
@@ -18,6 +25,7 @@ class KscienHijackedJournalsBackend(CachedBackend):
             list_type=AssessmentType.HIJACKED,
             cache_ttl_hours=24 * 7,  # Weekly cache for curated lists
         )
+        self._data_source: KscienHijackedJournalsSource | None = None
 
     def get_name(self) -> str:
         """Return the backend identifier."""
@@ -26,6 +34,16 @@ class KscienHijackedJournalsBackend(CachedBackend):
     def get_evidence_type(self) -> EvidenceType:
         """Return the evidence type for this backend."""
         return EvidenceType.PREDATORY_LIST
+
+    def get_data_source(self) -> "DataSource | None":
+        """Get the KscienHijackedJournalsSource instance for data synchronization."""
+        if self._data_source is None:
+            from ..updater.sources.kscien_hijacked_journals import (
+                KscienHijackedJournalsSource,
+            )
+
+            self._data_source = KscienHijackedJournalsSource()
+        return self._data_source
 
 
 # Register the backend factory

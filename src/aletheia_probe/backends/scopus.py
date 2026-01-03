@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: MIT
 """Scopus backend for legitimate journal verification."""
 
+from typing import TYPE_CHECKING
+
 from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
+
+
+if TYPE_CHECKING:
+    from ..updater.core import DataSource
+    from ..updater.sources.scopus import ScopusSource
 
 
 class ScopusBackend(CachedBackend):
@@ -23,6 +30,7 @@ class ScopusBackend(CachedBackend):
             list_type=AssessmentType.LEGITIMATE,
             cache_ttl_hours=24 * 30,  # Monthly cache for static file
         )
+        self._data_source: ScopusSource | None = None
 
     def get_name(self) -> str:
         """Return the backend identifier.
@@ -39,6 +47,14 @@ class ScopusBackend(CachedBackend):
             EvidenceType.LEGITIMATE_LIST
         """
         return EvidenceType.LEGITIMATE_LIST
+
+    def get_data_source(self) -> "DataSource | None":
+        """Get the ScopusSource instance for data synchronization."""
+        if self._data_source is None:
+            from ..updater.sources.scopus import ScopusSource
+
+            self._data_source = ScopusSource()
+        return self._data_source
 
 
 # Register the backend factory

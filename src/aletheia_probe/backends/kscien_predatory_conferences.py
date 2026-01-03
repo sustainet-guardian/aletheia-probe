@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: MIT
 """Kscien Predatory Conferences backend for conference assessment."""
 
+from typing import TYPE_CHECKING
+
 from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
+
+
+if TYPE_CHECKING:
+    from ..updater.core import DataSource
+    from ..updater.sources.kscien_generic import KscienGenericSource
 
 
 class KscienPredatoryConferencesBackend(CachedBackend):
@@ -18,6 +25,7 @@ class KscienPredatoryConferencesBackend(CachedBackend):
             list_type=AssessmentType.PREDATORY,
             cache_ttl_hours=24 * 7,  # Weekly cache for conference lists
         )
+        self._data_source: KscienGenericSource | None = None
 
     def get_name(self) -> str:
         """Return the backend identifier.
@@ -30,6 +38,16 @@ class KscienPredatoryConferencesBackend(CachedBackend):
     def get_evidence_type(self) -> EvidenceType:
         """Return the evidence type for this backend."""
         return EvidenceType.PREDATORY_LIST
+
+    def get_data_source(self) -> "DataSource | None":
+        """Get the KscienGenericSource instance for predatory conferences data synchronization."""
+        if self._data_source is None:
+            from ..updater.sources.kscien_generic import KscienGenericSource
+
+            self._data_source = KscienGenericSource(
+                publication_type="predatory-conferences"
+            )
+        return self._data_source
 
 
 # Register the backend factory
