@@ -249,7 +249,7 @@ class CachedBackend(Backend):
         """Name of the data source for synchronization (DataSyncCapable protocol)."""
         return self._source_name
 
-    def get_data_source(self) -> "Any | None":
+    def get_data_source(self) -> Any | None:
         """Get data source for synchronization (DataSyncCapable protocol).
 
         CachedBackend subclasses should override this to return their specific DataSource.
