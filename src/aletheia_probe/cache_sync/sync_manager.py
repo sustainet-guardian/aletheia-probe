@@ -21,17 +21,6 @@ from .cache_cleanup_registry import CacheCleanupRegistry
 from .db_writer import AsyncDBWriter
 
 
-# Import data_updater with care to avoid circular dependencies
-data_updater: Any
-try:
-    from ..updater import data_updater as updater
-
-    data_updater = updater
-except (ImportError, AttributeError):
-    # Fallback for circular imports during initialization
-    data_updater = None
-
-
 class _CacheConfig:
     """Simple container for cache configuration settings."""
 
@@ -622,11 +611,7 @@ class CacheSyncManager:
         Returns:
             Dictionary with operation result
         """
-        global data_updater
-        if data_updater is None:
-            from ..updater import data_updater as updater
-
-            data_updater = updater
+        from ..updater import data_updater
 
         # Find the corresponding data source for this backend
         for source in data_updater.sources:
@@ -641,7 +626,7 @@ class CacheSyncManager:
                     self.detail_logger.info(
                         f"Successfully fetched data for {source_name}: {result}"
                     )
-                    return result  # type: ignore[no-any-return]
+                    return result
                 except (
                     OSError,
                     ValueError,
