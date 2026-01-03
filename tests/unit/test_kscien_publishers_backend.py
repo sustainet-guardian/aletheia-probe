@@ -6,7 +6,7 @@ import pytest
 import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.backends.kscien_publishers import KscienPublishersBackend
-from aletheia_probe.enums import AssessmentType
+from aletheia_probe.enums import AssessmentType, EvidenceType
 
 
 class TestKscienPublishersBackend:
@@ -25,6 +25,11 @@ class TestKscienPublishersBackend:
         """Test that get_name returns correct backend identifier."""
         backend = KscienPublishersBackend()
         assert backend.get_name() == "kscien_publishers"
+
+    def test_get_evidence_type(self):
+        """Test that get_evidence_type returns correct evidence type."""
+        backend = KscienPublishersBackend()
+        assert backend.get_evidence_type() == EvidenceType.PREDATORY_LIST
 
     def test_backend_registration(self):
         """Test that backend is properly registered in backend registry."""
