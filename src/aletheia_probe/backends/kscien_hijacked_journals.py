@@ -23,10 +23,6 @@ class KscienHijackedJournalsBackend(CachedBackend):
         """Return the backend identifier."""
         return "kscien_hijacked_journals"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend."""
-        return "Checks against Kscien's list of hijacked journals (234+ entries)"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

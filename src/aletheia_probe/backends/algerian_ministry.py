@@ -27,14 +27,6 @@ class AlgerianMinistryBackend(CachedBackend):
         """
         return "algerian_ministry"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend.
-
-        Returns:
-            Description string for display purposes
-        """
-        return "Checks Algerian Ministry of Higher Education predatory journals list"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

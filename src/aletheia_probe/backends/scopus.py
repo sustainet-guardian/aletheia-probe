@@ -32,14 +32,6 @@ class ScopusBackend(CachedBackend):
         """
         return "scopus"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend.
-
-        Returns:
-            Description string for display purposes
-        """
-        return "Checks against Scopus indexed journals for legitimate journals"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

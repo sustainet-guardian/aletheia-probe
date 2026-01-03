@@ -27,16 +27,6 @@ class BeallsListBackend(CachedBackend):
         """
         return "bealls"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend.
-
-        Returns:
-            Description string for display purposes
-        """
-        return (
-            "Checks against Beall's archived list of predatory journals and publishers"
-        )
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

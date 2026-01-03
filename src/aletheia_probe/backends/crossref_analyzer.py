@@ -45,10 +45,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         """Return backend name."""
         return "crossref_analyzer"
 
-    def get_description(self) -> str:
-        """Return backend description."""
-        return "Analyzes metadata quality and publisher information from Crossref to detect predatory journals"
-
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query Crossref API and analyze metadata quality."""
         start_time = time.time()

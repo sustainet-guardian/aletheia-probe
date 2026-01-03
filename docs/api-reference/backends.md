@@ -10,10 +10,9 @@ The backend system provides an extensible architecture for assessing journals ag
 
 ## Backend Interface
 
-All backends implement the abstract `Backend` class with four required methods:
+All backends implement the abstract `Backend` class with three required methods:
 
 - **`get_name() -> str`** - Returns unique backend identifier (e.g., "doaj", "bealls")
-- **`get_description() -> str`** - Returns human-readable description for CLI help
 - **`get_evidence_type() -> EvidenceType`** - Returns evidence type (PREDATORY_LIST, LEGITIMATE_LIST, HEURISTIC, QUALITY_INDICATOR)
 - **`async query(query_input: QueryInput) -> BackendResult`** - Performs assessment, must be async, always returns BackendResult, never raises
 

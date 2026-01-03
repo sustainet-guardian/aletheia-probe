@@ -47,11 +47,6 @@ class Backend(ABC):
         pass
 
     @abstractmethod
-    def get_description(self) -> str:
-        """Return a description of what this backend checks."""
-        pass
-
-    @abstractmethod
     def get_evidence_type(self) -> EvidenceType:
         """Return the type of evidence this backend provides."""
         pass

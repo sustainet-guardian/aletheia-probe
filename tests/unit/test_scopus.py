@@ -283,13 +283,6 @@ class TestScopusBackend:
         backend = ScopusBackend()
         assert backend.get_name() == "scopus"
 
-    def test_get_description(self):
-        """Test get_description returns expected string."""
-        backend = ScopusBackend()
-        description = backend.get_description()
-        assert "scopus" in description.lower()
-        assert "legitimate" in description.lower()
-
     def test_backend_configuration(self):
         """Test backend is configured correctly."""
         from src.aletheia_probe.enums import AssessmentType

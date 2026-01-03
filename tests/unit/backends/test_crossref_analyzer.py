@@ -22,16 +22,6 @@ def test_crossref_analyzer_backend_get_name(backend: CrossrefAnalyzerBackend) ->
     assert backend.get_name() == "crossref_analyzer"
 
 
-def test_crossref_analyzer_backend_get_description(
-    backend: CrossrefAnalyzerBackend,
-) -> None:
-    """Test that the backend returns the correct description."""
-    assert (
-        backend.get_description()
-        == "Analyzes metadata quality and publisher information from Crossref to detect predatory journals"
-    )
-
-
 @pytest.mark.asyncio
 async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -> None:
     """Test that the backend uses eissn if issn is not found."""

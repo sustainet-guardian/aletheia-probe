@@ -23,10 +23,6 @@ class KscienPublishersBackend(CachedBackend):
         """Return the backend identifier."""
         return "kscien_publishers"
 
-    def get_description(self) -> str:
-        """Return a human-readable description of the backend."""
-        return "Checks against Kscien's list of predatory publishers (1271+ entries)"
-
 
 # Register the backend factory
 get_backend_registry().register_factory(

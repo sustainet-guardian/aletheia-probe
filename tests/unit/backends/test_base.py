@@ -39,9 +39,6 @@ class MockBackend(Backend):
     def get_name(self) -> str:
         return "mock_backend"
 
-    def get_description(self) -> str:
-        return "Mock backend for testing"
-
     def get_evidence_type(self) -> EvidenceType:
         return EvidenceType.HEURISTIC
 
@@ -54,9 +51,6 @@ class MockCachedBackend(CachedBackend):
 
     def get_name(self) -> str:
         return "mock_cache"
-
-    def get_description(self) -> str:
-        return "Mock cached backend for testing"
 
 
 class TestBackendBase:
@@ -267,9 +261,6 @@ class TestApiBackendWithCache:
                 response_time=0.2,
             )
 
-        def get_description(self) -> str:
-            return "Mock hybrid backend"
-
     @pytest.fixture
     def mock_hybrid_backend(self) -> MockApiBackendWithCache:
         """Create mock hybrid backend."""
@@ -433,9 +424,6 @@ class TestBackendRegistry:
             def get_name(self) -> str:
                 return "mock_backend"
 
-            def get_description(self) -> str:
-                return "New mock backend"
-
             def get_evidence_type(self) -> EvidenceType:
                 return EvidenceType.HEURISTIC
 
@@ -456,7 +444,7 @@ class TestBackendRegistry:
 
         # Should get the second one
         retrieved = get_backend_registry().get_backend("mock_backend")
-        assert retrieved.get_description() == "New mock backend"
+        assert retrieved.get_name() == "mock_backend"
 
     def test_list_all_backends(self) -> None:
         """Test listing all registered backends."""

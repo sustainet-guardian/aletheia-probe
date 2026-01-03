@@ -18,13 +18,6 @@ class TestPredatoryJournalsBackend:
         backend = PredatoryJournalsBackend()
         assert backend.get_name() == "predatoryjournals"
 
-    def test_get_description(self):
-        """Test get_description returns expected string."""
-        backend = PredatoryJournalsBackend()
-        description = backend.get_description()
-        assert "predatoryjournals.org" in description
-        assert "predatory journals" in description.lower()
-
     def test_backend_configuration(self):
         """Test backend is configured correctly."""
         backend = PredatoryJournalsBackend()

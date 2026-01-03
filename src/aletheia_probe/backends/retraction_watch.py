@@ -67,9 +67,6 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
     def get_name(self) -> str:
         return "retraction_watch"
 
-    def get_description(self) -> str:
-        return "Checks journal retraction history from Retraction Watch database"
-
     # DataSyncCapable protocol implementation
     @property
     def source_name(self) -> str:

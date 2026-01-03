@@ -37,9 +37,6 @@ class DOAJBackend(ApiBackendWithCache):
     def get_name(self) -> str:
         return "doaj"
 
-    def get_description(self) -> str:
-        return "Checks DOAJ (Directory of Open Access Journals) for legitimate journals"
-
     def get_evidence_type(self) -> EvidenceType:
         return EvidenceType.LEGITIMATE_LIST
 

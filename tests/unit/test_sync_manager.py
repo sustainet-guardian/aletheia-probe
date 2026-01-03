@@ -20,9 +20,6 @@ class MockCachedBackend(CachedBackend):
     def get_name(self) -> str:
         return self._name
 
-    def get_description(self) -> str:
-        return f"Mock cached backend {self._name}"
-
 
 class MockApiBackendWithCache(ApiBackendWithCache):
     """Mock hybrid backend for testing."""
@@ -45,9 +42,6 @@ class MockApiBackendWithCache(ApiBackendWithCache):
 
     def get_name(self) -> str:
         return self._name
-
-    def get_description(self) -> str:
-        return f"Mock hybrid backend {self._name}"
 
 
 @pytest.fixture
