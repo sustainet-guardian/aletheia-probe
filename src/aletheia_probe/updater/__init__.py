@@ -5,7 +5,7 @@
 from ..cache import DataSourceManager
 from ..normalizer import input_normalizer
 from ..validation import validate_issn
-from .core import DataSource, DataUpdater, get_update_source_registry
+from .core import DataSource
 from .sources import (
     AlgerianMinistrySource,
     BeallsListSource,
@@ -18,6 +18,7 @@ from .sources import (
     RetractionWatchSource,
     ScopusSource,
 )
+from .sync_utils import update_source_data
 from .utils import (
     calculate_risk_level,
     clean_html_tags,
@@ -29,27 +30,10 @@ from .utils import (
 )
 
 
-# Register KscienGenericSource with specific configuration for predatory-conferences
-# This is registered here because it requires a specific publication_type parameter
-get_update_source_registry().register_factory(
-    "kscien_predatory_conferences",
-    lambda: KscienGenericSource(publication_type="predatory-conferences"),
-    default_config={},
-)
-
-# Global data updater instance
-data_updater = DataUpdater()
-
-# Register default sources from the registry
-for source in get_update_source_registry().get_all_sources():
-    data_updater.add_source(source)
-
 __all__ = [
-    # Core classes
+    # Core classes and functions
     "DataSource",
-    "DataUpdater",
-    "data_updater",
-    "get_update_source_registry",
+    "update_source_data",
     # Source implementations
     "AlgerianMinistrySource",
     "BeallsListSource",

@@ -637,9 +637,9 @@ class CacheSyncManager:
                 f"Fetching data for backend {backend_name} source {source_name} (force={force})"
             )
 
-            from ..updater import data_updater
+            from ..updater.sync_utils import update_source_data
 
-            result = await data_updater.update_source(
+            result = await update_source_data(
                 data_source, db_writer=db_writer, force=force
             )
 
