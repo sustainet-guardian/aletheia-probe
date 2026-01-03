@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Kscien hijacked journals backend for predatory journal assessment."""
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -22,6 +22,10 @@ class KscienHijackedJournalsBackend(CachedBackend):
     def get_name(self) -> str:
         """Return the backend identifier."""
         return "kscien_hijacked_journals"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the evidence type for this backend."""
+        return EvidenceType.PREDATORY_LIST
 
 
 # Register the backend factory
