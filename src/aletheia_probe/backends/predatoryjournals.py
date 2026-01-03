@@ -5,6 +5,10 @@ from ..enums import AssessmentType
 from .base import CachedBackend, get_backend_registry
 
 
+# Monthly cache for community-maintained lists (30 days)
+_CACHE_TTL_HOURS = 24 * 30
+
+
 class PredatoryJournalsBackend(CachedBackend):
     """Backend that checks against predatoryjournals.org lists.
 
@@ -20,7 +24,7 @@ class PredatoryJournalsBackend(CachedBackend):
         super().__init__(
             source_name="predatoryjournals",
             list_type=AssessmentType.PREDATORY,
-            cache_ttl_hours=24 * 30,  # Monthly cache for community-maintained lists
+            cache_ttl_hours=_CACHE_TTL_HOURS,
         )
 
     def get_name(self) -> str:
