@@ -459,7 +459,16 @@ class TestBackendRegistry:
             "mock_cache", lambda: MockCachedBackend(), {}
         )
 
-        all_backends = get_backend_registry().list_all()
+        # Create all registered backends manually since list_all() was removed
+        registry = get_backend_registry()
+        all_backends = []
+        for name in registry.get_backend_names():
+            try:
+                all_backends.append(registry.create_backend(name))
+            except (ValueError, TypeError, AttributeError, OSError):
+                # Skip backends that fail to create with default config
+                pass
+
         assert len(all_backends) == 2
         assert any(b.get_name() == "mock_backend" for b in all_backends)
         assert any(b.get_name() == "mock_cache" for b in all_backends)

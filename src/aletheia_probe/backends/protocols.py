@@ -3,6 +3,8 @@
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from ..utils.dead_code import code_is_used
+
 
 if TYPE_CHECKING:
     from ..models import BackendResult, QueryInput
@@ -24,6 +26,7 @@ class DataSyncCapable(Protocol):
     """
 
     @property
+    @code_is_used
     def source_name(self) -> str:
         """Name of the data source for synchronization.
 
@@ -33,6 +36,7 @@ class DataSyncCapable(Protocol):
         """
         ...
 
+    @code_is_used
     def get_data_source(self) -> "DataSource | None":
         """Get the data source instance for synchronization.
 
@@ -42,6 +46,7 @@ class DataSyncCapable(Protocol):
         """
         ...
 
+    @code_is_used
     def needs_sync(self) -> bool:
         """Check if backend requires data synchronization.
 
@@ -67,6 +72,7 @@ class ApiQueryCapable(Protocol):
     - Hybrid backends with local data + API calls (RetractionWatch)
     """
 
+    @code_is_used
     async def _query_api(self, query_input: "QueryInput") -> "BackendResult":
         """Query the live API when cache misses.
 
@@ -82,6 +88,7 @@ class ApiQueryCapable(Protocol):
         """
         ...
 
+    @code_is_used
     def _generate_cache_key(self, query_input: "QueryInput") -> str:
         """Generate a cache key for the query.
 
