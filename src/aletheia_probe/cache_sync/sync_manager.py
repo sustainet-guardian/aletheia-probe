@@ -527,12 +527,12 @@ class CacheSyncManager:
             self.detail_logger.info(
                 f"No data found for enabled backend {backend_name}, fetching..."
             )
-            return await self._fetch_backend_data(source_name, self.db_writer, force)
+            return await self._fetch_backend_data(backend, self.db_writer, force)
 
         # Check if data is stale
         if self._should_update_source(source_name) or force:
             self.detail_logger.info(f"Data for {backend_name} is stale, updating...")
-            return await self._fetch_backend_data(source_name, self.db_writer, force)
+            return await self._fetch_backend_data(backend, self.db_writer, force)
 
         self.detail_logger.debug(f"Data for {backend_name} is fresh, no update needed")
         return {"status": UpdateStatus.CURRENT.value, "reason": "data_fresh"}
@@ -598,53 +598,68 @@ class CacheSyncManager:
 
     async def _fetch_backend_data(
         self,
-        source_name: str,
+        backend: Backend,
         db_writer: AsyncDBWriter,
         force: bool = False,
     ) -> dict[str, str | int]:
-        """Fetch data for a specific source.
+        """Fetch data for a DataSyncCapable backend using its data source.
 
         Args:
-            source_name: Name of the data source
+            backend: Backend instance that implements DataSyncCapable
             force: Force update even if not needed
 
         Returns:
             Dictionary with operation result
         """
-        from ..updater import data_updater
+        # This method expects a Backend that implements DataSyncCapable
+        # The calling function ensures this via isinstance check
+        assert isinstance(backend, DataSyncCapable), (
+            "Backend must implement DataSyncCapable"
+        )
 
-        # Find the corresponding data source for this backend
-        for source in data_updater.sources:
-            if source.get_name() == source_name:
-                try:
-                    self.detail_logger.debug(
-                        f"Fetching data for source {source_name} (force={force})"
-                    )
-                    result = await data_updater.update_source(
-                        source, db_writer=db_writer, force=force
-                    )
-                    self.detail_logger.info(
-                        f"Successfully fetched data for {source_name}: {result}"
-                    )
-                    return result
-                except (
-                    OSError,
-                    ValueError,
-                    KeyError,
-                    AttributeError,
-                    sqlite3.Error,
-                ) as e:
-                    self.detail_logger.error(
-                        f"Failed to update source {source_name}: {e}"
-                    )
-                    self.detail_logger.exception("Detailed error:")
-                    return {"status": UpdateStatus.ERROR.value, "error": str(e)}
+        backend_name = backend.get_name()
+        source_name = backend.source_name
 
-        self.detail_logger.error(f"No data source found for {source_name}")
-        return {
-            "status": UpdateStatus.ERROR.value,
-            "error": f"No data source configured for {source_name}",
-        }
+        # Get the data source directly from the backend
+        data_source = backend.get_data_source()
+
+        if data_source is None:
+            self.detail_logger.error(
+                f"No data source available for backend {backend_name}"
+            )
+            return {
+                "status": UpdateStatus.ERROR.value,
+                "error": f"No data source available for backend {backend_name}",
+            }
+
+        try:
+            self.detail_logger.debug(
+                f"Fetching data for backend {backend_name} source {source_name} (force={force})"
+            )
+
+            from ..updater import data_updater
+
+            result = await data_updater.update_source(
+                data_source, db_writer=db_writer, force=force
+            )
+
+            self.detail_logger.info(
+                f"Successfully fetched data for {backend_name}: {result}"
+            )
+            return result
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            AttributeError,
+            sqlite3.Error,
+        ) as e:
+            self.detail_logger.error(
+                f"Failed to update source for backend {backend_name}: {e}"
+            )
+            self.detail_logger.exception("Detailed error:")
+            return {"status": UpdateStatus.ERROR.value, "error": str(e)}
 
     def _should_update_source(self, source_name: str) -> bool:
         """Check if a source should be updated based on age.
