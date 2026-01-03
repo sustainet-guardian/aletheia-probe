@@ -11,7 +11,7 @@ from ...cache import DataSourceManager
 from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
-from ..core import DataSource, get_update_source_registry
+from ..core import DataSource
 from ..utils import deduplicate_journals
 from .bealls_helpers import BeallsHTMLParser
 
@@ -109,9 +109,3 @@ class BeallsListSource(DataSource):
             status_logger.error(f"    {self.get_name()}: Error - {e}")
 
         return journals
-
-
-# Register the update source factory
-get_update_source_registry().register_factory(
-    "bealls", lambda: BeallsListSource(), default_config={}
-)

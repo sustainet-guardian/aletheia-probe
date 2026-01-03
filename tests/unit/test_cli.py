@@ -306,7 +306,12 @@ class TestAddListCommand:
             temp_file = f.name
 
         try:
-            with patch("aletheia_probe.cli.data_updater") as mock_updater:
+            with patch(
+                "aletheia_probe.backends.base.get_backend_registry"
+            ) as mock_get_registry:
+                mock_registry = Mock()
+                mock_get_registry.return_value = mock_registry
+
                 result = runner.invoke(
                     main,
                     [
@@ -320,7 +325,7 @@ class TestAddListCommand:
                 )
 
                 assert result.exit_code == 0
-                mock_updater.add_custom_list.assert_called_once()
+                mock_registry.register_factory.assert_called_once()
 
         finally:
             Path(temp_file).unlink(missing_ok=True)
@@ -348,8 +353,14 @@ class TestAddListCommand:
             temp_file = f.name
 
         try:
-            with patch("aletheia_probe.cli.data_updater") as mock_updater:
-                mock_updater.add_custom_list.side_effect = Exception("Processing error")
+            with patch(
+                "aletheia_probe.backends.base.get_backend_registry"
+            ) as mock_get_registry:
+                mock_registry = Mock()
+                mock_registry.register_factory.side_effect = Exception(
+                    "Processing error"
+                )
+                mock_get_registry.return_value = mock_registry
 
                 result = runner.invoke(
                     main,

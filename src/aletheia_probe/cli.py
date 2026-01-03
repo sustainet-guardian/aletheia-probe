@@ -22,7 +22,6 @@ from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
 from .normalizer import input_normalizer
 from .output_formatter import output_formatter
-from .updater import data_updater  # Global updater instance from updater package
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -284,8 +283,10 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
 
     FILE_PATH: Path to CSV or JSON file containing journal names
     """
-    status_logger = get_status_logger()
+    from .backends.base import get_backend_registry
+    from .backends.custom_list import CustomListBackend
 
+    status_logger = get_status_logger()
     file_path_obj = Path(file_path)
 
     status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
@@ -294,8 +295,15 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
     # Convert string to AssessmentType enum
     assessment_type = AssessmentType(list_type)
 
-    # Add the custom list to the updater
-    data_updater.add_custom_list(file_path_obj, assessment_type, list_name)
+    # Register custom list backend
+    backend_registry = get_backend_registry()
+    backend_registry.register_factory(
+        list_name,
+        lambda: CustomListBackend(file_path_obj, assessment_type, list_name),
+        default_config={"enabled": True},
+    )
+
+    status_logger.info(f"Registered custom list '{list_name}' as backend")
 
     # Trigger immediate sync to load the data
     status_logger.info("Loading custom list data...")

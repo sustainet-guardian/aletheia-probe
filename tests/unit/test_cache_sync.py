@@ -432,10 +432,11 @@ class TestCacheSyncManager:
         with patch.object(
             mock_backend, "get_data_source", return_value=mock_data_source
         ):
-            with patch("aletheia_probe.updater.data_updater") as mock_updater:
-                mock_updater.update_source = AsyncMock(
-                    return_value={"status": "success", "records_updated": 100}
-                )
+            with patch(
+                "aletheia_probe.updater.sync_utils.update_source_data",
+                new_callable=AsyncMock,
+            ) as mock_update:
+                mock_update.return_value = {"status": "success", "records_updated": 100}
 
                 result = await sync_manager._fetch_backend_data(
                     mock_backend, sync_manager.db_writer
@@ -443,7 +444,7 @@ class TestCacheSyncManager:
 
                 assert result["status"] == "success"
                 assert result["records_updated"] == 100
-                mock_updater.update_source.assert_called_once_with(
+                mock_update.assert_called_once_with(
                     mock_data_source, db_writer=sync_manager.db_writer, force=False
                 )
 
@@ -473,10 +474,11 @@ class TestCacheSyncManager:
         with patch.object(
             mock_backend, "get_data_source", return_value=mock_data_source
         ):
-            with patch("aletheia_probe.updater.data_updater") as mock_updater:
-                mock_updater.update_source = AsyncMock(
-                    side_effect=ValueError("Update failed")
-                )
+            with patch(
+                "aletheia_probe.updater.sync_utils.update_source_data",
+                new_callable=AsyncMock,
+            ) as mock_update:
+                mock_update.side_effect = ValueError("Update failed")
 
                 result = await sync_manager._fetch_backend_data(
                     mock_backend, sync_manager.db_writer

@@ -2,7 +2,6 @@
 """Kscien hijacked journals data source."""
 
 from ...enums import AssessmentType
-from ..core import get_update_source_registry
 from .kscien_generic import KscienGenericSource
 
 
@@ -20,11 +19,3 @@ class KscienHijackedJournalsSource(KscienGenericSource):
             publication_type="hijacked-journals",
             list_type=AssessmentType.HIJACKED,
         )
-
-
-# Register the update source factory
-get_update_source_registry().register_factory(
-    "kscien_hijacked_journals",
-    lambda: KscienHijackedJournalsSource(),
-    default_config={},
-)
