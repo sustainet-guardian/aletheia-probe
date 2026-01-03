@@ -14,6 +14,7 @@ import aiohttp
 from ..cache import AssessmentCache, JournalCache, OpenAlexCache
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
+from ..utils.dead_code import code_is_used
 
 
 # Import DataSyncCapable for explicit protocol implementation
@@ -29,6 +30,7 @@ class Backend(ABC):
         """Initialize backend with cache TTL."""
         self.cache_ttl_hours = cache_ttl_hours
 
+    @code_is_used
     @abstractmethod
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Query the backend with normalized input and return result.
@@ -41,11 +43,13 @@ class Backend(ABC):
         """
         pass
 
+    @code_is_used
     @abstractmethod
     def get_name(self) -> str:
         """Return the human-readable name of this backend."""
         pass
 
+    @code_is_used
     @abstractmethod
     def get_evidence_type(self) -> EvidenceType:
         """Return the type of evidence this backend provides."""
@@ -244,6 +248,7 @@ class CachedBackend(Backend):
         """Name of the data source for synchronization (DataSyncCapable protocol)."""
         return self._source_name
 
+    @code_is_used
     def get_data_source(self) -> Any | None:
         """Get data source for synchronization (DataSyncCapable protocol).
 
@@ -342,6 +347,7 @@ class ApiBackendWithCache(Backend):
     # interface for cache-first + API fallback behavior.
     # ApiBackendWithCache is registered as ApiQueryCapable via runtime registration
 
+    @code_is_used
     @abstractmethod
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query the live API when cache misses (ApiQueryCapable protocol).
@@ -479,27 +485,9 @@ class BackendRegistry:
         """Get a backend by name with default configuration."""
         return self.create_backend(name)
 
-    def get_all_backends(self) -> list[Backend]:
-        """Get all registered backends with default configuration."""
-        backends: list[Backend] = []
-
-        # Create default instances from factories
-        for name in self._factories:
-            try:
-                backends.append(self.create_backend(name))
-            except (ValueError, TypeError, AttributeError, OSError):
-                # Skip backends that fail to create with default config
-                pass
-
-        return backends
-
     def get_backend_names(self) -> list[str]:
         """Get names of all registered backends."""
         return list(self._factories.keys())
-
-    def list_all(self) -> list[Backend]:
-        """List all registered backends (alias for get_all_backends)."""
-        return self.get_all_backends()
 
 
 # Global backend registry with factory pattern
@@ -516,22 +504,6 @@ def get_backend_registry() -> BackendRegistry:
     if _backend_registry_instance is None:
         _backend_registry_instance = BackendRegistry()
     return _backend_registry_instance
-
-
-def set_backend_registry(registry: BackendRegistry) -> None:
-    """Set the backend registry instance (primarily for testing).
-
-    Args:
-        registry: BackendRegistry instance to use globally
-    """
-    global _backend_registry_instance
-    _backend_registry_instance = registry
-
-
-def reset_backend_registry() -> None:
-    """Reset the backend registry instance (primarily for testing)."""
-    global _backend_registry_instance
-    _backend_registry_instance = None
 
 
 # Explicitly register backend classes as implementing their respective protocols
