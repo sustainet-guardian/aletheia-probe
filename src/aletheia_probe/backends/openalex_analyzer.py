@@ -17,7 +17,6 @@ from .base import ApiBackendWithCache, get_backend_registry
 CITATION_RATIO_SUSPICIOUS: int = 10
 GROWTH_RATE_THRESHOLD: float = 0.5
 MIN_PUBLICATION_VOLUME: int = 100
-MAX_AUTHOR_DIVERSITY: float = 0.95
 
 
 class OpenAlexAnalyzerBackend(ApiBackendWithCache):
@@ -597,7 +596,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         elif citation_ratio >= 20 and years_active >= 10:
             # Exceptionally high citation ratio with decent history
             assessment = AssessmentType.LEGITIMATE
-            confidence = max(0.85, MAX_AUTHOR_DIVERSITY)
+            confidence = 0.90
             return assessment, confidence
 
         # Strong predatory signals
