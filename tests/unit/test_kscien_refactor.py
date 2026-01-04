@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Unit tests for the Kscien generic source and helpers."""
 
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -31,7 +32,7 @@ async def test_fetch_kscien_data_single_page(mock_session):
     )
     max_pages = 1
 
-    def get_name():
+    def get_name() -> str:
         return "test_source"
 
     mock_response = AsyncMock()
@@ -61,10 +62,10 @@ async def test_fetch_kscien_data_pagination(mock_session):
     )
     max_pages = 2
 
-    def get_name():
+    def get_name() -> str:
         return "test_source"
 
-    def get_side_effect(url, *args, **kwargs):
+    def get_side_effect(url: str, *args: Any, **kwargs: Any) -> AsyncMock:
         response = AsyncMock()
         if "pagination=2" in url:
             response.status = 200
