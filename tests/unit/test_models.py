@@ -139,6 +139,22 @@ class TestAssessmentResult:
         assert result.confidence == 0.9
         assert isinstance(result.timestamp, datetime)
 
+    def test_assessment_result_serialization(self):
+        """Test that AssessmentResult serialization includes all required fields."""
+        result = AssessmentResult(
+            input_query="Test Journal",
+            assessment=AssessmentType.PREDATORY,
+            confidence=0.85,
+            overall_score=0.85,
+            processing_time=1.5,
+        )
+        json_data = result.model_dump()
+
+        assert "input_query" in json_data
+        assert "assessment" in json_data
+        assert "backend_results" in json_data
+        assert json_data["assessment"] == AssessmentType.PREDATORY
+
 
 class TestConfigBackend:
     """Tests for ConfigBackend model."""

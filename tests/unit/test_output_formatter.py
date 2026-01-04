@@ -617,14 +617,3 @@ class TestOutputFormatter:
         assert "DOAJ): Found (legitimate" in output
         assert "Scopus: Found (legitimate" in output
         # Only backends that are in the backend_results are shown in list presence
-
-    def test_json_output_unchanged(self, formatter, predatory_result_with_details):
-        """Test that JSON output format is not affected by formatter."""
-        # The formatter doesn't handle JSON output, so we just verify it exists
-        # This is tested in the CLI layer, but we can verify the model serialization
-        json_data = predatory_result_with_details.model_dump()
-
-        assert "input_query" in json_data
-        assert "assessment" in json_data
-        assert "backend_results" in json_data
-        assert json_data["assessment"] == AssessmentType.PREDATORY
