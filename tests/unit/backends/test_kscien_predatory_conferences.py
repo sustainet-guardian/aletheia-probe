@@ -82,3 +82,23 @@ async def test_kscien_predatory_conferences_backend_query_not_found():
             assert result.status == BackendStatus.NOT_FOUND
             assert result.assessment is None
             assert result.confidence == 0.0
+
+
+def test_kscien_predatory_conferences_backend_get_data_source():
+    """Test that get_data_source returns the correct data source."""
+    backend = KscienPredatoryConferencesBackend()
+
+    # Mock the KscienGenericSource class
+    with patch(
+        "aletheia_probe.updater.sources.kscien_generic.KscienGenericSource"
+    ) as MockSource:
+        # First call should create the source
+        data_source = backend.get_data_source()
+
+        MockSource.assert_called_once_with(publication_type="predatory-conferences")
+        assert data_source == MockSource.return_value
+
+        # Second call should return cached source
+        data_source_2 = backend.get_data_source()
+        MockSource.assert_called_once()  # Should not be called again
+        assert data_source_2 == data_source
