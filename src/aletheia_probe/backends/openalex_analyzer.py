@@ -11,6 +11,7 @@ from ..constants import (
     MAX_AUTHOR_DIVERSITY,
     MIN_PUBLICATION_VOLUME,
 )
+from ..enums import EvidenceType
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
@@ -41,6 +42,10 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
     def get_name(self) -> str:
         """Return backend name."""
         return "openalex_analyzer"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return evidence type."""
+        return EvidenceType.HEURISTIC
 
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query OpenAlex API and analyze patterns."""
