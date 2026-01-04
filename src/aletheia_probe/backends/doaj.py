@@ -12,6 +12,7 @@ from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
+from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 
 
@@ -22,6 +23,7 @@ status_logger = get_status_logger()
 class RateLimitError(Exception):
     """Raised when DOAJ API rate limit is hit."""
 
+    @code_is_used
     def __init__(self, retry_after: int | None = None) -> None:
         self.retry_after = retry_after
         super().__init__(f"DOAJ API rate limit hit. Retry after {retry_after}s")
