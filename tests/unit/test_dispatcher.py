@@ -74,12 +74,8 @@ class TestQueryDispatcher:
 
             assert isinstance(result, AssessmentResult)
             assert result.input_query == sample_query_input.raw_input
-            assert result.assessment in [
-                AssessmentType.PREDATORY,
-                AssessmentType.LEGITIMATE,
-                AssessmentType.UNKNOWN,
-            ]
-            assert 0.0 <= result.confidence <= 1.0
+            assert result.assessment == AssessmentType.PREDATORY
+            assert result.confidence == 0.8
             assert result.processing_time > 0
             assert len(result.backend_results) == 1
 
@@ -164,11 +160,8 @@ class TestQueryDispatcher:
             result = await dispatcher.assess_journal(sample_query_input)
 
             assert len(result.backend_results) == 2
-            assert result.assessment in [
-                AssessmentType.PREDATORY,
-                AssessmentType.LEGITIMATE,
-            ]
-            assert result.confidence > 0
+            assert result.assessment == AssessmentType.PREDATORY
+            assert result.confidence == 0.45
 
     @pytest.mark.asyncio
     async def test_assess_journal_with_retraction_data(
