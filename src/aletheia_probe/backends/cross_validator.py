@@ -539,7 +539,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
         openalex_result: BackendResult,
         crossref_result: BackendResult,
         consistency_checks: list[str],
-        combined_flags: dict[str, Any],
+        combined_flags: dict[str, list[str]],
     ) -> dict[str, Any]:
         """Combine assessments from both backends with cross-validation."""
         openalex_assessment = openalex_result.assessment
