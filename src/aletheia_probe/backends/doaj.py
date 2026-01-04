@@ -69,11 +69,17 @@ class DOAJBackend(ApiBackendWithCache):
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query DOAJ API for journal information with retry logic.
 
+        Constructs a search query based on available identifiers (ISSN) or the
+        journal name, executes the API request with automatic retries for
+        transient failures, and hands off the response for processing.
+
         Args:
-            query_input: Normalized query input with journal information.
+            query_input: Normalized query input containing the journal's name
+                and identifiers used to build the DOAJ search query.
 
         Returns:
-            BackendResult with findings from DOAJ.
+            BackendResult containing the assessment findings, or a failure result
+            if errors occurred during the API communication.
         """
         start_time = time.time()
 
@@ -185,13 +191,19 @@ class DOAJBackend(ApiBackendWithCache):
     ) -> BackendResult:
         """Process DOAJ API response and determine match quality.
 
+        Iterates through the search results from DOAJ, calculates match confidence
+        for each, and selects the best match. If the best match exceeds the
+        minimum confidence threshold, the journal is assessed as legitimate.
+
         Args:
-            query_input: The original query input.
-            response_data: JSON response from DOAJ API.
-            response_time: Time taken for the API request in seconds.
+            query_input: The original query input containing journal information
+                like name and ISSN.
+            response_data: JSON response data received from the DOAJ API search.
+            response_time: Total time taken for the API request in seconds.
 
         Returns:
-            BackendResult with the processed assessment.
+            BackendResult containing the assessment status (FOUND, NOT_FOUND),
+            confidence score, and detailed metadata if a match was found.
         """
         results = response_data.get("results", [])
 
@@ -266,12 +278,24 @@ class DOAJBackend(ApiBackendWithCache):
     ) -> float:
         """Calculate confidence score for a DOAJ match.
 
+        The confidence score is determined based on several matching criteria:
+        1. ISSN Match: Highest confidence if ISSNs match exactly.
+        2. Title Match: Exact matches get high confidence, while partial
+           (substring) matches get medium confidence.
+        3. Word-based Similarity: Calculates Jaccard similarity between title
+           words for non-exact matches.
+        4. Alias Match: Checks against known journal aliases if title matching
+           confidence is low.
+
         Args:
-            query_input: The original query input.
-            bibjson: The bibjson part of a DOAJ result record.
+            query_input: Normalized query input containing the target journal's
+                name, identifiers (ISSN), and aliases.
+            bibjson: The 'bibjson' dictionary from a DOAJ API result record,
+                containing title, ISSNs, and other metadata.
 
         Returns:
-            Confidence score between 0.0 and 1.0.
+            A confidence score between 0.0 and 1.0, where higher values indicate
+            a more certain match.
         """
         confidence = 0.0
 
