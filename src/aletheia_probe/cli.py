@@ -27,6 +27,45 @@ from .output_formatter import output_formatter
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+def handle_cli_exception(
+    exception: Exception, verbose: bool = False, context: str = ""
+) -> None:
+    """Handle CLI exceptions with consistent logging and exit behavior.
+
+    Args:
+        exception: The exception to handle
+        verbose: Whether to show verbose error details
+        context: Optional context string to include in error message
+    """
+    status_logger = get_status_logger()
+
+    if isinstance(exception, FileNotFoundError):
+        status_logger.error(f"Error: File not found: {exception}")
+    elif isinstance(exception, ValueError):
+        status_logger.error(f"Error: {exception}")
+    elif isinstance(
+        exception, (OSError, KeyError, RuntimeError, AttributeError, UnicodeDecodeError)
+    ):
+        if verbose:
+            status_logger.error(
+                f"Unexpected error{f' in {context}' if context else ''}: {exception}"
+            )
+            traceback.print_exc()
+        else:
+            status_logger.error("An unexpected error occurred. Use -v for details.")
+    else:
+        # Fallback for other exception types
+        if verbose:
+            status_logger.error(
+                f"Error{f' in {context}' if context else ''}: {exception}"
+            )
+            traceback.print_exc()
+        else:
+            status_logger.error(f"Error: {exception}")
+
+    sys.exit(1)
+
+
 def handle_cli_errors(func: F) -> F:
     """Decorator to handle common CLI error patterns.
 
@@ -525,25 +564,8 @@ async def _async_bibtex_main(
         exit_code = BibtexBatchAssessor.get_exit_code(result)
         sys.exit(exit_code)
 
-    except FileNotFoundError:
-        status_logger.error(f"Error: BibTeX file not found: {bibtex_file}")
-        sys.exit(1)
-    except ValueError as e:
-        status_logger.error(f"Error: {e}")
-        sys.exit(1)
-    except (
-        OSError,
-        KeyError,
-        RuntimeError,
-        AttributeError,
-        UnicodeDecodeError,
-    ) as e:
-        if verbose:
-            status_logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-        else:
-            status_logger.error("An unexpected error occurred. Use -v for details.")
-        sys.exit(1)
+    except Exception as e:
+        handle_cli_exception(e, verbose, "BibTeX processing")
 
 
 async def _async_assess_publication(
@@ -582,16 +604,8 @@ async def _async_assess_publication(
             )
             print(formatted_output)
 
-    except ValueError as e:
-        status_logger.error(f"Error: {e}")
-        sys.exit(1)
-    except (OSError, KeyError, RuntimeError, AttributeError) as e:
-        if verbose:
-            status_logger.error(f"Unexpected error: {e}")
-            traceback.print_exc()
-        else:
-            status_logger.error("An unexpected error occurred. Use -v for details.")
-        sys.exit(1)
+    except Exception as e:
+        handle_cli_exception(e, verbose, "publication assessment")
 
 
 if __name__ == "__main__":
