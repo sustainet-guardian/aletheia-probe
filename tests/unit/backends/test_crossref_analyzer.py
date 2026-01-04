@@ -83,3 +83,53 @@ async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) ->
         result = await backend.query(query_input)
         assert result.status == BackendStatus.ERROR
         assert "API Error" in result.error_message
+
+
+def test_journal_size_classification_edge_cases(
+    backend: CrossrefAnalyzerBackend,
+) -> None:
+    """Test journal size classification edge cases around 50-99 DOI range."""
+    # Test very small journal (< 50 DOIs)
+    assert backend._is_very_small_journal(25) is True
+    assert backend._is_small_to_medium_journal(25) is False
+
+    # Test journals in the previously uncovered 50-99 range
+    assert backend._is_very_small_journal(50) is False
+    assert backend._is_small_to_medium_journal(50) is True
+
+    assert backend._is_very_small_journal(75) is False
+    assert backend._is_small_to_medium_journal(75) is True
+
+    assert backend._is_very_small_journal(99) is False
+    assert backend._is_small_to_medium_journal(99) is True
+
+    # Test boundary at 100 DOIs
+    assert backend._is_very_small_journal(100) is False
+    assert backend._is_small_to_medium_journal(100) is True
+
+    # Test large journal (>= 10000 DOIs)
+    assert backend._is_very_small_journal(15000) is False
+    assert backend._is_small_to_medium_journal(15000) is False
+
+
+def test_orcid_red_flag_applies_to_50_99_doi_journals(
+    backend: CrossrefAnalyzerBackend,
+) -> None:
+    """Test that ORCID red flags now apply to journals with 50-99 DOIs."""
+    # Create test data for a journal with 75 DOIs and low ORCID score
+    journal_data = {
+        "title": ["Test Journal"],
+        "publisher": "Test Publisher",
+        "counts": {"total-dois": 75, "current-dois": 75, "backfile-dois": 0},
+        "coverage": {"orcids": 2.0, "funders": 1.0, "licenses": 3.0},  # Very low scores
+        "coverage-type": {"current": {}},
+        "breakdowns": {"dois-by-issued-year": [[2023, 75]]},
+    }
+
+    analysis = backend._analyze_metadata_quality(journal_data)
+
+    # Should have red flags for low ORCID adoption since it's in small-to-medium range
+    red_flag_texts = " ".join(analysis["red_flags"])
+    assert "ORCID adoption" in red_flag_texts
+    assert "funding transparency" in red_flag_texts
+    assert "license documentation" in red_flag_texts
