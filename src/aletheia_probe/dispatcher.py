@@ -84,7 +84,9 @@ class QueryDispatcher:
         # Get enabled backends from registry
         enabled_backends = self._get_enabled_backends()
 
-        self.detail_logger.info(f"Dispatcher: Found {len(enabled_backends)} enabled backends: {[b.get_name() for b in enabled_backends]}")
+        self.detail_logger.info(
+            f"Dispatcher: Found {len(enabled_backends)} enabled backends: {[b.get_name() for b in enabled_backends]}"
+        )
         self.detail_logger.info(f"Dispatcher: Assessing query: {query_input.raw_input}")
 
         if not enabled_backends:
