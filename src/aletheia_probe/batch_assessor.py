@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Batch assessment module for evaluating multiple journals from BibTeX files."""
 
+import logging
 import time
 from pathlib import Path
 
@@ -73,13 +74,73 @@ class BibtexBatchAssessor:
         """
         detail_logger = get_detail_logger()
         status_logger = get_status_logger()
-
         start_time = time.time()
 
+        # Parse BibTeX file
+        bibtex_entries, skipped_count, preprint_count = (
+            BibtexBatchAssessor._parse_bibtex_file(
+                file_path, relax_bibtex, detail_logger, status_logger
+            )
+        )
+
+        # Initialize result object
+        result = BibtexBatchAssessor._initialize_assessment_result(
+            file_path, bibtex_entries, skipped_count, preprint_count
+        )
+
+        # Process each entry
+        retraction_checker = ArticleRetractionChecker()
+        assessment_results: list[tuple[BibtexEntry, AssessmentResult]] = []
+        venue_assessment_cache: dict[str, AssessmentResult] = {}
+
+        for i, entry in enumerate(bibtex_entries, 1):
+            status_logger.info(
+                f"[{i}/{len(bibtex_entries)}] Assessing: {entry.journal_name}"
+            )
+            detail_logger.debug(
+                f"Processing entry {i}/{len(bibtex_entries)}: {entry.journal_name} (type: {entry.entry_type})"
+            )
+
+            try:
+                assessment = await BibtexBatchAssessor._process_single_entry(
+                    entry,
+                    retraction_checker,
+                    venue_assessment_cache,
+                    result,
+                    i,
+                    len(bibtex_entries),
+                    detail_logger,
+                    status_logger,
+                )
+                assessment_results.append((entry, assessment))
+                BibtexBatchAssessor._update_counters(result, entry, assessment)
+
+            except (ValueError, KeyError, AttributeError, TypeError) as e:
+                error_assessment = BibtexBatchAssessor._handle_assessment_error(
+                    entry, e, status_logger, detail_logger
+                )
+                assessment_results.append((entry, error_assessment))
+                result.insufficient_data_count += 1
+
+        # Finalize result
+        BibtexBatchAssessor._finalize_result(result, assessment_results, start_time)
+        return result
+
+    @staticmethod
+    def _parse_bibtex_file(
+        file_path: Path,
+        relax_bibtex: bool,
+        detail_logger: logging.Logger,
+        status_logger: logging.Logger,
+    ) -> tuple[list[BibtexEntry], int, int]:
+        """Parse BibTeX file and extract entries.
+
+        Returns:
+            Tuple of (bibtex_entries, skipped_count, preprint_count)
+        """
         status_logger.info(f"Parsing BibTeX file: {file_path}")
         detail_logger.debug(f"Starting BibTeX file assessment: {file_path}")
 
-        # Parse the BibTeX file to extract journal entries
         try:
             bibtex_entries, skipped_count, preprint_count = (
                 BibtexParser.parse_bibtex_file(file_path, relax_bibtex)
@@ -91,13 +152,23 @@ class BibtexBatchAssessor:
             detail_logger.error(f"Failed to parse BibTeX file: {e}")
             raise ValueError(f"Failed to parse BibTeX file: {e}") from e
 
-        total_entries = len(bibtex_entries) + skipped_count + preprint_count
         status_logger.info(
             f"Found {len(bibtex_entries)} entries with journal information"
         )
 
-        # Prepare result object
-        result = BibtexAssessmentResult(
+        return bibtex_entries, skipped_count, preprint_count
+
+    @staticmethod
+    def _initialize_assessment_result(
+        file_path: Path,
+        bibtex_entries: list[BibtexEntry],
+        skipped_count: int,
+        preprint_count: int,
+    ) -> BibtexAssessmentResult:
+        """Initialize the assessment result object."""
+        total_entries = len(bibtex_entries) + skipped_count + preprint_count
+
+        return BibtexAssessmentResult(
             file_path=str(file_path),
             total_entries=total_entries,
             entries_with_journals=len(bibtex_entries),
@@ -122,149 +193,151 @@ class BibtexBatchAssessor:
             processing_time=0.0,  # Will be updated at the end
         )
 
-        # Initialize article retraction checker
-        retraction_checker = ArticleRetractionChecker()
+    @staticmethod
+    async def _process_single_entry(
+        entry: BibtexEntry,
+        retraction_checker: ArticleRetractionChecker,
+        venue_assessment_cache: dict[str, AssessmentResult],
+        result: BibtexAssessmentResult,
+        entry_index: int,
+        total_entries: int,
+        detail_logger: logging.Logger,
+        status_logger: logging.Logger,
+    ) -> AssessmentResult:
+        """Process a single BibTeX entry including retraction check and assessment."""
+        # Check for article retraction if DOI is available
+        if entry.doi:
+            result.articles_checked_for_retraction += 1
+            detail_logger.debug(f"Checking retraction status for DOI: {entry.doi}")
+            retraction_result = await retraction_checker.check_doi(entry.doi)
 
-        # Assess each journal
-        assessment_results: list[tuple[BibtexEntry, AssessmentResult]] = []
+            if retraction_result.is_retracted:
+                entry.is_retracted = True
+                entry.retraction_info = retraction_result.to_dict()
+                result.retracted_articles_count += 1
+                status_logger.warning(
+                    f"[{entry_index}/{total_entries}] RETRACTED ARTICLE: {entry.title or entry.key}"
+                )
+                detail_logger.warning(
+                    f"Retraction details: type={retraction_result.retraction_type}, "
+                    f"date={retraction_result.retraction_date}, "
+                    f"sources={retraction_result.sources}"
+                )
 
-        # Cache for venue assessments using case-insensitive normalized names
-        venue_assessment_cache: dict[str, AssessmentResult] = {}
+        # Normalize the journal name for assessment
+        query_input = input_normalizer.normalize(entry.journal_name)
+        query_input.venue_type = entry.venue_type
+        detail_logger.debug(
+            f"Normalized journal name: {query_input.normalized_name}, venue type: {entry.venue_type.value}"
+        )
 
-        for i, entry in enumerate(bibtex_entries, 1):
-            status_logger.info(
-                f"[{i}/{len(bibtex_entries)}] Assessing: {entry.journal_name}"
-            )
+        # Create a cache key using lowercase normalized name for case-insensitive matching
+        cache_key = (
+            query_input.normalized_name.lower()
+            if query_input.normalized_name
+            else entry.journal_name.lower()
+        )
+
+        # Check if we've already assessed this venue (case-insensitive)
+        if cache_key in venue_assessment_cache:
+            assessment = venue_assessment_cache[cache_key]
             detail_logger.debug(
-                f"Processing entry {i}/{len(bibtex_entries)}: {entry.journal_name} (type: {entry.entry_type})"
+                f"Using cached assessment for '{entry.journal_name}' (matches '{cache_key}')"
             )
+            status_logger.info("    → Using cached result for case variant")
+        else:
+            # Assess the journal
+            assessment = await query_dispatcher.assess_journal(query_input)
+            assessment.venue_type = entry.venue_type
+            detail_logger.debug(
+                f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
+            )
+            venue_assessment_cache[cache_key] = assessment
 
-            try:
-                # Check for article retraction if DOI is available
-                if entry.doi:
-                    result.articles_checked_for_retraction += 1
-                    detail_logger.debug(
-                        f"Checking retraction status for DOI: {entry.doi}"
-                    )
-                    retraction_result = await retraction_checker.check_doi(entry.doi)
+        confidence_str = f"{assessment.confidence:.2f}"
+        status_logger.info(
+            f"    → {assessment.assessment.upper()} (confidence: {confidence_str})"
+        )
 
-                    if retraction_result.is_retracted:
-                        entry.is_retracted = True
-                        entry.retraction_info = retraction_result.to_dict()
-                        result.retracted_articles_count += 1
-                        status_logger.warning(
-                            f"[{i}/{len(bibtex_entries)}] RETRACTED ARTICLE: {entry.title or entry.key}"
-                        )
-                        detail_logger.warning(
-                            f"Retraction details: type={retraction_result.retraction_type}, "
-                            f"date={retraction_result.retraction_date}, "
-                            f"sources={retraction_result.sources}"
-                        )
+        return assessment
 
-                # Normalize the journal name for assessment
-                query_input = input_normalizer.normalize(entry.journal_name)
-                # Pass venue type information to the query
-                query_input.venue_type = entry.venue_type
-                detail_logger.debug(
-                    f"Normalized journal name: {query_input.normalized_name}, venue type: {entry.venue_type.value}"
-                )
+    @staticmethod
+    def _update_counters(
+        result: BibtexAssessmentResult, entry: BibtexEntry, assessment: AssessmentResult
+    ) -> None:
+        """Update all counters based on assessment result."""
+        # Determine if this is a conference or journal entry
+        is_conference = entry.entry_type.lower() in [
+            "inproceedings",
+            "conference",
+            "proceedings",
+        ]
 
-                # Create a cache key using lowercase normalized name for case-insensitive matching
-                cache_key = (
-                    query_input.normalized_name.lower()
-                    if query_input.normalized_name
-                    else entry.journal_name.lower()
-                )
+        # Update type-specific counters
+        if is_conference:
+            result.conference_entries += 1
+        else:
+            result.journal_entries += 1
 
-                # Check if we've already assessed this venue (case-insensitive)
-                if cache_key in venue_assessment_cache:
-                    assessment = venue_assessment_cache[cache_key]
-                    detail_logger.debug(
-                        f"Using cached assessment for '{entry.journal_name}' (matches '{cache_key}')"
-                    )
-                    status_logger.info("    → Using cached result for case variant")
-                else:
-                    # Assess the journal
-                    assessment = await query_dispatcher.assess_journal(query_input)
-                    # Update venue type information in the assessment result
-                    assessment.venue_type = entry.venue_type
-                    detail_logger.debug(
-                        f"Assessment result: {assessment.assessment}, confidence: {assessment.confidence:.2f}"
-                    )
-                    # Cache the assessment for future case variants
-                    venue_assessment_cache[cache_key] = assessment
+        # Update venue type counters
+        result.venue_type_counts[entry.venue_type] = (
+            result.venue_type_counts.get(entry.venue_type, 0) + 1
+        )
 
-                # Store the result
-                assessment_results.append((entry, assessment))
+        # Update counters based on assessment
+        if assessment.assessment == AssessmentType.PREDATORY:
+            result.predatory_count += 1
+            if is_conference:
+                result.conference_predatory += 1
+            else:
+                result.journal_predatory += 1
+        elif assessment.assessment == AssessmentType.LEGITIMATE:
+            result.legitimate_count += 1
+            if is_conference:
+                result.conference_legitimate += 1
+            else:
+                result.journal_legitimate += 1
+        elif assessment.assessment == AssessmentType.SUSPICIOUS:
+            result.suspicious_count += 1
+            if is_conference:
+                result.conference_suspicious += 1
+            else:
+                result.journal_suspicious += 1
+        else:
+            result.insufficient_data_count += 1
 
-                # Determine if this is a conference or journal entry
-                is_conference = entry.entry_type.lower() in [
-                    "inproceedings",
-                    "conference",
-                    "proceedings",
-                ]
+    @staticmethod
+    def _handle_assessment_error(
+        entry: BibtexEntry,
+        error: Exception,
+        status_logger: logging.Logger,
+        detail_logger: logging.Logger,
+    ) -> AssessmentResult:
+        """Handle errors during assessment and create an error assessment result."""
+        status_logger.warning(f"    → ERROR: {error}")
+        detail_logger.exception(f"Error assessing {entry.journal_name}: {error}")
 
-                # Update type-specific counters
-                if is_conference:
-                    result.conference_entries += 1
-                else:
-                    result.journal_entries += 1
+        return AssessmentResult(
+            input_query=entry.journal_name,
+            assessment=AssessmentType.INSUFFICIENT_DATA,
+            confidence=0.0,
+            overall_score=0.0,
+            backend_results=[],
+            metadata=None,
+            reasoning=[f"Error during assessment: {error}"],
+            processing_time=0.0,
+        )
 
-                # Update venue type counters
-                result.venue_type_counts[entry.venue_type] = (
-                    result.venue_type_counts.get(entry.venue_type, 0) + 1
-                )
-
-                # Update counters based on assessment
-                if assessment.assessment == AssessmentType.PREDATORY:
-                    result.predatory_count += 1
-                    if is_conference:
-                        result.conference_predatory += 1
-                    else:
-                        result.journal_predatory += 1
-                elif assessment.assessment == AssessmentType.LEGITIMATE:
-                    result.legitimate_count += 1
-                    if is_conference:
-                        result.conference_legitimate += 1
-                    else:
-                        result.journal_legitimate += 1
-                elif assessment.assessment == AssessmentType.SUSPICIOUS:
-                    result.suspicious_count += 1
-                    if is_conference:
-                        result.conference_suspicious += 1
-                    else:
-                        result.journal_suspicious += 1
-                else:
-                    result.insufficient_data_count += 1
-
-                confidence_str = f"{assessment.confidence:.2f}"
-                status_logger.info(
-                    f"    → {assessment.assessment.upper()} (confidence: {confidence_str})"
-                )
-
-            except (ValueError, KeyError, AttributeError, TypeError) as e:
-                status_logger.warning(f"    → ERROR: {e}")
-                detail_logger.exception(f"Error assessing {entry.journal_name}: {e}")
-                # Create a mock assessment result for errors
-                error_assessment = AssessmentResult(
-                    input_query=entry.journal_name,
-                    assessment=AssessmentType.INSUFFICIENT_DATA,
-                    confidence=0.0,
-                    overall_score=0.0,
-                    backend_results=[],
-                    metadata=None,
-                    reasoning=[f"Error during assessment: {e}"],
-                    processing_time=0.0,
-                )
-                assessment_results.append((entry, error_assessment))
-                result.insufficient_data_count += 1
-
-        # Finalize the result
+    @staticmethod
+    def _finalize_result(
+        result: BibtexAssessmentResult,
+        assessment_results: list[tuple[BibtexEntry, AssessmentResult]],
+        start_time: float,
+    ) -> None:
+        """Finalize the assessment result."""
         result.assessment_results = assessment_results
         result.has_predatory_journals = result.predatory_count > 0
         result.processing_time = time.time() - start_time
-
-        return result
 
     @staticmethod
     def format_summary(result: BibtexAssessmentResult, verbose: bool = False) -> str:
