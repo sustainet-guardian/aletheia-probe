@@ -171,13 +171,17 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             issn = query_input.identifiers.get("issn")
             eissn = query_input.identifiers.get("eissn")
 
-            if issn:
-                self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
-                journal_data = await self._get_journal_by_issn(issn)
+            # Create a single session for all API calls
+            async with aiohttp.ClientSession(
+                headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
+            ) as session:
+                if issn:
+                    self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
+                    journal_data = await self._get_journal_by_issn(issn, session)
 
-            if not journal_data and eissn:
-                self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
-                journal_data = await self._get_journal_by_issn(eissn)
+                if not journal_data and eissn:
+                    self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
+                    journal_data = await self._get_journal_by_issn(eissn, session)
 
             response_time = time.time() - start_time
 
@@ -243,32 +247,27 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 response_time=response_time,
             )
 
-    async def _get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:
+    async def _get_journal_by_issn(
+        self, issn: str, session: aiohttp.ClientSession
+    ) -> dict[str, Any] | None:
         """Get journal data by ISSN from Crossref API."""
         url = f"{self.base_url}/journals/{issn}"
         self.detail_logger.debug(f"Crossref API request: GET {url}")
 
-        async with aiohttp.ClientSession(
-            headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
-        ) as session:
-            try:
-                async with session.get(url) as response:
-                    self.detail_logger.debug(
-                        f"Crossref API response: {response.status}"
-                    )
-                    if response.status == 200:
-                        data = await response.json()
-                        message = data.get("message", {})
-                        return message if isinstance(message, dict) else {}
-                    elif response.status == 404:
-                        return None
-                    else:
-                        raise Exception(
-                            f"Crossref API returned status {response.status}"
-                        )
-            except asyncio.TimeoutError:
-                self.detail_logger.error("Crossref API timeout")
-                raise Exception("Crossref API timeout") from None
+        try:
+            async with session.get(url) as response:
+                self.detail_logger.debug(f"Crossref API response: {response.status}")
+                if response.status == 200:
+                    data = await response.json()
+                    message = data.get("message", {})
+                    return message if isinstance(message, dict) else {}
+                elif response.status == 404:
+                    return None
+                else:
+                    raise Exception(f"Crossref API returned status {response.status}")
+        except asyncio.TimeoutError:
+            self.detail_logger.error("Crossref API timeout")
+            raise Exception("Crossref API timeout") from None
 
     def _extract_common_analysis_vars(
         self, metrics: dict[str, Any], quality_scores: dict[str, float]
