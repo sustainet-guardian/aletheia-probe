@@ -41,18 +41,20 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
 
         mock_response_200 = MagicMock()
         mock_response_200.status = 200
-        mock_response_200.json = AsyncMock(return_value={
-            "message": {
-                "title": ["Test Journal"],
-                "publisher": "Test Publisher",
-                "counts": {"total-dois": 1000},
-                "coverage": {"orcids": 50, "funders": 30, "licenses": 70},
-                "coverage-type": {"current": {}},
-                "breakdowns": {
-                    "dois-by-issued-year": [[2020, 100], [2021, 200], [2022, 300]]
-                },
+        mock_response_200.json = AsyncMock(
+            return_value={
+                "message": {
+                    "title": ["Test Journal"],
+                    "publisher": "Test Publisher",
+                    "counts": {"total-dois": 1000},
+                    "coverage": {"orcids": 50, "funders": 30, "licenses": 70},
+                    "coverage-type": {"current": {}},
+                    "breakdowns": {
+                        "dois-by-issued-year": [[2020, 100], [2021, 200], [2022, 300]]
+                    },
+                }
             }
-        })
+        )
 
         # Mock the async context manager behavior for both calls
         mock_get.return_value.__aenter__.side_effect = [
