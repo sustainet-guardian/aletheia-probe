@@ -15,6 +15,7 @@ Domain-specific constants are co-located with their implementations:
 # Assessment confidence thresholds
 CONFIDENCE_THRESHOLD_HIGH: float = 0.98
 CONFIDENCE_THRESHOLD_MEDIUM: float = 0.85
+CONFIDENCE_THRESHOLD_LOW: float = 0.3
 
 # Agreement bonuses
 AGREEMENT_BONUS_AMOUNT: float = 0.05
