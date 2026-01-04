@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import aiohttp
 
+from ..constants import CONFIDENCE_THRESHOLD_HIGH, CONFIDENCE_THRESHOLD_MEDIUM
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
@@ -18,6 +19,14 @@ from .base import ApiBackendWithCache, get_backend_registry
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
+
+
+DOAJ_MIN_CONFIDENCE_THRESHOLD = 0.5
+DOAJ_WORD_SIMILARITY_THRESHOLD = 0.5
+DOAJ_ALIAS_EXACT_MATCH_CONFIDENCE = 0.9
+DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE = 0.8
+DOAJ_WORD_SIMILARITY_BASE_CONFIDENCE = 0.6
+DOAJ_WORD_SIMILARITY_MULTIPLIER = 0.25
 
 
 class RateLimitError(Exception):
@@ -179,7 +188,9 @@ class DOAJBackend(ApiBackendWithCache):
                 best_confidence = confidence
                 best_match = result
 
-        if best_match and best_confidence > 0.5:  # Minimum confidence threshold
+        if (
+            best_match and best_confidence > DOAJ_MIN_CONFIDENCE_THRESHOLD
+        ):  # Minimum confidence threshold
             bibjson = best_match.get("bibjson", {})
 
             return BackendResult(
@@ -229,7 +240,7 @@ class DOAJBackend(ApiBackendWithCache):
         if query_input.identifiers.get("issn"):
             doaj_issn = bibjson.get("pissn") or bibjson.get("eissn")
             if doaj_issn == query_input.identifiers["issn"]:
-                return 0.98  # Very high confidence for ISSN match
+                return CONFIDENCE_THRESHOLD_HIGH  # Very high confidence for ISSN match
 
         # Title matching
         doaj_title = bibjson.get("title", "").lower()
@@ -238,10 +249,10 @@ class DOAJBackend(ApiBackendWithCache):
 
             # Exact title match
             if doaj_title == query_title:
-                confidence = 0.95
+                confidence = CONFIDENCE_THRESHOLD_HIGH
             # Check if titles contain each other
             elif query_title in doaj_title or doaj_title in query_title:
-                confidence = 0.85
+                confidence = CONFIDENCE_THRESHOLD_MEDIUM
             else:
                 # Word-based similarity
                 query_words = set(query_title.split())
@@ -253,17 +264,19 @@ class DOAJBackend(ApiBackendWithCache):
                     word_similarity = len(intersection) / len(union)
 
                     # Only consider it a match if significant overlap
-                    if word_similarity > 0.5:
-                        confidence = 0.6 + (word_similarity * 0.25)
+                    if word_similarity > DOAJ_WORD_SIMILARITY_THRESHOLD:
+                        confidence = DOAJ_WORD_SIMILARITY_BASE_CONFIDENCE + (
+                            word_similarity * DOAJ_WORD_SIMILARITY_MULTIPLIER
+                        )
 
         # Check aliases if main title didn't match well
         if confidence < 0.8:
             for alias in query_input.aliases:
                 alias_lower = alias.lower()
                 if alias_lower == doaj_title:
-                    confidence = max(confidence, 0.9)
+                    confidence = max(confidence, DOAJ_ALIAS_EXACT_MATCH_CONFIDENCE)
                 elif alias_lower in doaj_title or doaj_title in alias_lower:
-                    confidence = max(confidence, 0.8)
+                    confidence = max(confidence, DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE)
 
         return min(confidence, 1.0)
 
