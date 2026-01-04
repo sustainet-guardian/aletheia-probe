@@ -235,6 +235,27 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 self.detail_logger.error("Crossref API timeout")
                 raise Exception("Crossref API timeout") from None
 
+    def _extract_common_analysis_vars(
+        self, metrics: dict[str, Any], quality_scores: dict[str, float]
+    ) -> dict[str, float]:
+        """Extract commonly used variables for metadata analysis.
+
+        Args:
+            metrics: Dictionary of calculated metrics
+            quality_scores: Dictionary of quality scores
+
+        Returns:
+            Dictionary of commonly used variables
+        """
+        return {
+            "total_dois": metrics["total_dois"],
+            "overall_quality": metrics["overall_metadata_quality"],
+            "orcid_score": quality_scores.get("orcids", 0),
+            "funders_score": quality_scores.get("funders", 0),
+            "license_score": quality_scores.get("licenses", 0),
+            "references_score": quality_scores.get("references", 0),
+        }
+
     def _analyze_metadata_quality(self, journal_data: dict[str, Any]) -> dict[str, Any]:
         """Analyze Crossref metadata quality patterns.
 
@@ -247,17 +268,22 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         # Calculate metrics from raw data
         metrics, quality_scores = self._calculate_metadata_metrics(journal_data)
 
+        # Extract common variables used across analysis methods
+        common_vars = self._extract_common_analysis_vars(metrics, quality_scores)
+
         # Check for green flags (quality indicators)
-        green_flags = self._check_metadata_green_flags(metrics, quality_scores)
+        green_flags = self._check_metadata_green_flags(
+            metrics, quality_scores, common_vars
+        )
 
         # Check for red flags (quality issues)
         red_flags = self._check_metadata_red_flags(
-            metrics, quality_scores, journal_data
+            metrics, quality_scores, journal_data, common_vars
         )
 
         # Determine final assessment and confidence
         assessment, confidence = self._determine_metadata_assessment(
-            red_flags, green_flags, metrics
+            red_flags, green_flags, metrics, common_vars
         )
 
         return {
@@ -349,27 +375,29 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         return metrics, quality_scores
 
     def _check_metadata_green_flags(
-        self, metrics: dict[str, Any], quality_scores: dict[str, float]
+        self,
+        metrics: dict[str, Any],
+        quality_scores: dict[str, float],
+        common_vars: dict[str, float],
     ) -> list[str]:
         """Check for metadata quality green flags.
 
         Args:
             metrics: Dictionary of calculated metrics
             quality_scores: Dictionary of quality scores
+            common_vars: Dictionary of commonly used variables
 
         Returns:
             List of green flag descriptions
         """
         green_flags = []
 
-        total_dois = metrics["total_dois"]
-        overall_quality = metrics["overall_metadata_quality"]
-
-        # Extract quality scores
-        orcid_score = quality_scores.get("orcids", 0)
-        funders_score = quality_scores.get("funders", 0)
-        license_score = quality_scores.get("licenses", 0)
-        references_score = quality_scores.get("references", 0)
+        total_dois = common_vars["total_dois"]
+        overall_quality = common_vars["overall_quality"]
+        orcid_score = common_vars["orcid_score"]
+        funders_score = common_vars["funders_score"]
+        license_score = common_vars["license_score"]
+        references_score = common_vars["references_score"]
 
         # GREEN FLAGS (indicators of legitimate practices)
 
@@ -425,6 +453,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         metrics: dict[str, Any],
         quality_scores: dict[str, float],
         journal_data: dict[str, Any],
+        common_vars: dict[str, float],
     ) -> list[str]:
         """Check for metadata quality red flags.
 
@@ -432,20 +461,19 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             metrics: Dictionary of calculated metrics
             quality_scores: Dictionary of quality scores
             journal_data: Raw journal data from Crossref
+            common_vars: Dictionary of commonly used variables
 
         Returns:
             List of red flag descriptions
         """
         red_flags = []
 
-        total_dois = metrics["total_dois"]
-        overall_quality = metrics["overall_metadata_quality"]
+        total_dois = common_vars["total_dois"]
+        overall_quality = common_vars["overall_quality"]
+        orcid_score = common_vars["orcid_score"]
+        funders_score = common_vars["funders_score"]
+        license_score = common_vars["license_score"]
         dois_by_year = metrics.get("dois_by_year", [])
-
-        # Extract quality scores
-        orcid_score = quality_scores.get("orcids", 0)
-        funders_score = quality_scores.get("funders", 0)
-        license_score = quality_scores.get("licenses", 0)
 
         # RED FLAGS (indicators of poor practices)
 
@@ -533,7 +561,11 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         return red_flags
 
     def _determine_metadata_assessment(
-        self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
+        self,
+        red_flags: list[str],
+        green_flags: list[str],
+        metrics: dict[str, Any],
+        common_vars: dict[str, float],
     ) -> tuple[str | None, float]:
         """Determine final assessment and confidence based on metadata flags.
 
@@ -541,11 +573,12 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             red_flags: List of red flag descriptions
             green_flags: List of green flag descriptions
             metrics: Dictionary of calculated metrics
+            common_vars: Dictionary of commonly used variables
 
         Returns:
             Tuple of (assessment, confidence)
         """
-        total_dois = metrics["total_dois"]
+        total_dois = common_vars["total_dois"]
 
         # Assessment logic
         red_flag_weight = len(red_flags)
