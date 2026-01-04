@@ -118,6 +118,31 @@ class QueryDispatcher:
 
         # Acronym fallback: If initial query yields no confident results and input looks
         # like an acronym with a cached expansion, retry with the expanded name
+        return await self._try_acronym_fallback(
+            assessment_result, query_input, enabled_backends, start_time
+        )
+
+    async def _try_acronym_fallback(
+        self,
+        assessment_result: AssessmentResult,
+        query_input: QueryInput,
+        enabled_backends: list[Backend],
+        start_time: float,
+    ) -> AssessmentResult:
+        """Try acronym expansion fallback if initial results are not confident.
+
+        If initial query yields no confident results and input looks like an acronym
+        with a cached expansion, retry with the expanded name.
+
+        Args:
+            assessment_result: The initial assessment result
+            query_input: The original query input
+            enabled_backends: List of enabled backends for re-querying
+            start_time: Start time for processing time calculation
+
+        Returns:
+            Either the original assessment_result or improved result from acronym expansion
+        """
         if self._should_try_acronym_fallback(assessment_result, query_input):
             normalizer = InputNormalizer()
             acronym_cache = AcronymCache()
