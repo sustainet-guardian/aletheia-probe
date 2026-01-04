@@ -566,32 +566,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         return assessment, confidence
 
-    def _generate_reasoning(
-        self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate human-readable reasoning for the assessment."""
-        reasoning = []
-
-        if green_flags:
-            reasoning.append("Positive metadata indicators:")
-            reasoning.extend([f"  • {flag}" for flag in green_flags])
-
-        if red_flags:
-            reasoning.append("Concerning metadata patterns:")
-            reasoning.extend([f"  • {flag}" for flag in red_flags])
-
-        # Add summary statistics
-        reasoning.append(f"Publisher: {metrics['publisher']}")
-        reasoning.append(f"Total DOIs registered: {metrics['total_dois']:,}")
-        reasoning.append(
-            f"Overall metadata quality: {metrics['overall_metadata_quality']:.1f}%"
-        )
-
-        if not green_flags and not red_flags:
-            reasoning.append("Limited metadata available for assessment")
-
-        return reasoning
-
 
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
