@@ -462,7 +462,9 @@ class BibtexBatchAssessor:
                 assessment_lines.append(
                     f"    {emoji} {name}: {legitimate_count}/{total_count}"
                 )
-        assessment_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
+        assessment_lines.append(
+            f"  Insufficient data: {result.insufficient_data_count}"
+        )
 
         return assessment_lines
 
@@ -626,15 +628,15 @@ class BibtexBatchAssessor:
         summary_lines = []
 
         # Build summary using extracted helper methods
-        summary_lines.extend(cls._format_header_section(result))
-        summary_lines.extend(cls._format_assessment_results(result))
-        summary_lines.extend(cls._format_venue_breakdown(result))
-        summary_lines.extend(cls._format_retraction_summary(result))
-        summary_lines.extend(cls._format_overall_result(result))
+        summary_lines.extend(BibtexBatchAssessor._format_header_section(result))
+        summary_lines.extend(BibtexBatchAssessor._format_assessment_results(result))
+        summary_lines.extend(BibtexBatchAssessor._format_venue_breakdown(result))
+        summary_lines.extend(BibtexBatchAssessor._format_retraction_summary(result))
+        summary_lines.extend(BibtexBatchAssessor._format_overall_result(result))
 
         # Add detailed results if verbose
         if verbose:
-            summary_lines.extend(cls._format_detailed_results(result))
+            summary_lines.extend(BibtexBatchAssessor._format_detailed_results(result))
 
         return "\n".join(summary_lines)
 
