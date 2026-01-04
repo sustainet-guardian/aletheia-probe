@@ -267,36 +267,49 @@ class BibtexBatchAssessor:
         return result
 
     @staticmethod
-    def format_summary(result: BibtexAssessmentResult, verbose: bool = False) -> str:
-        """Format a summary of the batch assessment results.
+    def _format_header_section(result: BibtexAssessmentResult) -> list[str]:
+        """Format the header section of the assessment summary.
 
         Args:
             result: The batch assessment result
-            verbose: Whether to include detailed information
 
         Returns:
-            Formatted summary string
+            List of formatted header lines
         """
-        summary_lines = []
+        header_lines = []
 
         # Header
-        summary_lines.append("BibTeX Assessment Summary")
-        summary_lines.append("=" * 40)
-        summary_lines.append(f"File: {result.file_path}")
-        summary_lines.append(f"Total entries in file: {result.total_entries}")
-        summary_lines.append(f"Entries assessed: {result.entries_with_journals}")
+        header_lines.append("BibTeX Assessment Summary")
+        header_lines.append("=" * 40)
+        header_lines.append(f"File: {result.file_path}")
+        header_lines.append(f"Total entries in file: {result.total_entries}")
+        header_lines.append(f"Entries assessed: {result.entries_with_journals}")
         if result.preprint_entries_count > 0:
-            summary_lines.append(f"Skipped preprints: {result.preprint_entries_count}")
+            header_lines.append(f"Skipped preprints: {result.preprint_entries_count}")
         if result.skipped_entries_count > 0:
-            summary_lines.append(
+            header_lines.append(
                 f"Skipped other entries: {result.skipped_entries_count}"
             )
-        summary_lines.append(f"Processing time: {result.processing_time:.2f}s")
-        summary_lines.append("")
+        header_lines.append(f"Processing time: {result.processing_time:.2f}s")
+        header_lines.append("")
+
+        return header_lines
+
+    @staticmethod
+    def _format_assessment_results(result: BibtexAssessmentResult) -> list[str]:
+        """Format the assessment results section.
+
+        Args:
+            result: The batch assessment result
+
+        Returns:
+            List of formatted assessment result lines
+        """
+        assessment_lines = []
 
         # Assessment summary
-        summary_lines.append("Assessment Results:")
-        summary_lines.append(f"  Predatory: {result.predatory_count} total")
+        assessment_lines.append("Assessment Results:")
+        assessment_lines.append(f"  Predatory: {result.predatory_count} total")
 
         # Display venue types with assessment breakdown where available
         predatory_venue_display = [
@@ -317,7 +330,7 @@ class BibtexBatchAssessor:
 
         for emoji, name, total_count, predatory_count in predatory_venue_display:
             if total_count > 0:
-                summary_lines.append(
+                assessment_lines.append(
                     f"    {emoji} {name}: {predatory_count}/{total_count}"
                 )
 
@@ -329,8 +342,8 @@ class BibtexBatchAssessor:
         for venue_type, (emoji, name) in predatory_venue_types.items():
             count = result.venue_type_counts.get(venue_type, 0)
             if count > 0:
-                summary_lines.append(f"    {emoji} {name}: {count}")
-        summary_lines.append(f"  Suspicious: {result.suspicious_count} total")
+                assessment_lines.append(f"    {emoji} {name}: {count}")
+        assessment_lines.append(f"  Suspicious: {result.suspicious_count} total")
 
         # Display venue types with assessment breakdown for suspicious
         suspicious_venue_display = [
@@ -350,10 +363,10 @@ class BibtexBatchAssessor:
 
         for emoji, name, total_count, suspicious_count in suspicious_venue_display:
             if total_count > 0:
-                summary_lines.append(
+                assessment_lines.append(
                     f"    {emoji} {name}: {suspicious_count}/{total_count}"
                 )
-        summary_lines.append(f"  Legitimate: {result.legitimate_count} total")
+        assessment_lines.append(f"  Legitimate: {result.legitimate_count} total")
 
         # Display venue types with assessment breakdown for legitimate
         legitimate_venue_display = [
@@ -373,15 +386,29 @@ class BibtexBatchAssessor:
 
         for emoji, name, total_count, legitimate_count in legitimate_venue_display:
             if total_count > 0:
-                summary_lines.append(
+                assessment_lines.append(
                     f"    {emoji} {name}: {legitimate_count}/{total_count}"
                 )
-        summary_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
+        assessment_lines.append(f"  Insufficient data: {result.insufficient_data_count}")
+
+        return assessment_lines
+
+    @staticmethod
+    def _format_venue_breakdown(result: BibtexAssessmentResult) -> list[str]:
+        """Format the venue type breakdown section.
+
+        Args:
+            result: The batch assessment result
+
+        Returns:
+            List of formatted venue breakdown lines
+        """
+        venue_lines = []
 
         # Venue type breakdown
         if result.venue_type_counts:
-            summary_lines.append("")
-            summary_lines.append("Venue Type Breakdown:")
+            venue_lines.append("")
+            venue_lines.append("Venue Type Breakdown:")
 
             for venue_type, count in result.venue_type_counts.items():
                 if count > 0:
@@ -389,21 +416,49 @@ class BibtexBatchAssessor:
                     type_name = venue_type.value.title() + (
                         "s" if venue_type != VenueType.UNKNOWN else " venue type"
                     )
-                    summary_lines.append(f"  {emoji} {type_name}: {count}")
-        summary_lines.append("")
+                    venue_lines.append(f"  {emoji} {type_name}: {count}")
+        venue_lines.append("")
+
+        return venue_lines
+
+    @staticmethod
+    def _format_retraction_summary(result: BibtexAssessmentResult) -> list[str]:
+        """Format the retraction summary section.
+
+        Args:
+            result: The batch assessment result
+
+        Returns:
+            List of formatted retraction summary lines
+        """
+        retraction_lines = []
 
         # Retraction summary
         if result.articles_checked_for_retraction > 0:
-            summary_lines.append("Article Retraction Check:")
-            summary_lines.append(
+            retraction_lines.append("Article Retraction Check:")
+            retraction_lines.append(
                 f"  Articles checked: {result.articles_checked_for_retraction}"
             )
-            summary_lines.append(
+            retraction_lines.append(
                 f"  Retracted articles: {result.retracted_articles_count}"
             )
             if result.retracted_articles_count > 0:
-                summary_lines.append("  ⚠️  WARNING: Retracted articles found!")
-            summary_lines.append("")
+                retraction_lines.append("  ⚠️  WARNING: Retracted articles found!")
+            retraction_lines.append("")
+
+        return retraction_lines
+
+    @staticmethod
+    def _format_overall_result(result: BibtexAssessmentResult) -> list[str]:
+        """Format the overall result section.
+
+        Args:
+            result: The batch assessment result
+
+        Returns:
+            List of formatted overall result lines
+        """
+        result_lines = []
 
         # Overall result
         if result.has_predatory_journals or result.retracted_articles_count > 0:
@@ -412,17 +467,31 @@ class BibtexBatchAssessor:
                 warnings.append("Predatory journals detected")
             if result.retracted_articles_count > 0:
                 warnings.append("Retracted articles detected")
-            summary_lines.append(f"⚠️  WARNING: {', '.join(warnings)}!")
+            result_lines.append(f"⚠️  WARNING: {', '.join(warnings)}!")
         else:
-            summary_lines.append(
+            result_lines.append(
                 "✅ No predatory journals or retracted articles detected"
             )
 
+        return result_lines
+
+    @staticmethod
+    def _format_detailed_results(result: BibtexAssessmentResult) -> list[str]:
+        """Format the detailed results section.
+
+        Args:
+            result: The batch assessment result
+
+        Returns:
+            List of formatted detailed result lines
+        """
+        detailed_lines = []
+
         # Detailed results if verbose
-        if verbose and result.assessment_results:
-            summary_lines.append("")
-            summary_lines.append("Detailed Results:")
-            summary_lines.append("-" * 40)
+        if result.assessment_results:
+            detailed_lines.append("")
+            detailed_lines.append("Detailed Results:")
+            detailed_lines.append("-" * 40)
 
             for entry, assessment in result.assessment_results:
                 emoji_map: dict[str, str] = {
@@ -441,7 +510,7 @@ class BibtexBatchAssessor:
                 # Add venue type indicator
                 venue_type_emoji = VENUE_TYPE_EMOJI.get(entry.venue_type, "❓")
 
-                summary_lines.append(
+                detailed_lines.append(
                     f"{status_emoji} {venue_type_emoji} {entry.journal_name} "
                     f"({assessment.assessment}, confidence: {assessment.confidence:.2f})"
                     f"{retraction_indicator}"
@@ -455,18 +524,44 @@ class BibtexBatchAssessor:
                     retraction_date = entry.retraction_info.get(
                         "retraction_date", "unknown"
                     )
-                    summary_lines.append(
+                    detailed_lines.append(
                         f"    🚫 RETRACTED: type={retraction_type}, date={retraction_date}"
                     )
                     if entry.retraction_info.get("retraction_reason"):
-                        summary_lines.append(
+                        detailed_lines.append(
                             f"       Reason: {entry.retraction_info['retraction_reason']}"
                         )
 
                 # Show reasoning if available
                 if assessment.reasoning:
                     for reason in assessment.reasoning[:2]:  # Show first 2 reasons
-                        summary_lines.append(f"    • {reason}")
+                        detailed_lines.append(f"    • {reason}")
+
+        return detailed_lines
+
+    @staticmethod
+    def format_summary(result: BibtexAssessmentResult, verbose: bool = False) -> str:
+        """Format a summary of the batch assessment results.
+
+        Args:
+            result: The batch assessment result
+            verbose: Whether to include detailed information
+
+        Returns:
+            Formatted summary string
+        """
+        summary_lines = []
+
+        # Build summary using extracted helper methods
+        summary_lines.extend(cls._format_header_section(result))
+        summary_lines.extend(cls._format_assessment_results(result))
+        summary_lines.extend(cls._format_venue_breakdown(result))
+        summary_lines.extend(cls._format_retraction_summary(result))
+        summary_lines.extend(cls._format_overall_result(result))
+
+        # Add detailed results if verbose
+        if verbose:
+            summary_lines.extend(cls._format_detailed_results(result))
 
         return "\n".join(summary_lines)
 
