@@ -7,15 +7,43 @@ from typing import Any
 
 import aiohttp
 
-from ..constants import (
-    MIN_ABSTRACT_LENGTH,
-    MIN_AUTHOR_INFO_COMPLETENESS,
-    MIN_REFERENCE_COUNT,
-)
 from ..enums import AssessmentType
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
+
+
+# Local thresholds for Crossref metadata analysis
+_ORCID_HIGH = 70.0
+_ORCID_GOOD = 40.0
+_ORCID_LOW = 10.0
+_ORCID_VERY_LOW = 5.0
+
+_FUNDING_GOOD = 40.0
+_FUNDING_MODERATE = 20.0
+_FUNDING_MINIMAL = 2.0
+
+_LICENSE_EXCELLENT = 80.0
+_LICENSE_GOOD = 50.0
+_LICENSE_POOR = 5.0
+
+_REFERENCE_GOOD = 60.0
+
+_QUALITY_HIGH = 60.0
+_QUALITY_GOOD = 40.0
+_QUALITY_LOW = 25.0
+_QUALITY_POOR = 15.0
+_QUALITY_POOR_PRACTICES = 30.0
+
+_DOI_MAJOR = 100000
+_DOI_LARGE = 10000
+_DOI_SUBSTANTIAL = 1000
+_DOI_MEDIUM = 500
+_DOI_SMALL = 100
+_DOI_VERY_SMALL = 50
+
+_EXPLOSION_MULTIPLIER = 3.0
+_EXPLOSION_MIN_COUNT = 500
 
 
 class CrossrefAnalyzerBackend(ApiBackendWithCache):
@@ -44,6 +72,50 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
     def get_name(self) -> str:
         """Return backend name."""
         return "crossref_analyzer"
+
+    def _is_small_to_medium_journal(self, total_dois: int) -> bool:
+        """Check if journal is in the small-to-medium size range for targeted analysis."""
+        return _DOI_SMALL <= total_dois < _DOI_LARGE
+
+    def _is_very_small_journal(self, total_dois: int) -> bool:
+        """Check if journal is very small (less than 50 DOIs)."""
+        return total_dois < _DOI_VERY_SMALL
+
+    def _adjust_confidence_by_volume(self, confidence: float, total_dois: int) -> float:
+        """Adjust confidence based on publication volume (more DOIs = more reliable assessment)."""
+        if total_dois >= _DOI_SUBSTANTIAL:
+            return min(1.0, confidence * 1.1)  # Boost for high-volume publishers
+        elif self._is_very_small_journal(total_dois):
+            return max(0.1, confidence * 0.8)  # Reduce for low-volume publishers
+        return confidence
+
+    def _check_orcid_quality(self, orcid_score: float) -> str | None:
+        """Check ORCID adoption level and return description if notable."""
+        if orcid_score >= _ORCID_HIGH:
+            return (
+                f"High ORCID adoption: {orcid_score}% of articles include author ORCIDs"
+            )
+        elif orcid_score >= _ORCID_GOOD:
+            return (
+                f"Good ORCID adoption: {orcid_score}% of articles include author ORCIDs"
+            )
+        return None
+
+    def _check_funding_quality(self, funding_score: float) -> str | None:
+        """Check funding transparency level and return description if notable."""
+        if funding_score >= _FUNDING_GOOD:
+            return f"Good funding transparency: {funding_score}% of articles include funding information"
+        elif funding_score >= _FUNDING_MODERATE:
+            return f"Moderate funding transparency: {funding_score}% of articles include funding information"
+        return None
+
+    def _check_license_quality(self, license_score: float) -> str | None:
+        """Check license documentation level and return description if notable."""
+        if license_score >= _LICENSE_EXCELLENT:
+            return f"Excellent license documentation: {license_score}% of articles have license information"
+        elif license_score >= _LICENSE_GOOD:
+            return f"Good license documentation: {license_score}% of articles have license information"
+        return None
 
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query Crossref API and analyze metadata quality."""
@@ -265,7 +337,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         total_dois = metrics["total_dois"]
         overall_quality = metrics["overall_metadata_quality"]
-        publisher = metrics["publisher"]
 
         # Extract quality scores
         orcid_score = quality_scores.get("orcids", 0)
@@ -276,95 +347,46 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         # GREEN FLAGS (indicators of legitimate practices)
 
         # High ORCID adoption indicates professional publishing practices
-        orcid_score = quality_scores.get("orcids", 0)
-        if orcid_score >= 70:
-            green_flags.append(
-                f"High ORCID adoption: {orcid_score}% of articles include author ORCIDs"
-            )
-        elif orcid_score >= 40:
-            green_flags.append(
-                f"Good ORCID adoption: {orcid_score}% of articles include author ORCIDs"
-            )
+        orcid_flag = self._check_orcid_quality(orcid_score)
+        if orcid_flag:
+            green_flags.append(orcid_flag)
 
         # Funding data indicates proper research documentation
-        funders_score = quality_scores.get("funders", 0)
-        if funders_score >= 40:
-            green_flags.append(
-                f"Good funding transparency: {funders_score}% of articles include funding information"
-            )
-        elif funders_score >= 20:
-            green_flags.append(
-                f"Moderate funding transparency: {funders_score}% of articles include funding information"
-            )
+        funding_flag = self._check_funding_quality(funders_score)
+        if funding_flag:
+            green_flags.append(funding_flag)
 
         # License information indicates proper open access practices
-        license_score = quality_scores.get("licenses", 0)
-        if license_score >= 80:
-            green_flags.append(
-                f"Excellent license documentation: {license_score}% of articles have license information"
-            )
-        elif license_score >= MIN_ABSTRACT_LENGTH:
-            green_flags.append(
-                f"Good license documentation: {license_score}% of articles have license information"
-            )
+        license_flag = self._check_license_quality(license_score)
+        if license_flag:
+            green_flags.append(license_flag)
 
         # Reference linking indicates scholarly rigor
-        references_score = quality_scores.get("references", 0)
-        if references_score >= 60:
+        if references_score >= _REFERENCE_GOOD:
             green_flags.append(
                 f"Good reference linking: {references_score}% of articles have linked references"
             )
 
         # Overall high metadata quality
-        if overall_quality >= 60:
+        if overall_quality >= _QUALITY_HIGH:
             green_flags.append(
                 f"High overall metadata quality: {overall_quality:.1f}% average across key fields"
             )
-        elif overall_quality >= 40:
+        elif overall_quality >= _QUALITY_GOOD:
             green_flags.append(
                 f"Good overall metadata quality: {overall_quality:.1f}% average across key fields"
             )
 
-        # Publisher assessment (basic name check for known legitimate publishers)
-        known_publishers = [
-            "springer",
-            "elsevier",
-            "wiley",
-            "ieee",
-            "acm",
-            "nature",
-            "science",
-            "taylor & francis",
-            "sage",
-            "oxford",
-            "cambridge",
-            "mit press",
-            "american chemical society",
-            "royal society",
-            "plos",
-            "frontiers",
-            "mdpi",
-            "bmj",
-            "lancet",
-            "karger",
-            "thieme",
-        ]
-
-        publisher_lower = publisher.lower()
-        is_known_publisher = any(known in publisher_lower for known in known_publishers)
-        if is_known_publisher:
-            green_flags.append(f"Recognized publisher: {publisher}")
-
         # Substantial publication volume indicates established operation
-        if total_dois >= 100000:
+        if total_dois >= _DOI_MAJOR:
             green_flags.append(
                 f"Major publisher volume: {total_dois:,} DOIs registered (well-established)"
             )
-        elif total_dois >= 10000:
+        elif total_dois >= _DOI_LARGE:
             green_flags.append(
                 f"Large publication volume: {total_dois:,} DOIs registered"
             )
-        elif total_dois >= 1000:
+        elif total_dois >= _DOI_SUBSTANTIAL:
             green_flags.append(
                 f"Substantial publication volume: {total_dois:,} DOIs registered"
             )
@@ -391,7 +413,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         total_dois = metrics["total_dois"]
         overall_quality = metrics["overall_metadata_quality"]
-        publisher = metrics["publisher"]
         dois_by_year = metrics.get("dois_by_year", [])
 
         # Extract quality scores
@@ -403,16 +424,14 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         # Very low ORCID adoption suggests poor editorial standards
         # BUT: account for established journals with lots of historical content
-        if orcid_score < 5 and total_dois >= 100 and total_dois < 10000:
+        if orcid_score < _ORCID_VERY_LOW and self._is_small_to_medium_journal(
+            total_dois
+        ):
             # Only flag if it's a smaller journal (not a major established one)
             red_flags.append(
                 f"Very low ORCID adoption: only {orcid_score}% of articles include author ORCIDs"
             )
-        elif (
-            orcid_score < MIN_REFERENCE_COUNT
-            and total_dois >= 500
-            and total_dois < 50000
-        ):
+        elif orcid_score < _ORCID_LOW and _DOI_MEDIUM <= total_dois < _DOI_MEDIUM * 100:
             # Moderate flag for medium-sized journals
             red_flags.append(
                 f"Low ORCID adoption: only {orcid_score}% of articles include author ORCIDs"
@@ -420,71 +439,36 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         # No funding information suggests poor research documentation
         # BUT: account for established journals and regional differences
-        if funders_score < 2 and total_dois >= 100 and total_dois < 10000:
+        if funders_score < _FUNDING_MINIMAL and self._is_small_to_medium_journal(
+            total_dois
+        ):
             red_flags.append(
                 f"Minimal funding transparency: only {funders_score}% of articles include funding information"
             )
 
         # Poor license documentation (mainly relevant for open access journals)
-        if license_score < 5 and total_dois >= 100 and total_dois < 10000:
+        if license_score < _LICENSE_POOR and self._is_small_to_medium_journal(
+            total_dois
+        ):
             red_flags.append(
                 f"Poor license documentation: only {license_score}% of articles have license information"
             )
 
         # Overall poor metadata quality
-        if overall_quality < 15:
+        if overall_quality < _QUALITY_POOR:
             red_flags.append(
                 f"Poor overall metadata quality: {overall_quality:.1f}% average across key fields"
             )
-        elif overall_quality < 25:
+        elif overall_quality < _QUALITY_LOW:
             red_flags.append(
                 f"Low overall metadata quality: {overall_quality:.1f}% average across key fields"
             )
 
-        # Suspicious publisher names (basic heuristics)
-        suspicious_words = [
-            "international",
-            "global",
-            "world",
-            "universal",
-            "advanced",
-            "modern",
-            "open",
-        ]
-
-        # Define publisher variables needed for analysis
-        publisher_lower = publisher.lower()
-        known_publishers = [
-            "springer",
-            "elsevier",
-            "wiley",
-            "ieee",
-            "acm",
-            "oxford",
-            "cambridge",
-            "nature",
-            "science",
-            "cell",
-            "plos",
-            "bmj",
-            "nejm",
-            "lancet",
-            "karger",
-            "thieme",
-        ]
-        is_known_publisher = any(known in publisher_lower for known in known_publishers)
-
-        publisher_words = publisher_lower.split()
-        suspicious_count = sum(
-            1 for word in suspicious_words if word in publisher_words
-        )
-        if suspicious_count >= 2 and not is_known_publisher:
-            red_flags.append(
-                f"Potentially suspicious publisher name: '{publisher}' contains multiple generic terms"
-            )
-
         # Very new publisher with minimal metadata quality
-        if total_dois < MIN_ABSTRACT_LENGTH and overall_quality < 30:
+        if (
+            self._is_very_small_journal(total_dois)
+            and overall_quality < _QUALITY_POOR_PRACTICES
+        ):
             red_flags.append(
                 f"New operation with poor practices: only {total_dois} DOIs and {overall_quality:.1f}% metadata quality"
             )
@@ -511,7 +495,10 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                         yearly_counts[year] for year in recent_years[:-1]
                     ) / (len(recent_years) - 1)
 
-                    if latest_year_count > previous_avg * 3 and latest_year_count > 500:
+                    if (
+                        latest_year_count > previous_avg * _EXPLOSION_MULTIPLIER
+                        and latest_year_count > _EXPLOSION_MIN_COUNT
+                    ):
                         red_flags.append(
                             f"Recent publication explosion: {latest_year_count} DOIs in {recent_years[-1]} vs {previous_avg:.0f} average"
                         )
@@ -554,15 +541,8 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             assessment = None
             confidence = 0.30
 
-        # Adjust confidence based on data volume (more DOIs = more reliable assessment)
-        if total_dois >= 1000:
-            confidence = min(
-                1.0, confidence * 1.1
-            )  # Boost confidence for high-volume publishers
-        elif total_dois < MIN_ABSTRACT_LENGTH:
-            confidence = max(
-                0.1, confidence * MIN_AUTHOR_INFO_COMPLETENESS
-            )  # Reduce confidence for low-volume publishers
+        # Adjust confidence based on data volume
+        confidence = self._adjust_confidence_by_volume(confidence, total_dois)
 
         return assessment, confidence
 
