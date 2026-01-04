@@ -1,8 +1,46 @@
 # SPDX-License-Identifier: MIT
 """Risk level calculation utilities for retraction data."""
 
-from .constants import RETRACTION_THRESHOLDS
+from dataclasses import dataclass
+
 from .enums import RiskLevel
+
+
+@dataclass(frozen=True)
+class RetractionThresholds:
+    """Thresholds for assessing retraction risk levels.
+
+    Research shows average retraction rate: ~0.02-0.04%
+    Unified thresholds balancing different implementations.
+    """
+
+    # Rate-based thresholds (percentage)
+    rate_critical: float = 3.0  # Very high rate
+    rate_high: float = 1.5  # High rate
+    rate_moderate: float = 0.8  # Moderate rate
+    rate_low: float = 0.1  # Elevated rate
+
+    # Recent rate thresholds (percentage)
+    recent_rate_critical: float = 4.0
+    recent_rate_high: float = 2.5
+    recent_rate_moderate: float = 1.2
+    recent_rate_low: float = 0.2
+
+    # Absolute count fallback thresholds
+    count_critical: int = 21
+    count_high: int = 11
+    count_moderate: int = 6
+    count_low: int = 2
+
+    # Recent count fallback thresholds
+    recent_count_critical: int = 10
+    recent_count_high: int = 5
+    recent_count_moderate: int = 3
+    recent_count_low: int = 2
+
+
+# Instance for use throughout the application
+RETRACTION_THRESHOLDS = RetractionThresholds()
 
 
 def calculate_retraction_risk_level(

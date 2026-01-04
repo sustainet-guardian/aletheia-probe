@@ -5,28 +5,160 @@ import html
 import re
 from collections.abc import Callable
 
-from .constants import (
-    ACRONYM_SKIP_KEYWORDS,
-    ACRONYM_UPPERCASE_THRESHOLD,
-    COMMON_ABBREVIATIONS,
-    COMMON_ACRONYMS,
-    JOURNAL_OF_PREFIX_LENGTH,
-    MAX_ACRONYM_LENGTH,
-    MAX_INPUT_LENGTH,
-    MAX_STANDALONE_ACRONYM_LENGTH,
-    MIN_ACRONYM_LENGTH,
-    MIN_ACRONYM_MAPPING_LENGTH_MULTIPLIER,
-    MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH,
-    NORMALIZER_CLEANUP_PATTERNS,
-    PREFIX_JOURNAL_OF,
-    PREFIX_PROCEEDINGS_OF,
-    PREFIX_THE,
-    PROCEEDINGS_OF_PREFIX_LENGTH,
-    STOP_WORDS,
-    THE_PREFIX_LENGTH,
-)
 from .logging_config import get_detail_logger
 from .models import QueryInput
+
+
+# Normalization and Validation constants
+MAX_INPUT_LENGTH: int = 1000
+ACRONYM_UPPERCASE_THRESHOLD: float = 0.5
+MIN_ACRONYM_MAPPING_LENGTH_MULTIPLIER: int = 2
+MIN_ACRONYM_LENGTH: int = 2
+MAX_ACRONYM_LENGTH: int = 20
+MAX_STANDALONE_ACRONYM_LENGTH: int = 10
+
+# Conference name normalization and comparison
+MIN_CONFERENCE_NAME_LENGTH_FOR_SUBSTRING_MATCH: int = 10
+
+# Prefix strings for normalization
+PREFIX_JOURNAL_OF: str = "Journal of "
+JOURNAL_OF_PREFIX_LENGTH: int = len(PREFIX_JOURNAL_OF)
+PREFIX_THE: str = "The "
+THE_PREFIX_LENGTH: int = len(PREFIX_THE)
+PREFIX_PROCEEDINGS_OF: str = "Proceedings of "
+PROCEEDINGS_OF_PREFIX_LENGTH: int = len(PREFIX_PROCEEDINGS_OF)
+
+# Text cleaning patterns
+NORMALIZER_CLEANUP_PATTERNS: list[tuple[str, str]] = [
+    (r"[^\w\s\-&().,:]", " "),  # Replace special characters with space
+    (r"\s+", " "),  # Multiple whitespace to single space
+    (r"\s*:\s*", ": "),  # Normalize colons
+    (r"\s*-\s*", " - "),  # Normalize dashes
+    (r"\s*&\s*", " & "),  # Normalize ampersands
+]
+
+# Common acronyms that should remain uppercase
+COMMON_ACRONYMS: set[str] = {
+    "IEEE",
+    "ACM",
+    "SIGCOMM",
+    "SIGCHI",
+    "SIGKDD",
+    "SIGMOD",
+    "SIGPLAN",
+    "VLDB",
+    "ICML",
+    "NIPS",
+    "NEURIPS",
+    "ICLR",
+    "AAAI",
+    "IJCAI",
+    "CIKM",
+    "WWW",
+    "KDD",
+    "ICDM",
+    "SDM",
+    "PAKDD",
+    "ECML",
+    "PKDD",
+    "CLOUD",
+    "NASA",
+    "NIH",
+    "NSF",
+    "DARPA",
+    "NIST",
+    "ISO",
+    "IEC",
+    "ITU",
+    "RFC",
+    "HTTP",
+    "TCP",
+    "IP",
+    "UDP",
+    "DNS",
+    "SSL",
+    "TLS",
+    "AI",
+    "ML",
+    "NLP",
+    "CV",
+    "HCI",
+    "DB",
+    "OS",
+    "SE",
+    "PL",
+    "UK",
+    "USA",
+    "US",
+    "EU",
+    "UN",
+    "WHO",
+    "NATO",
+}
+
+# Common abbreviation expansions
+COMMON_ABBREVIATIONS: dict[str, str] = {
+    "J.": "Journal",
+    "Jrnl": "Journal",
+    "Int.": "International",
+    "Intl": "International",
+    "Nat.": "National",
+    "Sci.": "Science",
+    "Tech.": "Technology",
+    "Rev.": "Review",
+    "Res.": "Research",
+    "Proc.": "Proceedings",
+    "Trans.": "Transactions",
+    "Ann.": "Annual",
+    "Q.": "Quarterly",
+}
+
+# Keywords that indicate metadata, not acronyms
+ACRONYM_SKIP_KEYWORDS: set[str] = {
+    "issn",
+    "isbn",
+    "doi",
+    "online",
+    "print",
+    "invited",
+    "accepted",
+    "to appear",
+}
+
+# Common words to ignore for comparison (e.g., "journal of", "the")
+STOP_WORDS: set[str] = {
+    "a",
+    "an",
+    "and",
+    "the",
+    "of",
+    "in",
+    "on",
+    "for",
+    "with",
+    "at",
+    "by",
+    "to",
+    "from",
+    "as",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "can",
+    "will",
+    "or",
+    "but",
+    "not",
+    "do",
+    "journal",
+    "international",
+    "conference",
+    "proceedings",
+}
 
 
 class InputNormalizer:

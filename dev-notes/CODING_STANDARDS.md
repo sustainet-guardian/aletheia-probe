@@ -27,9 +27,10 @@ This project adheres to the following Python Enhancement Proposals (PEPs) and co
 1. [Python Version and Tools](#python-version-and-tools)
 2. [Project-Specific Conventions](#project-specific-conventions)
 3. [Domain-Specific Patterns](#domain-specific-patterns)
-4. [Security Practices](#security-practices)
-5. [Database Operations](#database-operations)
-6. [Testing Standards](#testing-standards)
+4. [Constants Organization](#constants-organization)
+5. [Security Practices](#security-practices)
+6. [Database Operations](#database-operations)
+7. [Testing Standards](#testing-standards)
 
 ---
 
@@ -215,6 +216,24 @@ See **[LOGGING_USAGE.md](LOGGING_USAGE.md)** for complete documentation on:
 - Detail logger vs. status logger
 - When to use each logger
 - Usage examples and best practices
+
+---
+
+## Constants Organization
+
+Constants should be co-located with their primary usage for better code cohesion.
+
+**Centralized (`constants.py`)**: Only for multi-module shared values (confidence thresholds, defaults)
+**Co-located**: Domain-specific constants go in their implementation files
+
+```python
+# constants.py - shared across modules
+CONFIDENCE_THRESHOLD_HIGH: float = 0.98
+
+# normalizer.py - single module usage
+MAX_INPUT_LENGTH: int = 1000
+COMMON_ACRONYMS: set[str] = {"IEEE", "ACM", ...}
+```
 
 ---
 
