@@ -3,6 +3,7 @@
 
 import asyncio
 import time
+from datetime import datetime
 from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
@@ -13,6 +14,23 @@ from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
 from .crossref_analyzer import CrossrefAnalyzerBackend
 from .openalex_analyzer import OpenAlexAnalyzerBackend
+
+
+# Constants for cross-validation logic
+SINGLE_SOURCE_CONFIDENCE_PENALTY = 0.8
+AGREEMENT_BONUS = 0.15
+DISAGREEMENT_PENALTY = 0.7
+PARTIAL_DATA_REDUCTION_FACTOR = 0.9
+MINIMUM_CONFIDENCE_FLOOR = 0.1
+CONFIDENCE_DISCREPANCY_THRESHOLD = 1.2
+NO_ASSESSMENT_CONFIDENCE = 0.2
+CONSISTENCY_SUCCESS_BONUS = 0.05
+CONSISTENCY_WARNING_PENALTY = 0.1
+PUB_VOLUME_CONSISTENCY_THRESHOLD_HIGH = 0.7
+PUB_VOLUME_CONSISTENCY_THRESHOLD_LOW = 0.3
+MINIMUM_LICENSE_SCORE = 50
+RECENT_ACTIVITY_YEARS_THRESHOLD = 2
+INACTIVE_ACTIVITY_YEARS_THRESHOLD = 3
 
 
 class CrossValidatorBackend(ApiBackendWithCache):
@@ -231,7 +249,10 @@ class CrossValidatorBackend(ApiBackendWithCache):
         return {
             "status": BackendStatus.FOUND,
             "assessment": result.assessment,
-            "confidence": max(0.1, result.confidence * 0.8),
+            "confidence": max(
+                MINIMUM_CONFIDENCE_FLOOR,
+                result.confidence * SINGLE_SOURCE_CONFIDENCE_PENALTY,
+            ),
             "consistency_checks": [
                 f"Only found in {backend_name}, not in {other_backend_name}"
             ],
@@ -325,7 +346,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
         crossref_license_score = crossref_metrics.get("licenses", 0)
 
         if openalex_in_doaj:
-            if crossref_license_score >= 50:
+            if crossref_license_score >= MINIMUM_LICENSE_SCORE:
                 checks.append(
                     "✓ DOAJ listing consistent: Listed in DOAJ and good license reporting in Crossref"
                 )
@@ -342,11 +363,13 @@ class CrossValidatorBackend(ApiBackendWithCache):
             ratio = min(openalex_total, crossref_total) / max(
                 openalex_total, crossref_total
             )
-            if ratio >= 0.7:  # Within 30% of each other
+            if (
+                ratio >= PUB_VOLUME_CONSISTENCY_THRESHOLD_HIGH
+            ):  # Within 30% of each other
                 checks.append(
                     f"✓ Publication volumes consistent: {openalex_total:,} (OpenAlex) vs {crossref_total:,} (Crossref)"
                 )
-            elif ratio >= 0.3:
+            elif ratio >= PUB_VOLUME_CONSISTENCY_THRESHOLD_LOW:
                 checks.append(
                     f"⚠️ Moderate publication volume difference: {openalex_total:,} (OpenAlex) vs {crossref_total:,} (Crossref)"
                 )
@@ -360,10 +383,16 @@ class CrossValidatorBackend(ApiBackendWithCache):
         crossref_current_dois = crossref_data.get("counts", {}).get("current-dois", 0)
 
         if openalex_last_year and crossref_current_dois:
-            current_year = 2024  # Could use datetime.now().year
-            if openalex_last_year >= current_year - 2 and crossref_current_dois > 0:
+            current_year = datetime.now().year
+            if (
+                openalex_last_year >= current_year - RECENT_ACTIVITY_YEARS_THRESHOLD
+                and crossref_current_dois > 0
+            ):
                 checks.append("✓ Recent activity consistent in both databases")
-            elif openalex_last_year < current_year - 3 and crossref_current_dois == 0:
+            elif (
+                openalex_last_year < current_year - INACTIVE_ACTIVITY_YEARS_THRESHOLD
+                and crossref_current_dois == 0
+            ):
                 checks.append("✓ Inactive status consistent in both databases")
             else:
                 checks.append("⚠️ Activity status inconsistent between databases")
@@ -393,30 +422,36 @@ class CrossValidatorBackend(ApiBackendWithCache):
             and openalex_assessment is not None
         ):
             # Both backends agree on the assessment
-            agreement_bonus = 0.15
+            agreement_bonus = AGREEMENT_BONUS
             assessment_agreement = True
             final_assessment = openalex_assessment
             base_confidence = max(openalex_confidence, crossref_confidence)
         elif openalex_assessment is None and crossref_assessment is not None:
             # Only Crossref has an assessment
             final_assessment = crossref_assessment
-            base_confidence = crossref_confidence * 0.9
+            base_confidence = crossref_confidence * PARTIAL_DATA_REDUCTION_FACTOR
         elif crossref_assessment is None and openalex_assessment is not None:
             # Only OpenAlex has an assessment
             final_assessment = openalex_assessment
-            base_confidence = openalex_confidence * 0.9
+            base_confidence = openalex_confidence * PARTIAL_DATA_REDUCTION_FACTOR
         elif openalex_assessment != crossref_assessment:
             # Disagreement between backends
-            if openalex_confidence > crossref_confidence * 1.2:
+            if (
+                openalex_confidence
+                > crossref_confidence * CONFIDENCE_DISCREPANCY_THRESHOLD
+            ):
                 final_assessment = (
                     openalex_assessment or AssessmentType.INSUFFICIENT_DATA
                 )
-                base_confidence = openalex_confidence * 0.7
-            elif crossref_confidence > openalex_confidence * 1.2:
+                base_confidence = openalex_confidence * DISAGREEMENT_PENALTY
+            elif (
+                crossref_confidence
+                > openalex_confidence * CONFIDENCE_DISCREPANCY_THRESHOLD
+            ):
                 final_assessment = (
                     crossref_assessment or AssessmentType.INSUFFICIENT_DATA
                 )
-                base_confidence = crossref_confidence * 0.7
+                base_confidence = crossref_confidence * DISAGREEMENT_PENALTY
             else:
                 # Confidence levels are similar but assessments disagree - inconclusive
                 final_assessment = None
@@ -424,7 +459,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
         else:
             # Both backends returned None assessment
             final_assessment = None
-            base_confidence = 0.2
+            base_confidence = NO_ASSESSMENT_CONFIDENCE
 
         return final_assessment, base_confidence, agreement_bonus, assessment_agreement
 
@@ -442,9 +477,11 @@ class CrossValidatorBackend(ApiBackendWithCache):
         success_count = sum(1 for check in consistency_checks if "✓" in check)
 
         if warning_count >= 2:
-            final_confidence = max(0.1, final_confidence - 0.1)
+            final_confidence = max(
+                MINIMUM_CONFIDENCE_FLOOR, final_confidence - CONSISTENCY_WARNING_PENALTY
+            )
         elif success_count >= 2:
-            final_confidence = min(1.0, final_confidence + 0.05)
+            final_confidence = min(1.0, final_confidence + CONSISTENCY_SUCCESS_BONUS)
 
         return final_confidence
 
