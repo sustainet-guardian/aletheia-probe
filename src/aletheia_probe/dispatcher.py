@@ -65,6 +65,11 @@ class QueryDispatcher:
     """
 
     def __init__(self) -> None:
+        """Initialize the QueryDispatcher.
+
+        Loads configuration, initializes loggers, and sets up the central
+        orchestration state.
+        """
         self.config_manager = get_config_manager()
         self.config = self.config_manager.load_config()
         self.detail_logger = get_detail_logger()
