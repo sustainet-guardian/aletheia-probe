@@ -75,6 +75,12 @@ def handle_cli_errors(func: F) -> F:
 
     This decorator should be applied to Click command functions to reduce
     boilerplate try-except blocks throughout the CLI module.
+
+    Args:
+        func: The CLI command function to wrap.
+
+    Returns:
+        The wrapped function with error handling.
     """
 
     @functools.wraps(func)
@@ -99,7 +105,13 @@ def handle_cli_errors(func: F) -> F:
 
 
 def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> None:
-    """Print version and exit if requested."""
+    """Print version and exit if requested.
+
+    Args:
+        ctx: Click context.
+        param: Click parameter.
+        value: Whether to print version information.
+    """
     if value:
         # Ensure logging is set up before using it (--version is eager)
         setup_logging()
@@ -124,7 +136,12 @@ def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> No
 )
 @click.pass_context
 def main(ctx: click.Context, config: Path | None) -> None:
-    """Aletheia-Probe - Assess whether journals are predatory or legitimate."""
+    """Aletheia-Probe - Assess whether journals are predatory or legitimate.
+
+    Args:
+        ctx: Click context.
+        config: Path to an optional configuration file.
+    """
     # Initialize logging on first command invocation
     detail_logger, status_logger = setup_logging()
     detail_logger.debug("CLI initialized")
@@ -148,7 +165,10 @@ def main(ctx: click.Context, config: Path | None) -> None:
 def journal(journal_name: str, verbose: bool, output_format: str) -> None:
     """Assess whether a journal is predatory or legitimate.
 
-    JOURNAL_NAME: The name of the journal to assess
+    Args:
+        journal_name: The name of the journal to assess.
+        verbose: Whether to enable verbose output.
+        output_format: The format of the output (text or json).
     """
     asyncio.run(
         _async_assess_publication(journal_name, "journal", verbose, output_format)
@@ -168,7 +188,10 @@ def journal(journal_name: str, verbose: bool, output_format: str) -> None:
 def conference(conference_name: str, verbose: bool, output_format: str) -> None:
     """Assess whether a conference is predatory or legitimate.
 
-    CONFERENCE_NAME: The name of the conference to assess
+    Args:
+        conference_name: The name of the conference to assess.
+        verbose: Whether to enable verbose output.
+        output_format: The format of the output (text or json).
     """
     asyncio.run(
         _async_assess_publication(conference_name, "conference", verbose, output_format)
@@ -194,6 +217,10 @@ def sync(force: bool, backend_names: tuple[str, ...]) -> None:
       aletheia-probe sync              # Sync all backends
       aletheia-probe sync scopus       # Sync only scopus
       aletheia-probe sync bealls doaj  # Sync only bealls and doaj
+
+    Args:
+        force: Whether to force sync even if data appears fresh.
+        backend_names: Optional tuple of backend names to sync.
     """
     try:
         # The cache_sync_manager handles all output through the dual logger
@@ -229,6 +256,9 @@ def clear_cache(confirm: bool) -> None:
 
     This removes all cached assessment results, forcing fresh queries
     to all backends on next assessment.
+
+    Args:
+        confirm: Whether to skip the confirmation prompt.
     """
     status_logger = get_status_logger()
 
@@ -315,7 +345,10 @@ def status() -> None:
 def add_list(file_path: str, list_type: str, list_name: str) -> None:
     """Add a custom journal list from a file.
 
-    FILE_PATH: Path to CSV or JSON file containing journal names
+    Args:
+        file_path: Path to CSV or JSON file containing journal names.
+        list_type: Type of journals in the list (predatory, legitimate, etc.).
+        list_name: Name for the custom list source.
     """
     from .backends.base import get_backend_registry
     from .backends.custom_list import CustomListBackend
@@ -366,11 +399,14 @@ def bibtex(
 ) -> None:
     """Assess all journals in a BibTeX file for predatory status.
 
-    BIBTEX_FILE: Path to the BibTeX file to assess
+    Args:
+        bibtex_file: Path to the BibTeX file to assess.
+        verbose: Whether to enable verbose output.
+        output_format: The format of the output (text or json).
+        relax_bibtex: Whether to enable relaxed BibTeX parsing.
 
-    Returns exit code 1 if any predatory journals are found, 0 otherwise.
-    This allows the command to be used in automated scripts to check
-    if a bibliography contains predatory journals.
+    Returns:
+        None (exits with code 1 if predatory journals are found, 0 otherwise).
     """
     asyncio.run(_async_bibtex_main(bibtex_file, verbose, output_format, relax_bibtex))
 
@@ -444,7 +480,12 @@ def stats() -> None:
 @click.option("--offset", type=int, default=0, help="Number of entries to skip")
 @handle_cli_errors
 def list(limit: int | None, offset: int) -> None:
-    """List all acronym mappings in the database."""
+    """List all acronym mappings in the database.
+
+    Args:
+        limit: Maximum number of entries to display.
+        offset: Number of entries to skip.
+    """
     status_logger = get_status_logger()
 
     acronym_cache = AcronymCache()
@@ -479,7 +520,11 @@ def list(limit: int | None, offset: int) -> None:
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
 @handle_cli_errors
 def clear(confirm: bool) -> None:
-    """Clear all entries from the acronym database."""
+    """Clear all entries from the acronym database.
+
+    Args:
+        confirm: Whether to skip the confirmation prompt.
+    """
     status_logger = get_status_logger()
 
     if not confirm:
@@ -513,8 +558,11 @@ def clear(confirm: bool) -> None:
 def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
     """Manually add an acronym mapping to the database.
 
-    ACRONYM: The venue acronym (e.g., ICML, JMLR)
-    FULL_NAME: The full venue name
+    Args:
+        acronym: The venue acronym (e.g., ICML, JMLR).
+        full_name: The full venue name.
+        entity_type: Entity type: journal, conference, workshop, symposium, etc.
+        source: Source of the mapping (default: manual).
     """
     status_logger = get_status_logger()
 
@@ -529,7 +577,14 @@ def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
 async def _async_bibtex_main(
     bibtex_file: str, verbose: bool, output_format: str, relax_bibtex: bool
 ) -> None:
-    """Async main function for BibTeX assessment."""
+    """Async main function for BibTeX assessment.
+
+    Args:
+        bibtex_file: Path to the BibTeX file to assess.
+        verbose: Whether to enable verbose output.
+        output_format: The format of the output (text or json).
+        relax_bibtex: Whether to enable relaxed BibTeX parsing.
+    """
     status_logger = get_status_logger()
 
     try:
@@ -571,7 +626,14 @@ async def _async_bibtex_main(
 async def _async_assess_publication(
     publication_name: str, publication_type: str, verbose: bool, output_format: str
 ) -> None:
-    """Async function for assessing publications with type specification."""
+    """Async function for assessing publications with type specification.
+
+    Args:
+        publication_name: The name of the publication to assess.
+        publication_type: The type of publication (journal or conference).
+        verbose: Whether to enable verbose output.
+        output_format: The format of the output (text or json).
+    """
     status_logger = get_status_logger()
     acronym_cache = AcronymCache()
 
