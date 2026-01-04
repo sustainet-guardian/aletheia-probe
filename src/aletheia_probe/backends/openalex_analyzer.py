@@ -11,7 +11,7 @@ from ..constants import (
     MAX_AUTHOR_DIVERSITY,
     MIN_PUBLICATION_VOLUME,
 )
-from ..enums import EvidenceType
+from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
@@ -554,7 +554,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
 
     def _determine_assessment(
         self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
-    ) -> tuple[str | None, float]:
+    ) -> tuple[AssessmentType | None, float]:
         """Determine final assessment and confidence based on flags.
 
         Args:
@@ -580,7 +580,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         )
 
         # Declare assessment type
-        assessment: str | None
+        assessment: AssessmentType | None
 
         # Special case: very strong indicators override everything else first
         # Strong legitimacy signals
@@ -590,12 +590,12 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             self.detail_logger.info(
                 "OpenAlex: LEGITIMATE override triggered! Metrics passed hierarchical thresholds"
             )
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = min(0.85, 0.75 + (green_flag_weight * 0.03))
             return assessment, confidence
         elif citation_ratio >= 20 and years_active >= 10:
             # Exceptionally high citation ratio with decent history
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = max(0.85, MAX_AUTHOR_DIVERSITY)
             return assessment, confidence
 
@@ -603,38 +603,38 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         if publication_rate_per_year > 2000 or (
             citation_ratio < 0.2 and total_publications >= MIN_PUBLICATION_VOLUME
         ):
-            assessment = "predatory"
+            assessment = AssessmentType.PREDATORY
             confidence = max(0.90, min(0.95, 0.85 + (red_flag_weight * 0.02)))
             return assessment, confidence
 
         # Calculate confidence and assessment based on flag counts
         if red_flag_weight >= 2 and green_flag_weight >= 3:
             # Mixed signals but strong green flags should win
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = 0.65
         elif red_flag_weight >= 2:
             # Multiple red flags suggest predatory
             if red_flag_weight >= 3:
-                assessment = "predatory"
+                assessment = AssessmentType.PREDATORY
                 confidence = min(0.85, 0.60 + (red_flag_weight - 2) * 0.05)
             else:
-                assessment = "predatory"
+                assessment = AssessmentType.PREDATORY
                 confidence = 0.65
         elif green_flag_weight >= 2:
             # Multiple green flags suggest legitimate
             if green_flag_weight >= 3:
-                assessment = "legitimate"
+                assessment = AssessmentType.LEGITIMATE
                 confidence = min(0.90, 0.70 + (green_flag_weight - 2) * 0.05)
             else:
-                assessment = "legitimate"
+                assessment = AssessmentType.LEGITIMATE
                 confidence = 0.75
         elif red_flag_weight == 1 and green_flag_weight == 0:
             # Single red flag, no green flags
-            assessment = "predatory"
+            assessment = AssessmentType.PREDATORY
             confidence = 0.55
         elif green_flag_weight == 1 and red_flag_weight == 0:
             # Single green flag, no red flags
-            assessment = "legitimate"
+            assessment = AssessmentType.LEGITIMATE
             confidence = 0.60
         else:
             # Mixed signals or insufficient data
