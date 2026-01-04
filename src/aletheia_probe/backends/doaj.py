@@ -33,17 +33,39 @@ class DOAJBackend(ApiBackendWithCache):
     """Backend that checks DOAJ for legitimate open access journals."""
 
     def __init__(self, cache_ttl_hours: int = 24) -> None:
+        """Initialize the DOAJ backend.
+
+        Args:
+            cache_ttl_hours: Time-to-live for cached results in hours. Defaults to 24.
+        """
         super().__init__(cache_ttl_hours=cache_ttl_hours)
         self.base_url = "https://doaj.org/api/search/journals"
 
     def get_name(self) -> str:
+        """Return the human-readable name of this backend.
+
+        Returns:
+            Backend identifier string ("doaj").
+        """
         return "doaj"
 
     def get_evidence_type(self) -> EvidenceType:
+        """Return the type of evidence this backend provides.
+
+        Returns:
+            EvidenceType.LEGITIMATE_LIST as DOAJ is a whitelist.
+        """
         return EvidenceType.LEGITIMATE_LIST
 
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query DOAJ API for journal information with retry logic."""
+        """Query DOAJ API for journal information with retry logic.
+
+        Args:
+            query_input: Normalized query input with journal information.
+
+        Returns:
+            BackendResult with findings from DOAJ.
+        """
         start_time = time.time()
 
         try:
@@ -152,7 +174,16 @@ class DOAJBackend(ApiBackendWithCache):
         response_data: dict[str, Any],
         response_time: float,
     ) -> BackendResult:
-        """Process DOAJ API response and determine match quality."""
+        """Process DOAJ API response and determine match quality.
+
+        Args:
+            query_input: The original query input.
+            response_data: JSON response from DOAJ API.
+            response_time: Time taken for the API request in seconds.
+
+        Returns:
+            BackendResult with the processed assessment.
+        """
         results = response_data.get("results", [])
 
         if not results:
@@ -222,7 +253,15 @@ class DOAJBackend(ApiBackendWithCache):
     def _calculate_match_confidence(
         self, query_input: QueryInput, bibjson: dict[str, Any]
     ) -> float:
-        """Calculate confidence score for a DOAJ match."""
+        """Calculate confidence score for a DOAJ match.
+
+        Args:
+            query_input: The original query input.
+            bibjson: The bibjson part of a DOAJ result record.
+
+        Returns:
+            Confidence score between 0.0 and 1.0.
+        """
         confidence = 0.0
 
         # ISSN match (highest confidence)
