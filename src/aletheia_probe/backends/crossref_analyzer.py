@@ -8,6 +8,7 @@ from typing import Any
 import aiohttp
 
 from ..enums import AssessmentType
+from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
@@ -68,6 +69,8 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         self.headers = {
             "User-Agent": f"AletheiaProbe/1.0 (mailto:{email})",
         }
+        self.detail_logger = get_detail_logger()
+        self.status_logger = get_status_logger()
 
     def get_name(self) -> str:
         """Return backend name."""
@@ -120,6 +123,12 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query Crossref API and analyze metadata quality."""
         start_time = time.time()
+        self.status_logger.info(
+            f"Crossref: Analyzing metadata for '{query_input.raw_input}'"
+        )
+        self.detail_logger.debug(
+            f"Crossref: Starting API query with identifiers: {query_input.identifiers}"
+        )
 
         try:
             # Try to find journal by ISSN first
@@ -128,15 +137,20 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             eissn = query_input.identifiers.get("eissn")
 
             if issn:
+                self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
                 journal_data = await self._get_journal_by_issn(issn)
 
             if not journal_data and eissn:
+                self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
                 journal_data = await self._get_journal_by_issn(eissn)
 
             response_time = time.time() - start_time
 
             if not journal_data:
                 # Not found in Crossref
+                self.detail_logger.info(
+                    f"Crossref: Journal not found for {query_input.raw_input}"
+                )
                 return BackendResult(
                     backend_name=self.get_name(),
                     status=BackendStatus.NOT_FOUND,
@@ -153,7 +167,13 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 )
 
             # Analyze metadata quality
+            self.detail_logger.debug(
+                f"Crossref: Analyzing metadata for {journal_data.get('title')}"
+            )
             analysis = self._analyze_metadata_quality(journal_data)
+            self.detail_logger.info(
+                f"Crossref: Analysis complete. Assessment: {analysis['assessment']}, Confidence: {analysis['confidence']:.2f}"
+            )
 
             return BackendResult(
                 backend_name=self.get_name(),
@@ -177,6 +197,8 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
         except Exception as e:
             response_time = time.time() - start_time
+            self.status_logger.error(f"Crossref API error: {e}")
+            self.detail_logger.exception(f"Crossref API error details: {e}")
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -189,12 +211,16 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
     async def _get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:
         """Get journal data by ISSN from Crossref API."""
         url = f"{self.base_url}/journals/{issn}"
+        self.detail_logger.debug(f"Crossref API request: GET {url}")
 
         async with aiohttp.ClientSession(
             headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
         ) as session:
             try:
                 async with session.get(url) as response:
+                    self.detail_logger.debug(
+                        f"Crossref API response: {response.status}"
+                    )
                     if response.status == 200:
                         data = await response.json()
                         message = data.get("message", {})
@@ -206,6 +232,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                             f"Crossref API returned status {response.status}"
                         )
             except asyncio.TimeoutError:
+                self.detail_logger.error("Crossref API timeout")
                 raise Exception("Crossref API timeout") from None
 
     def _analyze_metadata_quality(self, journal_data: dict[str, Any]) -> dict[str, Any]:
