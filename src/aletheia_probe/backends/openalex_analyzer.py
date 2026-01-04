@@ -65,92 +65,21 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
                     journal_name=journal_name, issn=issn, eissn=eissn
                 )
 
-                # If not found with normalized name, try aliases (especially acronyms)
-                if not openalex_data and query_input.aliases:
-                    self.detail_logger.info(
-                        f"OpenAlex: Normalized name '{journal_name}' not found, trying {len(query_input.aliases)} alias(es)"
+                # If not found with normalized name, try aliases
+                if not openalex_data:
+                    openalex_data = await self._search_with_aliases(
+                        client, query_input, journal_name, issn, eissn
                     )
-                    for alias in query_input.aliases:
-                        openalex_data = await client.enrich_journal_data(
-                            journal_name=alias, issn=issn, eissn=eissn
-                        )
-                        if openalex_data:
-                            self.detail_logger.info(
-                                f"OpenAlex: Found match using alias '{alias}'"
-                            )
-                            break
 
                 response_time = time.time() - start_time
 
                 if not openalex_data:
-                    # Not found in OpenAlex
-                    return BackendResult(
-                        backend_name=self.get_name(),
-                        status=BackendStatus.NOT_FOUND,
-                        confidence=0.0,
-                        assessment=None,
-                        data={
-                            "searched_for": journal_name,
-                            "issn": issn,
-                            "eissn": eissn,
-                            "aliases_tried": query_input.aliases,
-                        },
-                        sources=["https://api.openalex.org"],
-                        error_message=None,
-                        response_time=response_time,
+                    return self._build_not_found_result(
+                        journal_name, issn, eissn, query_input.aliases, response_time
                     )
 
-                # Store acronym mapping if display_name contains acronym in parentheses
-                self._store_acronym_from_openalex(openalex_data, query_input)
-
-                # Route to appropriate assessment based on publication type
-                source_type = openalex_data.get("source_type", "").lower()
-                display_name = openalex_data.get("display_name", "").lower()
-
-                # Override OpenAlex misclassification if display_name suggests conference
-                # OpenAlex sometimes incorrectly classifies conference proceedings as journals
-                # Detect conferences by common keywords in the display name
-                conference_keywords = [
-                    "proceedings",
-                    "conference",
-                    "symposium",
-                    "workshop",
-                ]
-                if source_type != "conference" and any(
-                    keyword in display_name for keyword in conference_keywords
-                ):
-                    self.detail_logger.info(
-                        f"OpenAlex: Overriding source_type '{source_type}' to 'conference' "
-                        f"based on display_name: '{openalex_data.get('display_name')}'"
-                    )
-                    source_type = "conference"
-
-                if source_type == "conference":
-                    analysis = self._analyze_conference_patterns(openalex_data)
-                else:
-                    # Default to journal analysis for journals and unknown types
-                    analysis = self._analyze_journal_patterns(openalex_data)
-
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.FOUND,
-                    confidence=analysis["confidence"],
-                    assessment=analysis["assessment"],
-                    data={
-                        "openalex_data": openalex_data,
-                        "analysis": analysis,
-                        "metrics": analysis["metrics"],
-                        "red_flags": analysis["red_flags"],
-                        "green_flags": analysis["green_flags"],
-                        "publication_type": source_type
-                        or "journal",  # Use corrected source_type
-                    },
-                    sources=[
-                        "https://api.openalex.org",
-                        openalex_data.get("openalex_url", ""),
-                    ],
-                    error_message=None,
-                    response_time=response_time,
+                return self._build_success_result(
+                    openalex_data, query_input, response_time
                 )
 
         except Exception as e:
@@ -163,6 +92,148 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
                 error_message=str(e),
                 response_time=response_time,
             )
+
+    async def _search_with_aliases(
+        self,
+        client: OpenAlexClient,
+        query_input: QueryInput,
+        journal_name: str,
+        issn: str | None,
+        eissn: str | None,
+    ) -> dict[str, Any] | None:
+        """Search for journal data using aliases when primary search fails.
+
+        Args:
+            client: OpenAlex client instance
+            query_input: Query input containing aliases
+            journal_name: Primary journal name that failed
+            issn: ISSN identifier
+            eissn: eISSN identifier
+
+        Returns:
+            OpenAlex data if found using aliases, None otherwise
+        """
+        if not query_input.aliases:
+            return None
+
+        self.detail_logger.info(
+            f"OpenAlex: Normalized name '{journal_name}' not found, trying {len(query_input.aliases)} alias(es)"
+        )
+
+        for alias in query_input.aliases:
+            openalex_data = await client.enrich_journal_data(
+                journal_name=alias, issn=issn, eissn=eissn
+            )
+            if openalex_data:
+                self.detail_logger.info(f"OpenAlex: Found match using alias '{alias}'")
+                return openalex_data
+
+        return None
+
+    def _build_not_found_result(
+        self,
+        journal_name: str,
+        issn: str | None,
+        eissn: str | None,
+        aliases_tried: list[str] | None,
+        response_time: float,
+    ) -> BackendResult:
+        """Build BackendResult for when journal is not found in OpenAlex.
+
+        Args:
+            journal_name: Primary journal name searched
+            issn: ISSN identifier
+            eissn: eISSN identifier
+            aliases_tried: List of aliases that were tried
+            response_time: Time taken for the query
+
+        Returns:
+            BackendResult with NOT_FOUND status
+        """
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.NOT_FOUND,
+            confidence=0.0,
+            assessment=None,
+            data={
+                "searched_for": journal_name,
+                "issn": issn,
+                "eissn": eissn,
+                "aliases_tried": aliases_tried,
+            },
+            sources=["https://api.openalex.org"],
+            error_message=None,
+            response_time=response_time,
+        )
+
+    def _build_success_result(
+        self,
+        openalex_data: dict[str, Any],
+        query_input: QueryInput,
+        response_time: float,
+    ) -> BackendResult:
+        """Build BackendResult for successful OpenAlex query.
+
+        Args:
+            openalex_data: Raw data from OpenAlex API
+            query_input: Original query input
+            response_time: Time taken for the query
+
+        Returns:
+            BackendResult with FOUND status and analysis
+        """
+        # Store acronym mapping if display_name contains acronym in parentheses
+        self._store_acronym_from_openalex(openalex_data, query_input)
+
+        # Route to appropriate assessment based on publication type
+        source_type = openalex_data.get("source_type", "").lower()
+        display_name = openalex_data.get("display_name", "").lower()
+
+        # Override OpenAlex misclassification if display_name suggests conference
+        # OpenAlex sometimes incorrectly classifies conference proceedings as journals
+        # Detect conferences by common keywords in the display name
+        conference_keywords = [
+            "proceedings",
+            "conference",
+            "symposium",
+            "workshop",
+        ]
+        if source_type != "conference" and any(
+            keyword in display_name for keyword in conference_keywords
+        ):
+            self.detail_logger.info(
+                f"OpenAlex: Overriding source_type '{source_type}' to 'conference' "
+                f"based on display_name: '{openalex_data.get('display_name')}'"
+            )
+            source_type = "conference"
+
+        if source_type == "conference":
+            analysis = self._analyze_conference_patterns(openalex_data)
+        else:
+            # Default to journal analysis for journals and unknown types
+            analysis = self._analyze_journal_patterns(openalex_data)
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.FOUND,
+            confidence=analysis["confidence"],
+            assessment=analysis["assessment"],
+            data={
+                "openalex_data": openalex_data,
+                "analysis": analysis,
+                "metrics": analysis["metrics"],
+                "red_flags": analysis["red_flags"],
+                "green_flags": analysis["green_flags"],
+                "publication_type": source_type
+                or "journal",  # Use corrected source_type
+            },
+            sources=[
+                "https://api.openalex.org",
+                openalex_data.get("openalex_url", ""),
+            ],
+            error_message=None,
+            response_time=response_time,
+        )
 
     def _store_acronym_from_openalex(
         self, openalex_data: dict[str, Any], query_input: QueryInput
@@ -565,24 +636,45 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         Returns:
             Tuple of (assessment, confidence)
         """
-        citation_ratio = metrics["citation_ratio"]
-        years_active = metrics["years_active"]
-        total_publications = metrics["total_publications"]
-        publication_rate_per_year = metrics["publication_rate_per_year"]
-
-        # Assessment logic
         red_flag_weight = len(red_flags)
         green_flag_weight = len(green_flags)
 
         # Debug output to see actual values
         self.detail_logger.info(
-            f"OpenAlex: citation_ratio={citation_ratio}, years_active={years_active}, total_publications={total_publications}, red_flags={red_flag_weight}, green_flags={green_flag_weight}"
+            f"OpenAlex: citation_ratio={metrics['citation_ratio']}, years_active={metrics['years_active']}, total_publications={metrics['total_publications']}, red_flags={red_flag_weight}, green_flags={green_flag_weight}"
         )
 
-        # Declare assessment type
-        assessment: AssessmentType | None
+        # First check for strong override cases
+        override_result = self._check_override_assessments(
+            red_flag_weight, green_flag_weight, metrics
+        )
+        if override_result:
+            return override_result
 
-        # Special case: very strong indicators override everything else first
+        # Calculate assessment based on flag counts
+        return self._calculate_flag_based_assessment(red_flag_weight, green_flag_weight)
+
+    def _check_override_assessments(
+        self,
+        red_flag_weight: int,
+        green_flag_weight: int,
+        metrics: dict[str, Any],
+    ) -> tuple[AssessmentType, float] | None:
+        """Check for special case assessments that override general flag logic.
+
+        Args:
+            red_flag_weight: Number of red flags
+            green_flag_weight: Number of green flags
+            metrics: Dictionary of calculated metrics
+
+        Returns:
+            (assessment, confidence) tuple if override applies, None otherwise
+        """
+        citation_ratio = metrics["citation_ratio"]
+        years_active = metrics["years_active"]
+        total_publications = metrics["total_publications"]
+        publication_rate_per_year = metrics["publication_rate_per_year"]
+
         # Strong legitimacy signals
         if citation_ratio >= 10 and years_active >= 20 and total_publications >= 1000:
             # Well-established journal with strong citations should be legitimate
@@ -590,58 +682,59 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             self.detail_logger.info(
                 "OpenAlex: LEGITIMATE override triggered! Metrics passed hierarchical thresholds"
             )
-            assessment = AssessmentType.LEGITIMATE
             confidence = min(0.85, 0.75 + (green_flag_weight * 0.03))
-            return assessment, confidence
+            return AssessmentType.LEGITIMATE, confidence
         elif citation_ratio >= 20 and years_active >= 10:
             # Exceptionally high citation ratio with decent history
-            assessment = AssessmentType.LEGITIMATE
-            confidence = 0.90
-            return assessment, confidence
+            return AssessmentType.LEGITIMATE, 0.90
 
         # Strong predatory signals
         if publication_rate_per_year > 2000 or (
             citation_ratio < 0.2 and total_publications >= MIN_PUBLICATION_VOLUME
         ):
-            assessment = AssessmentType.PREDATORY
             confidence = max(0.90, min(0.95, 0.85 + (red_flag_weight * 0.02)))
-            return assessment, confidence
+            return AssessmentType.PREDATORY, confidence
 
-        # Calculate confidence and assessment based on flag counts
+        return None
+
+    def _calculate_flag_based_assessment(
+        self, red_flag_weight: int, green_flag_weight: int
+    ) -> tuple[AssessmentType | None, float]:
+        """Calculate assessment and confidence based on flag counts.
+
+        Args:
+            red_flag_weight: Number of red flags
+            green_flag_weight: Number of green flags
+
+        Returns:
+            Tuple of (assessment, confidence)
+        """
         if red_flag_weight >= 2 and green_flag_weight >= 3:
             # Mixed signals but strong green flags should win
-            assessment = AssessmentType.LEGITIMATE
-            confidence = 0.65
+            return AssessmentType.LEGITIMATE, 0.65
         elif red_flag_weight >= 2:
             # Multiple red flags suggest predatory
             if red_flag_weight >= 3:
-                assessment = AssessmentType.PREDATORY
                 confidence = min(0.85, 0.60 + (red_flag_weight - 2) * 0.05)
+                return AssessmentType.PREDATORY, confidence
             else:
-                assessment = AssessmentType.PREDATORY
-                confidence = 0.65
+                return AssessmentType.PREDATORY, 0.65
         elif green_flag_weight >= 2:
             # Multiple green flags suggest legitimate
             if green_flag_weight >= 3:
-                assessment = AssessmentType.LEGITIMATE
                 confidence = min(0.90, 0.70 + (green_flag_weight - 2) * 0.05)
+                return AssessmentType.LEGITIMATE, confidence
             else:
-                assessment = AssessmentType.LEGITIMATE
-                confidence = 0.75
+                return AssessmentType.LEGITIMATE, 0.75
         elif red_flag_weight == 1 and green_flag_weight == 0:
             # Single red flag, no green flags
-            assessment = AssessmentType.PREDATORY
-            confidence = 0.55
+            return AssessmentType.PREDATORY, 0.55
         elif green_flag_weight == 1 and red_flag_weight == 0:
             # Single green flag, no red flags
-            assessment = AssessmentType.LEGITIMATE
-            confidence = 0.60
+            return AssessmentType.LEGITIMATE, 0.60
         else:
             # Mixed signals or insufficient data
-            assessment = None
-            confidence = 0.3
-
-        return assessment, confidence
+            return None, 0.3
 
     def _generate_reasoning(
         self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]
