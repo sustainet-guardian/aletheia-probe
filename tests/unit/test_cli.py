@@ -118,7 +118,9 @@ class TestAssessCommand:
 
             assert result.exit_code == 0
             # Check that the async function was called with correct args
-            call_args = mock_run.call_args[0][0]  # Get the coroutine
+            mock_async_assess.assert_called_once_with(
+                "Test Journal", "journal", True, "text"
+            )
 
     def test_assess_with_json_format(self, runner):
         """Test journal command with JSON output format."""
@@ -140,6 +142,9 @@ class TestAssessCommand:
             )
 
             assert result.exit_code == 0
+            mock_async_assess.assert_called_once_with(
+                "Test Journal", "journal", False, "json"
+            )
 
     def test_assess_invalid_format(self, runner):
         """Test journal command with invalid format."""
@@ -201,8 +206,13 @@ class TestSyncCommand:
             # Output is now handled by logging system, not directly printed
             mock_run.assert_called_once()
 
-    def test_sync_command_with_force(self, runner):
+    def test_sync_command_with_force(self, runner, mock_cache_sync_manager):
         """Test sync command with force flag."""
+
+        # Wrap the sync method to verify calls
+        original_sync = mock_cache_sync_manager.sync_cache_with_config
+        mock_sync = Mock(side_effect=original_sync)
+        mock_cache_sync_manager.sync_cache_with_config = mock_sync
 
         def run_coro(coro):
             """Run coroutine and return empty dict."""
@@ -214,7 +224,9 @@ class TestSyncCommand:
 
             assert result.exit_code == 0
             # Verify force=True was passed to sync_cache_with_config
-            call_args = mock_run.call_args[0][0]  # The coroutine argument
+            mock_sync.assert_called_once_with(
+                force=True, backend_filter=None, show_progress=True
+            )
 
     def test_sync_command_skipped(self, runner):
         """Test sync command when sync is skipped."""
