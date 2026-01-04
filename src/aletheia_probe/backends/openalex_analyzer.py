@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
@@ -734,7 +735,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             return AssessmentType.LEGITIMATE, 0.60
         else:
             # Mixed signals or insufficient data
-            return None, 0.3
+            return None, CONFIDENCE_THRESHOLD_LOW
 
     def _generate_reasoning(
         self, red_flags: list[str], green_flags: list[str], metrics: dict[str, Any]

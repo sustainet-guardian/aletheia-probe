@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import aiohttp
 
 from ..cache import RetractionCache
+from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, RiskLevel
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
@@ -416,7 +417,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
 
         # If we get here, it means we have a match but it's not exact
         # This shouldn't happen with our new exact matching, so low confidence
-        return 0.3
+        return CONFIDENCE_THRESHOLD_LOW
 
     def _calculate_risk_level(
         self,

@@ -12,6 +12,7 @@ from .config import get_config_manager
 from .constants import (
     AGREEMENT_BONUS_AMOUNT,
     CONFIDENCE_THRESHOLD_HIGH,
+    CONFIDENCE_THRESHOLD_LOW,
 )
 from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
@@ -384,8 +385,8 @@ class QueryDispatcher:
         if assessment_result.assessment == AssessmentType.UNKNOWN:
             return True
 
-        # Retry if confidence is very low (< 0.3)
-        if assessment_result.confidence < 0.3:
+        # Retry if confidence is very low
+        if assessment_result.confidence < CONFIDENCE_THRESHOLD_LOW:
             return True
 
         # Retry if no backends found anything
@@ -867,7 +868,7 @@ class QueryDispatcher:
             reasoning.insert(
                 0, "⚠️ WARNING: High retraction rate detected - proceed with caution"
             )
-        return (AssessmentType.UNKNOWN, 0.3, 0.0)
+        return (AssessmentType.UNKNOWN, CONFIDENCE_THRESHOLD_LOW, 0.0)
 
     def _make_final_assessment(
         self,

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import aiohttp
 
 from ..cache import AssessmentCache, JournalCache, OpenAlexCache
+from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from ..utils.dead_code import code_is_used
@@ -234,7 +235,7 @@ class CachedBackend(Backend):
 
         # If we get here, it means we have a match but it's not exact
         # This shouldn't happen with our new exact matching, so low confidence
-        return 0.3
+        return CONFIDENCE_THRESHOLD_LOW
 
     # =============================================================================
     # DataSyncCapable Protocol Implementation

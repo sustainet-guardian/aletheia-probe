@@ -5,6 +5,7 @@ import asyncio
 import time
 from typing import Any
 
+from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
@@ -389,7 +390,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
             else:
                 # Confidence levels are similar but assessments disagree - inconclusive
                 final_assessment = None
-                base_confidence = 0.3
+                base_confidence = CONFIDENCE_THRESHOLD_LOW
         else:
             # Both backends returned None assessment
             final_assessment = None
