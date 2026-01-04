@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aletheia_probe.backends.crossref_analyzer import CrossrefAnalyzerBackend
-from aletheia_probe.constants import MIN_REFERENCE_COUNT
 from aletheia_probe.models import BackendStatus, QueryInput
 
 
