@@ -237,7 +237,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 
     def _extract_common_analysis_vars(
         self, metrics: dict[str, Any], quality_scores: dict[str, float]
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """Extract commonly used variables for metadata analysis.
 
         Args:
@@ -248,12 +248,12 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             Dictionary of commonly used variables
         """
         return {
-            "total_dois": metrics["total_dois"],
-            "overall_quality": metrics["overall_metadata_quality"],
-            "orcid_score": quality_scores.get("orcids", 0),
-            "funders_score": quality_scores.get("funders", 0),
-            "license_score": quality_scores.get("licenses", 0),
-            "references_score": quality_scores.get("references", 0),
+            "total_dois": int(metrics["total_dois"]),
+            "overall_quality": float(metrics["overall_metadata_quality"]),
+            "orcid_score": float(quality_scores.get("orcids", 0)),
+            "funders_score": float(quality_scores.get("funders", 0)),
+            "license_score": float(quality_scores.get("licenses", 0)),
+            "references_score": float(quality_scores.get("references", 0)),
         }
 
     def _analyze_metadata_quality(self, journal_data: dict[str, Any]) -> dict[str, Any]:
@@ -378,7 +378,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         self,
         metrics: dict[str, Any],
         quality_scores: dict[str, float],
-        common_vars: dict[str, float],
+        common_vars: dict[str, Any],
     ) -> list[str]:
         """Check for metadata quality green flags.
 
@@ -453,7 +453,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         metrics: dict[str, Any],
         quality_scores: dict[str, float],
         journal_data: dict[str, Any],
-        common_vars: dict[str, float],
+        common_vars: dict[str, Any],
     ) -> list[str]:
         """Check for metadata quality red flags.
 
@@ -565,7 +565,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         red_flags: list[str],
         green_flags: list[str],
         metrics: dict[str, Any],
-        common_vars: dict[str, float],
+        common_vars: dict[str, Any],
     ) -> tuple[str | None, float]:
         """Determine final assessment and confidence based on metadata flags.
 
