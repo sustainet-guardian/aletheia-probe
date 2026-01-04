@@ -7,6 +7,7 @@ from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType
+from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
@@ -34,6 +35,8 @@ class CrossValidatorBackend(ApiBackendWithCache):
         self.email = validate_email(email)
         self.openalex_backend = OpenAlexAnalyzerBackend(email, cache_ttl_hours)
         self.crossref_backend = CrossrefAnalyzerBackend(email, cache_ttl_hours)
+        self.detail_logger = get_detail_logger()
+        self.status_logger = get_status_logger()
 
     def get_name(self) -> str:
         """Return backend name."""
@@ -42,9 +45,11 @@ class CrossValidatorBackend(ApiBackendWithCache):
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query both backends and cross-validate results."""
         start_time = time.time()
+        self.detail_logger.debug(f"Starting cross-validation for: {query_input}")
 
         try:
             # Query both backends concurrently
+            self.detail_logger.debug("Querying OpenAlex and Crossref concurrently")
             openalex_result, crossref_result = await asyncio.gather(
                 self.openalex_backend.query(query_input),
                 self.crossref_backend.query(query_input),
@@ -55,6 +60,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
 
             # Handle exceptions
             if isinstance(openalex_result, Exception):
+                self.detail_logger.error(f"OpenAlex query failed: {openalex_result}")
                 openalex_result = BackendResult(
                     backend_name=self.openalex_backend.get_name(),
                     status=BackendStatus.ERROR,
@@ -66,6 +72,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
                 )
 
             if isinstance(crossref_result, Exception):
+                self.detail_logger.error(f"Crossref query failed: {crossref_result}")
                 crossref_result = BackendResult(
                     backend_name=self.crossref_backend.get_name(),
                     status=BackendStatus.ERROR,
@@ -80,6 +87,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
             if isinstance(openalex_result, BaseException) or isinstance(
                 crossref_result, BaseException
             ):
+                self.status_logger.error("Critical error during backend querying")
                 return BackendResult(
                     backend_name=self.get_name(),
                     status=BackendStatus.ERROR,
@@ -92,8 +100,16 @@ class CrossValidatorBackend(ApiBackendWithCache):
                     cached=False,  # Errors are not cached
                 )
 
+            self.detail_logger.debug(
+                "Both backends queried successfully, starting analysis"
+            )
             validation_result = self._cross_validate_results(
                 openalex_result, crossref_result, query_input
+            )
+
+            self.detail_logger.debug(
+                f"Cross-validation complete. Status: {validation_result['status']}, "
+                f"Assessment: {validation_result['assessment']}"
             )
 
             return BackendResult(
@@ -124,6 +140,8 @@ class CrossValidatorBackend(ApiBackendWithCache):
 
         except Exception as e:
             response_time = time.time() - start_time
+            self.status_logger.error(f"Cross-validation failed: {e}")
+            self.detail_logger.exception("Detailed error in cross-validation:")
             return BackendResult(
                 backend_name=self.get_name(),
                 status=BackendStatus.ERROR,
@@ -237,6 +255,10 @@ class CrossValidatorBackend(ApiBackendWithCache):
             self._extract_backend_data(openalex_result, crossref_result)
         )
 
+        self.detail_logger.debug(
+            f"Data found - OpenAlex: {openalex_found}, Crossref: {crossref_found}"
+        )
+
         # Collect flags from both backends
         combined_flags = self._collect_combined_flags(
             openalex_result, crossref_result, openalex_found, crossref_found
@@ -275,6 +297,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
         query_input: QueryInput,
     ) -> list[str]:
         """Perform consistency checks between OpenAlex and Crossref data."""
+        self.detail_logger.debug("Performing consistency checks between backends")
         checks = []
 
         # Check publisher name consistency
@@ -344,6 +367,13 @@ class CrossValidatorBackend(ApiBackendWithCache):
                 checks.append("✓ Inactive status consistent in both databases")
             else:
                 checks.append("⚠️ Activity status inconsistent between databases")
+
+        # Log warnings found
+        warnings = [c for c in checks if "⚠️" in c]
+        if warnings:
+            self.detail_logger.debug(f"Consistency warnings found: {warnings}")
+        else:
+            self.detail_logger.debug("No consistency warnings found")
 
         return checks
 
@@ -493,6 +523,11 @@ class CrossValidatorBackend(ApiBackendWithCache):
         # Apply confidence adjustments
         final_confidence = self._apply_confidence_adjustments(
             base_confidence, agreement_bonus, consistency_checks
+        )
+
+        self.detail_logger.debug(
+            f"Assessment agreement: {assessment_agreement}, Bonus: {agreement_bonus}, "
+            f"Final Confidence: {final_confidence}"
         )
 
         # Generate reasoning
