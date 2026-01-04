@@ -5,18 +5,19 @@ import time
 from datetime import datetime
 from typing import Any
 
-from ..constants import (
-    CITATION_RATIO_SUSPICIOUS,
-    GROWTH_RATE_THRESHOLD,
-    MAX_AUTHOR_DIVERSITY,
-    MIN_PUBLICATION_VOLUME,
-)
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
+
+
+# OpenAlex pattern analysis constants
+CITATION_RATIO_SUSPICIOUS: int = 10
+GROWTH_RATE_THRESHOLD: float = 0.5
+MIN_PUBLICATION_VOLUME: int = 100
+MAX_AUTHOR_DIVERSITY: float = 0.95
 
 
 class OpenAlexAnalyzerBackend(ApiBackendWithCache):
