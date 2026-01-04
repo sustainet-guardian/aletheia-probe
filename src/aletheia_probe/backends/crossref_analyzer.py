@@ -46,12 +46,43 @@ _DOI_VERY_SMALL = 50
 _EXPLOSION_MULTIPLIER = 3.0
 _EXPLOSION_MIN_COUNT = 500
 
+# API and Cache defaults
+_API_TIMEOUT = 30
+_DEFAULT_CACHE_TTL = 24
+
+# Confidence and assessment constants
+_CONF_MAX_PREDATORY = 0.80
+_CONF_BASE_PREDATORY = 0.55
+_CONF_STEP_PREDATORY = 0.05
+
+_CONF_MAX_LEGITIMATE = 0.85
+_CONF_BASE_LEGITIMATE = 0.65
+_CONF_STEP_LEGITIMATE = 0.04
+
+_CONF_SINGLE_RED = 0.50
+_CONF_SINGLE_GREEN = 0.55
+_CONF_DEFAULT = 0.30
+_CONF_MIN = 0.1
+_CONF_MAX = 1.0
+
+_FLAG_THRESHOLD_MAJOR = 2
+_FLAG_THRESHOLD_MINOR = 1
+
+_BOOST_FACTOR = 1.1
+_REDUCTION_FACTOR = 0.8
+
+_DOI_MEDIUM_RANGE_MULTIPLIER = 100
+_YEARS_THRESHOLD_RECENT = 3
+_YEARS_THRESHOLD_EXPLOSION = 2
+
 
 class CrossrefAnalyzerBackend(ApiBackendWithCache):
     """Backend that analyzes Crossref metadata quality to assess journal legitimacy."""
 
     def __init__(
-        self, email: str = "noreply@aletheia-probe.org", cache_ttl_hours: int = 24
+        self,
+        email: str = "noreply@aletheia-probe.org",
+        cache_ttl_hours: int = _DEFAULT_CACHE_TTL,
     ):
         """Initialize Crossref analyzer backend.
 
@@ -87,9 +118,13 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
     def _adjust_confidence_by_volume(self, confidence: float, total_dois: int) -> float:
         """Adjust confidence based on publication volume (more DOIs = more reliable assessment)."""
         if total_dois >= _DOI_SUBSTANTIAL:
-            return min(1.0, confidence * 1.1)  # Boost for high-volume publishers
+            return min(
+                _CONF_MAX, confidence * _BOOST_FACTOR
+            )  # Boost for high-volume publishers
         elif self._is_very_small_journal(total_dois):
-            return max(0.1, confidence * 0.8)  # Reduce for low-volume publishers
+            return max(
+                _CONF_MIN, confidence * _REDUCTION_FACTOR
+            )  # Reduce for low-volume publishers
         return confidence
 
     def _check_orcid_quality(self, orcid_score: float) -> str | None:
@@ -214,7 +249,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         self.detail_logger.debug(f"Crossref API request: GET {url}")
 
         async with aiohttp.ClientSession(
-            headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+            headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
         ) as session:
             try:
                 async with session.get(url) as response:
@@ -486,7 +521,10 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             red_flags.append(
                 f"Very low ORCID adoption: only {orcid_score}% of articles include author ORCIDs"
             )
-        elif orcid_score < _ORCID_LOW and _DOI_MEDIUM <= total_dois < _DOI_MEDIUM * 100:
+        elif (
+            orcid_score < _ORCID_LOW
+            and _DOI_MEDIUM <= total_dois < _DOI_MEDIUM * _DOI_MEDIUM_RANGE_MULTIPLIER
+        ):
             # Moderate flag for medium-sized journals
             red_flags.append(
                 f"Low ORCID adoption: only {orcid_score}% of articles include author ORCIDs"
@@ -539,12 +577,12 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 and len(item) >= 2
                 and isinstance(item[0], int)
             }
-            if len(yearly_counts) >= 3:
+            if len(yearly_counts) >= _YEARS_THRESHOLD_RECENT:
                 sorted_years = sorted(yearly_counts.keys())
-                recent_years = sorted_years[-3:]
+                recent_years = sorted_years[-_YEARS_THRESHOLD_RECENT:]
 
                 # Check for recent explosion in volume
-                if len(recent_years) >= 2:
+                if len(recent_years) >= _YEARS_THRESHOLD_EXPLOSION:
                     latest_year_count = yearly_counts[recent_years[-1]]
                     previous_avg = sum(
                         yearly_counts[year] for year in recent_years[:-1]
@@ -585,21 +623,27 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
         green_flag_weight = len(green_flags)
 
         # Base confidence on metadata quality and flags
-        if red_flag_weight >= 2:
+        if red_flag_weight >= _FLAG_THRESHOLD_MAJOR:
             assessment = AssessmentType.PREDATORY
-            confidence = min(0.80, 0.55 + red_flag_weight * 0.05)
-        elif green_flag_weight >= 2:
+            confidence = min(
+                _CONF_MAX_PREDATORY,
+                _CONF_BASE_PREDATORY + red_flag_weight * _CONF_STEP_PREDATORY,
+            )
+        elif green_flag_weight >= _FLAG_THRESHOLD_MAJOR:
             assessment = AssessmentType.LEGITIMATE
-            confidence = min(0.85, 0.65 + green_flag_weight * 0.04)
-        elif red_flag_weight == 1 and green_flag_weight == 0:
+            confidence = min(
+                _CONF_MAX_LEGITIMATE,
+                _CONF_BASE_LEGITIMATE + green_flag_weight * _CONF_STEP_LEGITIMATE,
+            )
+        elif red_flag_weight == _FLAG_THRESHOLD_MINOR and green_flag_weight == 0:
             assessment = AssessmentType.PREDATORY
-            confidence = 0.50
-        elif green_flag_weight == 1 and red_flag_weight == 0:
+            confidence = _CONF_SINGLE_RED
+        elif green_flag_weight == _FLAG_THRESHOLD_MINOR and red_flag_weight == 0:
             assessment = AssessmentType.LEGITIMATE
-            confidence = 0.55
+            confidence = _CONF_SINGLE_GREEN
         else:
             assessment = None
-            confidence = 0.30
+            confidence = _CONF_DEFAULT
 
         # Adjust confidence based on data volume
         confidence = self._adjust_confidence_by_volume(confidence, total_dois)
@@ -611,8 +655,11 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
 get_backend_registry().register_factory(
     "crossref_analyzer",
     lambda email="noreply@aletheia-probe.org",
-    cache_ttl_hours=24: CrossrefAnalyzerBackend(
+    cache_ttl_hours=_DEFAULT_CACHE_TTL: CrossrefAnalyzerBackend(
         email=email, cache_ttl_hours=cache_ttl_hours
     ),
-    default_config={"email": "noreply@aletheia-probe.org", "cache_ttl_hours": 24},
+    default_config={
+        "email": "noreply@aletheia-probe.org",
+        "cache_ttl_hours": _DEFAULT_CACHE_TTL,
+    },
 )
