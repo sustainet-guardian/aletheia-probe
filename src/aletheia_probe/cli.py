@@ -46,14 +46,9 @@ def handle_cli_errors(func: F) -> F:
 
         try:
             return func(*args, **kwargs)
-        except (
-            ValueError,
-            OSError,
-            KeyError,
-            AttributeError,
-            RuntimeError,
-            Exception,
-        ) as e:
+        except Exception as e:
+            # Catch all exceptions to provide user-friendly error messages
+            # instead of crashing with stack traces in CLI context
             if verbose:
                 status_logger.error(f"Error in {func.__name__}: {e}")
                 traceback.print_exc()
