@@ -133,19 +133,13 @@ class CrossValidatorBackend(ApiBackendWithCache):
                 cached=False,  # Errors are not cached
             )
 
-    def _cross_validate_results(
-        self,
-        openalex_result: BackendResult,
-        crossref_result: BackendResult,
-        query_input: QueryInput,
-    ) -> dict[str, Any]:
-        """Cross-validate results from both backends."""
-
-        # Check if both backends found data
+    def _extract_backend_data(
+        self, openalex_result: BackendResult, crossref_result: BackendResult
+    ) -> tuple[bool, bool, dict[str, Any], dict[str, Any]]:
+        """Extract and prepare data from both backend results."""
         openalex_found = openalex_result.status == BackendStatus.FOUND
         crossref_found = crossref_result.status == BackendStatus.FOUND
 
-        # Extract data for comparison
         openalex_data = (
             openalex_result.data.get("openalex_data", {}) if openalex_found else {}
         )
@@ -153,13 +147,20 @@ class CrossValidatorBackend(ApiBackendWithCache):
             crossref_result.data.get("crossref_data", {}) if crossref_found else {}
         )
 
-        # Collect all red and green flags
+        return openalex_found, crossref_found, openalex_data, crossref_data
+
+    def _collect_combined_flags(
+        self,
+        openalex_result: BackendResult,
+        crossref_result: BackendResult,
+        openalex_found: bool,
+        crossref_found: bool,
+    ) -> dict[str, list[str]]:
+        """Collect red and green flags from both backends."""
         combined_flags: dict[str, list[str]] = {
             "red_flags": [],
             "green_flags": [],
         }
-
-        consistency_checks = []
 
         if openalex_found:
             openalex_analysis = openalex_result.data.get("analysis", {})
@@ -185,57 +186,81 @@ class CrossValidatorBackend(ApiBackendWithCache):
                 ]
             )
 
-        # Cross-validation checks
+        return combined_flags
+
+    def _handle_no_data_found(
+        self, combined_flags: dict[str, list[str]]
+    ) -> dict[str, Any]:
+        """Handle case where neither backend found data."""
+        return {
+            "status": BackendStatus.NOT_FOUND,
+            "assessment": None,
+            "confidence": 0.0,
+            "consistency_checks": [],
+            "combined_flags": combined_flags,
+            "reasoning": ["Journal not found in either OpenAlex or Crossref databases"],
+        }
+
+    def _handle_single_backend_result(
+        self,
+        result: BackendResult,
+        backend_name: str,
+        other_backend_name: str,
+        combined_flags: dict[str, list[str]],
+    ) -> dict[str, Any]:
+        """Handle case where only one backend found data."""
+        return {
+            "status": BackendStatus.FOUND,
+            "assessment": result.assessment,
+            "confidence": max(0.1, result.confidence * 0.8),
+            "consistency_checks": [
+                f"Only found in {backend_name}, not in {other_backend_name}"
+            ],
+            "combined_flags": combined_flags,
+            "reasoning": [
+                f"Assessment based solely on {backend_name} data",
+                "Confidence reduced due to lack of cross-validation",
+            ]
+            + result.data.get("analysis", {}).get("reasoning", []),
+        }
+
+    def _cross_validate_results(
+        self,
+        openalex_result: BackendResult,
+        crossref_result: BackendResult,
+        query_input: QueryInput,
+    ) -> dict[str, Any]:
+        """Cross-validate results from both backends."""
+        # Extract data and determine what was found
+        openalex_found, crossref_found, openalex_data, crossref_data = (
+            self._extract_backend_data(openalex_result, crossref_result)
+        )
+
+        # Collect flags from both backends
+        combined_flags = self._collect_combined_flags(
+            openalex_result, crossref_result, openalex_found, crossref_found
+        )
+
+        # Perform consistency checks if both backends found data
+        consistency_checks = []
         if openalex_found and crossref_found:
             consistency_checks = self._perform_consistency_checks(
                 openalex_data, crossref_data, query_input
             )
 
-        # Determine final assessment
+        # Handle different scenarios
         if not openalex_found and not crossref_found:
-            return {
-                "status": BackendStatus.NOT_FOUND,
-                "assessment": None,
-                "confidence": 0.0,
-                "consistency_checks": [],
-                "combined_flags": combined_flags,
-                "reasoning": [
-                    "Journal not found in either OpenAlex or Crossref databases"
-                ],
-            }
+            return self._handle_no_data_found(combined_flags)
 
-        # If only one backend found data, use that result but with reduced confidence
         if openalex_found and not crossref_found:
-            return {
-                "status": BackendStatus.FOUND,
-                "assessment": openalex_result.assessment,
-                "confidence": max(
-                    0.1, openalex_result.confidence * 0.8
-                ),  # Reduce confidence for single source
-                "consistency_checks": ["Only found in OpenAlex, not in Crossref"],
-                "combined_flags": combined_flags,
-                "reasoning": [
-                    "Assessment based solely on OpenAlex data",
-                    "Confidence reduced due to lack of cross-validation",
-                ]
-                + openalex_result.data.get("analysis", {}).get("reasoning", []),
-            }
+            return self._handle_single_backend_result(
+                openalex_result, "OpenAlex", "Crossref", combined_flags
+            )
 
         if crossref_found and not openalex_found:
-            return {
-                "status": BackendStatus.FOUND,
-                "assessment": crossref_result.assessment,
-                "confidence": max(
-                    0.1, crossref_result.confidence * 0.8
-                ),  # Reduce confidence for single source
-                "consistency_checks": ["Only found in Crossref, not in OpenAlex"],
-                "combined_flags": combined_flags,
-                "reasoning": [
-                    "Assessment based solely on Crossref data",
-                    "Confidence reduced due to lack of cross-validation",
-                ]
-                + crossref_result.data.get("analysis", {}).get("reasoning", []),
-            }
+            return self._handle_single_backend_result(
+                crossref_result, "Crossref", "OpenAlex", combined_flags
+            )
 
         # Both backends found data - perform full cross-validation
         return self._combine_assessments(
@@ -321,21 +346,14 @@ class CrossValidatorBackend(ApiBackendWithCache):
 
         return checks
 
-    def _combine_assessments(
+    def _determine_final_assessment(
         self,
-        openalex_result: BackendResult,
-        crossref_result: BackendResult,
-        consistency_checks: list[str],
-        combined_flags: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Combine assessments from both backends with cross-validation."""
-
-        openalex_assessment = openalex_result.assessment
-        crossref_assessment = crossref_result.assessment
-        openalex_confidence = openalex_result.confidence
-        crossref_confidence = crossref_result.confidence
-
-        # Agreement bonus for consistent assessments
+        openalex_assessment: Any,
+        crossref_assessment: Any,
+        openalex_confidence: float,
+        crossref_confidence: float,
+    ) -> tuple[Any, float, float, bool]:
+        """Determine final assessment based on agreement/disagreement between backends."""
         agreement_bonus = 0.0
         assessment_agreement = False
 
@@ -351,31 +369,23 @@ class CrossValidatorBackend(ApiBackendWithCache):
         elif openalex_assessment is None and crossref_assessment is not None:
             # Only Crossref has an assessment
             final_assessment = crossref_assessment
-            base_confidence = (
-                crossref_confidence * 0.9
-            )  # Slight reduction for partial data
+            base_confidence = crossref_confidence * 0.9
         elif crossref_assessment is None and openalex_assessment is not None:
             # Only OpenAlex has an assessment
             final_assessment = openalex_assessment
-            base_confidence = (
-                openalex_confidence * 0.9
-            )  # Slight reduction for partial data
+            base_confidence = openalex_confidence * 0.9
         elif openalex_assessment != crossref_assessment:
             # Disagreement between backends
             if openalex_confidence > crossref_confidence * 1.2:
                 final_assessment = (
                     openalex_assessment or AssessmentType.INSUFFICIENT_DATA
                 )
-                base_confidence = (
-                    openalex_confidence * 0.7
-                )  # Reduce confidence for disagreement
+                base_confidence = openalex_confidence * 0.7
             elif crossref_confidence > openalex_confidence * 1.2:
                 final_assessment = (
                     crossref_assessment or AssessmentType.INSUFFICIENT_DATA
                 )
-                base_confidence = (
-                    crossref_confidence * 0.7
-                )  # Reduce confidence for disagreement
+                base_confidence = crossref_confidence * 0.7
             else:
                 # Confidence levels are similar but assessments disagree - inconclusive
                 final_assessment = None
@@ -385,7 +395,15 @@ class CrossValidatorBackend(ApiBackendWithCache):
             final_assessment = None
             base_confidence = 0.2
 
-        # Apply agreement bonus
+        return final_assessment, base_confidence, agreement_bonus, assessment_agreement
+
+    def _apply_confidence_adjustments(
+        self,
+        base_confidence: float,
+        agreement_bonus: float,
+        consistency_checks: list[str],
+    ) -> float:
+        """Apply agreement bonuses and consistency check adjustments to confidence."""
         final_confidence = min(1.0, base_confidence + agreement_bonus)
 
         # Consistency check adjustments
@@ -393,15 +411,24 @@ class CrossValidatorBackend(ApiBackendWithCache):
         success_count = sum(1 for check in consistency_checks if "✓" in check)
 
         if warning_count >= 2:
-            final_confidence = max(
-                0.1, final_confidence - 0.1
-            )  # Reduce for multiple inconsistencies
+            final_confidence = max(0.1, final_confidence - 0.1)
         elif success_count >= 2:
-            final_confidence = min(
-                1.0, final_confidence + 0.05
-            )  # Small boost for consistency
+            final_confidence = min(1.0, final_confidence + 0.05)
 
-        # Generate reasoning
+        return final_confidence
+
+    def _generate_reasoning(
+        self,
+        assessment_agreement: bool,
+        final_assessment: Any,
+        agreement_bonus: float,
+        openalex_assessment: Any,
+        crossref_assessment: Any,
+        consistency_checks: list[str],
+        openalex_result: BackendResult,
+        crossref_result: BackendResult,
+    ) -> list[str]:
+        """Generate reasoning based on assessment results."""
         reasoning = []
 
         if assessment_agreement:
@@ -429,13 +456,55 @@ class CrossValidatorBackend(ApiBackendWithCache):
             reasoning.append("OpenAlex reasoning:")
             reasoning.extend(
                 [f"  {r}" for r in openalex_result.data["analysis"]["reasoning"][:3]]
-            )  # Top 3
+            )
 
         if crossref_result.data.get("analysis", {}).get("reasoning"):
             reasoning.append("Crossref reasoning:")
             reasoning.extend(
                 [f"  {r}" for r in crossref_result.data["analysis"]["reasoning"][:3]]
-            )  # Top 3
+            )
+
+        return reasoning
+
+    def _combine_assessments(
+        self,
+        openalex_result: BackendResult,
+        crossref_result: BackendResult,
+        consistency_checks: list[str],
+        combined_flags: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Combine assessments from both backends with cross-validation."""
+        openalex_assessment = openalex_result.assessment
+        crossref_assessment = crossref_result.assessment
+        openalex_confidence = openalex_result.confidence
+        crossref_confidence = crossref_result.confidence
+
+        # Determine final assessment and base confidence
+        final_assessment, base_confidence, agreement_bonus, assessment_agreement = (
+            self._determine_final_assessment(
+                openalex_assessment,
+                crossref_assessment,
+                openalex_confidence,
+                crossref_confidence,
+            )
+        )
+
+        # Apply confidence adjustments
+        final_confidence = self._apply_confidence_adjustments(
+            base_confidence, agreement_bonus, consistency_checks
+        )
+
+        # Generate reasoning
+        reasoning = self._generate_reasoning(
+            assessment_agreement,
+            final_assessment,
+            agreement_bonus,
+            openalex_assessment,
+            crossref_assessment,
+            consistency_checks,
+            openalex_result,
+            crossref_result,
+        )
 
         return {
             "status": BackendStatus.FOUND,
