@@ -271,7 +271,7 @@ class OutputFormatter:
         Returns:
             Formatted recommendation string
         """
-        assessment = result.assessment.lower()
+        assessment = result.assessment
         confidence = result.confidence
 
         lines = ["\nRecommendation:"]
