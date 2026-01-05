@@ -4,6 +4,7 @@
 import re
 from typing import Any
 
+from aletheia_probe.enums import EntryType
 from aletheia_probe.normalizer import input_normalizer
 
 from ....logging_config import get_detail_logger, get_status_logger
@@ -77,9 +78,9 @@ class BeallsHTMLParser:
                             "metadata": {
                                 "source_url": source_url,
                                 "entry_type": (
-                                    "publisher"
+                                    EntryType.PUBLISHER
                                     if "standalone" not in source_url
-                                    else "journal"
+                                    else EntryType.JOURNAL
                                 ),
                                 "raw_entry": f"{publisher_name} {additional_info}".strip(),
                             },
