@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Validation utilities for Beall's List entries."""
 
+# Validation constants
+MIN_JOURNAL_NAME_LENGTH: int = 5
+MAX_JOURNAL_NAME_LENGTH: int = 200
+MIN_PUBLISHER_NAME_LENGTH: int = 2
+
 
 class JournalEntryValidator:
     """Validates journal entries from Beall's List."""
@@ -14,7 +19,7 @@ class JournalEntryValidator:
         Returns:
             True if text appears to be a valid journal name
         """
-        if not text or len(text.strip()) < 5:
+        if not text or len(text.strip()) < MIN_JOURNAL_NAME_LENGTH:
             return False
 
         text = text.lower().strip()
@@ -108,7 +113,7 @@ class JournalEntryValidator:
             return False
 
         # Skip entries that are too long (likely concatenated text)
-        if len(text) > 200:
+        if len(text) > MAX_JOURNAL_NAME_LENGTH:
             return False
 
         return True
@@ -122,7 +127,7 @@ class JournalEntryValidator:
         Returns:
             True if text appears to be a valid publisher name
         """
-        if not text or len(text.strip()) < 2:
+        if not text or len(text.strip()) < MIN_PUBLISHER_NAME_LENGTH:
             return False
 
         text_lower = text.lower().strip()
