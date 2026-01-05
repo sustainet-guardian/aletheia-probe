@@ -1,5 +1,12 @@
 # SPDX-License-Identifier: MIT
-"""Tests for Beall's List HTML parser."""
+"""Unit tests for the Beall's List HTML parser.
+
+This module provides test coverage for the BeallsHTMLParser, ensuring correct
+extraction of journal and publisher information from various HTML structures
+used in Beall's List (both list and table formats). It also verifies the
+robustness of the name extraction logic and integration with normalization
+and validation components.
+"""
 
 from unittest.mock import Mock, patch
 
