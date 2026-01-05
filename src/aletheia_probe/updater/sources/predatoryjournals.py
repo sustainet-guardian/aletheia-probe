@@ -245,15 +245,14 @@ class PredatoryJournalsSource(DataSource):
 
         return entries
 
-    def _parse_row(self, row: dict[str, Any], sheet_type: str) -> dict[str, Any] | None:
-        """Parse a single CSV row into an entry.
+    def _extract_name_from_row(self, row: dict[str, Any]) -> str | None:
+        """Extract journal/publisher name from CSV row.
 
         Args:
             row: CSV row as dictionary
-            sheet_type: Type of sheet ('journals' or 'publishers')
 
         Returns:
-            Parsed entry dictionary or None if invalid
+            Extracted name or None if no valid name found
         """
         # Try to extract journal/publisher name from common column names
         name = None
@@ -297,17 +296,31 @@ class PredatoryJournalsSource(DataSource):
                     name = stripped
                     break
 
-        if not name:
-            return None
+        return name
 
-        # Extract ISSN if available
-        issn = None
-        eissn = None
+    def _extract_issn_from_row(self, row: dict[str, Any]) -> str | None:
+        """Extract ISSN from CSV row.
+
+        Args:
+            row: CSV row as dictionary
+
+        Returns:
+            Extracted ISSN or None if not found
+        """
         for possible_issn_col in ["ISSN", "issn", "Print ISSN", "print_issn"]:
             if possible_issn_col in row and row[possible_issn_col]:
-                issn = row[possible_issn_col].strip()
-                break
+                return row[possible_issn_col].strip()
+        return None
 
+    def _extract_eissn_from_row(self, row: dict[str, Any]) -> str | None:
+        """Extract eISSN from CSV row.
+
+        Args:
+            row: CSV row as dictionary
+
+        Returns:
+            Extracted eISSN or None if not found
+        """
         for possible_eissn_col in [
             "eISSN",
             "eissn",
@@ -316,21 +329,53 @@ class PredatoryJournalsSource(DataSource):
             "E-ISSN",
         ]:
             if possible_eissn_col in row and row[possible_eissn_col]:
-                eissn = row[possible_eissn_col].strip()
-                break
+                return row[possible_eissn_col].strip()
+        return None
 
-        # Extract publisher if this is a journal entry
-        publisher = None
-        if sheet_type == "journals":
-            for possible_pub_col in [
-                "Publisher",
-                "publisher",
-                "Publisher Name",
-                "publisher_name",
-            ]:
-                if possible_pub_col in row and row[possible_pub_col]:
-                    publisher = row[possible_pub_col].strip()
-                    break
+    def _extract_publisher_from_row(
+        self, row: dict[str, Any], sheet_type: str
+    ) -> str | None:
+        """Extract publisher from CSV row for journal entries.
+
+        Args:
+            row: CSV row as dictionary
+            sheet_type: Type of sheet ('journals' or 'publishers')
+
+        Returns:
+            Extracted publisher or None if not found or not applicable
+        """
+        if sheet_type != "journals":
+            return None
+
+        for possible_pub_col in [
+            "Publisher",
+            "publisher",
+            "Publisher Name",
+            "publisher_name",
+        ]:
+            if possible_pub_col in row and row[possible_pub_col]:
+                return row[possible_pub_col].strip()
+        return None
+
+    def _parse_row(self, row: dict[str, Any], sheet_type: str) -> dict[str, Any] | None:
+        """Parse a single CSV row into an entry.
+
+        Args:
+            row: CSV row as dictionary
+            sheet_type: Type of sheet ('journals' or 'publishers')
+
+        Returns:
+            Parsed entry dictionary or None if invalid
+        """
+        # Extract name from row
+        name = self._extract_name_from_row(row)
+        if not name:
+            return None
+
+        # Extract ISSNs and publisher
+        issn = self._extract_issn_from_row(row)
+        eissn = self._extract_eissn_from_row(row)
+        publisher = self._extract_publisher_from_row(row, sheet_type)
 
         # Create entry
         try:
