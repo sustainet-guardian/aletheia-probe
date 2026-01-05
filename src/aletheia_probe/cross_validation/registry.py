@@ -154,28 +154,6 @@ class CrossValidationRegistry:
             unique_pairs.add(pair)  # type: ignore[arg-type]
         return list(unique_pairs)
 
-    def get_supported_params(self, backend1: str, backend2: str) -> set[str]:
-        """Get the set of parameters supported by a validator.
-
-        Args:
-            backend1: Name of the first backend
-            backend2: Name of the second backend
-
-        Returns:
-            Set of parameter names the validator factory accepts
-        """
-        pair_key = (backend1, backend2)
-        if pair_key not in self._factories:
-            return set()
-
-        try:
-            factory = self._factories[pair_key]
-            sig = inspect.signature(factory)
-            return set(sig.parameters.keys())
-        except (KeyError, AttributeError, ValueError, TypeError):
-            # If signature inspection fails, return empty set
-            return set()
-
 
 # Global cross-validation registry
 _cross_validation_registry: CrossValidationRegistry | None = None
