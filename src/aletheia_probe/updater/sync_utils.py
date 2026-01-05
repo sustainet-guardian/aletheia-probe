@@ -96,13 +96,7 @@ async def update_source_data(
             "processing_time": (datetime.now() - start_time).total_seconds(),
         }
 
-    except (
-        ValueError,
-        OSError,
-        KeyError,
-        AttributeError,
-        TypeError,
-    ) as e:
+    except (ValueError, OSError, KeyError) as e:
         detail_logger.error(f"Failed to update source {source_name}: {e}")
         status_logger.error(f"    {source_name}: Error - {e}")
         data_source_manager.log_update(
