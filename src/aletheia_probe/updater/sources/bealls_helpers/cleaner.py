@@ -8,6 +8,11 @@ import re
 class JournalNameCleaner:
     """Cleans and normalizes journal names from Beall's List."""
 
+    # Regex to match characters that are NOT: word characters (\w), whitespace (\s),
+    # hyphens (-), ampersands (&), parentheses (()), dots (.), commas (,), or colons (:).
+    # This is used to remove unexpected special characters from journal names.
+    _DISALLOWED_CHARS_RE = re.compile(r"[^\w\s\-&().,:]")
+
     def clean_malformed_text(self, text: str) -> str:
         """Clean malformed text entries.
 
@@ -31,7 +36,7 @@ class JournalNameCleaner:
         # Remove HTML entities and special characters
         text = text.replace("\xa0", " ")  # Non-breaking space
         text = text.replace("\u200b", "")  # Zero-width space
-        text = re.sub(r"[^\w\s\-&().,:]", " ", text)  # Remove other special chars
+        text = self._DISALLOWED_CHARS_RE.sub(" ", text)
         text = re.sub(r"\s+", " ", text)  # Clean up multiple spaces again
 
         return text.strip()
