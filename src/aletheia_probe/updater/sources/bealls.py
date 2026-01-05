@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime
 from typing import Any
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
@@ -88,7 +88,7 @@ class BeallsListSource(DataSource):
                     status_logger.info(
                         f"    {self.get_name()}: Retrieved {len(journals)} entries from {source_name}"
                     )
-                except Exception as e:
+                except (ClientError, asyncio.TimeoutError) as e:
                     status_logger.error(
                         f"    {self.get_name()}: Failed to fetch from {source_name} - {e}"
                     )
@@ -134,7 +134,7 @@ class BeallsListSource(DataSource):
         except asyncio.TimeoutError:
             detail_logger.error(f"Timeout fetching from {url}")
             status_logger.error(f"    {self.get_name()}: Timeout fetching from {url}")
-        except Exception as e:
+        except ClientError as e:
             detail_logger.error(f"Error fetching from {url}: {e}")
             status_logger.error(f"    {self.get_name()}: Error - {e}")
 
