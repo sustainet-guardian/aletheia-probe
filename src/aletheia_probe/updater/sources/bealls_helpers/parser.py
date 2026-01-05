@@ -34,6 +34,9 @@ class BeallsHTMLParser:
 
         Returns:
             List of parsed journal/publisher entries
+
+        Raises:
+            ValueError: If normalization of entries fails
         """
         journals = []
 
@@ -104,6 +107,9 @@ class BeallsHTMLParser:
 
         Returns:
             List of parsed journal entries
+
+        Raises:
+            ValueError: If normalization of entries fails
         """
         journals = []
 
@@ -156,6 +162,9 @@ class BeallsHTMLParser:
 
         Returns:
             Tuple of (journal_name, publisher) or (None, None) if invalid
+
+        Raises:
+            ValueError: If normalization of entries fails
         """
         text = text.strip()
 
