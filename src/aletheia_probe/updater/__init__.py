@@ -1,5 +1,18 @@
 # SPDX-License-Identifier: MIT
-"""Data updater for downloading and processing journal lists."""
+"""
+Framework for fetching, normalizing, and synchronizing journal data sources.
+
+This package provides the infrastructure for maintaining local copies of
+authoritative journal lists, which are used by backends to assess publishing
+integrity.
+
+Main Components:
+- core: DataSource abstraction and synchronization logic.
+- sources: Implementations for Beall's List, Retraction Watch, Scopus,
+  Algerian Ministry, and Kscien predatory lists.
+- utils: Journal name normalization, HTML cleaning, and deduplication tools.
+- sync_utils: Database synchronization and update management.
+"""
 
 # Import dependencies used by sources and tests
 from ..cache import DataSourceManager
