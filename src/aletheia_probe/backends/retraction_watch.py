@@ -13,6 +13,7 @@ from ..enums import AssessmentType, RiskLevel
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
+from ..risk_calculator import calculate_retraction_risk_level
 from .base import ApiBackendWithCache, get_backend_registry
 from .protocols import DataSyncCapable
 
@@ -440,7 +441,6 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         Returns:
             Risk level from RiskLevel enum (CRITICAL, HIGH, MODERATE, LOW, NOTE, NONE)
         """
-        from ..risk_calculator import calculate_retraction_risk_level
 
         return calculate_retraction_risk_level(
             total, recent, total_publications, recent_publications
