@@ -30,6 +30,42 @@ class TestCrossValidationRegistry:
         validator2 = registry.create_validator("crossref_analyzer", "openalex_analyzer")
         assert isinstance(validator2, OpenAlexCrossRefValidator)
 
+    def test_protocol_methods_are_called(self):
+        """Test that protocol methods are actually called during cross-validation."""
+        registry = CrossValidationRegistry()
+
+        # Create a mock validator that tracks method calls
+        class MockValidator:
+            def __init__(self):
+                self.validate_called = False
+                self.supported_backend_pair_accessed = False
+
+            def validate(self, result1, result2):
+                self.validate_called = True
+                return {"test": "result"}
+
+            @property
+            def supported_backend_pair(self):
+                self.supported_backend_pair_accessed = True
+                return ("backend1", "backend2")
+
+        mock_validator = MockValidator()
+        registry.register_factory("backend1", "backend2", lambda: mock_validator)
+
+        # Test that supported_backend_pair is accessed when checking protocol
+        validator = registry.create_validator("backend1", "backend2")
+        assert isinstance(validator, MockValidator)
+
+        # Test that validate is called through validate_pair
+        result1 = Mock(spec=BackendResult)
+        result2 = Mock(spec=BackendResult)
+        registry.validate_pair("backend1", result1, "backend2", result2)
+
+        # Verify methods were called
+        assert mock_validator.validate_called, (
+            "Protocol validate() method was not called"
+        )
+
     def test_register_custom_validator(self):
         """Test registering a custom validator."""
         registry = CrossValidationRegistry()

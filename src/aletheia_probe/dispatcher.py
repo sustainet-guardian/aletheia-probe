@@ -151,7 +151,8 @@ class QueryDispatcher:
             return backend_results
 
         # Create result lookup by backend name for efficient access
-        result_map = {r.backend_name: r for r in successful_results}
+        # Include ALL results (not just successful) for cross-validation
+        result_map = {r.backend_name: r for r in backend_results}
 
         # Get all registered pairs from the cross-validation registry
         registered_pairs = self.cross_validation_registry.get_registered_pairs()
