@@ -30,20 +30,7 @@ from aletheia_probe.models import QueryInput
 class TestEmailConfigurationIntegration:
     """Integration tests for email configuration with real backend creation."""
 
-    @pytest.mark.integration
-    def test_cross_validator_email_propagation(self):
-        """Test that CrossValidatorBackend properly propagates email to sub-backends."""
-        registry = get_backend_registry()
-        test_email = "propagation-test@example.com"
-
-        backend = registry.create_backend("cross_validator", email=test_email)
-
-        # Verify email is stored on the main backend
-        assert backend.email == test_email
-
-        # Verify email is propagated to sub-backends
-        assert backend.openalex_backend.email == test_email
-        assert backend.crossref_backend.email == test_email
+    pass  # Tests for cross_validator backend removed as backend was deleted
 
 
 class TestDispatcherEmailConfiguration:

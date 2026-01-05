@@ -14,6 +14,7 @@ from .constants import (
     CONFIDENCE_THRESHOLD_HIGH,
     CONFIDENCE_THRESHOLD_LOW,
 )
+from .cross_validation import CrossValidationRegistry
 from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
@@ -75,6 +76,7 @@ class QueryDispatcher:
         self.config = self.config_manager.load_config()
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
+        self.cross_validation_registry = CrossValidationRegistry()
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -127,6 +129,120 @@ class QueryDispatcher:
         return await self._try_acronym_fallback(
             assessment_result, query_input, enabled_backends, start_time
         )
+
+    def _apply_cross_validation(
+        self, backend_results: list[BackendResult], reasoning: list[str]
+    ) -> list[BackendResult]:
+        """Apply cross-validation to backend results and adjust confidence scores.
+
+        Args:
+            backend_results: List of backend results to cross-validate
+            reasoning: List to append reasoning messages to
+
+        Returns:
+            List of backend results with confidence adjustments applied
+        """
+        successful_results = [
+            r for r in backend_results if r.status == BackendStatus.FOUND
+        ]
+
+        if len(successful_results) < 2:
+            self.detail_logger.debug("Insufficient results for cross-validation")
+            return backend_results
+
+        # Create result lookup by backend name for efficient access
+        result_map = {r.backend_name: r for r in successful_results}
+
+        # Get all registered pairs from the cross-validation registry
+        registered_pairs = self.cross_validation_registry.get_registered_pairs()
+
+        cross_validation_applied = False
+        adjusted_results = []
+
+        for result in backend_results:
+            if result.status != BackendStatus.FOUND:
+                # Keep non-successful results unchanged
+                adjusted_results.append(result)
+                continue
+
+            # Check if this result can be cross-validated with any other result
+            confidence_adjustment = 0.0
+            cross_validation_data = None
+            backend_name = result.backend_name
+
+            for backend1, backend2 in registered_pairs:
+                if backend_name == backend1 and backend2 in result_map:
+                    other_result = result_map[backend2]
+                elif backend_name == backend2 and backend1 in result_map:
+                    other_result = result_map[backend1]
+                else:
+                    continue
+
+                # Apply cross-validation for this pair
+                validation_result = self.cross_validation_registry.validate_pair(
+                    backend_name, result, other_result.backend_name, other_result
+                )
+
+                if validation_result:
+                    confidence_adjustment = validation_result.get(
+                        "confidence_adjustment", 0.0
+                    )
+                    cross_validation_data = validation_result
+                    cross_validation_applied = True
+
+                    self.detail_logger.debug(
+                        f"Cross-validation applied between {backend_name} and {other_result.backend_name}: "
+                        f"adjustment={confidence_adjustment:+.3f}"
+                    )
+
+                    # Add cross-validation reasoning
+                    if validation_result.get("reasoning"):
+                        reasoning.extend(
+                            [
+                                f"Cross-validation ({backend_name} ↔ {other_result.backend_name}):"
+                            ]
+                            + [
+                                f"  {reason}"
+                                for reason in validation_result["reasoning"][:3]
+                            ]
+                        )
+
+                    break  # Apply only first matching cross-validation
+
+            # Create adjusted result
+            new_confidence = max(
+                0.0, min(1.0, result.confidence + confidence_adjustment)
+            )
+
+            # Create new result with adjusted confidence and cross-validation data
+            adjusted_result = BackendResult(
+                backend_name=result.backend_name,
+                status=result.status,
+                confidence=new_confidence,
+                assessment=result.assessment,
+                data={
+                    **result.data,
+                    **(
+                        {"cross_validation": cross_validation_data}
+                        if cross_validation_data
+                        else {}
+                    ),
+                },
+                sources=result.sources,
+                error_message=result.error_message,
+                response_time=result.response_time,
+                cached=result.cached,
+                execution_time_ms=result.execution_time_ms,
+                evidence_type=result.evidence_type,
+            )
+            adjusted_results.append(adjusted_result)
+
+        if cross_validation_applied:
+            self.detail_logger.info(
+                "Cross-validation adjustments applied to backend results"
+            )
+
+        return adjusted_results
 
     async def _try_acronym_fallback(
         self,
@@ -427,6 +543,14 @@ class QueryDispatcher:
             return self._handle_no_results(
                 query_input, backend_results, reasoning, processing_time
             )
+
+        # Apply cross-validation adjustments to backend results
+        backend_results = self._apply_cross_validation(backend_results, reasoning)
+
+        # Refresh successful results after cross-validation adjustments
+        successful_results = [
+            r for r in backend_results if r.status == BackendStatus.FOUND
+        ]
 
         # Calculate weighted scores from backend results
         score_data = self._calculate_backend_scores(successful_results, reasoning)
