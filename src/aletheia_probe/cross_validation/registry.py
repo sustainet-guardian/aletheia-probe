@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Any
 
 from ..models import BackendResult
-from ..utils.dead_code import code_is_used
 from .protocols import CrossValidationCapable
 from .validators import OpenAlexCrossRefValidator
 
@@ -38,7 +37,6 @@ class CrossValidationRegistry:
             default_config={},
         )
 
-    @code_is_used
     def register_factory(
         self,
         backend1: str,
@@ -62,7 +60,6 @@ class CrossValidationRegistry:
         self._default_configs[pair_key] = config
         self._default_configs[(backend2, backend1)] = config
 
-    @code_is_used
     def create_validator(
         self, backend1: str, backend2: str, **config: Any
     ) -> CrossValidationCapable | None:
@@ -118,7 +115,6 @@ class CrossValidationRegistry:
             # This ensures backward compatibility
             return config
 
-    @code_is_used
     def validate_pair(
         self,
         backend1: str,
@@ -145,7 +141,6 @@ class CrossValidationRegistry:
 
         return validator.validate(result1, result2)
 
-    @code_is_used
     def get_registered_pairs(self) -> list[tuple[str, str]]:
         """Get all registered backend pairs.
 
@@ -159,7 +154,6 @@ class CrossValidationRegistry:
             unique_pairs.add(pair)  # type: ignore[arg-type]
         return list(unique_pairs)
 
-    @code_is_used
     def get_supported_params(self, backend1: str, backend2: str) -> set[str]:
         """Get the set of parameters supported by a validator.
 
@@ -187,7 +181,6 @@ class CrossValidationRegistry:
 _cross_validation_registry: CrossValidationRegistry | None = None
 
 
-@code_is_used
 def get_cross_validation_registry() -> CrossValidationRegistry:
     """Get the global cross-validation registry instance.
 
