@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Archive file downloading for Algerian Ministry data (RAR and ZIP)."""
+"""Archive file downloading for Algerian Ministry data."""
 
 import asyncio
 import ssl
@@ -18,7 +18,7 @@ status_logger = get_status_logger()
 
 
 class ArchiveDownloader:
-    """Downloads archive files (RAR and ZIP) from Algerian Ministry website."""
+    """Downloads archive files from Algerian Ministry website."""
 
     def __init__(self) -> None:
         """Initialize the downloader with configuration."""
@@ -59,9 +59,9 @@ class ArchiveDownloader:
         ),
     )
     async def download_archive(
-        self, session: ClientSession, url: str, temp_dir: str, file_extension: str
+        self, session: ClientSession, url: str, temp_dir: str
     ) -> str | None:
-        """Download archive file (RAR or ZIP) to temporary directory with retry logic.
+        """Download archive file to temporary directory with retry logic.
 
         Uses exponential backoff for transient failures (network issues, timeouts).
 
@@ -69,7 +69,6 @@ class ArchiveDownloader:
             session: HTTP session
             url: URL of the archive file
             temp_dir: Temporary directory path
-            file_extension: File extension (.rar or .zip)
 
         Returns:
             Path to downloaded archive file, or None if download failed
@@ -79,9 +78,7 @@ class ArchiveDownloader:
             ServerTimeoutError: On persistent server timeout errors
             asyncio.TimeoutError: On persistent timeout errors
         """
-        archive_path = (
-            Path(temp_dir) / f"algerian_{datetime.now().year}{file_extension}"
-        )
+        archive_path = Path(temp_dir) / f"algerian_{datetime.now().year}.zip"
 
         try:
             detail_logger.info(f"Algerian downloader: Starting download from {url}")
@@ -217,23 +214,6 @@ class ArchiveDownloader:
             )
             status_logger.warning(f"    algerian_ministry: Download failed: {e}")
             return None
-
-    async def download_rar(
-        self, session: ClientSession, url: str, temp_dir: str
-    ) -> str | None:
-        """Download RAR file to temporary directory with retry logic.
-
-        Backwards compatibility wrapper for download_archive.
-
-        Args:
-            session: HTTP session
-            url: URL of the RAR file
-            temp_dir: Temporary directory path
-
-        Returns:
-            Path to downloaded RAR file, or None if download failed
-        """
-        return await self.download_archive(session, url, temp_dir, ".rar")
 
     async def _process_download_response(
         self, response: ClientResponse, archive_path: Path, url: str

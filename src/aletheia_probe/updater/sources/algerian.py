@@ -37,7 +37,7 @@ class AlgerianMinistrySource(DataSource):
         self.current_year = datetime.now().year
         self.timeout = ClientTimeout(
             total=300
-        )  # 5 minutes timeout for large RAR files (18MB+)
+        )  # 5 minutes timeout for large archive files (18MB+)
 
         # Initialize helper classes
         self.downloader = ArchiveDownloader()
@@ -61,12 +61,11 @@ class AlgerianMinistrySource(DataSource):
         return (datetime.now() - last_update).days >= 30
 
     async def fetch_data(self) -> list[dict[str, Any]]:
-        """Fetch and process Algerian predatory journal data from archives (RAR/ZIP)."""
+        """Fetch and process Algerian predatory journal data from ZIP archives."""
         all_journals = []
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
 
         # Try current year first, then previous years
-        # Note: 2022+ are in ZIP format, older years are in RAR format
         years_to_try = []
         if self.current_year >= 2024:
             years_to_try = [2024, 2023, 2022]
@@ -78,17 +77,14 @@ class AlgerianMinistrySource(DataSource):
         )
 
         for year in years_to_try:
-            # Determine format: ZIP for 2022+, RAR for earlier years
-            file_format = "zip" if year >= 2022 else "rar"
-
             try:
                 status_logger.info(
-                    f"    {self.get_name()}: Attempting to fetch data for year {year} ({file_format.upper()} format)"
+                    f"    {self.get_name()}: Attempting to fetch data for year {year}"
                 )
                 detail_logger.info(
-                    f"Algerian Ministry: Starting download for year {year} ({file_format.upper()} format)"
+                    f"Algerian Ministry: Starting download for year {year}"
                 )
-                journals = await self._fetch_year_data(year, file_format)
+                journals = await self._fetch_year_data(year)
                 if journals:
                     all_journals.extend(journals)
                     detail_logger.info(
@@ -114,98 +110,72 @@ class AlgerianMinistrySource(DataSource):
 
         return deduplicate_journals(all_journals)
 
-    async def _fetch_year_data(
-        self, year: int, file_format: str = "rar"
-    ) -> list[dict[str, Any]]:
+    async def _fetch_year_data(self, year: int) -> list[dict[str, Any]]:
         """Fetch and process data for a specific year.
 
         Args:
             year: Year to fetch data for
-            file_format: Archive format ("rar" or "zip")
 
         Returns:
             List of journal entries
         """
-        url = f"{self.base_url}/{year}.{file_format}"
-        detail_logger.info(
-            f"Algerian Ministry: Downloading {file_format.upper()} file from {url}"
-        )
+        url = f"{self.base_url}/{year}.zip"
+        detail_logger.info(f"Algerian Ministry: Downloading ZIP file from {url}")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Download archive file
-            detail_logger.info(
-                f"Algerian Ministry: Starting {file_format.upper()} download..."
-            )
-            archive_path = await self._download_archive(url, temp_dir, file_format)
+            detail_logger.info("Algerian Ministry: Starting ZIP download...")
+            archive_path = await self._download_archive(url, temp_dir)
             if not archive_path:
-                detail_logger.warning(
-                    f"Algerian Ministry: {file_format.upper()} download failed"
-                )
-                status_logger.warning(
-                    f"    {self.get_name()}: {file_format.upper()} download failed"
-                )
+                detail_logger.warning("Algerian Ministry: ZIP download failed")
+                status_logger.warning(f"    {self.get_name()}: ZIP download failed")
                 return []
 
             detail_logger.info(
-                f"Algerian Ministry: {file_format.upper()} downloaded, starting extraction..."
+                "Algerian Ministry: ZIP downloaded, starting extraction..."
             )
 
             # Extract archive contents
-            extract_dir = await self._extract_archive(
-                archive_path, temp_dir, file_format
-            )
+            extract_dir = await self._extract_archive(archive_path, temp_dir)
             if not extract_dir:
-                detail_logger.warning(
-                    f"Algerian Ministry: {file_format.upper()} extraction failed"
-                )
-                status_logger.warning(
-                    f"    {self.get_name()}: {file_format.upper()} extraction failed"
-                )
+                detail_logger.warning("Algerian Ministry: ZIP extraction failed")
+                status_logger.warning(f"    {self.get_name()}: ZIP extraction failed")
                 return []
 
             detail_logger.info(
-                f"Algerian Ministry: {file_format.upper()} extracted, processing PDF files..."
+                "Algerian Ministry: ZIP extracted, processing PDF files..."
             )
 
             # Find and process PDF files
             return self._process_pdf_files(extract_dir, year)
 
-    async def _download_archive(
-        self, url: str, temp_dir: str, file_format: str
-    ) -> str | None:
+    async def _download_archive(self, url: str, temp_dir: str) -> str | None:
         """Download archive file to temporary directory.
 
         Args:
             url: URL of the archive file
             temp_dir: Temporary directory path
-            file_format: Archive format ("rar" or "zip")
 
         Returns:
             Path to downloaded archive file, or None if failed
         """
         async with ClientSession(timeout=self.timeout) as session:
             result: str | None = await self.downloader.download_archive(
-                session, url, temp_dir, f".{file_format}"
+                session, url, temp_dir
             )
             return result
 
-    async def _extract_archive(
-        self, archive_path: str, temp_dir: str, file_format: str
-    ) -> str | None:
-        """Extract archive file using appropriate extractor.
+    async def _extract_archive(self, archive_path: str, temp_dir: str) -> str | None:
+        """Extract archive file.
 
         Args:
             archive_path: Path to archive file
             temp_dir: Temporary directory
-            file_format: Archive format ("rar" or "zip")
 
         Returns:
             Path to extraction directory, or None if failed
         """
-        if file_format == "zip":
-            return await self.extractor.extract_zip(archive_path, temp_dir)
-        else:
-            return await self.extractor.extract_rar(archive_path, temp_dir)
+        return await self.extractor.extract_zip(archive_path, temp_dir)
 
     def _process_pdf_files(self, extract_dir: str, year: int) -> list[dict[str, Any]]:
         """Process PDF files to extract journal and publisher lists from the target year only.

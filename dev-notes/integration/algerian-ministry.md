@@ -7,8 +7,8 @@ The Algerian Ministry of Higher Education (DGRSDT) provides an authoritative lis
 ## Data Source
 
 - **Authority**: Algerian Ministry of Higher Education (DGRSDT)
-- **URL Pattern**: `https://dgrsdt.dz/storage/revus/Liste%20des%20Revues%20Pr%C3%A9datrices,%20Editeurs%20pr%C3%A9dateurs/{YEAR}.{zip|rar}`
-- **Format**: Annual archives containing PDF lists (ZIP format for 2022+, RAR for earlier years)
+- **URL Pattern**: `https://dgrsdt.dz/storage/revus/Liste%20des%20Revues%20Pr%C3%A9datrices,%20Editeurs%20pr%C3%A9dateurs/{YEAR}.zip`
+- **Format**: Annual ZIP archives containing PDF lists
 - **Content**: Numbered lists of predatory journals with multiple URLs per journal
 - **Classification**: Predatory journals only
 - **Volume**: ~3,300 unique journals (as of 2024)
@@ -30,13 +30,13 @@ The Algerian Ministry of Higher Education (DGRSDT) provides an authoritative lis
 ## Data Processing Pipeline
 
 ```
-Download Archive (ZIP/RAR) → Extract PDFs → Parse Text → Normalize Names → Store in Cache
+Download ZIP Archive → Extract PDFs → Parse Text → Normalize Names → Store in Cache
 ```
 
 ### Processing Steps
 
-1. **Download**: Fetches archive for current/previous year (ZIP for 2022+, RAR for earlier years)
-2. **Extraction**: Uses Python's zipfile module for ZIP files, system `unrar` command for RAR files
+1. **Download**: Fetches ZIP archive for current/previous year
+2. **Extraction**: Uses Python's built-in zipfile module
 3. **PDF Parsing**: PyPDF2 extracts text from PDF documents
 4. **Text Processing**: Regex patterns identify numbered journal entries (`N° Journal Name URL1 URL2...`)
 5. **URL Handling**: Preserves multiple URLs associated with each journal
@@ -53,7 +53,7 @@ Download Archive (ZIP/RAR) → Extract PDFs → Parse Text → Normalize Names �
 See **[pyproject.toml](../../pyproject.toml)** for complete dependency list.
 
 ### System Requirements
-RAR extraction tool (`unrar`) required for processing archives from years before 2022. See **[DEPENDENCIES.md](../DEPENDENCIES.md)** for installation instructions. ZIP archives (2022+) use Python's built-in zipfile module and require no additional system packages.
+No additional system packages required. ZIP archives are handled by Python's built-in zipfile module.
 
 ## Data Characteristics
 

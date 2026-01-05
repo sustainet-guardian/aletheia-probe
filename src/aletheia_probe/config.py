@@ -104,9 +104,6 @@ class DataSourceUrlConfig(BaseModel):
 class DataSourceProcessingConfig(BaseModel):
     """Configuration for data source processing parameters."""
 
-    rar_extraction_timeout: int = Field(
-        120, ge=10, description="Timeout in seconds for RAR extraction"
-    )
     download_chunk_size: int = Field(
         8192, ge=1024, description="Chunk size in bytes for file downloads"
     )
