@@ -10,7 +10,7 @@ import pytest
 import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.data_models import JournalEntryData
-from aletheia_probe.enums import NameType
+from aletheia_probe.enums import AssessmentType, NameType
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 
 
@@ -59,7 +59,7 @@ def sample_backend_result():
         backend_name="test_backend",
         status=BackendStatus.FOUND,
         confidence=0.9,
-        assessment="legitimate",
+        assessment=AssessmentType.LEGITIMATE.value,
         data={"test": "data"},
         sources=["test_source"],
         response_time=0.1,
