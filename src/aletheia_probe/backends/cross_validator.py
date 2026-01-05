@@ -38,7 +38,7 @@ class CrossValidatorBackend(ApiBackendWithCache):
 
     def __init__(
         self, email: str = "noreply@aletheia-probe.org", cache_ttl_hours: int = 24
-    ):
+    ) -> None:
         """Initialize cross-validation backend.
 
         Args:
