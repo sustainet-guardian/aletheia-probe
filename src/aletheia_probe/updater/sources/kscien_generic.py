@@ -95,34 +95,40 @@ class KscienGenericSource(DataSource):
         Returns:
             List of publication entries with normalized names
         """
-        all_publications = []
-
         detail_logger.info(f"Starting Kscien {self.publication_type} data fetch")
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
 
-        async with ClientSession(timeout=self.timeout) as session:
-            publications = await fetch_kscien_data(
-                session,
-                self.publication_type,
-                self.base_url,
-                self.max_pages,
-                self.get_name,
+        try:
+            all_publications = []
+            async with ClientSession(timeout=self.timeout) as session:
+                publications = await fetch_kscien_data(
+                    session,
+                    self.publication_type,
+                    self.base_url,
+                    self.max_pages,
+                    self.get_name,
+                )
+                all_publications.extend(publications)
+                status_logger.info(
+                    f"    {self.get_name()}: Retrieved {len(publications)} raw entries"
+                )
+
+            # Remove duplicates based on normalized name
+            unique_publications = deduplicate_entries(all_publications)
+            detail_logger.info(
+                f"Total unique {self.publication_type} after deduplication: {len(unique_publications)}"
             )
-            all_publications.extend(publications)
             status_logger.info(
-                f"    {self.get_name()}: Retrieved {len(publications)} raw entries"
+                f"    {self.get_name()}: Processed {len(unique_publications)} unique entries"
             )
 
-        # Remove duplicates based on normalized name
-        unique_publications = deduplicate_entries(all_publications)
-        detail_logger.info(
-            f"Total unique {self.publication_type} after deduplication: {len(unique_publications)}"
-        )
-        status_logger.info(
-            f"    {self.get_name()}: Processed {len(unique_publications)} unique entries"
-        )
-
-        return unique_publications
+            return unique_publications
+        except Exception as e:
+            detail_logger.error(
+                f"Error in fetch_data for Kscien {self.publication_type}: {e}"
+            )
+            status_logger.error(f"    {self.get_name()}: Fetch failed - {e}")
+            return []
 
 
 # Note: KscienGenericSource is registered with specific parameters in updater/__init__.py
