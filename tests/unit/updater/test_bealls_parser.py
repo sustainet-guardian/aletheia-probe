@@ -477,3 +477,44 @@ class TestBeallsHTMLParser:
             results = parser.parse_table_content(html, "http://test.com")
 
         assert results[0]["normalized_name"] == "international journal science"
+
+    def test_parse_beallslist_html_very_short_publisher(self, parser):
+        """Test that very short publisher names (2 chars) are filtered out."""
+        html = """
+        <ul>
+            <li><a href="http://example.com">AB</a></li>
+            <li><a href="http://example.com">Valid Publisher Name</a></li>
+        </ul>
+        """
+
+        with patch.object(
+            parser.validator,
+            "is_valid_publisher_entry",
+            wraps=parser.validator.is_valid_publisher_entry,
+        ):
+            results = parser.parse_beallslist_html(html, "http://test.com")
+
+        # Only the valid publisher should be included
+        assert len(results) == 1
+        assert results[0]["journal_name"] == "Valid Publisher Name"
+
+    def test_parse_beallslist_html_very_long_publisher(self, parser):
+        """Test that very long publisher names are filtered out."""
+        long_name = "A" * 250  # Exceeds MAX_PUBLISHER_NAME_LENGTH
+        html = f"""
+        <ul>
+            <li><a href="http://example.com">{long_name}</a></li>
+            <li><a href="http://example.com">Valid Publisher Name</a></li>
+        </ul>
+        """
+
+        with patch.object(
+            parser.validator,
+            "is_valid_publisher_entry",
+            wraps=parser.validator.is_valid_publisher_entry,
+        ):
+            results = parser.parse_beallslist_html(html, "http://test.com")
+
+        # Only the valid publisher should be included
+        assert len(results) == 1
+        assert results[0]["journal_name"] == "Valid Publisher Name"
