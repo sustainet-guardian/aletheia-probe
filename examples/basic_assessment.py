@@ -12,10 +12,10 @@ This script demonstrates:
 import asyncio
 
 from aletheia_probe.dispatcher import query_dispatcher
-from aletheia_probe.models import QueryInput
+from aletheia_probe.models import AssessmentResult, QueryInput
 
 
-async def single_assessment():
+async def single_assessment() -> AssessmentResult:
     """Assess a single journal and interpret results."""
     print("=== Single Journal Assessment ===")
 
@@ -38,7 +38,7 @@ async def single_assessment():
     return result
 
 
-async def batch_assessment():
+async def batch_assessment() -> list[tuple[str, AssessmentResult]]:
     """Assess multiple journals in batch."""
     print("\n=== Batch Assessment ===")
 
@@ -68,7 +68,7 @@ async def batch_assessment():
     return results
 
 
-async def main():
+async def main() -> None:
     """Run all examples."""
     try:
         # Single assessment
