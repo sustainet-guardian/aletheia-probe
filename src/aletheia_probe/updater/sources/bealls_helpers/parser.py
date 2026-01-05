@@ -19,6 +19,18 @@ status_logger = get_status_logger()
 class BeallsHTMLParser:
     """Parses HTML content from Beall's List websites."""
 
+    # Regex patterns
+    LI_PATTERN = r'<li[^>]*>.*?<a[^>]*href="[^"]*"[^>]*>(.*?)</a>(.*?)</li>'
+    ROW_PATTERN = r"<tr[^>]*>(.*?)</tr>"
+    CELL_PATTERN = r"<t[dh][^>]*>(.*?)</t[dh]>"
+    HTML_TAG_PATTERN = r"<[^>]+>"
+    PARENTHESES_PATTERN = r"\(([^)]+)\)"
+
+    # Extraction patterns
+    PUBLISHER_PATTERN = r"^(.*?)\s*\(([^)]+)\)\s*$"
+    COMMA_PATTERN = r"^(.*?),\s*([^,]+)$"
+    DASH_PATTERN = r"^(.*?)\s*-\s*([^-]+)$"
+
     def __init__(self) -> None:
         self.cleaner = JournalNameCleaner()
         self.validator = JournalEntryValidator()
@@ -42,21 +54,20 @@ class BeallsHTMLParser:
 
         # The structure is straightforward: <ul><li><a>Publisher Name</a> (optional info)</li></ul>
         # Extract all list items with links
-        li_pattern = r'<li[^>]*>.*?<a[^>]*href="[^"]*"[^>]*>(.*?)</a>(.*?)</li>'
-        matches = re.findall(li_pattern, html_content, re.DOTALL | re.IGNORECASE)
+        matches = re.findall(self.LI_PATTERN, html_content, re.DOTALL | re.IGNORECASE)
 
         for link_text, additional_info in matches:
             # Clean the publisher/journal name from the link text
-            publisher_name = re.sub(r"<[^>]+>", "", link_text).strip()
+            publisher_name = re.sub(self.HTML_TAG_PATTERN, "", link_text).strip()
 
             # Clean additional info (like "(ASJ)")
-            additional_info = re.sub(r"<[^>]+>", "", additional_info).strip()
+            additional_info = re.sub(self.HTML_TAG_PATTERN, "", additional_info).strip()
 
             # Extract publisher code from parentheses if present
             publisher_code = None
             if additional_info:
                 # Look for pattern like "(ASJ)" or "(some code)"
-                code_match = re.search(r"\(([^)]+)\)", additional_info)
+                code_match = re.search(self.PARENTHESES_PATTERN, additional_info)
                 if code_match:
                     publisher_code = code_match.group(1).strip()
 
@@ -114,19 +125,19 @@ class BeallsHTMLParser:
         journals = []
 
         # Extract table rows
-        row_pattern = r"<tr[^>]*>(.*?)</tr>"
-        rows = re.findall(row_pattern, table_html, re.DOTALL | re.IGNORECASE)
+        rows = re.findall(self.ROW_PATTERN, table_html, re.DOTALL | re.IGNORECASE)
 
         for row in rows:
             # Extract cell content
-            cell_pattern = r"<t[dh][^>]*>(.*?)</t[dh]>"
-            cells = re.findall(cell_pattern, row, re.DOTALL | re.IGNORECASE)
+            cells = re.findall(self.CELL_PATTERN, row, re.DOTALL | re.IGNORECASE)
 
             if len(cells) >= 1:
                 # First cell typically contains journal name
-                journal_cell = re.sub(r"<[^>]+>", "", cells[0]).strip()
+                journal_cell = re.sub(self.HTML_TAG_PATTERN, "", cells[0]).strip()
                 publisher_cell = (
-                    re.sub(r"<[^>]+>", "", cells[1]).strip() if len(cells) > 1 else None
+                    re.sub(self.HTML_TAG_PATTERN, "", cells[1]).strip()
+                    if len(cells) > 1
+                    else None
                 )
 
                 journal_name, publisher = self._extract_journal_info(journal_cell)
@@ -180,8 +191,7 @@ class BeallsHTMLParser:
 
         # Common patterns to extract journal name and publisher
         # Pattern: "Journal Name (Publisher)"
-        publisher_pattern = r"^(.*?)\s*\(([^)]+)\)\s*$"
-        match = re.match(publisher_pattern, text)
+        match = re.match(self.PUBLISHER_PATTERN, text)
         if match:
             journal_name = match.group(1).strip()
             publisher = match.group(2).strip()
@@ -189,8 +199,7 @@ class BeallsHTMLParser:
                 return journal_name, publisher
 
         # Pattern: "Journal Name, Publisher"
-        comma_pattern = r"^(.*?),\s*([^,]+)$"
-        match = re.match(comma_pattern, text)
+        match = re.match(self.COMMA_PATTERN, text)
         if match and len(match.group(2)) < 50:  # Publisher name shouldn't be too long
             journal_name = match.group(1).strip()
             publisher = match.group(2).strip()
@@ -198,8 +207,7 @@ class BeallsHTMLParser:
                 return journal_name, publisher
 
         # Pattern: "Journal Name - Publisher"
-        dash_pattern = r"^(.*?)\s*-\s*([^-]+)$"
-        match = re.match(dash_pattern, text)
+        match = re.match(self.DASH_PATTERN, text)
         if match and len(match.group(2)) < 50:
             journal_name = match.group(1).strip()
             publisher = match.group(2).strip()
