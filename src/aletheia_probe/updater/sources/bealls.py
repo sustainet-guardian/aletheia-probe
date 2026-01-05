@@ -34,13 +34,29 @@ class BeallsListSource(DataSource):
         self.parser = BeallsHTMLParser()
 
     def get_name(self) -> str:
+        """Return the source name.
+
+        Returns:
+            str: Unique identifier for this data source ('bealls').
+        """
         return "bealls"
 
     def get_list_type(self) -> AssessmentType:
+        """Return the list type.
+
+        Returns:
+            AssessmentType: PREDATORY for Beall's list.
+        """
         return AssessmentType.PREDATORY
 
     def should_update(self) -> bool:
-        """Check if we should update (weekly for static lists)."""
+        """Check if the source should be updated.
+
+        Updates are performed weekly for this static list.
+
+        Returns:
+            bool: True if an update is needed, False otherwise.
+        """
         data_source_manager = DataSourceManager()
         last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
@@ -50,7 +66,12 @@ class BeallsListSource(DataSource):
         return (datetime.now() - last_update).days >= 7
 
     async def fetch_data(self) -> list[dict[str, Any]]:
-        """Fetch Beall's list data from multiple sources."""
+        """Fetch Beall's list data from multiple sources.
+
+        Returns:
+            list[dict[str, Any]]: A list of unique journal entries fetched from
+                the configured sources.
+        """
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
         all_journals = []
 
@@ -86,7 +107,16 @@ class BeallsListSource(DataSource):
     async def _fetch_from_source(
         self, session: ClientSession, url: str, source_name: str
     ) -> list[dict[str, Any]]:
-        """Fetch journal data from a specific source."""
+        """Fetch journal data from a specific source.
+
+        Args:
+            session (ClientSession): The aiohttp client session to use for the request.
+            url (str): The URL to fetch data from.
+            source_name (str): The name of the source (e.g., 'beallslist_publishers').
+
+        Returns:
+            list[dict[str, Any]]: A list of journal data dictionaries.
+        """
         journals = []
 
         try:
