@@ -337,17 +337,3 @@ class ArticleRetractionChecker:
             retraction_reason=result.retraction_reason,
             ttl_hours=self.cache_ttl_hours,
         )
-
-
-async def check_article_retraction(doi: str) -> ArticleRetractionResult:
-    """
-    Convenience function to check if an article is retracted.
-
-    Args:
-        doi: The DOI to check
-
-    Returns:
-        ArticleRetractionResult with retraction information
-    """
-    checker = ArticleRetractionChecker()
-    return await checker.check_doi(doi)

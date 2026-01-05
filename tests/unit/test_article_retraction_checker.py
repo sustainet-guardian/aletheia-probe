@@ -10,7 +10,6 @@ import pytest
 from aletheia_probe.article_retraction_checker import (
     ArticleRetractionChecker,
     ArticleRetractionResult,
-    check_article_retraction,
 )
 from aletheia_probe.cache import RetractionCache
 
@@ -753,28 +752,3 @@ class TestArticleRetractionCheckerIntegration:
             assert result.is_retracted is False
             assert "retraction_watch_local" in result.checked_sources
             assert "crossref" in result.checked_sources
-
-
-class TestCheckArticleRetractionConvenienceFunction:
-    """Test suite for the convenience function."""
-
-    @pytest.mark.asyncio
-    async def test_check_article_retraction_function(self, retraction_cache):
-        """Test the convenience function creates checker and calls check_doi."""
-        doi = "10.1234/convenience.test"
-
-        crossref_response = {
-            "status": "ok",
-            "message": {"DOI": doi, "type": "journal-article"},
-        }
-
-        with patch("aiohttp.ClientSession.get") as mock_get:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value=crossref_response)
-            mock_get.return_value.__aenter__.return_value = mock_response
-
-            result = await check_article_retraction(doi)
-
-            assert isinstance(result, ArticleRetractionResult)
-            assert result.doi == doi
