@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Cross-validation validators for backend pairs."""
 
-from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus
+from .protocols import CrossValidationCapable
 
 
 # Constants for cross-validation logic (from original cross_validator.py)
@@ -24,31 +24,21 @@ RECENT_ACTIVITY_YEARS_THRESHOLD = 2
 INACTIVE_ACTIVITY_YEARS_THRESHOLD = 3
 
 
-class BaseValidator(ABC):
-    """Base class for cross-validation validators."""
+class OpenAlexCrossRefValidator:
+    """Validator for OpenAlex and CrossRef backend pair.
+
+    Implements CrossValidationCapable protocol for consistency checking
+    between OpenAlex and CrossRef data sources.
+    """
 
     def __init__(self) -> None:
-        """Initialize the validator."""
+        """Initialize the OpenAlex/CrossRef validator."""
         self.detail_logger = get_detail_logger()
 
-    @abstractmethod
-    def validate(
-        self, result1: BackendResult, result2: BackendResult
-    ) -> dict[str, Any]:
-        """Cross-validate results from two backends.
-
-        Args:
-            result1: Result from the first backend
-            result2: Result from the second backend
-
-        Returns:
-            Cross-validation result dictionary
-        """
-        pass
-
-
-class OpenAlexCrossRefValidator(BaseValidator):
-    """Validator for OpenAlex and CrossRef backend pair."""
+    @property
+    def supported_backend_pair(self) -> tuple[str, str]:
+        """Get the backend pair this validator supports."""
+        return ("openalex_analyzer", "crossref_analyzer")
 
     def validate(
         self, result1: BackendResult, result2: BackendResult
@@ -407,3 +397,7 @@ class OpenAlexCrossRefValidator(BaseValidator):
             )
 
         return reasoning
+
+
+# Ensure OpenAlexCrossRefValidator implements the protocol
+assert isinstance(OpenAlexCrossRefValidator(), CrossValidationCapable)

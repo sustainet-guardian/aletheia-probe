@@ -6,8 +6,10 @@ from unittest.mock import Mock
 import pytest
 
 from aletheia_probe.cross_validation import (
+    CrossValidationCapable,
     CrossValidationRegistry,
     OpenAlexCrossRefValidator,
+    get_cross_validation_registry,
 )
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import BackendResult, BackendStatus
@@ -21,16 +23,12 @@ class TestCrossValidationRegistry:
         registry = CrossValidationRegistry()
 
         # Check that OpenAlex-CrossRef validator is registered
-        validator_class = registry.get_validator(
-            "openalex_analyzer", "crossref_analyzer"
-        )
-        assert validator_class == OpenAlexCrossRefValidator
+        validator = registry.create_validator("openalex_analyzer", "crossref_analyzer")
+        assert isinstance(validator, OpenAlexCrossRefValidator)
 
         # Check that it's order-independent
-        validator_class2 = registry.get_validator(
-            "crossref_analyzer", "openalex_analyzer"
-        )
-        assert validator_class2 == OpenAlexCrossRefValidator
+        validator2 = registry.create_validator("crossref_analyzer", "openalex_analyzer")
+        assert isinstance(validator2, OpenAlexCrossRefValidator)
 
     def test_register_custom_validator(self):
         """Test registering a custom validator."""
@@ -40,17 +38,21 @@ class TestCrossValidationRegistry:
             def validate(self, result1, result2):
                 return {"test": "data"}
 
-        registry.register_validator("backend1", "backend2", CustomValidator)
+            @property
+            def supported_backend_pair(self):
+                return ("backend1", "backend2")
 
-        validator_class = registry.get_validator("backend1", "backend2")
-        assert validator_class == CustomValidator
+        registry.register_factory("backend1", "backend2", lambda: CustomValidator())
+
+        validator = registry.create_validator("backend1", "backend2")
+        assert isinstance(validator, CustomValidator)
 
     def test_get_validator_nonexistent_pair(self):
         """Test getting validator for non-existent pair returns None."""
         registry = CrossValidationRegistry()
 
-        validator_class = registry.get_validator("nonexistent1", "nonexistent2")
-        assert validator_class is None
+        validator = registry.create_validator("nonexistent1", "nonexistent2")
+        assert validator is None
 
     def test_get_registered_pairs(self):
         """Test getting list of registered pairs."""

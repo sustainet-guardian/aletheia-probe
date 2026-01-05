@@ -14,7 +14,7 @@ from .constants import (
     CONFIDENCE_THRESHOLD_HIGH,
     CONFIDENCE_THRESHOLD_LOW,
 )
-from .cross_validation import CrossValidationRegistry
+from .cross_validation import get_cross_validation_registry
 from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
@@ -76,7 +76,7 @@ class QueryDispatcher:
         self.config = self.config_manager.load_config()
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
-        self.cross_validation_registry = CrossValidationRegistry()
+        self.cross_validation_registry = get_cross_validation_registry()
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.

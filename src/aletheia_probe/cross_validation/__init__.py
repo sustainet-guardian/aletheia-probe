@@ -1,8 +1,14 @@
 # SPDX-License-Identifier: MIT
 """Cross-validation framework for backend result validation."""
 
-from .registry import CrossValidationRegistry
+from .protocols import CrossValidationCapable
+from .registry import CrossValidationRegistry, get_cross_validation_registry
 from .validators import OpenAlexCrossRefValidator
 
 
-__all__ = ["CrossValidationRegistry", "OpenAlexCrossRefValidator"]
+__all__ = [
+    "CrossValidationCapable",
+    "CrossValidationRegistry",
+    "get_cross_validation_registry",
+    "OpenAlexCrossRefValidator",
+]
