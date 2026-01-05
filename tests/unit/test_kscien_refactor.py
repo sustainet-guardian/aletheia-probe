@@ -26,7 +26,7 @@ def mock_session():
 @pytest.mark.asyncio
 async def test_fetch_kscien_data_single_page(mock_session):
     """Test fetching data from a single page."""
-    publication_type: PublicationType = "predatory-conferences"
+    publication_type: PublicationType = PublicationType.PREDATORY_CONFERENCES
     base_url = (
         f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
     )
@@ -68,7 +68,7 @@ def create_mock_response(html_content: str) -> AsyncMock:
 @pytest.mark.asyncio
 async def test_fetch_kscien_data_pagination(mock_session):
     """Test fetching data with pagination."""
-    publication_type: PublicationType = "standalone-journals"
+    publication_type: PublicationType = PublicationType.STANDALONE_JOURNALS
     base_url = (
         f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
     )
@@ -117,7 +117,7 @@ def test_deduplicate_entries():
 @pytest.mark.asyncio
 async def test_kscien_generic_source_fetch_data():
     """Test the KscienGenericSource fetch_data method."""
-    publication_type: PublicationType = "publishers"
+    publication_type: PublicationType = PublicationType.PUBLISHERS
     source = KscienGenericSource(publication_type=publication_type)
 
     with (

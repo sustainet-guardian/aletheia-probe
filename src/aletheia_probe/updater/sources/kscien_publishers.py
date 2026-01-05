@@ -3,6 +3,7 @@
 
 from ...enums import AssessmentType
 from .kscien_generic import KscienGenericSource
+from .kscien_helpers import PublicationType
 
 
 class KscienPublishersSource(KscienGenericSource):
@@ -16,5 +17,6 @@ class KscienPublishersSource(KscienGenericSource):
     def __init__(self) -> None:
         """Initialize the Kscien publishers data source."""
         super().__init__(
-            publication_type="publishers", list_type=AssessmentType.PREDATORY
+            publication_type=PublicationType.PUBLISHERS,
+            list_type=AssessmentType.PREDATORY,
         )

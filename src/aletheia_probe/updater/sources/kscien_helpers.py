@@ -5,7 +5,8 @@ import asyncio
 import re
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Literal
+from enum import Enum
+from typing import Any
 
 from aiohttp import ClientSession
 
@@ -17,13 +18,14 @@ detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
-PublicationType = Literal[
-    "predatory-conferences",
-    "standalone-journals",
-    "hijacked-journals",
-    "publishers",
-    "misleading-metrics",
-]
+class PublicationType(str, Enum):
+    """Kscien publication types."""
+
+    PREDATORY_CONFERENCES = "predatory-conferences"
+    STANDALONE_JOURNALS = "standalone-journals"
+    HIJACKED_JOURNALS = "hijacked-journals"
+    PUBLISHERS = "publishers"
+    MISLEADING_METRICS = "misleading-metrics"
 
 
 async def fetch_kscien_data(
@@ -132,11 +134,11 @@ def _extract_expected_count(html: str, publication_type: PublicationType) -> int
         # First try to find the specific count in the filter sections
         # Pattern: "Predatory Conferences (499)" or similar
         type_display_names = {
-            "predatory-conferences": r"Predatory\s+Conferences?\s*\(\s*(\d+)\s*\)",
-            "standalone-journals": r"Standalone\s+Journals?\s*\(\s*(\d+)\s*\)",
-            "hijacked-journals": r"Hijacked\s+Journals?\s*\(\s*(\d+)\s*\)",
-            "publishers": r"Publishers?\s*\(\s*(\d+)\s*\)",
-            "misleading-metrics": r"Misleading\s+Metrics?\s*\(\s*(\d+)\s*\)",
+            PublicationType.PREDATORY_CONFERENCES: r"Predatory\s+Conferences?\s*\(\s*(\d+)\s*\)",
+            PublicationType.STANDALONE_JOURNALS: r"Standalone\s+Journals?\s*\(\s*(\d+)\s*\)",
+            PublicationType.HIJACKED_JOURNALS: r"Hijacked\s+Journals?\s*\(\s*(\d+)\s*\)",
+            PublicationType.PUBLISHERS: r"Publishers?\s*\(\s*(\d+)\s*\)",
+            PublicationType.MISLEADING_METRICS: r"Misleading\s+Metrics?\s*\(\s*(\d+)\s*\)",
         }
 
         pattern = type_display_names.get(publication_type)

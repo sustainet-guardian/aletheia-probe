@@ -93,9 +93,13 @@ def test_kscien_predatory_conferences_backend_get_data_source():
         "aletheia_probe.updater.sources.kscien_generic.KscienGenericSource"
     ) as MockSource:
         # First call should create the source
+        from aletheia_probe.updater.sources.kscien_helpers import PublicationType
+
         data_source = backend.get_data_source()
 
-        MockSource.assert_called_once_with(publication_type="predatory-conferences")
+        MockSource.assert_called_once_with(
+            publication_type=PublicationType.PREDATORY_CONFERENCES
+        )
         assert data_source == MockSource.return_value
 
         # Second call should return cached source
