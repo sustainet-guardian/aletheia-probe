@@ -3,6 +3,8 @@
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from ..utils.dead_code import code_is_used
+
 
 if TYPE_CHECKING:
     from ..models import BackendResult
@@ -22,6 +24,7 @@ class CrossValidationCapable(Protocol):
     - CrossRef/Scopus validator for metadata quality alignment
     """
 
+    @code_is_used
     def validate(
         self, result1: "BackendResult", result2: "BackendResult"
     ) -> dict[str, Any]:
@@ -38,6 +41,7 @@ class CrossValidationCapable(Protocol):
         ...
 
     @property
+    @code_is_used
     def supported_backend_pair(self) -> tuple[str, str]:
         """Get the backend pair this validator supports.
 
