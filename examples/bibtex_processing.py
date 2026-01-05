@@ -14,9 +14,10 @@ import tempfile
 from pathlib import Path
 
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
+from aletheia_probe.models import BibtexAssessmentResult
 
 
-def create_sample_bibtex():
+def create_sample_bibtex() -> Path:
     """Create a sample BibTeX file for demonstration."""
     bibtex_content = """
 @article{smith2023nature,
@@ -54,7 +55,7 @@ def create_sample_bibtex():
     return Path(temp_file.name)
 
 
-async def process_bibtex_file():
+async def process_bibtex_file() -> BibtexAssessmentResult:
     """Process a BibTeX file and assess all journals."""
     print("=== BibTeX File Processing ===")
 
@@ -83,7 +84,7 @@ async def process_bibtex_file():
         bibtex_path.unlink()
 
 
-async def analyze_results(result):
+async def analyze_results(result: BibtexAssessmentResult) -> None:
     """Analyze and display detailed results."""
     print("\n=== Detailed Results ===")
 
@@ -103,7 +104,7 @@ async def analyze_results(result):
             print("  Risk Level: UNKNOWN - Requires manual review")
 
 
-async def main():
+async def main() -> None:
     """Run all examples."""
     try:
         # Process BibTeX file
