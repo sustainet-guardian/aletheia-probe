@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from aiohttp import ClientSession
 
+from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 
@@ -206,7 +207,7 @@ def _parse_kscien_page(
                     "metadata": {
                         "website_url": website_url,
                         "publication_type": publication_type,
-                        "list_type": "predatory",
+                        "list_type": AssessmentType.PREDATORY.value,
                         "authority_level": 8,  # High authority like Beall's
                         "last_verified": datetime.now().isoformat(),
                     },
@@ -273,7 +274,7 @@ def _parse_kscien_page(
                         "metadata": {
                             "website_url": None,
                             "publication_type": publication_type,
-                            "list_type": "predatory",
+                            "list_type": AssessmentType.PREDATORY.value,
                             "authority_level": 8,
                             "last_verified": datetime.now().isoformat(),
                         },
