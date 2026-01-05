@@ -386,6 +386,22 @@ Another Journal,9876-5432,Another Publisher
             tmp_json.write(json_content)
             json_file = tmp_json.name
 
+        # Create temporary BibTeX file for retraction testing
+        # This DOI will trigger Crossref API retraction parsing
+        retraction_bibtex_content = """@article{retracted2012,
+  author = {Test Author},
+  title = {Test Retracted Article},
+  journal = {JAMA Dermatology},
+  year = {2012},
+  doi = {10.1001/archdermatol.2012.418}
+}
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".bib", delete=False
+        ) as tmp_retraction:
+            tmp_retraction.write(retraction_bibtex_content)
+            retraction_bibtex_file = tmp_retraction.name
+
         try:
             # List of commands to run
             commands = [
@@ -456,6 +472,11 @@ Another Journal,9876-5432,Another Publisher
                 ["acronym", "add", "ICML", "International Conf. on Machine Learning", "--entity-type", "conference"],
                 ["acronym", "list", "--limit", "10"],
                 ["acronym", "list", "--offset", "5", "--limit", "5"],
+                # Retraction cache testing - clear cache to force Crossref API path
+                # This must run AFTER initial sync to have data to clear
+                ["retraction-cache", "clear", "--confirm"],
+                # BibTeX with retracted DOI (triggers _parse_crossref_retraction via Crossref API)
+                ["bibtex", retraction_bibtex_file],
                 # Clear operations (at the end)
                 ["clear-cache", "--confirm"],
                 ["acronym", "clear", "--confirm"],
@@ -478,6 +499,7 @@ Another Journal,9876-5432,Another Publisher
             Path(bibtex_file).unlink(missing_ok=True)
             Path(csv_file).unlink(missing_ok=True)
             Path(json_file).unlink(missing_ok=True)
+            Path(retraction_bibtex_file).unlink(missing_ok=True)
             # Clean up config files
             for config_path in self.config_paths:
                 config_path.unlink(missing_ok=True)
