@@ -158,11 +158,51 @@ class RetractionWatchSource(DataSource):
             }
         )
 
+        # Process CSV rows and collect statistics
+        articles_cached = await self._process_csv_rows(csv_path, journal_stats)
+
+        # Convert aggregated stats to journal list format
+        journals = self._build_journals_from_stats(journal_stats)
+
+        status_logger.info(
+            f"    {self.get_name()}: Aggregating journal statistics: {len(journals):,} journals found"
+        )
+        detail_logger.info(f"Aggregated {len(journals)} journals from retraction data")
+
+        # Convert to final format without OpenAlex enrichment
+        final_journals = self._convert_to_final_format(journals)
+
+        status_logger.info(
+            f"    {self.get_name()}: Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs collected"
+        )
+        detail_logger.info(
+            "Retraction data aggregation complete (OpenAlex data will be fetched on-demand)"
+        )
+
+        # Store article retractions in metadata for AsyncDBWriter to process
+        self._attach_article_retractions(final_journals)
+
+        return final_journals
+
+    async def _process_csv_rows(
+        self,
+        csv_path: Path,
+        journal_stats: defaultdict[str, dict[str, Any]],
+    ) -> int:
+        """Process CSV rows and update journal statistics.
+
+        Args:
+            csv_path: Path to CSV file
+            journal_stats: Dictionary to populate with journal statistics
+
+        Returns:
+            Number of article DOIs cached
+        """
         current_year = datetime.now().year
         records_processed = 0
         articles_cached = 0
-        article_batch = []  # Batch for article retractions
-        batch_size = 1000  # Collect every 1000 articles
+        article_batch: list[dict[str, str]] = []
+        batch_size = 1000
 
         def _read_csv_sync() -> list[dict[str, Any]]:
             """Read CSV file synchronously."""
@@ -185,89 +225,18 @@ class RetractionWatchSource(DataSource):
                         f"    {self.get_name()}: Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
                     )
 
-                journal = row.get("Journal", "").strip()
-                publisher = row.get("Publisher", "").strip()
-                retraction_date_str = row.get("RetractionDate", "")
-                retraction_nature = row.get("RetractionNature", "").strip()
-                reason = row.get("Reason", "").strip()
-                original_paper_doi = row.get("OriginalPaperDOI", "").strip()
-                retraction_doi = row.get("RetractionDOI", "").strip()
-
-                # Collect article retraction data
-                if original_paper_doi:
-                    article_batch.append(
-                        {
-                            "doi": original_paper_doi,
-                            "retraction_date_str": retraction_date_str,
-                            "retraction_nature": retraction_nature,
-                            "reason": reason,
-                            "retraction_doi": retraction_doi,
-                        }
-                    )
+                # Extract and cache article retraction data
+                article_cached = self._process_article_data(
+                    row, article_batch, batch_size
+                )
+                if article_cached:
                     articles_cached += 1
-
-                    # Collect in batches for memory efficiency
                     if len(article_batch) >= batch_size:
                         self._collect_article_retractions(article_batch)
                         article_batch = []
 
-                if not journal:
-                    continue
-
-                # Normalize journal name
-                try:
-                    normalized_input = input_normalizer.normalize(journal)
-                    normalized_journal = normalized_input.normalized_name
-                    if not normalized_journal:
-                        detail_logger.debug(
-                            f"Failed to normalize journal '{journal}': normalized name is empty"
-                        )
-                        continue
-                except Exception as e:
-                    detail_logger.debug(f"Failed to normalize journal '{journal}': {e}")
-                    continue
-
-                # Parse retraction date
-                retraction_date = self._parse_date(retraction_date_str)
-
-                # Update journal stats
-                stats = journal_stats[normalized_journal]
-                stats["total_retractions"] += 1
-                stats["original_names"].add(journal)
-
-                if retraction_date:
-                    stats["retraction_dates"].append(retraction_date)
-
-                    # Update first/last dates
-                    if (
-                        stats["first_date"] is None
-                        or retraction_date < stats["first_date"]
-                    ):
-                        stats["first_date"] = retraction_date
-                    if (
-                        stats["last_date"] is None
-                        or retraction_date > stats["last_date"]
-                    ):
-                        stats["last_date"] = retraction_date
-
-                    # Count recent retractions
-                    years_ago = current_year - retraction_date.year
-                    if years_ago <= 2:
-                        stats["recent_retractions"] += 1
-                    if years_ago <= 1:
-                        stats["very_recent_retractions"] += 1
-
-                # Retraction type
-                if retraction_nature:
-                    stats["retraction_types"][retraction_nature] += 1
-
-                # Reasons
-                if reason:
-                    stats["reasons"].append(reason)
-
-                # Publisher
-                if publisher:
-                    stats["publishers"].add(publisher)
+                # Process journal statistics
+                self._update_journal_stats(row, journal_stats, current_year)
 
             # Collect any remaining articles in the batch
             if article_batch:
@@ -280,9 +249,122 @@ class RetractionWatchSource(DataSource):
 
         except Exception as e:
             status_logger.error(f"    {self.get_name()}: Error parsing CSV - {e}")
-            return []
+            return 0
 
-        # Convert aggregated stats to journal list format
+        return articles_cached
+
+    def _process_article_data(
+        self,
+        row: dict[str, Any],
+        article_batch: list[dict[str, str]],
+        batch_size: int,
+    ) -> bool:
+        """Extract and batch article retraction data from CSV row.
+
+        Args:
+            row: CSV row data
+            article_batch: List to append article data to
+            batch_size: Size of batch (unused, kept for API compatibility)
+
+        Returns:
+            True if article was cached, False otherwise
+        """
+        original_paper_doi = row.get("OriginalPaperDOI", "").strip()
+        if not original_paper_doi:
+            return False
+
+        article_batch.append(
+            {
+                "doi": original_paper_doi,
+                "retraction_date_str": row.get("RetractionDate", ""),
+                "retraction_nature": row.get("RetractionNature", "").strip(),
+                "reason": row.get("Reason", "").strip(),
+                "retraction_doi": row.get("RetractionDOI", "").strip(),
+            }
+        )
+        return True
+
+    def _update_journal_stats(
+        self,
+        row: dict[str, Any],
+        journal_stats: defaultdict[str, dict[str, Any]],
+        current_year: int,
+    ) -> None:
+        """Update journal statistics from a CSV row.
+
+        Args:
+            row: CSV row data
+            journal_stats: Dictionary to update with statistics
+            current_year: Current year for recency calculations
+        """
+        journal = row.get("Journal", "").strip()
+        if not journal:
+            return
+
+        # Normalize journal name
+        try:
+            normalized_input = input_normalizer.normalize(journal)
+            normalized_journal = normalized_input.normalized_name
+            if not normalized_journal:
+                detail_logger.debug(
+                    f"Failed to normalize journal '{journal}': normalized name is empty"
+                )
+                return
+        except Exception as e:
+            detail_logger.debug(f"Failed to normalize journal '{journal}': {e}")
+            return
+
+        # Parse retraction date
+        retraction_date = self._parse_date(row.get("RetractionDate", ""))
+
+        # Update journal stats
+        stats = journal_stats[normalized_journal]
+        stats["total_retractions"] += 1
+        stats["original_names"].add(journal)
+
+        if retraction_date:
+            stats["retraction_dates"].append(retraction_date)
+
+            # Update first/last dates
+            if stats["first_date"] is None or retraction_date < stats["first_date"]:
+                stats["first_date"] = retraction_date
+            if stats["last_date"] is None or retraction_date > stats["last_date"]:
+                stats["last_date"] = retraction_date
+
+            # Count recent retractions
+            years_ago = current_year - retraction_date.year
+            if years_ago <= 2:
+                stats["recent_retractions"] += 1
+            if years_ago <= 1:
+                stats["very_recent_retractions"] += 1
+
+        # Retraction type
+        retraction_nature = row.get("RetractionNature", "").strip()
+        if retraction_nature:
+            stats["retraction_types"][retraction_nature] += 1
+
+        # Reasons
+        reason = row.get("Reason", "").strip()
+        if reason:
+            stats["reasons"].append(reason)
+
+        # Publisher
+        publisher = row.get("Publisher", "").strip()
+        if publisher:
+            stats["publishers"].add(publisher)
+
+    def _build_journals_from_stats(
+        self,
+        journal_stats: defaultdict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Convert aggregated statistics to journal list format.
+
+        Args:
+            journal_stats: Aggregated statistics by journal
+
+        Returns:
+            List of journal data dictionaries
+        """
         journals = []
         for normalized_name, stats in journal_stats.items():
             # Get the most common original name
@@ -321,18 +403,25 @@ class RetractionWatchSource(DataSource):
                 }
             )
 
-        status_logger.info(
-            f"    {self.get_name()}: Aggregating journal statistics: {len(journals):,} journals found"
-        )
-        detail_logger.info(f"Aggregated {len(journals)} journals from retraction data")
+        return journals
 
-        # Convert to final format without OpenAlex enrichment
-        # (OpenAlex data will be fetched on-demand during queries)
+    def _convert_to_final_format(
+        self,
+        journals: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Convert journal data to final format with metadata.
+
+        Args:
+            journals: List of journal data with stats
+
+        Returns:
+            List of journals in final format
+        """
         final_journals = []
         for journal_data in journals:
-            stats: dict[str, Any] = journal_data["stats"]  # type: ignore
+            stats: dict[str, Any] = journal_data["stats"]
 
-            # Calculate risk level without publication data (will be recalculated on-demand)
+            # Calculate risk level without publication data
             risk_level = self._calculate_risk_level(
                 stats["total_retractions"], stats["recent_retractions"]
             )
@@ -365,26 +454,25 @@ class RetractionWatchSource(DataSource):
                 }
             )
 
-        status_logger.info(
-            f"    {self.get_name()}: Retraction data processing complete: {len(final_journals):,} journals, {articles_cached:,} article DOIs collected"
-        )
-        detail_logger.info(
-            "Retraction data aggregation complete (OpenAlex data will be fetched on-demand)"
-        )
-
-        # Store article retractions in metadata for AsyncDBWriter to process
-        # We add this to the first journal's metadata as a special field
-        if final_journals and self.article_retractions:
-            first_journal = final_journals[0]
-            # Ensure metadata exists and is a dict
-            if "metadata" not in first_journal or not isinstance(
-                first_journal["metadata"], dict
-            ):
-                first_journal["metadata"] = {}
-            # Add article retractions to metadata (dict indexing is safe after check above)
-            first_journal["metadata"]["_article_retractions"] = self.article_retractions  # type: ignore[call-overload, assignment, index]
-
         return final_journals
+
+    def _attach_article_retractions(self, final_journals: list[dict[str, Any]]) -> None:
+        """Attach article retractions to first journal's metadata.
+
+        Args:
+            final_journals: List of journals in final format
+        """
+        if not final_journals or not self.article_retractions:
+            return
+
+        first_journal = final_journals[0]
+        # Ensure metadata exists and is a dict
+        if "metadata" not in first_journal or not isinstance(
+            first_journal["metadata"], dict
+        ):
+            first_journal["metadata"] = {}
+        # Add article retractions to metadata
+        first_journal["metadata"]["_article_retractions"] = self.article_retractions
 
     def _parse_date(self, date_str: str) -> datetime | None:
         """Parse date string from Retraction Watch CSV."""
