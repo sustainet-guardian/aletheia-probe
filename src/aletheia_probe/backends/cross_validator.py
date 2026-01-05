@@ -154,6 +154,17 @@ class CrossValidatorBackend(ApiBackendWithCache):
         openalex_found: bool,
         crossref_found: bool,
     ) -> dict[str, list[str]]:
+        """Collect and combine red and green flags from both backends.
+
+        Args:
+            openalex_result: Results from OpenAlex
+            crossref_result: Results from Crossref
+            openalex_found: Whether data was found in OpenAlex
+            crossref_found: Whether data was found in Crossref
+
+        Returns:
+            Dictionary containing combined red_flags and green_flags
+        """
         combined_flags: dict[str, list[str]] = {
             "red_flags": [],
             "green_flags": [],
@@ -192,6 +203,17 @@ class CrossValidatorBackend(ApiBackendWithCache):
         other_backend_name: str,
         combined_flags: dict[str, list[str]],
     ) -> dict[str, Any]:
+        """Create a validation result when only one backend returned data.
+
+        Args:
+            result: Result from the backend that found data
+            backend_name: Name of the backend that found data
+            other_backend_name: Name of the backend that did not find data
+            combined_flags: Previously collected combined flags
+
+        Returns:
+            Validation result dictionary
+        """
         return {
             "status": BackendStatus.FOUND,
             "assessment": result.assessment,
@@ -215,6 +237,16 @@ class CrossValidatorBackend(ApiBackendWithCache):
         crossref_result: BackendResult,
         query_input: QueryInput,
     ) -> dict[str, Any]:
+        """Orchestrate the cross-validation logic between two backend results.
+
+        Args:
+            openalex_result: Results from OpenAlex
+            crossref_result: Results from Crossref
+            query_input: The original query input
+
+        Returns:
+            Comprehensive cross-validation results
+        """
         openalex_found = openalex_result.status == BackendStatus.FOUND
         crossref_found = crossref_result.status == BackendStatus.FOUND
 
@@ -275,6 +307,16 @@ class CrossValidatorBackend(ApiBackendWithCache):
         crossref_data: dict[str, Any],
         query_input: QueryInput,
     ) -> list[str]:
+        """Perform data consistency checks between OpenAlex and Crossref data.
+
+        Args:
+            openalex_data: Data retrieved from OpenAlex
+            crossref_data: Data retrieved from Crossref
+            query_input: The original query input
+
+        Returns:
+            List of consistency check result strings
+        """
         self.detail_logger.debug("Performing consistency checks between backends")
         checks = []
 
@@ -370,6 +412,21 @@ class CrossValidatorBackend(ApiBackendWithCache):
         openalex_confidence: float,
         crossref_confidence: float,
     ) -> tuple[Any, float, float, bool]:
+        """Determine the final assessment and calculate confidence based on agreement.
+
+        Args:
+            openalex_assessment: Assessment from OpenAlex
+            crossref_assessment: Assessment from Crossref
+            openalex_confidence: Confidence from OpenAlex
+            crossref_confidence: Confidence from Crossref
+
+        Returns:
+            Tuple containing:
+            - final_assessment: The combined assessment
+            - base_confidence: The base confidence value
+            - agreement_bonus: Bonus confidence for agreement
+            - assessment_agreement: Boolean indicating if assessments agree
+        """
         agreement_bonus = 0.0
         assessment_agreement = False
 
@@ -428,6 +485,21 @@ class CrossValidatorBackend(ApiBackendWithCache):
         openalex_result: BackendResult,
         crossref_result: BackendResult,
     ) -> list[str]:
+        """Generate combined reasoning for the cross-validation result.
+
+        Args:
+            assessment_agreement: Whether the backends agreed
+            final_assessment: The determined final assessment
+            agreement_bonus: Bonus applied for agreement
+            openalex_assessment: Assessment from OpenAlex
+            crossref_assessment: Assessment from Crossref
+            consistency_checks: Results of consistency checks
+            openalex_result: Full result from OpenAlex
+            crossref_result: Full result from Crossref
+
+        Returns:
+            List of reasoning strings
+        """
         reasoning = []
 
         if assessment_agreement:
@@ -472,6 +544,17 @@ class CrossValidatorBackend(ApiBackendWithCache):
         consistency_checks: list[str],
         combined_flags: dict[str, Any],
     ) -> dict[str, Any]:
+        """Combine individual backend assessments into a final result.
+
+        Args:
+            openalex_result: Result from OpenAlex
+            crossref_result: Result from Crossref
+            consistency_checks: List of consistency check strings
+            combined_flags: Dictionary of combined flags
+
+        Returns:
+            Combined validation result dictionary
+        """
         openalex_assessment = openalex_result.assessment
         crossref_assessment = crossref_result.assessment
         openalex_confidence = openalex_result.confidence
