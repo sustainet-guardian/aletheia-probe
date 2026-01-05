@@ -39,6 +39,9 @@ class JournalEntryValidator:
 
         Returns:
             True if text appears to be a valid journal name
+
+        Raises:
+            None
         """
         if not text or len(text.strip()) < MIN_JOURNAL_NAME_LENGTH:
             return False
@@ -130,6 +133,9 @@ class JournalEntryValidator:
 
         Returns:
             True if text appears to be a valid publisher name
+
+        Raises:
+            None
         """
         if not text or len(text.strip()) < MIN_PUBLISHER_NAME_LENGTH:
             return False
