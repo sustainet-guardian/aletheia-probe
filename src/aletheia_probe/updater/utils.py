@@ -62,7 +62,22 @@ def normalize_journal_name(name: str) -> str:
 
 
 def clean_publisher_name(name: str | None) -> str:
-    """Clean and normalize publisher name."""
+    """
+    Clean and normalize publisher name.
+
+    Removes common HTML entities, normalizes whitespace, and strips
+    common prefixes/suffixes like "The", "Inc.", "Ltd.", etc.
+
+    Args:
+        name: Raw publisher name.
+
+    Returns:
+        Cleaned and normalized publisher name.
+
+    Examples:
+        >>> clean_publisher_name("The Wiley &amp; Sons, Inc.")
+        'Wiley & Sons'
+    """
     if not name:
         return ""
 
@@ -83,7 +98,24 @@ def clean_publisher_name(name: str | None) -> str:
 
 
 def parse_date_string(date_str: str | None) -> datetime | None:
-    """Parse various date formats into datetime objects."""
+    """
+    Parse various date formats into datetime objects.
+
+    Attempts to match common date formats used in academic data sources,
+    including ISO formats, US formats, and natural language months.
+
+    Args:
+        date_str: String representation of a date.
+
+    Returns:
+        Parsed datetime object, or None if parsing fails or input is empty.
+
+    Examples:
+        >>> parse_date_string("2023-12-01")
+        datetime.datetime(2023, 12, 1, 0, 0)
+        >>> parse_date_string("December 1, 2023")
+        datetime.datetime(2023, 12, 1, 0, 0)
+    """
     if not date_str:
         return None
 
@@ -109,7 +141,23 @@ def parse_date_string(date_str: str | None) -> datetime | None:
 
 
 def extract_year_from_text(text: str) -> int | None:
-    """Extract year from text."""
+    """
+    Extract year from text.
+
+    Searches for 4-digit years between 1900 and 2100 within the given text.
+
+    Args:
+        text: Text containing a year.
+
+    Returns:
+        The first valid year found as an integer, or None if no match.
+
+    Examples:
+        >>> extract_year_from_text("Published in 2023")
+        2023
+        >>> extract_year_from_text("Invalid 1850 year")
+        None
+    """
     if not text:
         return None
 
