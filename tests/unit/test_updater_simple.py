@@ -109,7 +109,7 @@ class TestUpdateSourceData:
             result = await update_source_data(source, mock_db_writer)
 
             assert result["status"] == "failed"
-            assert "Fetch failed" in result["error"]
+            assert result["error"] == "Fetch failed"
 
     @pytest.mark.asyncio
     async def test_update_source_no_data(self):
@@ -135,7 +135,7 @@ class TestUpdateSourceData:
             result = await update_source_data(source, mock_db_writer)
 
             assert result["status"] == "failed"
-            assert "No data received" in result["error"]
+            assert result["error"] == "No data received"
 
     @pytest.mark.asyncio
     async def test_update_source_skip_when_not_needed(self):
