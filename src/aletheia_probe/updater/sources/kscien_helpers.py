@@ -36,7 +36,19 @@ async def fetch_kscien_data(
     max_pages: int,
     get_name: Callable[[], str],
 ) -> list[dict[str, Any]]:
-    """Fetch publications from Kscien.org with pagination support."""
+    """Fetch publications from Kscien.org with pagination support.
+
+    Args:
+        session: The aiohttp ClientSession to use for requests.
+        publication_type: The type of publication to fetch.
+        base_url: The base URL to start fetching from.
+        max_pages: The maximum number of pages to fetch.
+        get_name: A callback function to get the name of the caller for logging.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a fetched publication
+        containing details such as journal name, source, and metadata.
+    """
     all_publications = []
     page = 1
     expected_count = None
@@ -130,7 +142,15 @@ async def fetch_kscien_data(
 
 
 def _extract_expected_count(html: str, publication_type: PublicationType) -> int | None:
-    """Extract the expected total count for this publication type from the page."""
+    """Extract the expected total count for this publication type from the page.
+
+    Args:
+        html: The HTML content of the page.
+        publication_type: The type of publication being processed.
+
+    Returns:
+        The expected count as an integer if found, or None if not found.
+    """
     try:
         # First try to find the specific count in the filter sections
         # Pattern: "Predatory Conferences (499)" or similar
@@ -181,7 +201,17 @@ def _parse_kscien_page(
     page_num: int,
     publication_type: PublicationType,
 ) -> list[dict[str, Any]]:
-    """Parse publication names from a Kscien.org page using regex."""
+    """Parse publication names from a Kscien.org page using regex.
+
+    Args:
+        html: The HTML content of the page to parse.
+        page_num: The current page number being parsed.
+        publication_type: The type of publication being parsed.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a parsed publication entry
+        containing metadata and source information.
+    """
     publications = []
 
     try:
@@ -313,13 +343,13 @@ def _has_next_page(
     """Check if there's a next page in Kscien pagination.
 
     Args:
-        html: The HTML content of the current page
-        current_page: The current page number
-        expected_count: Expected total count for this publication type (if available)
-        items_fetched: Number of items fetched so far
+        html: The HTML content of the current page.
+        current_page: The current page number.
+        expected_count: Expected total count for this publication type (if available).
+        items_fetched: Number of items fetched so far.
 
     Returns:
-        True if there are more pages to fetch, False otherwise
+        True if there are more pages to fetch, False otherwise.
     """
     try:
         # If we have the expected count for this specific publication type, use it
@@ -355,7 +385,15 @@ def _has_next_page(
 
 
 def deduplicate_entries(publications: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove duplicate publications based on normalized names."""
+    """Remove duplicate publications based on normalized names.
+
+    Args:
+        publications: A list of publication dictionaries to deduplicate.
+
+    Returns:
+        A list of unique publication dictionaries, where uniqueness is determined
+        by the normalized name.
+    """
     seen = set()
     unique_publications = []
 
