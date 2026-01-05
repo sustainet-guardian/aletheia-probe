@@ -5,7 +5,6 @@
 from . import (
     algerian_ministry,
     bealls,
-    cross_validator,
     crossref_analyzer,
     custom_list,
     doaj,
@@ -23,7 +22,6 @@ from . import (
 __all__ = [
     "algerian_ministry",
     "bealls",
-    "cross_validator",
     "crossref_analyzer",
     "custom_list",
     "doaj",

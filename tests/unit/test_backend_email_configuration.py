@@ -55,22 +55,6 @@ class TestBackendEmailConfiguration:
         assert backend.cache_ttl_hours == 8
         assert backend.get_name() == "openalex_analyzer"
 
-    def test_backend_registry_create_backend_with_email_cross_validator(self):
-        """Test that cross_validator backend can be created with email parameter."""
-        registry = get_backend_registry()
-
-        backend = registry.create_backend(
-            "cross_validator", email="issue47-cv@example.com", cache_ttl_hours=16
-        )
-
-        assert backend.email == "issue47-cv@example.com"
-        assert backend.cache_ttl_hours == 16
-        assert backend.get_name() == "cross_validator"
-
-        # Also test that email is propagated to sub-backends
-        assert backend.openalex_backend.email == "issue47-cv@example.com"
-        assert backend.crossref_backend.email == "issue47-cv@example.com"
-
     def test_config_file_email_configuration(self):
         """Test that email configuration can be loaded from a config file.
 
@@ -122,9 +106,6 @@ backends:
         assert backend.email == "original-error-test@example.com"
 
         backend = registry.create_backend("openalex_analyzer", **config_params)
-        assert backend.email == "original-error-test@example.com"
-
-        backend = registry.create_backend("cross_validator", **config_params)
         assert backend.email == "original-error-test@example.com"
 
     def test_email_parameter_merging_with_defaults(self):
