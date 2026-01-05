@@ -15,6 +15,11 @@ from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
 
 
+# Maximum reasonable count for an individual Kscien publication type.
+# Used to distinguish between type-specific counts and the global total.
+KSCIEN_TYPE_COUNT_THRESHOLD = 2000
+
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
@@ -182,8 +187,8 @@ def _extract_expected_count(html: str, publication_type: PublicationType) -> int
             detail_logger.debug(
                 f"Found pagination count (may be total across all types): {total_count}"
             )
-            # Only use if it's reasonable for the specific type (not the 3539 total)
-            if total_count < 2000:  # Reasonable threshold for individual types
+            # Only use if it's reasonable for the specific type
+            if total_count < KSCIEN_TYPE_COUNT_THRESHOLD:
                 return total_count
             else:
                 detail_logger.debug(
