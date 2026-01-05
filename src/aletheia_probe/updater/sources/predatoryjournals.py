@@ -309,7 +309,7 @@ class PredatoryJournalsSource(DataSource):
         """
         for possible_issn_col in ["ISSN", "issn", "Print ISSN", "print_issn"]:
             if possible_issn_col in row and row[possible_issn_col]:
-                return row[possible_issn_col].strip()
+                return str(row[possible_issn_col]).strip()
         return None
 
     def _extract_eissn_from_row(self, row: dict[str, Any]) -> str | None:
@@ -329,7 +329,7 @@ class PredatoryJournalsSource(DataSource):
             "E-ISSN",
         ]:
             if possible_eissn_col in row and row[possible_eissn_col]:
-                return row[possible_eissn_col].strip()
+                return str(row[possible_eissn_col]).strip()
         return None
 
     def _extract_publisher_from_row(
@@ -354,7 +354,7 @@ class PredatoryJournalsSource(DataSource):
             "publisher_name",
         ]:
             if possible_pub_col in row and row[possible_pub_col]:
-                return row[possible_pub_col].strip()
+                return str(row[possible_pub_col]).strip()
         return None
 
     def _parse_row(self, row: dict[str, Any], sheet_type: str) -> dict[str, Any] | None:
