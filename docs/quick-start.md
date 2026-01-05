@@ -4,25 +4,7 @@
 
 ### Prerequisites
 
-The tool requires RAR extraction utilities to be installed for processing data sources:
-
-**Debian/Ubuntu:**
-```bash
-sudo apt-get install unrar
-```
-
-**macOS:**
-```bash
-brew install unar
-```
-
-**Windows:**
-```bash
-# Using chocolatey
-choco install unrar
-```
-
-Alternatively on Windows, you can install [7-Zip](https://www.7-zip.org/) if you don't have chocolatey
+Python 3.10 or higher is required.
 
 ### Install Aletheia-Probe
 

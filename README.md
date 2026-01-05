@@ -37,15 +37,6 @@ git clone https://github.com/sustainet-guardian/aletheia-probe.git
 cd aletheia-probe
 pip install -e .
 
-# Optional: Install unrar/unar if you want to use all data sources
-# (required for Algerian Ministry source - skipped if not available)
-# Debian/Ubuntu:
-sudo apt-get install unrar
-# macOS:
-brew install unar
-# Windows (via chocolatey):
-choco install unrar
-
 # First time: Sync data sources (takes a few minutes)
 aletheia-probe sync
 

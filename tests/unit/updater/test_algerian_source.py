@@ -120,8 +120,8 @@ class TestAlgerianMinistrySource:
 
             result = await source.fetch_data()
 
-            # Should try 2024 first (ZIP format) and succeed
-            mock_fetch.assert_called_once_with(2024, "zip")
+            # Should try 2024 first and succeed
+            mock_fetch.assert_called_once_with(2024)
             assert len(result) == 1
 
     @pytest.mark.asyncio
@@ -170,7 +170,7 @@ class TestAlgerianMinistrySource:
             patch.object(source, "_extract_archive", return_value="/path/to/extracted"),
             patch.object(source, "_process_pdf_files", return_value=mock_journals),
         ):
-            result = await source._fetch_year_data(2024, "zip")
+            result = await source._fetch_year_data(2024)
 
             assert len(result) == 1
             assert result[0]["journal_name"] == "Test Journal"
@@ -179,7 +179,7 @@ class TestAlgerianMinistrySource:
     async def test_fetch_year_data_download_fails(self, source):
         """Test _fetch_year_data when download fails."""
         with patch.object(source, "_download_archive", return_value=None):
-            result = await source._fetch_year_data(2024, "zip")
+            result = await source._fetch_year_data(2024)
 
             assert result == []
 
@@ -190,7 +190,7 @@ class TestAlgerianMinistrySource:
             patch.object(source, "_download_archive", return_value="/path/to/file.zip"),
             patch.object(source, "_extract_archive", return_value=None),
         ):
-            result = await source._fetch_year_data(2024, "zip")
+            result = await source._fetch_year_data(2024)
 
             assert result == []
 
@@ -201,33 +201,19 @@ class TestAlgerianMinistrySource:
         mock_downloader.download_archive = AsyncMock(return_value="/path/to/file.zip")
         source.downloader = mock_downloader
 
-        result = await source._download_archive(
-            "https://example.com/file.zip", "/tmp", "zip"
-        )
+        result = await source._download_archive("https://example.com/file.zip", "/tmp")
 
         assert result == "/path/to/file.zip"
         mock_downloader.download_archive.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_extract_archive_rar_success(self, source):
-        """Test successful _extract_archive with RAR format."""
-        mock_extractor = Mock()
-        mock_extractor.extract_rar = AsyncMock(return_value="/path/to/extracted")
-        source.extractor = mock_extractor
-
-        result = await source._extract_archive("/path/to/file.rar", "/tmp", "rar")
-
-        assert result == "/path/to/extracted"
-        mock_extractor.extract_rar.assert_called_once_with("/path/to/file.rar", "/tmp")
-
-    @pytest.mark.asyncio
     async def test_extract_archive_zip_success(self, source):
-        """Test successful _extract_archive with ZIP format."""
+        """Test successful _extract_archive."""
         mock_extractor = Mock()
         mock_extractor.extract_zip = AsyncMock(return_value="/path/to/extracted")
         source.extractor = mock_extractor
 
-        result = await source._extract_archive("/path/to/file.zip", "/tmp", "zip")
+        result = await source._extract_archive("/path/to/file.zip", "/tmp")
 
         assert result == "/path/to/extracted"
         mock_extractor.extract_zip.assert_called_once_with("/path/to/file.zip", "/tmp")
@@ -384,8 +370,8 @@ class TestAlgerianMinistrySource:
 
             result = await source.fetch_data()
 
-            # Should try 2024 first (ZIP format) when current year is 2024
-            mock_fetch.assert_called_once_with(2024, "zip")
+            # Should try 2024 first when current year is 2024
+            mock_fetch.assert_called_once_with(2024)
             assert len(result) == 1
 
     def test_base_url_construction(self, source):
@@ -404,11 +390,10 @@ class TestAlgerianMinistrySource:
             patch.object(source, "_extract_archive"),
             patch.object(source, "_process_pdf_files"),
         ):
-            await source._fetch_year_data(2024, "zip")
+            await source._fetch_year_data(2024)
 
             # Check that download_archive was called with correct URL
             expected_url = f"{source.base_url}/2024.zip"
             mock_download.assert_called_once()
             args, _ = mock_download.call_args
             assert args[0] == expected_url
-            assert args[2] == "zip"
