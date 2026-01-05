@@ -3,6 +3,7 @@
 
 from ...enums import AssessmentType
 from .kscien_generic import KscienGenericSource
+from .kscien_helpers import PublicationType
 
 
 class KscienHijackedJournalsSource(KscienGenericSource):
@@ -16,6 +17,6 @@ class KscienHijackedJournalsSource(KscienGenericSource):
     def __init__(self) -> None:
         """Initialize the Kscien hijacked journals data source."""
         super().__init__(
-            publication_type="hijacked-journals",
+            publication_type=PublicationType.HIJACKED_JOURNALS,
             list_type=AssessmentType.HIJACKED,
         )

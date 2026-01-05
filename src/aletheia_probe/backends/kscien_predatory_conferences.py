@@ -43,9 +43,10 @@ class KscienPredatoryConferencesBackend(CachedBackend):
         """Get the KscienGenericSource instance for predatory conferences data synchronization."""
         if self._data_source is None:
             from ..updater.sources.kscien_generic import KscienGenericSource
+            from ..updater.sources.kscien_helpers import PublicationType
 
             self._data_source = KscienGenericSource(
-                publication_type="predatory-conferences"
+                publication_type=PublicationType.PREDATORY_CONFERENCES
             )
         return self._data_source
 
