@@ -5,10 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from aletheia_probe.data_models import JournalEntryData
-from aletheia_probe.enums import AssessmentType
-from tests.conftest import add_test_journal_entry
-
 
 @pytest.fixture
 def generated_bibtex_file(tmp_path: Path):
@@ -61,53 +57,6 @@ def generated_bibtex_file(tmp_path: Path):
         return file_path
 
     return _generate
-
-
-@pytest.fixture
-def populated_cache(isolated_test_cache):
-    """
-    Create a cache populated with specified number of journal entries.
-
-    Args:
-        isolated_test_cache: Test cache instance from conftest.py
-
-    Returns:
-        Callable that populates cache with specified number of entries
-    """
-
-    def _populate(journal_count: int):
-        """
-        Populate test cache with realistic journal data.
-
-        Args:
-            journal_count: Number of journal entries to add to cache
-
-        Returns:
-            CacheManager instance with populated data
-        """
-        cache = isolated_test_cache
-
-        # Populate with varied journal entries
-        # Note: This fixture appears to be outdated and needs source registration
-        for i in range(journal_count):
-            journal_name = f"Test Journal {i % 100}"
-            issn = f"{1000 + (i % 9000):04d}-{i % 10000:04d}"
-
-            entry = JournalEntryData(
-                journal_name=journal_name,
-                issn=issn,
-                source_name="test_source",
-                normalized_name=journal_name.lower(),
-                assessment=AssessmentType.LEGITIMATE
-                if i % 3 == 0
-                else AssessmentType.UNKNOWN,
-                confidence=0.5 + (i % 50) / 100.0,
-            )
-            add_test_journal_entry(cache, entry)
-
-        return cache
-
-    return _populate
 
 
 @pytest.fixture
