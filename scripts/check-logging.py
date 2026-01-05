@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 
-def check_direct_logger_usage():
+def check_direct_logger_usage() -> bool:
     """Check for direct logging.getLogger() usage."""
     violations = []
 
@@ -73,7 +73,7 @@ def check_direct_logger_usage():
     return True
 
 
-def check_logger_imports():
+def check_logger_imports() -> bool:
     """Check that files using loggers import from logging_config."""
     try:
         # Find files that use detail_logger or status_logger but don't import them
@@ -125,7 +125,7 @@ def check_logger_imports():
     return True
 
 
-def main():
+def main() -> int:
     """Run all logging checks."""
     print("Checking logging consistency...")
     print()
