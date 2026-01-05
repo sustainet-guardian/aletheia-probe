@@ -5,9 +5,12 @@ from datetime import datetime
 from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
-from ..logging_config import get_detail_logger
+from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus
 from .protocols import CrossValidationCapable
+
+
+status_logger = get_status_logger()
 
 
 # Constants for cross-validation logic (from original cross_validator.py)
