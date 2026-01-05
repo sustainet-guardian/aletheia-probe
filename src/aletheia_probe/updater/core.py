@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: MIT
-"""Core updater classes and base abstractions."""
+"""
+Core updater abstractions for protocol-based journal data synchronization.
+`BackendRegistry` manages `DataSyncCapable` backends that provide `DataSource`
+instances for fetching and normalizing external data. `CacheSyncManager`
+orchestrates the update cycle, coordinating data retrieval and database
+synchronization to maintain fresh local journal caches.
+"""
 
 from abc import ABC, abstractmethod
 from typing import Any
