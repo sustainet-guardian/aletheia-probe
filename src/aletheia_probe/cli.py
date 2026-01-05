@@ -14,7 +14,7 @@ import click
 
 from . import __version__
 from .batch_assessor import BibtexBatchAssessor
-from .cache import AcronymCache, AssessmentCache
+from .cache import AcronymCache, AssessmentCache, RetractionCache
 from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
@@ -572,6 +572,39 @@ def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
     status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
     status_logger.info(f"Entity type: {entity_type}")
     status_logger.info(f"Source: {source}")
+
+
+@main.group(name="retraction-cache")
+def retraction_cache() -> None:
+    """Manage the article retraction cache."""
+    pass
+
+
+@retraction_cache.command(name="clear")
+@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+@handle_cli_errors
+def clear_retraction_cache(confirm: bool) -> None:
+    """Clear all article retraction cache entries.
+
+    Args:
+        confirm: Whether to skip the confirmation prompt.
+    """
+    status_logger = get_status_logger()
+
+    if not confirm:
+        click.confirm(
+            "This will clear all cached article retraction data. Continue?", abort=True
+        )
+
+    retraction_cache_obj = RetractionCache()
+
+    # Get count before clearing
+    count = retraction_cache_obj.clear_article_retractions()
+
+    if count == 0:
+        status_logger.info("No retraction cache entries to clear.")
+    else:
+        status_logger.info(f"Cleared {count:,} retraction cache entry/entries.")
 
 
 async def _async_bibtex_main(

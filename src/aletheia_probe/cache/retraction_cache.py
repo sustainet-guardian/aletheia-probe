@@ -275,3 +275,21 @@ class RetractionCache(CacheBase):
                 f"No retraction statistics found for journal_id {journal_id}"
             )
             return None
+
+    def clear_article_retractions(self) -> int:
+        """Clear all article retraction cache entries.
+
+        Returns:
+            Number of entries removed
+        """
+        detail_logger.debug("Clearing all article retraction entries")
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM article_retractions")
+            conn.commit()
+            removed_count = int(cursor.rowcount)
+
+            detail_logger.debug(f"Cleared {removed_count} article retraction entries")
+
+            return removed_count
