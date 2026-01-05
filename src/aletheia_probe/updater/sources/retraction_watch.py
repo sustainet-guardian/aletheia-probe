@@ -201,7 +201,7 @@ class RetractionWatchSource(DataSource):
         current_year = datetime.now().year
         records_processed = 0
         articles_cached = 0
-        article_batch = []
+        article_batch: list[dict[str, str]] = []
         batch_size = 1000
 
         def _read_csv_sync() -> list[dict[str, Any]]:
@@ -226,7 +226,9 @@ class RetractionWatchSource(DataSource):
                     )
 
                 # Extract and cache article retraction data
-                article_cached = self._process_article_data(row, article_batch, batch_size)
+                article_cached = self._process_article_data(
+                    row, article_batch, batch_size
+                )
                 if article_cached:
                     articles_cached += 1
                     if len(article_batch) >= batch_size:
@@ -417,7 +419,7 @@ class RetractionWatchSource(DataSource):
         """
         final_journals = []
         for journal_data in journals:
-            stats: dict[str, Any] = journal_data["stats"]  # type: ignore
+            stats: dict[str, Any] = journal_data["stats"]
 
             # Calculate risk level without publication data
             risk_level = self._calculate_risk_level(
@@ -470,7 +472,7 @@ class RetractionWatchSource(DataSource):
         ):
             first_journal["metadata"] = {}
         # Add article retractions to metadata
-        first_journal["metadata"]["_article_retractions"] = self.article_retractions  # type: ignore[call-overload, assignment, index]
+        first_journal["metadata"]["_article_retractions"] = self.article_retractions
 
     def _parse_date(self, date_str: str) -> datetime | None:
         """Parse date string from Retraction Watch CSV."""
