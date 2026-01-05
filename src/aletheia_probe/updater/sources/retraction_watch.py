@@ -22,6 +22,12 @@ from ..core import DataSource
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
+# Constants
+UPDATE_FREQUENCY_DAYS = 7
+ARTICLE_BATCH_SIZE = 1000
+PROGRESS_LOG_INTERVAL = 5000
+CACHE_EXPIRY_HOURS = 24 * 365
+
 
 class RetractionWatchSource(DataSource):
     """Data source for Retraction Watch database from GitLab."""
@@ -49,7 +55,7 @@ class RetractionWatchSource(DataSource):
             return True
 
         # Update weekly (data updated daily upstream, but weekly is sufficient)
-        return (datetime.now() - last_update).days >= 7
+        return (datetime.now() - last_update).days >= UPDATE_FREQUENCY_DAYS
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and aggregate retraction data from GitLab repository."""
@@ -202,7 +208,7 @@ class RetractionWatchSource(DataSource):
         records_processed = 0
         articles_cached = 0
         article_batch: list[dict[str, str]] = []
-        batch_size = 1000
+        batch_size = ARTICLE_BATCH_SIZE
 
         def _read_csv_sync() -> list[dict[str, Any]]:
             """Read CSV file synchronously."""
@@ -219,8 +225,8 @@ class RetractionWatchSource(DataSource):
             for row in csv_rows:
                 records_processed += 1
 
-                # Log progress every 5000 records
-                if records_processed % 5000 == 0:
+                # Log progress every PROGRESS_LOG_INTERVAL records
+                if records_processed % PROGRESS_LOG_INTERVAL == 0:
                     status_logger.info(
                         f"    {self.get_name()}: Processing retraction records: {records_processed:,} processed, {articles_cached:,} articles cached"
                     )
@@ -522,7 +528,7 @@ class RetractionWatchSource(DataSource):
         if not article_batch:
             return
 
-        expires_at = datetime.now() + timedelta(hours=24 * 365)  # 1 year
+        expires_at = datetime.now() + timedelta(hours=CACHE_EXPIRY_HOURS)
 
         # Prepare batch data
         for article in article_batch:
