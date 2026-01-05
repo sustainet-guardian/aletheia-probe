@@ -7,6 +7,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TypeVar
 
+from ..risk_calculator import calculate_retraction_risk_level
+
 
 # Generic type for deduplication
 T = TypeVar("T")
@@ -209,9 +211,6 @@ def calculate_risk_level(
     Returns:
         Risk level string
     """
-    # Import here to avoid circular dependency
-    from ..risk_calculator import calculate_retraction_risk_level
-
     # Pass 0 for recent_retractions since this standalone function doesn't track that
     return calculate_retraction_risk_level(
         total_retractions, 0, total_publications, None

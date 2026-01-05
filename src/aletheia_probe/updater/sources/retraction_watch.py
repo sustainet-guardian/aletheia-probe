@@ -15,6 +15,7 @@ from ...config import get_config_manager
 from ...enums import AssessmentType
 from ...logging_config import get_detail_logger, get_status_logger
 from ...normalizer import input_normalizer
+from ...risk_calculator import calculate_retraction_risk_level
 from ..core import DataSource
 
 
@@ -415,7 +416,6 @@ class RetractionWatchSource(DataSource):
         Returns:
             Risk level: "none", "note", "low", "moderate", "high", or "critical"
         """
-        from ...risk_calculator import calculate_retraction_risk_level
 
         return calculate_retraction_risk_level(
             total, recent, total_publications, recent_publications
