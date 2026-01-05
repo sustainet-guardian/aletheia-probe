@@ -17,6 +17,11 @@ from .kscien_helpers import (
 )
 
 
+# Constants
+MAX_PAGINATION_PAGES = 45  # Safety limit for pagination
+UPDATE_INTERVAL_DAYS = 7  # Update weekly
+
+
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
@@ -50,7 +55,7 @@ class KscienGenericSource(DataSource):
         self.base_url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
 
         self.timeout = ClientTimeout(total=60)
-        self.max_pages = 45  # Safety limit for pagination
+        self.max_pages = MAX_PAGINATION_PAGES
 
     def get_name(self) -> str:
         """Return the data source identifier."""
@@ -78,7 +83,7 @@ class KscienGenericSource(DataSource):
 
         # Update weekly
         days_since_update = (datetime.now() - last_update).days
-        should_update = days_since_update >= 7
+        should_update = days_since_update >= UPDATE_INTERVAL_DAYS
         detail_logger.debug(
             f"Last update was {days_since_update} days ago, should_update: {should_update}"
         )
