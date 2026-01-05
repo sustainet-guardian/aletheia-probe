@@ -8,9 +8,10 @@ from . import backends as backends
 from . import dispatcher as dispatcher
 
 
-__all__ = ["backends", "dispatcher", "__version__"]
+__all__: list[str] = ["backends", "dispatcher", "__version__"]
 
 # Get version from installed package metadata
+__version__: str
 try:
     __version__ = version("aletheia-probe")
 except PackageNotFoundError:
