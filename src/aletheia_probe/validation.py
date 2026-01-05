@@ -26,6 +26,9 @@ def normalize_issn(issn: str | None) -> str | None:
     Returns:
         Normalized ISSN with hyphen, or None if invalid format
 
+    Raises:
+        None
+
     Examples:
         >>> normalize_issn("12345679")
         '1234-5679'
@@ -62,6 +65,9 @@ def validate_issn(issn: str | None) -> bool:
     Returns:
         True if valid ISSN with correct checksum, False otherwise
 
+    Raises:
+        None
+
     Examples:
         >>> validate_issn("0028-0836")  # Nature
         True
@@ -95,6 +101,9 @@ def _verify_issn_checksum(issn: str) -> bool:
 
     Returns:
         True if checksum is valid
+
+    Raises:
+        None
     """
     # Remove hyphen
     digits = issn.replace("-", "")
