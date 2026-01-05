@@ -82,8 +82,8 @@ class TestRetractionWatchSource:
     @pytest.mark.asyncio
     async def test_fetch_data_missing_csv(self, source):
         """Test fetch_data when CSV file is missing."""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir) / "repo"
