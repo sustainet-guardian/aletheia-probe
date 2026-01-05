@@ -71,3 +71,10 @@ class NameType(str, Enum):
 
     CANONICAL = "canonical"
     ALIAS = "alias"
+
+
+class EntryType(str, Enum):
+    """Type of entry in lists (journal or publisher)."""
+
+    JOURNAL = "journal"
+    PUBLISHER = "publisher"
