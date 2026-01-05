@@ -4,7 +4,8 @@
 # Validation constants
 MIN_JOURNAL_NAME_LENGTH: int = 5
 MAX_JOURNAL_NAME_LENGTH: int = 200
-MIN_PUBLISHER_NAME_LENGTH: int = 2
+MIN_PUBLISHER_NAME_LENGTH: int = 3
+MAX_PUBLISHER_NAME_LENGTH: int = 200
 
 
 class JournalEntryValidator:
@@ -128,6 +129,16 @@ class JournalEntryValidator:
     def is_valid_publisher_entry(self, text: str) -> bool:
         """Check if text looks like a valid publisher name.
 
+        Note: Publisher validation is intentionally more permissive than journal
+        validation because publisher names have more diverse patterns:
+        - Company names (ABC Journals, Academia Publishing)
+        - Organization names (Academic and Business Research Institute)
+        - Individual names (Abhinav)
+        - Branded names (The 5th Publisher)
+
+        However, basic quality checks are applied to filter out navigation
+        elements, malformed entries, and concatenated text.
+
         Args:
             text: Text to validate
 
@@ -142,6 +153,10 @@ class JournalEntryValidator:
 
         text_lower = text.lower().strip()
 
+        # Reject entries that are too long (likely concatenated text)
+        if len(text) > MAX_PUBLISHER_NAME_LENGTH:
+            return False
+
         # Skip navigation and website elements
         if text_lower in self.NAVIGATION_TERMS:
             return False
@@ -154,11 +169,5 @@ class JournalEntryValidator:
         single_word_generic = ["journals", "publications", "academic", "research"]
         if len(text.split()) == 1 and text_lower in single_word_generic:
             return False
-
-        # Publisher names are typically:
-        # - Company names (ABC Journals, Academia Publishing)
-        # - Organization names (Academic and Business Research Institute)
-        # - Individual names (Abhinav)
-        # - Branded names (The 5th Publisher)
 
         return True
