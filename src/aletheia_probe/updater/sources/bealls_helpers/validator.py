@@ -10,6 +10,27 @@ MIN_PUBLISHER_NAME_LENGTH: int = 2
 class JournalEntryValidator:
     """Validates journal entries from Beall's List."""
 
+    # Navigation and website elements to skip
+    NAVIGATION_TERMS: list[str] = [
+        "contact",
+        "changelog",
+        "home",
+        "about",
+        "privacy",
+        "terms",
+        "login",
+        "register",
+        "search",
+        "menu",
+        "footer",
+        "header",
+        "skip",
+        "navigation",
+        "sitemap",
+        "update",
+        "note",
+    ]
+
     def is_valid_journal_entry(self, text: str) -> bool:
         """Check if text looks like a valid journal name.
 
@@ -25,24 +46,7 @@ class JournalEntryValidator:
         text = text.lower().strip()
 
         # Skip navigation and website elements
-        navigation_terms = [
-            "contact",
-            "changelog",
-            "home",
-            "about",
-            "privacy",
-            "terms",
-            "login",
-            "register",
-            "search",
-            "menu",
-            "footer",
-            "header",
-            "skip",
-            "navigation",
-            "sitemap",
-        ]
-        if text in navigation_terms:
+        if text in self.NAVIGATION_TERMS:
             return False
 
         # Skip standalone geographic terms
@@ -133,26 +137,7 @@ class JournalEntryValidator:
         text_lower = text.lower().strip()
 
         # Skip navigation and website elements
-        navigation_terms = [
-            "contact",
-            "changelog",
-            "home",
-            "about",
-            "privacy",
-            "terms",
-            "login",
-            "register",
-            "search",
-            "menu",
-            "footer",
-            "header",
-            "skip",
-            "navigation",
-            "sitemap",
-            "update",
-            "note",
-        ]
-        if text_lower in navigation_terms:
+        if text_lower in self.NAVIGATION_TERMS:
             return False
 
         # Skip section headers
