@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend
 
 
@@ -51,6 +51,23 @@ class CustomListBackend(CachedBackend):
             The source name provided during initialization
         """
         return self.source_name
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the type of evidence this backend provides.
+
+        Returns:
+            EvidenceType based on the list_type:
+            - PREDATORY_LIST for predatory assessments
+            - LEGITIMATE_LIST for legitimate assessments
+            - HEURISTIC for unknown list types
+        """
+        if self.list_type == AssessmentType.PREDATORY:
+            return EvidenceType.PREDATORY_LIST
+        elif self.list_type == AssessmentType.LEGITIMATE:
+            return EvidenceType.LEGITIMATE_LIST
+        else:
+            # Default to heuristic for unknown list types
+            return EvidenceType.HEURISTIC
 
     def get_data_source(self) -> "DataSource | None":
         """Get the CustomListSource instance for data synchronization.

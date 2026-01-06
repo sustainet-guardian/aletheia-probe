@@ -52,6 +52,9 @@ class MockCachedBackend(CachedBackend):
     def get_name(self) -> str:
         return "mock_cache"
 
+    def get_evidence_type(self) -> EvidenceType:
+        return EvidenceType.PREDATORY_LIST
+
 
 class TestBackendBase:
     """Test cases for Backend base class."""
@@ -196,6 +199,9 @@ class TestApiBackendWithCache:
 
         def get_name(self) -> str:
             return "mock_api_with_cache"
+
+        def get_evidence_type(self) -> EvidenceType:
+            return EvidenceType.HEURISTIC
 
         async def _query_api(self, query_input: QueryInput) -> BackendResult:
             """Mock API query."""

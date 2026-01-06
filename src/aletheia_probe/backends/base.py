@@ -123,16 +123,6 @@ class CachedBackend(Backend):
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
 
-    def get_evidence_type(self) -> EvidenceType:
-        """Return evidence type based on list type."""
-        if self.list_type == AssessmentType.PREDATORY:
-            return EvidenceType.PREDATORY_LIST
-        elif self.list_type == AssessmentType.LEGITIMATE:
-            return EvidenceType.LEGITIMATE_LIST
-        else:
-            # Default to heuristic for unknown list types
-            return EvidenceType.HEURISTIC
-
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Query cached data for journal information."""
         start_time = time.time()
@@ -293,10 +283,6 @@ class ApiBackendWithCache(Backend):
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
         self.openalex_cache = OpenAlexCache()
-
-    def get_evidence_type(self) -> EvidenceType:
-        """ApiBackendWithCache provides heuristic evidence by default."""
-        return EvidenceType.HEURISTIC
 
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Check cache first, then query live API if needed."""

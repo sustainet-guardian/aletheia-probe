@@ -3,7 +3,7 @@
 
 from typing import TYPE_CHECKING
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from .base import CachedBackend, get_backend_registry
 
 
@@ -42,6 +42,14 @@ class PredatoryJournalsBackend(CachedBackend):
             Backend name string
         """
         return "predatoryjournals"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the type of evidence this backend provides.
+
+        Returns:
+            EvidenceType.PREDATORY_LIST as this is a predatory journal list.
+        """
+        return EvidenceType.PREDATORY_LIST
 
     def get_data_source(self) -> "DataSource | None":
         """Get the PredatoryJournalsSource instance for data synchronization."""
