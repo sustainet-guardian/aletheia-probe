@@ -113,9 +113,7 @@ class ScopusSource(DataSource):
 
                     if field_name == "quality_flag":
                         # Special case: quality_flag needs both "discontinued" AND "quality"
-                        if all(
-                            keyword in header_lower for keyword in possible_headers
-                        ):
+                        if all(keyword in header_lower for keyword in possible_headers):
                             col_indices[field_name] = i
                     else:
                         # Regular case: match any of the possible headers
@@ -186,9 +184,7 @@ class ScopusSource(DataSource):
             normalized_input = input_normalizer.normalize(title)
 
             metadata: dict[str, Any] = {
-                "source_type": (
-                    str(source_type).strip() if source_type else "Journal"
-                ),
+                "source_type": (str(source_type).strip() if source_type else "Journal"),
                 "coverage": str(coverage).strip() if coverage else None,
                 "open_access": str(open_access).strip() if open_access else None,
             }
@@ -322,7 +318,7 @@ class ScopusSource(DataSource):
                 # Track statistics
                 status_str = str(status).strip() if status else ""
                 is_active = status_str.lower() == "active"
-                is_quality_flagged = quality_flag and str(quality_flag).strip()
+                is_quality_flagged = bool(quality_flag and str(quality_flag).strip())
 
                 if is_active:
                     active_count += 1
@@ -337,8 +333,10 @@ class ScopusSource(DataSource):
                     continue
 
                 # Validate and normalize ISSNs
-                issn = self._validate_and_normalize_issn(issn, title)
-                eissn = self._validate_and_normalize_issn(eissn, title)
+                issn_str = str(issn) if issn else None
+                eissn_str = str(eissn) if eissn else None
+                issn = self._validate_and_normalize_issn(issn_str, title)
+                eissn = self._validate_and_normalize_issn(eissn_str, title)
 
                 # Create journal entry
                 journal_entry = self._create_journal_entry(
