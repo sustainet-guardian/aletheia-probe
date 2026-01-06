@@ -65,9 +65,13 @@ class CustomListSource(DataSource):
         except csv.Error as e:
             status_logger.error(f"    {self.get_name()}: CSV error - {e}")
         except FileNotFoundError:
-            status_logger.error(f"    {self.get_name()}: File not found - {self.file_path}")
+            status_logger.error(
+                f"    {self.get_name()}: File not found - {self.file_path}"
+            )
         except PermissionError:
-            status_logger.error(f"    {self.get_name()}: Permission denied - {self.file_path}")
+            status_logger.error(
+                f"    {self.get_name()}: Permission denied - {self.file_path}"
+            )
         except Exception as e:
             status_logger.error(f"    {self.get_name()}: Failed to load file - {e}")
 
