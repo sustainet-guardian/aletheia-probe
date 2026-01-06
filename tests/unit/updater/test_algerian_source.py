@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from aiohttp import ClientTimeout
 
-from aletheia_probe.enums import AssessmentType
+from aletheia_probe.enums import AssessmentType, EntryType
 from aletheia_probe.updater.sources.algerian import AlgerianMinistrySource
 
 
@@ -323,10 +323,10 @@ class TestAlgerianMinistrySource:
             calls = mock_pdf_parser.parse_pdf_file.call_args_list
             entry_types = [call[0][2] for call in calls]  # Third argument is entry_type
 
-            assert "journal" in entry_types
-            assert "publisher" in entry_types
+            assert EntryType.JOURNAL in entry_types
+            assert EntryType.PUBLISHER in entry_types
             assert (
-                len([t for t in entry_types if t == "journal"]) == 2
+                len([t for t in entry_types if t == EntryType.JOURNAL]) == 2
             )  # revues and actualisation
 
     def test_process_pdf_files_pdf_processing_error(self, source):

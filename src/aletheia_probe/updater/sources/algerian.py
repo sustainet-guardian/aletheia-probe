@@ -10,7 +10,7 @@ from aiohttp import ClientSession, ClientTimeout
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
-from ...enums import AssessmentType
+from ...enums import AssessmentType, EntryType
 from ...logging_config import get_detail_logger, get_status_logger
 from ..core import DataSource
 from ..utils import deduplicate_journals
@@ -227,18 +227,18 @@ class AlgerianMinistrySource(DataSource):
 
                     # Determine entry type based on filename
                     entry_type = (
-                        "journal"
+                        EntryType.JOURNAL
                         if (
                             "revues" in pdf_file.name.lower()
                             or "actualisation" in pdf_file.name.lower()
                         )
-                        else "publisher"
+                        else EntryType.PUBLISHER
                     )
 
                     entries = self.pdf_parser.parse_pdf_file(pdf_file, year, entry_type)
                     all_entries.extend(entries)
                     detail_logger.info(
-                        f"Extracted {len(entries)} {entry_type}s from {pdf_file.name}"
+                        f"Extracted {len(entries)} {entry_type.value}s from {pdf_file.name}"
                     )
                 except Exception as e:
                     detail_logger.error(f"Error processing PDF {pdf_file}: {e}")
