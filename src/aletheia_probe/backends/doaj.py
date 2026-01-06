@@ -8,12 +8,12 @@ from urllib.parse import quote
 
 import aiohttp
 
+from ..backend_exceptions import RateLimitError
 from ..constants import CONFIDENCE_THRESHOLD_HIGH, CONFIDENCE_THRESHOLD_MEDIUM
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
-from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 
 
@@ -27,15 +27,6 @@ DOAJ_ALIAS_EXACT_MATCH_CONFIDENCE = 0.9
 DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE = 0.8
 DOAJ_WORD_SIMILARITY_BASE_CONFIDENCE = 0.6
 DOAJ_WORD_SIMILARITY_MULTIPLIER = 0.25
-
-
-class RateLimitError(Exception):
-    """Raised when DOAJ API rate limit is hit."""
-
-    @code_is_used
-    def __init__(self, retry_after: int | None = None) -> None:
-        self.retry_after = retry_after
-        super().__init__(f"DOAJ API rate limit hit. Retry after {retry_after}s")
 
 
 class DOAJBackend(ApiBackendWithCache):
