@@ -389,15 +389,15 @@ class TestScopusSource:
 
             assert entry is not None
             assert entry["metadata"]["quality_flagged"] is True
-            assert entry["metadata"]["quality_flag_reason"] == "Poor editorial practices"
+            assert (
+                entry["metadata"]["quality_flag_reason"] == "Poor editorial practices"
+            )
 
     def test_create_journal_entry_normalization_fails(self):
         """Test _create_journal_entry when normalization fails."""
         source = ScopusSource()
 
-        with patch(
-            "aletheia_probe.normalizer.input_normalizer.normalize"
-        ) as mock_norm:
+        with patch("aletheia_probe.normalizer.input_normalizer.normalize") as mock_norm:
             mock_norm.side_effect = Exception("Normalization error")
 
             entry = source._create_journal_entry(
