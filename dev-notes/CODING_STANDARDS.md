@@ -399,6 +399,9 @@ class TestJournalAssessment:
         assert result.confidence > 0.8
 ```
 
+### Scope of Testing
+Only public interfaces (functions, methods, and classes) must be tested. Private interfaces (e.g., methods starting with `_`) or local/inner classes must NOT be tested, even in unit tests. Testing should focus on the behavior and contracts of the public API rather than internal implementation details.
+
 ---
 
 ## Code Smells and Anti-Patterns to Avoid
@@ -437,7 +440,7 @@ This coding standards document references established Python best practices (PEP
 - **Domain Patterns**: Custom exceptions, retry decorators, async patterns
 - **Security**: Input validation, SQL injection prevention, path traversal protection
 - **Database**: Parameterized queries and batch operations
-- **Testing**: Descriptive naming and fixture organization
+- **Testing**: Descriptive naming, fixture organization, and focus on public interfaces
 - **Quality**: Automated tooling (Black, isort, mypy, ruff, pytest)
 - **Code Quality**: Avoid code smells and anti-patterns
 
