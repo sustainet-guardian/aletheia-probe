@@ -58,7 +58,7 @@ class CustomListManager(CacheBase):
             f"Adding custom list '{list_name}' with file '{absolute_path}'"
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             try:
                 conn.execute(
                     """
@@ -86,7 +86,7 @@ class CustomListManager(CacheBase):
         """
         detail_logger.debug(f"Removing custom list '{list_name}'")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM custom_lists WHERE list_name = ?",
                 (list_name,),
@@ -166,7 +166,7 @@ class CustomListManager(CacheBase):
         Returns:
             True if custom list exists, False otherwise
         """
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 "SELECT 1 FROM custom_lists WHERE list_name = ?",
                 (list_name,),
@@ -195,7 +195,7 @@ class CustomListManager(CacheBase):
 
         absolute_path = str(file_path_obj.resolve())
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.execute(
                 """
                 UPDATE custom_lists
