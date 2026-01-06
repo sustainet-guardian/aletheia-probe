@@ -19,6 +19,7 @@ from .enums import AssessmentType, EvidenceType
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from .normalizer import InputNormalizer, input_normalizer
+from .quality_assessment import QualityAssessmentProcessor
 
 
 @dataclass
@@ -77,6 +78,7 @@ class QueryDispatcher:
         self.detail_logger = get_detail_logger()
         self.status_logger = get_status_logger()
         self.cross_validation_registry = get_cross_validation_registry()
+        self.quality_processor = QualityAssessmentProcessor()
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -536,8 +538,10 @@ class QueryDispatcher:
         ]
         reasoning: list[str] = []
 
-        # Extract retraction information
-        retraction_info = self._extract_retraction_data(backend_results, reasoning)
+        # Extract quality assessment information
+        quality_info = self.quality_processor.extract_quality_data(
+            backend_results, reasoning
+        )
 
         # Handle case with no successful results
         if not successful_results:
@@ -562,78 +566,10 @@ class QueryDispatcher:
             backend_results,
             successful_results,
             score_data,
-            retraction_info,
+            quality_info,
             reasoning,
             processing_time,
         )
-
-    def _extract_retraction_data(
-        self, backend_results: list[BackendResult], reasoning: list[str]
-    ) -> dict[str, Any]:
-        """Extract and format retraction data from backend results.
-
-        Returns:
-            Dictionary with retraction information including risk_level,
-            total_retractions, recent_retractions, and formatted messages.
-        """
-        retraction_result = next(
-            (
-                r
-                for r in backend_results
-                if r.backend_name == "retraction_watch"
-                and r.status == BackendStatus.FOUND
-            ),
-            None,
-        )
-
-        if not retraction_result or not retraction_result.data:
-            return {}
-
-        retraction_data = retraction_result.data
-        risk_level = retraction_data.get("risk_level")
-        total_retractions = retraction_data.get("total_retractions", 0)
-        recent_retractions = retraction_data.get("recent_retractions", 0)
-        has_publication_data = retraction_data.get("has_publication_data", False)
-        retraction_rate = retraction_data.get("retraction_rate")
-        total_publications = retraction_data.get("total_publications")
-
-        # Add retraction information to reasoning
-        if risk_level in ["critical", "high"]:
-            if has_publication_data and retraction_rate is not None:
-                reasoning.append(
-                    f"⚠️ {risk_level.upper()} retraction risk: "
-                    f"{total_retractions} retractions ({recent_retractions} recent) "
-                    f"= {retraction_rate:.3f}% rate ({total_publications:,} total publications)"
-                )
-            else:
-                reasoning.append(
-                    f"⚠️ {risk_level.upper()} retraction risk: "
-                    f"{total_retractions} total retractions ({recent_retractions} recent)"
-                )
-        elif risk_level == "moderate":
-            if has_publication_data and retraction_rate is not None:
-                reasoning.append(
-                    f"⚠️ Moderate retraction risk: "
-                    f"{total_retractions} retractions ({recent_retractions} recent) "
-                    f"= {retraction_rate:.3f}% rate ({total_publications:,} publications)"
-                )
-            else:
-                reasoning.append(
-                    f"⚠️ Moderate retraction risk: "
-                    f"{total_retractions} total retractions ({recent_retractions} recent)"
-                )
-        elif total_retractions > 0:
-            if has_publication_data and retraction_rate is not None:
-                reasoning.append(
-                    f"📊 {total_retractions} retraction(s): {retraction_rate:.3f}% rate "
-                    f"(within normal range for {total_publications:,} publications)"
-                )
-            else:
-                reasoning.append(
-                    f"📊 {total_retractions} retraction(s) found in Retraction Watch database"
-                )
-
-        return {"risk_level": risk_level, "total_retractions": total_retractions}
 
     def _handle_no_results(
         self,
@@ -689,8 +625,8 @@ class QueryDispatcher:
         total_weight = 0.0
 
         for result in successful_results:
-            # Skip retraction_watch in binary classification (it's a quality indicator)
-            if result.backend_name == "retraction_watch":
+            # Skip quality indicators in binary classification
+            if result.evidence_type == EvidenceType.QUALITY_INDICATOR.value:
                 continue
 
             backend_config = self.config_manager.get_backend_config(result.backend_name)
@@ -759,7 +695,7 @@ class QueryDispatcher:
         total_predatory_weight: float,
         total_legitimate_weight: float,
         total_weight: float,
-        retraction_risk_level: str | None,
+        quality_risk_level: str | None,
         reasoning: list[str],
     ) -> tuple[str, float, float]:
         """Determine assessment when predatory list evidence exists.
@@ -779,8 +715,8 @@ class QueryDispatcher:
                 f"Classified as predatory based on {len(evidence.predatory_list)} predatory list(s)",
             )
 
-            # Cross-validate with retraction data
-            if retraction_risk_level in ["critical", "high"]:
+            # Cross-validate with quality assessment data
+            if quality_risk_level in ["critical", "high"]:
                 confidence = min(
                     CONFIDENCE_THRESHOLD_HIGH, confidence + AGREEMENT_BONUS_AMOUNT
                 )
@@ -804,7 +740,7 @@ class QueryDispatcher:
         total_legitimate_weight: float,
         total_weight: float,
         legitimate_count: int,
-        retraction_risk_level: str | None,
+        quality_risk_level: str | None,
         reasoning: list[str],
     ) -> tuple[str, float, float]:
         """Determine assessment when only legitimate evidence exists.
@@ -813,7 +749,7 @@ class QueryDispatcher:
             total_legitimate_weight: Weighted legitimate score
             total_weight: Total weight from all backends
             legitimate_count: Number of legitimate sources
-            retraction_risk_level: Risk level from retraction data
+            quality_risk_level: Risk level from quality assessment data
             reasoning: List to append reasoning messages to
 
         Returns:
@@ -827,12 +763,12 @@ class QueryDispatcher:
             f"Classified as legitimate based on {legitimate_count} source(s)",
         )
 
-        # Flag if legitimate journal has concerning retraction patterns
-        if retraction_risk_level in ["critical", "high"]:
+        # Flag if legitimate journal has concerning quality patterns
+        if quality_risk_level in ["critical", "high"]:
             reasoning.append(
                 "⚠️ WARNING: High retraction rate despite legitimate classification"
             )
-        elif retraction_risk_level == "moderate":
+        elif quality_risk_level == "moderate":
             reasoning.append(
                 "⚠️ NOTE: Moderate retraction rate - quality concerns exist"
             )
@@ -844,7 +780,7 @@ class QueryDispatcher:
         total_predatory_weight: float,
         total_weight: float,
         predatory_count: int,
-        retraction_risk_level: str | None,
+        quality_risk_level: str | None,
         reasoning: list[str],
     ) -> tuple[str, float, float]:
         """Determine assessment when only heuristic evidence exists.
@@ -853,7 +789,7 @@ class QueryDispatcher:
             total_predatory_weight: Weighted predatory score
             total_weight: Total weight from all backends
             predatory_count: Number of predatory sources
-            retraction_risk_level: Risk level from retraction data
+            quality_risk_level: Risk level from quality assessment data
             reasoning: List to append reasoning messages to
 
         Returns:
@@ -869,8 +805,8 @@ class QueryDispatcher:
             f"Classified as suspicious based on heuristic analysis only ({predatory_count} source(s))",
         )
 
-        # Retraction data supports suspicious classification
-        if retraction_risk_level in ["critical", "high"]:
+        # Quality assessment data supports suspicious classification
+        if quality_risk_level in ["critical", "high"]:
             confidence = min(0.95, confidence + AGREEMENT_BONUS_AMOUNT)
             reasoning.append(
                 "⚠️ High retraction rate supports suspicious classification"
@@ -928,7 +864,7 @@ class QueryDispatcher:
         self,
         evidence: EvidenceClassification,
         score_data: dict[str, Any],
-        retraction_risk_level: str | None,
+        quality_risk_level: str | None,
         reasoning: list[str],
     ) -> tuple[str, float, float]:
         """Determine assessment classification from evidence.
@@ -942,7 +878,7 @@ class QueryDispatcher:
         Args:
             evidence: Classified evidence by type
             score_data: Dictionary with weights and counts
-            retraction_risk_level: Risk level from retraction data
+            quality_risk_level: Risk level from quality assessment data
             reasoning: List to append reasoning messages to
 
         Returns:
@@ -963,7 +899,7 @@ class QueryDispatcher:
                 total_predatory_weight,
                 total_legitimate_weight,
                 total_weight,
-                retraction_risk_level,
+                quality_risk_level,
                 reasoning,
             )
 
@@ -973,7 +909,7 @@ class QueryDispatcher:
                 total_legitimate_weight,
                 total_weight,
                 score_data["legitimate_count"],
-                retraction_risk_level,
+                quality_risk_level,
                 reasoning,
             )
 
@@ -983,13 +919,13 @@ class QueryDispatcher:
                 total_predatory_weight,
                 total_weight,
                 score_data["predatory_count"],
-                retraction_risk_level,
+                quality_risk_level,
                 reasoning,
             )
 
-        # Unknown case - use retraction data as warning flag
+        # Unknown case - use quality data as warning flag
         reasoning.insert(0, "Found in databases but assessment unclear")
-        if retraction_risk_level in ["critical", "high"]:
+        if quality_risk_level in ["critical", "high"]:
             reasoning.insert(
                 0, "⚠️ WARNING: High retraction rate detected - proceed with caution"
             )
@@ -1001,7 +937,7 @@ class QueryDispatcher:
         backend_results: list[BackendResult],
         successful_results: list[BackendResult],
         score_data: dict[str, Any],
-        retraction_info: dict[str, Any],
+        quality_info: dict[str, Any],
         reasoning: list[str],
         processing_time: float,
     ) -> AssessmentResult:
@@ -1019,7 +955,7 @@ class QueryDispatcher:
         # Determine base assessment from evidence
         assessment, confidence, overall_score = (
             self._determine_assessment_from_evidence(
-                evidence, score_data, retraction_info.get("risk_level"), reasoning
+                evidence, score_data, quality_info.get("risk_level"), reasoning
             )
         )
 

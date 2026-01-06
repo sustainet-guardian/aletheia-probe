@@ -170,7 +170,9 @@ class TestQueryDispatcher:
         """Test assessment with retraction watch data."""
         retraction_backend = Mock()
         retraction_backend.get_name.return_value = "retraction_watch"
-        retraction_backend.get_evidence_type.return_value = EvidenceType.HEURISTIC
+        retraction_backend.get_evidence_type.return_value = (
+            EvidenceType.QUALITY_INDICATOR
+        )
         retraction_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
                 backend_name="retraction_watch",
@@ -187,7 +189,7 @@ class TestQueryDispatcher:
                 },
                 sources=["retraction_watch"],
                 response_time=0.1,
-                evidence_type=EvidenceType.HEURISTIC.value,
+                evidence_type=EvidenceType.QUALITY_INDICATOR.value,
             )
         )
 

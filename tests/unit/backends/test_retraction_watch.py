@@ -7,7 +7,7 @@ import pytest
 
 from aletheia_probe.backends.protocols import DataSyncCapable
 from aletheia_probe.backends.retraction_watch import RetractionWatchBackend
-from aletheia_probe.enums import AssessmentType
+from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -457,3 +457,10 @@ class TestRetractionWatchBackendDataSyncCapable:
         assert hasattr(backend, "journal_cache")
         assert hasattr(backend, "assessment_cache")
         assert hasattr(backend, "openalex_cache")
+
+    def test_get_evidence_type_returns_quality_indicator(
+        self, backend: RetractionWatchBackend
+    ) -> None:
+        """Test that backend returns QUALITY_INDICATOR evidence type."""
+        evidence_type = backend.get_evidence_type()
+        assert evidence_type == EvidenceType.QUALITY_INDICATOR

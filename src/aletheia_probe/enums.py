@@ -44,6 +44,7 @@ class EvidenceType(str, Enum):
     PREDATORY_LIST = "predatory_list"  # Curated lists of predatory journals
     LEGITIMATE_LIST = "legitimate_list"  # Curated lists of legitimate journals
     HEURISTIC = "heuristic"  # Analysis-based assessment (retraction rates, etc.)
+    QUALITY_INDICATOR = "quality_indicator"  # Quality metrics (retraction data, etc.)
 
 
 class RiskLevel(str, Enum):
