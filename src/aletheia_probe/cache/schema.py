@@ -198,6 +198,20 @@ def init_database(db_path: Path) -> None:
                 UNIQUE(issn, normalized_journal_name)
             );
 
+            -- Custom journal lists (user-provided CSV/JSON files)
+            -- Purpose: Persistent storage for custom list registrations
+            -- Stores metadata about user-added journal lists to survive process restarts
+            CREATE TABLE IF NOT EXISTS custom_lists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                list_name TEXT UNIQUE NOT NULL,
+                file_path TEXT NOT NULL,
+                list_type TEXT NOT NULL,
+                enabled BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CHECK (list_type IN ({source_type_values}))
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
             CREATE INDEX IF NOT EXISTS idx_journals_normalized_name_lower ON journals(LOWER(normalized_name));
@@ -217,5 +231,7 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_issn ON openalex_cache(issn);
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_journal_name ON openalex_cache(normalized_journal_name);
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_expires ON openalex_cache(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_custom_lists_list_name ON custom_lists(list_name);
+            CREATE INDEX IF NOT EXISTS idx_custom_lists_enabled ON custom_lists(enabled);
         """
         )

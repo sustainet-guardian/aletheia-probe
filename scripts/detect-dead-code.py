@@ -453,9 +453,9 @@ Another Journal,9876-5432,Another Publisher
                 ["bibtex", bibtex_file, "--relax-bibtex"],
                 ["bibtex", bibtex_file, "--verbose", "--format", "json"],
                 # Custom list operations - CSV
-                ["add-list", csv_file, "--list-type", "PREDATORY", "--list-name", "test-csv"],
+                ["custom-list", "add", csv_file, "--list-type", "PREDATORY", "--list-name", "test-csv"],
                 # Custom list operations - JSON
-                ["add-list", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
+                ["custom-list", "add", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
                 # Status after adding custom lists
                 ["status"],
                 # Query custom list journals WITH ISSNs (triggers ISSN-based search)

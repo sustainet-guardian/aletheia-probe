@@ -222,6 +222,11 @@ def sync(force: bool, backend_names: tuple[str, ...]) -> None:
         force: Whether to force sync even if data appears fresh.
         backend_names: Optional tuple of backend names to sync.
     """
+    # Auto-register custom lists before sync
+    from .cache.custom_list_manager import auto_register_custom_lists
+
+    auto_register_custom_lists()
+
     try:
         # The cache_sync_manager handles all output through the dual logger
         result = asyncio.run(
@@ -286,6 +291,11 @@ def clear_cache(confirm: bool) -> None:
 @handle_cli_errors
 def status() -> None:
     """Show cache synchronization status for all backends."""
+    # Auto-register custom lists before showing status
+    from .cache.custom_list_manager import auto_register_custom_lists
+
+    auto_register_custom_lists()
+
     status_logger = get_status_logger()
 
     status = cache_sync_manager.get_sync_status()
@@ -323,63 +333,6 @@ def status() -> None:
                 status_text += f" (updated: {last_updated})"
 
         status_logger.info(f"  {status_text}")
-
-
-@main.command()
-@click.argument("file_path", type=click.Path(exists=True))
-@click.option(
-    "--list-type",
-    type=click.Choice(
-        [
-            AssessmentType.PREDATORY,
-            AssessmentType.LEGITIMATE,
-            AssessmentType.SUSPICIOUS,
-            AssessmentType.UNKNOWN,
-        ]
-    ),
-    default=AssessmentType.PREDATORY,
-    help="Type of journals in the list",
-)
-@click.option("--list-name", required=True, help="Name for the custom list source")
-@handle_cli_errors
-def add_list(file_path: str, list_type: str, list_name: str) -> None:
-    """Add a custom journal list from a file.
-
-    Args:
-        file_path: Path to CSV or JSON file containing journal names.
-        list_type: Type of journals in the list (predatory, legitimate, etc.).
-        list_name: Name for the custom list source.
-    """
-    from .backends.base import get_backend_registry
-    from .backends.custom_list import CustomListBackend
-
-    status_logger = get_status_logger()
-    file_path_obj = Path(file_path)
-
-    status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
-    status_logger.info(f"List type: {list_type}")
-
-    # Convert string to AssessmentType enum
-    assessment_type = AssessmentType(list_type)
-
-    # Register custom list backend
-    backend_registry = get_backend_registry()
-    backend_registry.register_factory(
-        list_name,
-        lambda: CustomListBackend(file_path_obj, assessment_type, list_name),
-        default_config={"enabled": True},
-    )
-
-    status_logger.info(f"Registered custom list '{list_name}' as backend")
-
-    # Force config reload to pick up the newly registered backend
-    get_config_manager(force_reload=True)
-
-    # Trigger immediate sync to load the data
-    status_logger.info("Loading custom list data...")
-    asyncio.run(cache_sync_manager.sync_cache_with_config(force=True))
-
-    status_logger.info(f"Successfully added custom list '{list_name}'")
 
 
 @main.command()
@@ -608,6 +561,149 @@ def clear_retraction_cache(confirm: bool) -> None:
         status_logger.info("No retraction cache entries to clear.")
     else:
         status_logger.info(f"Cleared {count:,} retraction cache entry/entries.")
+
+
+@main.group(name="custom-list")
+def custom_list() -> None:
+    """Manage custom journal lists."""
+    pass
+
+
+@custom_list.command(name="add")
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option(
+    "--list-type",
+    type=click.Choice(
+        [
+            AssessmentType.PREDATORY,
+            AssessmentType.LEGITIMATE,
+            AssessmentType.SUSPICIOUS,
+            AssessmentType.UNKNOWN,
+        ]
+    ),
+    default=AssessmentType.PREDATORY,
+    help="Type of journals in the list",
+)
+@click.option("--list-name", required=True, help="Name for the custom list source")
+@handle_cli_errors
+def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
+    """Add a custom journal list from a file.
+
+    Args:
+        file_path: Path to CSV or JSON file containing journal names.
+        list_type: Type of journals in the list (predatory, legitimate, etc.).
+        list_name: Name for the custom list source.
+    """
+    from .cache.custom_list_manager import CustomListManager
+
+    status_logger = get_status_logger()
+
+    status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
+    status_logger.info(f"List type: {list_type}")
+
+    # Convert string to AssessmentType enum
+    assessment_type = AssessmentType(list_type)
+
+    # Store custom list persistently in database
+    try:
+        custom_list_manager = CustomListManager()
+        custom_list_manager.add_custom_list(list_name, file_path, assessment_type)
+
+        status_logger.info(f"Successfully added custom list '{list_name}'")
+        status_logger.info("Run 'aletheia-probe sync' to load the data into cache")
+
+    except ValueError as e:
+        status_logger.error(f"Failed to add custom list: {e}")
+        raise click.ClickException(str(e)) from e
+
+
+@custom_list.command(name="list")
+@handle_cli_errors
+def list_custom_lists() -> None:
+    """List all registered custom journal lists."""
+    from .cache.custom_list_manager import CustomListManager
+
+    status_logger = get_status_logger()
+
+    try:
+        custom_list_manager = CustomListManager()
+        custom_lists = custom_list_manager.get_all_custom_lists()
+
+        if not custom_lists:
+            status_logger.info("No custom lists found")
+            return
+
+        status_logger.info(f"Found {len(custom_lists)} custom list(s):")
+        status_logger.info("")
+
+        for custom_list in custom_lists:
+            list_name = custom_list["list_name"]
+            file_path = custom_list["file_path"]
+            list_type = custom_list["list_type"]
+            enabled = custom_list["enabled"]
+            created_at = custom_list["created_at"]
+
+            # Check if file still exists
+            file_exists = Path(file_path).exists()
+            file_status = "✓" if file_exists else "✗ (missing)"
+
+            status_text = f"  {list_name}:"
+            status_logger.info(status_text)
+            status_logger.info(f"    Type: {list_type}")
+            status_logger.info(f"    File: {file_path} {file_status}")
+            status_logger.info(f"    Status: {'Enabled' if enabled else 'Disabled'}")
+            status_logger.info(f"    Created: {created_at}")
+            status_logger.info("")
+
+    except Exception as e:
+        status_logger.error(f"Failed to list custom lists: {e}")
+        raise click.ClickException(str(e)) from e
+
+
+@custom_list.command(name="remove")
+@click.argument("list_name")
+@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+@handle_cli_errors
+def remove_custom_list(list_name: str, confirm: bool) -> None:
+    """Remove a custom journal list.
+
+    Args:
+        list_name: Name of the custom list to remove.
+        confirm: Whether to skip the confirmation prompt.
+    """
+    from .cache.custom_list_manager import CustomListManager
+
+    status_logger = get_status_logger()
+
+    try:
+        custom_list_manager = CustomListManager()
+
+        # Check if list exists
+        if not custom_list_manager.custom_list_exists(list_name):
+            status_logger.error(f"Custom list '{list_name}' not found")
+            raise click.ClickException(f"Custom list '{list_name}' does not exist")
+
+        # Confirmation prompt
+        if not confirm:
+            click.confirm(
+                f"Are you sure you want to remove custom list '{list_name}'?",
+                abort=True,
+            )
+
+        # Remove the list
+        success = custom_list_manager.remove_custom_list(list_name)
+
+        if success:
+            status_logger.info(f"Successfully removed custom list '{list_name}'")
+        else:
+            status_logger.error(f"Failed to remove custom list '{list_name}'")
+            raise click.ClickException("Removal failed")
+
+    except click.ClickException:
+        raise
+    except Exception as e:
+        status_logger.error(f"Failed to remove custom list: {e}")
+        raise click.ClickException(str(e)) from e
 
 
 async def _async_bibtex_main(

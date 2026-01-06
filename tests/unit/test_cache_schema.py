@@ -59,6 +59,7 @@ class TestCacheSchema:
             "article_retractions",
             "openalex_cache",
             "venue_acronyms",
+            "custom_lists",
         }
 
         with get_configured_connection(temp_db) as conn:
@@ -84,6 +85,7 @@ class TestCacheSchema:
             "assessment_cache",
             "article_retractions",
             "venue_acronyms",
+            "custom_lists",
         ]
 
         with get_configured_connection(temp_db) as conn:
@@ -129,6 +131,7 @@ class TestCacheSchema:
                 "idx_assessment_cache_expires",
                 "idx_article_retractions_doi",
                 "idx_venue_acronyms_normalized_name",
+                "idx_custom_lists_list_name",
             }
 
             assert expected_indexes.issubset(indexes)
