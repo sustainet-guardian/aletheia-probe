@@ -59,7 +59,11 @@ class AlgerianMinistrySource(DataSource):
             return True
 
         # Update monthly (more frequent than Bealls due to active maintenance)
-        return (datetime.now() - last_update).days >= 30
+        if (datetime.now() - last_update).days < 30:
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and process Algerian predatory journal data from ZIP archives."""

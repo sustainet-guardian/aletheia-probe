@@ -86,7 +86,11 @@ class PredatoryJournalsSource(DataSource):
             return True
 
         # Update monthly
-        return (datetime.now() - last_update).days >= UPDATE_INTERVAL_DAYS
+        if (datetime.now() - last_update).days < UPDATE_INTERVAL_DAYS:
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch predatory journals and publishers data.

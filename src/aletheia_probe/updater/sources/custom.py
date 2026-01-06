@@ -36,6 +36,10 @@ class CustomListSource(DataSource):
     def should_update(self) -> bool:
         """Check if file has been modified since last update."""
         if not self.file_path.exists():
+            status_logger.warning(
+                f"    {self.get_name()}: Custom list file not found: {self.file_path}"
+            )
+            self.skip_reason = "file_not_found"
             return False
 
         data_source_manager = DataSourceManager()
@@ -44,7 +48,11 @@ class CustomListSource(DataSource):
             return True
 
         file_mtime = datetime.fromtimestamp(self.file_path.stat().st_mtime)
-        return file_mtime > last_update
+        if file_mtime <= last_update:
+            self.skip_reason = "file_not_modified"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Load data from CSV or JSON file."""

@@ -49,8 +49,9 @@ class ScopusSource(DataSource):
 
     def should_update(self) -> bool:
         """Check if we should update (monthly for static file)."""
-        # First check if file exists - message will be shown to user via click.echo
+        # First check if file exists
         if not self._find_scopus_file():
+            self.skip_reason = "file_not_found"
             return False
 
         data_source_manager = DataSourceManager()
@@ -59,7 +60,11 @@ class ScopusSource(DataSource):
             return True
 
         # Update monthly
-        return (datetime.now() - last_update).days >= 30
+        if (datetime.now() - last_update).days < 30:
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     def _find_scopus_file(self) -> bool:
         """Find the most recent Scopus Excel file in the data directory.
@@ -75,7 +80,10 @@ class ScopusSource(DataSource):
         matching_files = glob.glob(pattern)
 
         if not matching_files:
-            detail_logger.debug(
+            status_logger.info(
+                f"    {self.get_name()}: No Scopus journal list found in {self.data_dir}"
+            )
+            detail_logger.info(
                 f"No Scopus journal list found in {self.data_dir}. "
                 "To use Scopus data, download the latest list from "
                 '"https://www.researchgate.net/publication/384898389_Last_Update_of_Scopus_Indexed_Journal\'s_List_-_October_2024" '
@@ -227,7 +235,6 @@ class ScopusSource(DataSource):
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and parse Scopus journal data from Excel file."""
         if not self._find_scopus_file():
-            status_logger.info(f"    {self.get_name()}: File not found, skipping")
             return []
 
         if not self.file_path:

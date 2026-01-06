@@ -63,7 +63,11 @@ class BeallsListSource(DataSource):
             return True
 
         # Update weekly
-        return (datetime.now() - last_update).days >= 7
+        if (datetime.now() - last_update).days < 7:
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch Beall's list data from multiple sources.
