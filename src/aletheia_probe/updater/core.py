@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from ..enums import AssessmentType
+from ..utils.dead_code import code_is_used
 
 
 class DataSource(ABC):
@@ -26,6 +27,7 @@ class DataSource(ABC):
     """
 
     @abstractmethod
+    @code_is_used
     def get_name(self) -> str:
         """Return the source name.
 
@@ -35,6 +37,7 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
+    @code_is_used
     def get_list_type(self) -> AssessmentType:
         """Return the list type as AssessmentType enum member.
 
@@ -44,6 +47,7 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
+    @code_is_used
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and parse data from the source.
 
@@ -54,6 +58,7 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
+    @code_is_used
     def should_update(self) -> bool:
         """Check if this source needs updating.
 
