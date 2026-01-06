@@ -16,7 +16,11 @@ from aletheia_probe.models import AssessmentResult, QueryInput
 
 
 async def single_assessment() -> AssessmentResult:
-    """Assess a single journal and interpret results."""
+    """Assess a single journal and interpret results.
+
+    Returns:
+        AssessmentResult: The assessment result object.
+    """
     print("=== Single Journal Assessment ===")
 
     # Create query for Nature Communications
@@ -39,7 +43,12 @@ async def single_assessment() -> AssessmentResult:
 
 
 async def batch_assessment() -> list[tuple[str, AssessmentResult]]:
-    """Assess multiple journals in batch."""
+    """Assess multiple journals in batch.
+
+    Returns:
+        list[tuple[str, AssessmentResult]]: A list of tuples containing journal
+            names and their assessment results.
+    """
     print("\n=== Batch Assessment ===")
 
     # List of journals to assess
@@ -69,7 +78,11 @@ async def batch_assessment() -> list[tuple[str, AssessmentResult]]:
 
 
 async def main() -> None:
-    """Run all examples."""
+    """Run all examples.
+
+    Returns:
+        None
+    """
     try:
         # Single assessment
         await single_assessment()
