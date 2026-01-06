@@ -23,6 +23,11 @@ detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
 
+DEFAULT_TIMEOUT = 60
+UPDATE_INTERVAL_DAYS = 30
+MIN_NAME_LENGTH = 3
+
+
 class PredatoryJournalsSource(DataSource):
     """Data source for predatoryjournals.org lists.
 
@@ -51,7 +56,7 @@ class PredatoryJournalsSource(DataSource):
                 "fallback_url": config.data_source_urls.predatory_publishers_fallback_url,
             },
         }
-        self.timeout = ClientTimeout(total=60)
+        self.timeout = ClientTimeout(total=DEFAULT_TIMEOUT)
 
     def get_name(self) -> str:
         """Return the source name.
@@ -81,7 +86,7 @@ class PredatoryJournalsSource(DataSource):
             return True
 
         # Update monthly
-        return (datetime.now() - last_update).days >= 30
+        return (datetime.now() - last_update).days >= UPDATE_INTERVAL_DAYS
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch predatory journals and publishers data.
@@ -282,7 +287,7 @@ class PredatoryJournalsSource(DataSource):
                     if stripped.isdigit():
                         continue
                     # Skip very short values (likely not journal names)
-                    if len(stripped) < 3:
+                    if len(stripped) < MIN_NAME_LENGTH:
                         continue
                     # Skip common column headers that aren't journal names
                     if stripped.lower() in [
