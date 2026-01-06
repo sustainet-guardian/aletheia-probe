@@ -19,7 +19,11 @@ from aletheia_probe.models import BibtexAssessmentResult
 
 
 def create_sample_bibtex() -> Path:
-    """Create a sample BibTeX file for demonstration."""
+    """Create a sample BibTeX file for demonstration.
+
+    Returns:
+        Path: The path to the created sample BibTeX file.
+    """
     bibtex_content = """
 @article{smith2023nature,
     title={A groundbreaking study},
@@ -57,7 +61,11 @@ def create_sample_bibtex() -> Path:
 
 
 async def process_bibtex_file() -> BibtexAssessmentResult:
-    """Process a BibTeX file and assess all journals."""
+    """Process a BibTeX file and assess all journals.
+
+    Returns:
+        BibtexAssessmentResult: The result of the batch assessment.
+    """
     print("=== BibTeX File Processing ===")
 
     # Create sample BibTeX file
@@ -86,7 +94,14 @@ async def process_bibtex_file() -> BibtexAssessmentResult:
 
 
 async def analyze_results(result: BibtexAssessmentResult) -> None:
-    """Analyze and display detailed results."""
+    """Analyze and display detailed results.
+
+    Args:
+        result: The result object to analyze.
+
+    Returns:
+        None
+    """
     print("\n=== Detailed Results ===")
 
     for bibtex_entry, assessment in result.assessment_results:
@@ -106,7 +121,11 @@ async def analyze_results(result: BibtexAssessmentResult) -> None:
 
 
 async def main() -> None:
-    """Run all examples."""
+    """Run all examples.
+
+    Returns:
+        None
+    """
     try:
         # Process BibTeX file
         result = await process_bibtex_file()
