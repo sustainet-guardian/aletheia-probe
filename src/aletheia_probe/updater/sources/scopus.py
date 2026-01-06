@@ -92,6 +92,127 @@ class ScopusSource(DataSource):
         )
         return True
 
+    def _find_column_indices(self, headers: list[Any]) -> dict[str, int]:
+        """Find column indices using configured mappings.
+
+        Args:
+            headers: List of header values from the Excel sheet
+
+        Returns:
+            Dictionary mapping field names to column indices
+        """
+        col_indices = {}
+        for i, header in enumerate(headers):
+            if header:
+                header_lower = str(header).lower()
+                # Check each configured mapping
+                for field_name, possible_headers in self.column_mappings.items():
+                    # Skip if we've already found this field
+                    if field_name in col_indices:
+                        continue
+
+                    if field_name == "quality_flag":
+                        # Special case: quality_flag needs both "discontinued" AND "quality"
+                        if all(
+                            keyword in header_lower for keyword in possible_headers
+                        ):
+                            col_indices[field_name] = i
+                    else:
+                        # Regular case: match any of the possible headers
+                        for possible_header in possible_headers:
+                            if possible_header in header_lower:
+                                col_indices[field_name] = i
+                                break
+        return col_indices
+
+    def _validate_and_normalize_issn(
+        self, issn: str | None, journal_title: str
+    ) -> str | None:
+        """Validate and normalize ISSN format.
+
+        Args:
+            issn: Raw ISSN value
+            journal_title: Journal title for logging
+
+        Returns:
+            Normalized ISSN or None if invalid
+        """
+        if not issn:
+            return None
+
+        issn = str(issn).strip()
+        # Ensure hyphen format (NNNN-NNNN)
+        if len(issn) == 8 and "-" not in issn:
+            issn = f"{issn[:4]}-{issn[4:]}"
+
+        # Validate ISSN checksum
+        if not validate_issn(issn):
+            detail_logger.warning(
+                f"Invalid ISSN '{issn}' for journal '{journal_title}' - skipping ISSN"
+            )
+            return None
+
+        return issn
+
+    def _create_journal_entry(
+        self,
+        title: str,
+        issn: str | None,
+        eissn: str | None,
+        publisher: Any,
+        source_type: Any,
+        coverage: Any,
+        open_access: Any,
+        is_quality_flagged: bool,
+        quality_flag: Any,
+    ) -> dict[str, Any] | None:
+        """Create journal entry from row data.
+
+        Args:
+            title: Journal title
+            issn: Normalized ISSN
+            eissn: Normalized e-ISSN
+            publisher: Publisher name
+            source_type: Source type value
+            coverage: Coverage information
+            open_access: Open access information
+            is_quality_flagged: Whether journal has quality flag
+            quality_flag: Quality flag value
+
+        Returns:
+            Journal entry dictionary or None if normalization fails
+        """
+        try:
+            normalized_input = input_normalizer.normalize(title)
+
+            metadata: dict[str, Any] = {
+                "source_type": (
+                    str(source_type).strip() if source_type else "Journal"
+                ),
+                "coverage": str(coverage).strip() if coverage else None,
+                "open_access": str(open_access).strip() if open_access else None,
+            }
+
+            # Add quality flag if present
+            if is_quality_flagged:
+                metadata["quality_flagged"] = True
+                metadata["quality_flag_reason"] = (
+                    str(quality_flag).strip() if quality_flag else None
+                )
+
+            return {
+                "journal_name": title,
+                "normalized_name": normalized_input.normalized_name,
+                "issn": issn,
+                "eissn": eissn,
+                "publisher": str(publisher).strip() if publisher else None,
+                "metadata": metadata,
+            }
+
+        except Exception as e:
+            detail_logger.debug(f"Failed to process journal '{title}': {e}")
+            return None
+
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and parse Scopus journal data from Excel file."""
         if not self._find_scopus_file():
@@ -119,7 +240,6 @@ class ScopusSource(DataSource):
                     break
 
             if sheet is None:
-                # Fallback to first sheet
                 sheet = workbook.active
 
             if sheet is None:
@@ -130,34 +250,11 @@ class ScopusSource(DataSource):
 
             detail_logger.info(f"Reading sheet: {sheet.title}")
 
-            # Read header row to find column indices
+            # Read header row and find column indices
             rows_iter = iter(sheet.rows)
             header_row = next(rows_iter)
             headers = [cell.value for cell in header_row]
-
-            # Find column indices using configured mappings
-            col_indices = {}
-            for i, header in enumerate(headers):
-                if header:
-                    header_lower = str(header).lower()
-                    # Check each configured mapping
-                    for field_name, possible_headers in self.column_mappings.items():
-                        # Skip if we've already found this field
-                        if field_name in col_indices:
-                            continue
-
-                        if field_name == "quality_flag":
-                            # Special case: quality_flag needs both "discontinued" AND "quality"
-                            if all(
-                                keyword in header_lower for keyword in possible_headers
-                            ):
-                                col_indices[field_name] = i
-                        else:
-                            # Regular case: match any of the possible headers
-                            for possible_header in possible_headers:
-                                if possible_header in header_lower:
-                                    col_indices[field_name] = i
-                                    break
+            col_indices = self._find_column_indices(headers)
 
             # Validate required columns exist
             if "title" not in col_indices:
@@ -239,64 +336,25 @@ class ScopusSource(DataSource):
                 if not is_active:
                     continue
 
-                # Normalize and validate ISSN format
-                if issn:
-                    issn = str(issn).strip()
-                    # Ensure hyphen format (NNNN-NNNN)
-                    if len(issn) == 8 and "-" not in issn:
-                        issn = f"{issn[:4]}-{issn[4:]}"
-                    # Validate ISSN checksum
-                    if not validate_issn(issn):
-                        detail_logger.warning(
-                            f"Invalid ISSN '{issn}' for journal '{title}' - skipping ISSN"
-                        )
-                        issn = None
+                # Validate and normalize ISSNs
+                issn = self._validate_and_normalize_issn(issn, title)
+                eissn = self._validate_and_normalize_issn(eissn, title)
 
-                if eissn:
-                    eissn = str(eissn).strip()
-                    if len(eissn) == 8 and "-" not in eissn:
-                        eissn = f"{eissn[:4]}-{eissn[4:]}"
-                    # Validate e-ISSN checksum
-                    if not validate_issn(eissn):
-                        detail_logger.warning(
-                            f"Invalid e-ISSN '{eissn}' for journal '{title}' - skipping e-ISSN"
-                        )
-                        eissn = None
+                # Create journal entry
+                journal_entry = self._create_journal_entry(
+                    title,
+                    issn,
+                    eissn,
+                    publisher,
+                    source_type,
+                    coverage,
+                    open_access,
+                    is_quality_flagged,
+                    quality_flag,
+                )
 
-                # Normalize journal name
-                try:
-                    normalized_input = input_normalizer.normalize(title)
-
-                    metadata: dict[str, Any] = {
-                        "source_type": (
-                            str(source_type).strip() if source_type else "Journal"
-                        ),
-                        "coverage": str(coverage).strip() if coverage else None,
-                        "open_access": (
-                            str(open_access).strip() if open_access else None
-                        ),
-                    }
-
-                    # Add quality flag if present
-                    if is_quality_flagged:
-                        metadata["quality_flagged"] = True
-                        metadata["quality_flag_reason"] = (
-                            str(quality_flag).strip() if quality_flag else None
-                        )
-
-                    journals.append(
-                        {
-                            "journal_name": title,
-                            "normalized_name": normalized_input.normalized_name,
-                            "issn": issn,
-                            "eissn": eissn,
-                            "publisher": str(publisher).strip() if publisher else None,
-                            "metadata": metadata,
-                        }
-                    )
-
-                except Exception as e:
-                    detail_logger.debug(f"Failed to process journal '{title}': {e}")
+                if journal_entry:
+                    journals.append(journal_entry)
 
             workbook.close()
 
