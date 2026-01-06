@@ -308,26 +308,27 @@ class TestStatusCommand:
         assert "Status error" in result.output
 
 
-class TestAddListCommand:
-    """Test cases for the add-list command."""
+class TestCustomListCommand:
+    """Test cases for the custom-list command."""
 
-    def test_add_list_success(self, runner):
-        """Test add-list command successful execution."""
+    def test_custom_list_add_success(self, runner):
+        """Test custom-list add command successful execution."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("journal_name\nTest Journal\nAnother Journal")
             temp_file = f.name
 
         try:
             with patch(
-                "aletheia_probe.backends.base.get_backend_registry"
-            ) as mock_get_registry:
-                mock_registry = Mock()
-                mock_get_registry.return_value = mock_registry
+                "aletheia_probe.cache.custom_list_manager.CustomListManager"
+            ) as mock_manager_class:
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
 
                 result = runner.invoke(
                     main,
                     [
-                        "add-list",
+                        "custom-list",
+                        "add",
                         temp_file,
                         "--list-type",
                         AssessmentType.PREDATORY,
@@ -337,17 +338,20 @@ class TestAddListCommand:
                 )
 
                 assert result.exit_code == 0
-                mock_registry.register_factory.assert_called_once()
+                mock_manager.add_custom_list.assert_called_once_with(
+                    "test_list", temp_file, AssessmentType.PREDATORY
+                )
 
         finally:
             Path(temp_file).unlink(missing_ok=True)
 
-    def test_add_list_nonexistent_file(self, runner):
-        """Test add-list command with non-existent file."""
+    def test_custom_list_add_nonexistent_file(self, runner):
+        """Test custom-list add command with non-existent file."""
         result = runner.invoke(
             main,
             [
-                "add-list",
+                "custom-list",
+                "add",
                 "/nonexistent/file.csv",
                 "--list-type",
                 "predatory",
@@ -358,26 +362,25 @@ class TestAddListCommand:
 
         assert result.exit_code != 0
 
-    def test_add_list_error(self, runner):
-        """Test add-list command with error during processing."""
+    def test_custom_list_add_error(self, runner):
+        """Test custom-list add command with error during processing."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("journal_name\nTest Journal")
             temp_file = f.name
 
         try:
             with patch(
-                "aletheia_probe.backends.base.get_backend_registry"
-            ) as mock_get_registry:
-                mock_registry = Mock()
-                mock_registry.register_factory.side_effect = Exception(
-                    "Processing error"
-                )
-                mock_get_registry.return_value = mock_registry
+                "aletheia_probe.cache.custom_list_manager.CustomListManager"
+            ) as mock_manager_class:
+                mock_manager = Mock()
+                mock_manager.add_custom_list.side_effect = ValueError("Duplicate name")
+                mock_manager_class.return_value = mock_manager
 
                 result = runner.invoke(
                     main,
                     [
-                        "add-list",
+                        "custom-list",
+                        "add",
                         temp_file,
                         "--list-type",
                         AssessmentType.PREDATORY,
@@ -387,10 +390,84 @@ class TestAddListCommand:
                 )
 
                 assert result.exit_code == 1
-                assert "Processing error" in result.output
+                assert "Duplicate name" in result.output
 
         finally:
             Path(temp_file).unlink(missing_ok=True)
+
+    def test_custom_list_list_success(self, runner):
+        """Test custom-list list command successful execution."""
+        mock_lists = [
+            {
+                "list_name": "test_list",
+                "file_path": "/path/to/test.csv",
+                "list_type": "predatory",
+                "enabled": True,
+                "created_at": "2024-01-01 12:00:00",
+            }
+        ]
+
+        with patch(
+            "aletheia_probe.cache.custom_list_manager.CustomListManager"
+        ) as mock_manager_class:
+            mock_manager = Mock()
+            mock_manager.get_all_custom_lists.return_value = mock_lists
+            mock_manager_class.return_value = mock_manager
+
+            with patch("pathlib.Path.exists", return_value=True):
+                result = runner.invoke(main, ["custom-list", "list"])
+
+                assert result.exit_code == 0
+                assert "test_list" in result.output
+                assert "predatory" in result.output
+                mock_manager.get_all_custom_lists.assert_called_once()
+
+    def test_custom_list_list_empty(self, runner):
+        """Test custom-list list command with no lists."""
+        with patch(
+            "aletheia_probe.cache.custom_list_manager.CustomListManager"
+        ) as mock_manager_class:
+            mock_manager = Mock()
+            mock_manager.get_all_custom_lists.return_value = []
+            mock_manager_class.return_value = mock_manager
+
+            result = runner.invoke(main, ["custom-list", "list"])
+
+            assert result.exit_code == 0
+            assert "No custom lists found" in result.output
+
+    def test_custom_list_remove_success(self, runner):
+        """Test custom-list remove command successful execution."""
+        with patch(
+            "aletheia_probe.cache.custom_list_manager.CustomListManager"
+        ) as mock_manager_class:
+            mock_manager = Mock()
+            mock_manager.custom_list_exists.return_value = True
+            mock_manager.remove_custom_list.return_value = True
+            mock_manager_class.return_value = mock_manager
+
+            result = runner.invoke(
+                main, ["custom-list", "remove", "test_list", "--confirm"]
+            )
+
+            assert result.exit_code == 0
+            mock_manager.remove_custom_list.assert_called_once_with("test_list")
+
+    def test_custom_list_remove_not_found(self, runner):
+        """Test custom-list remove command with non-existent list."""
+        with patch(
+            "aletheia_probe.cache.custom_list_manager.CustomListManager"
+        ) as mock_manager_class:
+            mock_manager = Mock()
+            mock_manager.custom_list_exists.return_value = False
+            mock_manager_class.return_value = mock_manager
+
+            result = runner.invoke(
+                main, ["custom-list", "remove", "test_list", "--confirm"]
+            )
+
+            assert result.exit_code == 1
+            assert "not found" in result.output
 
 
 class TestAsyncMain:

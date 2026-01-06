@@ -405,7 +405,10 @@ Another Journal,9876-5432,Another Publisher
         try:
             # List of commands to run
             commands = [
-                # Sync FIRST with retraction_watch enabled - populates data
+                # Add custom lists BEFORE sync to test persistence
+                ["custom-list", "add", csv_file, "--list-type", "PREDATORY", "--list-name", "test-csv"],
+                ["custom-list", "add", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
+                # Sync FIRST with retraction_watch enabled - populates data (including custom lists)
                 ["--config", str(self.config_default_path), "sync"],
                 # Sync AGAIN with bealls disabled - triggers cleanup (remove_source_data)
                 ["--config", str(self.config_disabled_path), "sync"],
@@ -452,10 +455,6 @@ Another Journal,9876-5432,Another Publisher
                 ["bibtex", bibtex_file, "--verbose"],
                 ["bibtex", bibtex_file, "--relax-bibtex"],
                 ["bibtex", bibtex_file, "--verbose", "--format", "json"],
-                # Custom list operations - CSV
-                ["add-list", csv_file, "--list-type", "PREDATORY", "--list-name", "test-csv"],
-                # Custom list operations - JSON
-                ["add-list", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
                 # Status after adding custom lists
                 ["status"],
                 # Query custom list journals WITH ISSNs (triggers ISSN-based search)
@@ -477,6 +476,11 @@ Another Journal,9876-5432,Another Publisher
                 ["retraction-cache", "clear", "--confirm"],
                 # BibTeX with retracted DOI (triggers _parse_crossref_retraction via Crossref API)
                 ["bibtex", retraction_bibtex_file],
+                # Custom list management operations testing
+                ["custom-list", "add", csv_file, "--list-type", "LEGITIMATE", "--list-name", "test-management"],
+                ["custom-list", "list"],  # List all custom lists
+                ["custom-list", "remove", "test-management", "--confirm"],  # Remove the test list
+                ["custom-list", "list"],  # Verify removal
                 # Clear operations (at the end)
                 ["clear-cache", "--confirm"],
                 ["acronym", "clear", "--confirm"],
