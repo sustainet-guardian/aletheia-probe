@@ -230,7 +230,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             openalex_data.get("recent_publications") if openalex_data else None
         )
 
-        risk_level = self._calculate_risk_level(
+        risk_level = calculate_retraction_risk_level(
             total_retractions,
             recent_retractions,
             total_publications,
@@ -423,32 +423,6 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         # If we get here, it means we have a match but it's not exact
         # This shouldn't happen with our new exact matching, so low confidence
         return CONFIDENCE_THRESHOLD_LOW
-
-    def _calculate_risk_level(
-        self,
-        total: int,
-        recent: int,
-        total_publications: int | None = None,
-        recent_publications: int | None = None,
-    ) -> RiskLevel:
-        """
-        Calculate risk level based on retraction counts and publication volumes.
-
-        This method uses the centralized risk calculator.
-
-        Args:
-            total: Total retraction count
-            recent: Recent retraction count (last 5 years)
-            total_publications: Total publication count (optional)
-            recent_publications: Recent publication count (optional)
-
-        Returns:
-            Risk level from RiskLevel enum (CRITICAL, HIGH, MODERATE, LOW, NOTE, NONE)
-        """
-
-        return calculate_retraction_risk_level(
-            total, recent, total_publications, recent_publications
-        )
 
 
 # Register the backend factory

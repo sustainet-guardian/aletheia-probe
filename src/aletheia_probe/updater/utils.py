@@ -7,8 +7,6 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TypeVar
 
-from ..risk_calculator import calculate_retraction_risk_level
-
 
 # Generic type for deduplication
 T = TypeVar("T")
@@ -242,24 +240,3 @@ def deduplicate_journals(journals: list[dict[str, Any]]) -> list[dict[str, Any]]
         return normalized_name
 
     return deduplicate_entries(journals, get_journal_key)
-
-
-def calculate_risk_level(
-    total_retractions: int, total_publications: int | None = None
-) -> str:
-    """
-    Calculate risk level based on retraction counts/rates.
-
-    Wrapper function using centralized risk calculator.
-
-    Args:
-        total_retractions: Total number of retractions
-        total_publications: Total number of publications (optional)
-
-    Returns:
-        Risk level string
-    """
-    # Pass 0 for recent_retractions since this standalone function doesn't track that
-    return calculate_retraction_risk_level(
-        total_retractions, 0, total_publications, None
-    )

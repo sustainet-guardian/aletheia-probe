@@ -33,7 +33,6 @@ from .sources import (
 )
 from .sync_utils import update_source_data
 from .utils import (
-    calculate_risk_level,
     clean_html_tags,
     clean_publisher_name,
     deduplicate_journals,
