@@ -251,7 +251,7 @@ class InputNormalizer:
         # Clean and normalize the text
         normalized = self._clean_text(raw_input)
         normalized = self._expand_abbreviations(normalized)
-        normalized = self._normalize_case(normalized)
+        normalized = normalize_case(normalized)
 
         # Generate aliases
         aliases = self._generate_aliases(normalized)
@@ -435,36 +435,6 @@ class InputNormalizer:
 
         return " ".join(expanded_words)
 
-    def _normalize_case(self, text: str) -> str:
-        """Normalize case using title case with special handling."""
-        # Title case with special handling for certain words
-        words = text.split()
-        normalized_words = []
-
-        for i, word in enumerate(words):
-            # Check if word is a known acronym (case-insensitive)
-            if word.upper() in self.acronyms:
-                normalized_words.append(word.upper())
-            # Keep certain words lowercase unless at start
-            elif i > 0 and word.lower() in [
-                "of",
-                "and",
-                "or",
-                "the",
-                "in",
-                "on",
-                "at",
-                "to",
-                "for",
-                "with",
-            ]:
-                normalized_words.append(word.lower())
-            else:
-                # Title case
-                normalized_words.append(word.capitalize())
-
-        return " ".join(normalized_words)
-
     def _generate_aliases(self, normalized_name: str) -> list[str]:
         """Generate common aliases for the journal/conference name."""
         aliases = []
@@ -615,6 +585,43 @@ class InputNormalizer:
                         mappings[acronym] = full_name
 
         return mappings
+
+
+def normalize_case(text: str) -> str:
+    """Normalize case using title case with special handling for acronyms.
+
+    Args:
+        text: Text to normalize
+
+    Returns:
+        Text with normalized case (title case with special acronym handling)
+    """
+    words = text.split()
+    normalized_words = []
+
+    for i, word in enumerate(words):
+        # Check if word is a known acronym (case-insensitive)
+        if word.upper() in COMMON_ACRONYMS:
+            normalized_words.append(word.upper())
+        # Keep certain words lowercase unless at start
+        elif i > 0 and word.lower() in [
+            "of",
+            "and",
+            "or",
+            "the",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "with",
+        ]:
+            normalized_words.append(word.lower())
+        else:
+            # Title case
+            normalized_words.append(word.capitalize())
+
+    return " ".join(normalized_words)
 
 
 def normalize_for_comparison(text: str) -> str:
