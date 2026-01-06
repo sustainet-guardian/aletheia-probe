@@ -32,14 +32,7 @@ from .sources import (
     ScopusSource,
 )
 from .sync_utils import update_source_data
-from .utils import (
-    clean_html_tags,
-    clean_publisher_name,
-    deduplicate_journals,
-    extract_year_from_text,
-    normalize_journal_name,
-    parse_date_string,
-)
+from .utils import deduplicate_journals
 
 
 __all__ = [
