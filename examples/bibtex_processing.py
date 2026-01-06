@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from aletheia_probe.batch_assessor import BibtexBatchAssessor
+from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import BibtexAssessmentResult
 
 
@@ -96,9 +97,9 @@ async def analyze_results(result: BibtexAssessmentResult) -> None:
         if bibtex_entry.is_retracted:
             print("  Warning: Contains retracted articles")
 
-        if assessment.assessment == "predatory":
+        if assessment.assessment == AssessmentType.PREDATORY:
             print("  Risk Level: HIGH - Avoid this journal")
-        elif assessment.assessment == "legitimate":
+        elif assessment.assessment == AssessmentType.LEGITIMATE:
             print("  Risk Level: LOW - Safe to publish")
         else:
             print("  Risk Level: UNKNOWN - Requires manual review")
