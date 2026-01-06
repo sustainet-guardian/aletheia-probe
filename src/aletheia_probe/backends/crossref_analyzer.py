@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 
-from ..enums import AssessmentType
+from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..validation import validate_email
@@ -106,6 +106,14 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
     def get_name(self) -> str:
         """Return backend name."""
         return "crossref_analyzer"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return the type of evidence this backend provides.
+
+        Returns:
+            EvidenceType.HEURISTIC as this backend analyzes metadata patterns.
+        """
+        return EvidenceType.HEURISTIC
 
     def _is_small_to_medium_journal(self, total_dois: int) -> bool:
         """Check if journal is in the small-to-medium size range for targeted analysis."""

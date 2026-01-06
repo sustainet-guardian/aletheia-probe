@@ -22,6 +22,11 @@ class MockCachedBackend(CachedBackend):
     def get_name(self) -> str:
         return self._name
 
+    def get_evidence_type(self):
+        from aletheia_probe.enums import EvidenceType
+
+        return EvidenceType.PREDATORY_LIST
+
 
 class MockApiBackendWithCache(ApiBackendWithCache):
     """Mock hybrid backend for testing."""
@@ -44,6 +49,11 @@ class MockApiBackendWithCache(ApiBackendWithCache):
 
     def get_name(self) -> str:
         return self._name
+
+    def get_evidence_type(self):
+        from aletheia_probe.enums import EvidenceType
+
+        return EvidenceType.HEURISTIC
 
 
 @pytest.fixture
