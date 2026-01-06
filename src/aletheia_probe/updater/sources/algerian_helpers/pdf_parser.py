@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pypdf
+import pypdf.errors
 
 from aletheia_probe.normalizer import input_normalizer
 
@@ -37,11 +38,39 @@ class PDFTextExtractor:
 
         Returns:
             List of parsed entries
+
+        Raises:
+            ValueError: If the PDF file path is invalid or insecure
+            FileNotFoundError: If the PDF file does not exist
+            PermissionError: If the PDF file cannot be read
         """
         entries = []
 
+        # Validate and resolve paths to prevent path traversal attacks
         try:
-            with open(pdf_path, "rb") as file:
+            pdf_file = pdf_path.resolve()
+        except (OSError, RuntimeError) as e:
+            detail_logger.error(f"Failed to resolve PDF path {pdf_path}: {e}")
+            raise ValueError(f"Invalid PDF file path: {pdf_path}") from e
+
+        # Security validations
+        if not pdf_file.exists():
+            detail_logger.error(f"PDF file does not exist: {pdf_file}")
+            raise FileNotFoundError(f"PDF file not found: {pdf_file}")
+
+        if not pdf_file.is_file():
+            detail_logger.error(f"PDF path is not a file: {pdf_file}")
+            raise ValueError(f"PDF path must be a file, not a directory: {pdf_file}")
+
+        if pdf_file.suffix.lower() != ".pdf":
+            detail_logger.error(f"Invalid file extension: {pdf_file}")
+            raise ValueError(
+                f"Invalid file extension: expected .pdf, got {pdf_file.suffix}"
+            )
+
+        # Process PDF file with specific exception handling
+        try:
+            with open(pdf_file, "rb") as file:
                 pdf_reader = pypdf.PdfReader(file)
 
                 # Extract text from all pages
@@ -55,11 +84,26 @@ class PDFTextExtractor:
 
                 # Parse the extracted text for entries
                 entries = self._parse_entry_text(
-                    full_text, str(pdf_path), year, entry_type
+                    full_text, str(pdf_file), year, entry_type
                 )
 
-        except Exception as e:
-            detail_logger.error(f"Error reading PDF {pdf_path}: {e}")
+        except FileNotFoundError:
+            # Re-raise to caller (shouldn't happen after validation, but included for completeness)
+            raise
+        except PermissionError as e:
+            detail_logger.error(f"Permission denied reading PDF {pdf_file}: {e}")
+            raise
+        except (
+            pypdf.errors.PdfReadError,
+            pypdf.errors.EmptyFileError,
+            pypdf.errors.ParseError,
+        ) as e:
+            detail_logger.error(f"Failed to parse PDF {pdf_file}: {e}")
+            # Return empty list for PDF parsing errors to allow processing to continue
+            return []
+        except OSError as e:
+            detail_logger.error(f"I/O error reading PDF {pdf_file}: {e}")
+            raise
 
         return entries
 
