@@ -6,6 +6,7 @@ import ssl
 from datetime import datetime
 from pathlib import Path
 
+import aiofiles
 from aiohttp import ClientError, ClientResponse, ClientSession, ServerTimeoutError
 
 from aletheia_probe.config import get_config_manager
@@ -242,9 +243,9 @@ class ArchiveDownloader:
 
             bytes_written = 0
             last_log_mb = 0
-            with open(archive_path, "wb") as f:
+            async with aiofiles.open(archive_path, "wb") as f:
                 async for chunk in response.content.iter_chunked(self.chunk_size):
-                    f.write(chunk)
+                    await f.write(chunk)
                     bytes_written += len(chunk)
                     current_mb = bytes_written // (1024 * 1024)
                     if current_mb > last_log_mb:  # Log each MB
