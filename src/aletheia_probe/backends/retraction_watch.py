@@ -9,7 +9,7 @@ import aiohttp
 
 from ..cache import RetractionCache
 from ..constants import CONFIDENCE_THRESHOLD_LOW
-from ..enums import AssessmentType, RiskLevel
+from ..enums import AssessmentType, EvidenceType, RiskLevel
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
@@ -68,6 +68,10 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
 
     def get_name(self) -> str:
         return "retraction_watch"
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return evidence type for retraction data."""
+        return EvidenceType.QUALITY_INDICATOR
 
     # DataSyncCapable protocol implementation
     @property
