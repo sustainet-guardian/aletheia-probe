@@ -20,6 +20,9 @@ from .algerian_helpers import ArchiveDownloader, ArchiveExtractor, PDFTextExtrac
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
+# Timeout for large archive files (18MB+)
+ALGERIAN_MINISTRY_TIMEOUT = 300
+
 
 class AlgerianMinistrySource(DataSource):
     """Data source for Algerian Ministry of Higher Education predatory journal lists."""
@@ -35,9 +38,7 @@ class AlgerianMinistrySource(DataSource):
             "Liste%20des%20Revues%20Pr%C3%A9datrices,%20Editeurs%20pr%C3%A9dateurs"
         )
         self.current_year = datetime.now().year
-        self.timeout = ClientTimeout(
-            total=300
-        )  # 5 minutes timeout for large archive files (18MB+)
+        self.timeout = ClientTimeout(total=ALGERIAN_MINISTRY_TIMEOUT)
 
         # Initialize helper classes
         self.downloader = ArchiveDownloader()
