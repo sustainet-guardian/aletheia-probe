@@ -372,6 +372,9 @@ def add_list(file_path: str, list_type: str, list_name: str) -> None:
 
     status_logger.info(f"Registered custom list '{list_name}' as backend")
 
+    # Force config reload to pick up the newly registered backend
+    get_config_manager(force_reload=True)
+
     # Trigger immediate sync to load the data
     status_logger.info("Loading custom list data...")
     asyncio.run(cache_sync_manager.sync_cache_with_config(force=True))
