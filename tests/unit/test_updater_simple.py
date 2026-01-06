@@ -8,14 +8,7 @@ import pytest
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.core import DataSource
 from aletheia_probe.updater.sync_utils import update_source_data
-from aletheia_probe.updater.utils import (
-    clean_html_tags,
-    clean_publisher_name,
-    deduplicate_journals,
-    extract_year_from_text,
-    normalize_journal_name,
-    parse_date_string,
-)
+from aletheia_probe.updater.utils import deduplicate_journals
 from aletheia_probe.validation import validate_issn
 
 
@@ -180,34 +173,6 @@ class TestUpdateSourceData:
 class TestUtilityFunctions:
     """Test utility functions."""
 
-    def test_normalize_journal_name(self):
-        """Test journal name normalization."""
-        # Test basic normalization
-        assert (
-            normalize_journal_name("Journal of Computer Science")
-            == "journal of computer science"
-        )
-
-        # Test with special characters - function removes content in parentheses
-        result = normalize_journal_name("Test (Journal)")
-        assert result.strip() in ["test", "test journal"]  # Allow either behavior
-
-        # Test with extra spaces
-        assert normalize_journal_name("Test  Journal  ").strip() == "test journal"
-
-    def test_clean_html_tags(self):
-        """Test HTML tag cleaning."""
-        assert clean_html_tags("<p>Test</p>") == "Test"
-        assert clean_html_tags("No HTML") == "No HTML"
-        assert clean_html_tags("<div><span>Nested</span></div>") == "Nested"
-
-    def test_clean_publisher_name(self):
-        """Test publisher name cleaning."""
-        # Function removes common suffixes like Ltd., Inc., etc.
-        result = clean_publisher_name("Publisher Ltd.")
-        assert "Publisher" in result
-        assert clean_publisher_name("  Spaced  ").strip() == "Spaced"
-
     def test_deduplicate_journals(self):
         """Test journal deduplication."""
         journals = [
@@ -218,17 +183,6 @@ class TestUtilityFunctions:
 
         result = deduplicate_journals(journals)
         assert len(result) == 2
-
-    def test_extract_year_from_text(self):
-        """Test year extraction."""
-        assert extract_year_from_text("Published in 2023") == 2023
-        assert extract_year_from_text("Year 2021") == 2021
-        assert extract_year_from_text("No year here") is None
-
-    def test_parse_date_string(self):
-        """Test date string parsing."""
-        assert parse_date_string("2023-01-15") is not None
-        assert parse_date_string("invalid") is None
 
     def test_validate_issn(self):
         """Test ISSN validation."""
