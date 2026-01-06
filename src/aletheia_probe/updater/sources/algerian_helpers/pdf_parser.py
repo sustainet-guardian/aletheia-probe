@@ -8,7 +8,7 @@ from typing import Any
 import pypdf
 import pypdf.errors
 
-from aletheia_probe.normalizer import input_normalizer
+from aletheia_probe.normalizer import normalize_case
 
 from ....config import get_config_manager
 from ....logging_config import get_detail_logger, get_status_logger
@@ -199,7 +199,7 @@ class PDFTextExtractor:
             return None
 
         # Normalize the name
-        normalized_name = input_normalizer._normalize_case(name_text)
+        normalized_name = normalize_case(name_text)
 
         return {
             "journal_name": name_text,

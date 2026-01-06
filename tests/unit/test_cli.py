@@ -635,18 +635,17 @@ class TestConferenceAcronymCommands:
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
             mock_acronym_cache.return_value = mock_cache
 
-            # Mock the normalizer to return title-cased names for display
-            def mock_normalize_case(text):
-                return text.title()
+            # Mock the normalize_case function to return title-cased names for display
+            with patch(
+                "aletheia_probe.cli.normalize_case",
+                side_effect=lambda text: text.title(),
+            ):
+                result = runner.invoke(main, ["acronym", "list"])
 
-            mock_normalizer._normalize_case = mock_normalize_case
-
-            result = runner.invoke(main, ["acronym", "list"])
-
-            assert result.exit_code == 0
-            assert "ICML" in result.output
-            assert "CVPR" in result.output
-            assert "Normalized:" in result.output
+                assert result.exit_code == 0
+                assert "ICML" in result.output
+                assert "CVPR" in result.output
+                assert "Normalized:" in result.output
 
     def test_acronym_list_empty(self, runner):
         """Test acronym list command with empty database."""
@@ -679,16 +678,15 @@ class TestConferenceAcronymCommands:
             mock_cache.get_acronym_stats.return_value = {"total_count": 10}
             mock_acronym_cache.return_value = mock_cache
 
-            # Mock the normalizer to return title-cased names for display
-            def mock_normalize_case(text):
-                return text.title()
+            # Mock the normalize_case function to return title-cased names for display
+            with patch(
+                "aletheia_probe.cli.normalize_case",
+                side_effect=lambda text: text.title(),
+            ):
+                result = runner.invoke(main, ["acronym", "list", "--limit", "1"])
 
-            mock_normalizer._normalize_case = mock_normalize_case
-
-            result = runner.invoke(main, ["acronym", "list", "--limit", "1"])
-
-            assert result.exit_code == 0
-            assert "Showing 1 of 10" in result.output
+                assert result.exit_code == 0
+                assert "Showing 1 of 10" in result.output
 
     def test_acronym_clear_with_confirm(self, runner):
         """Test acronym clear command with --confirm flag."""

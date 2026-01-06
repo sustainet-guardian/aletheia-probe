@@ -20,7 +20,7 @@ from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
-from .normalizer import input_normalizer
+from .normalizer import input_normalizer, normalize_case
 from .output_formatter import output_formatter
 
 
@@ -459,7 +459,7 @@ def stats() -> None:
     if "most_recent_acronym" in stats:
         # Apply title casing for display
         normalized_name = str(stats["most_recent_normalized_name"])
-        display_name = input_normalizer._normalize_case(normalized_name)
+        display_name = normalize_case(normalized_name)
         status_logger.info("\nMost Recently Used:")
         status_logger.info(f"  Acronym: {stats['most_recent_acronym']}")
         status_logger.info(f"  Conference: {display_name}")
@@ -468,7 +468,7 @@ def stats() -> None:
     if "oldest_acronym" in stats:
         # Apply title casing for display
         normalized_name = str(stats["oldest_normalized_name"])
-        display_name = input_normalizer._normalize_case(normalized_name)
+        display_name = normalize_case(normalized_name)
         status_logger.info("\nOldest Entry:")
         status_logger.info(f"  Acronym: {stats['oldest_acronym']}")
         status_logger.info(f"  Conference: {display_name}")
@@ -500,7 +500,7 @@ def list(limit: int | None, offset: int) -> None:
 
     for entry in acronyms:
         # Apply title casing for display
-        display_name = input_normalizer._normalize_case(entry["normalized_name"])
+        display_name = normalize_case(entry["normalized_name"])
 
         status_logger.info(f"\nAcronym: {entry['acronym']}")
         status_logger.info(f"  Conference: {display_name}")
