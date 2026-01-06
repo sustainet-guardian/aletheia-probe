@@ -9,9 +9,8 @@ from .kscien_helpers import PublicationType
 class KscienHijackedJournalsSource(KscienGenericSource):
     """Data source for Kscien's hijacked journals list.
 
-    Covers 234 legitimate journals that have been hijacked by
-    predatory actors. These journals were originally legitimate
-    but have been compromised.
+    Covers legitimate journals that have been hijacked by
+    fraudulent websites.
     """
 
     def __init__(self) -> None:
