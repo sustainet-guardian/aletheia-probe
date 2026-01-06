@@ -152,6 +152,21 @@ class ScopusSource(DataSource):
 
         return issn
 
+    def _extract_cell_value(
+        self, row: tuple[Any, ...], col_indices: dict[str, int], field_name: str
+    ) -> Any:
+        """Extract cell value from row using column indices.
+
+        Args:
+            row: Excel row tuple
+            col_indices: Dictionary mapping field names to column indices
+            field_name: Name of the field to extract
+
+        Returns:
+            Cell value or None if field not in col_indices
+        """
+        return row[col_indices[field_name]].value if field_name in col_indices else None
+
     def _create_journal_entry(
         self,
         title: str,
@@ -268,44 +283,18 @@ class ScopusSource(DataSource):
 
             # Process data rows
             for row in rows_iter:
-                # Extract values
-                title = (
-                    row[col_indices["title"]].value if "title" in col_indices else None
+                # Extract values using helper method
+                title = self._extract_cell_value(row, col_indices, "title")
+                issn = self._extract_cell_value(row, col_indices, "issn")
+                eissn = self._extract_cell_value(row, col_indices, "eissn")
+                publisher = self._extract_cell_value(row, col_indices, "publisher")
+                status = self._extract_cell_value(row, col_indices, "status")
+                quality_flag = self._extract_cell_value(
+                    row, col_indices, "quality_flag"
                 )
-                issn = row[col_indices["issn"]].value if "issn" in col_indices else None
-                eissn = (
-                    row[col_indices["eissn"]].value if "eissn" in col_indices else None
-                )
-                publisher = (
-                    row[col_indices["publisher"]].value
-                    if "publisher" in col_indices
-                    else None
-                )
-                status = (
-                    row[col_indices["status"]].value
-                    if "status" in col_indices
-                    else None
-                )
-                quality_flag = (
-                    row[col_indices["quality_flag"]].value
-                    if "quality_flag" in col_indices
-                    else None
-                )
-                source_type = (
-                    row[col_indices["source_type"]].value
-                    if "source_type" in col_indices
-                    else None
-                )
-                coverage = (
-                    row[col_indices["coverage"]].value
-                    if "coverage" in col_indices
-                    else None
-                )
-                open_access = (
-                    row[col_indices["open_access"]].value
-                    if "open_access" in col_indices
-                    else None
-                )
+                source_type = self._extract_cell_value(row, col_indices, "source_type")
+                coverage = self._extract_cell_value(row, col_indices, "coverage")
+                open_access = self._extract_cell_value(row, col_indices, "open_access")
 
                 # Skip rows without title
                 if not title:
