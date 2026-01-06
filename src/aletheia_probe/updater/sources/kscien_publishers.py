@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Kscien publishers data source."""
+"""Kscien publishers data source for predatory publisher detection."""
 
 from ...enums import AssessmentType
 from .kscien_generic import KscienGenericSource
