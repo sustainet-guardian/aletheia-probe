@@ -9,7 +9,7 @@ from .kscien_helpers import PublicationType
 class KscienPublishersSource(KscienGenericSource):
     """Data source for Kscien's predatory publishers list.
 
-    Covers 1271 predatory publishers. This enables publisher-level
+    Covers predatory publishers. This enables publisher-level
     journal assessment - any journal from a predatory publisher
     can be flagged as potentially predatory.
     """

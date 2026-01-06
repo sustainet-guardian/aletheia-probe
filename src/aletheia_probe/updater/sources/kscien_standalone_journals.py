@@ -9,7 +9,7 @@ from .kscien_helpers import PublicationType
 class KscienStandaloneJournalsSource(KscienGenericSource):
     """Data source for Kscien's standalone predatory journals list.
 
-    Covers 1476 individual predatory journals that are not part of
+    Covers individual predatory journals that are not part of
     predatory publishers but are predatory on their own.
     """
 
