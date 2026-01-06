@@ -60,6 +60,14 @@ class CustomListSource(DataSource):
                     f"    {self.get_name()}: Unsupported file format - {self.file_path.suffix}"
                 )
 
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            status_logger.error(f"    {self.get_name()}: Decoding failed - {e}")
+        except csv.Error as e:
+            status_logger.error(f"    {self.get_name()}: CSV error - {e}")
+        except FileNotFoundError:
+            status_logger.error(f"    {self.get_name()}: File not found - {self.file_path}")
+        except PermissionError:
+            status_logger.error(f"    {self.get_name()}: Permission denied - {self.file_path}")
         except Exception as e:
             status_logger.error(f"    {self.get_name()}: Failed to load file - {e}")
 
@@ -104,7 +112,7 @@ class CustomListSource(DataSource):
                             },
                         }
                     )
-            except Exception as e:
+            except (ValueError, AttributeError, TypeError) as e:
                 detail_logger.debug(f"Failed to process journal entry: {e}")
 
         return journals
@@ -148,7 +156,7 @@ class CustomListSource(DataSource):
                                     },
                                 }
                             )
-                    except Exception as e:
+                    except (ValueError, AttributeError, TypeError) as e:
                         detail_logger.debug(f"Failed to process CSV row: {e}")
             return journals
 
