@@ -355,7 +355,7 @@ class QueryDispatcher:
                             "cache_ttl_hours"
                         ]
 
-                # Create backend with configuration (uses factory or legacy)
+                # Create backend with configuration (custom config vs defaults)
                 if config_params:
                     backend = backend_registry.create_backend(
                         backend_name, **config_params
