@@ -50,5 +50,5 @@ class KscienPublishersBackend(CachedBackend):
 
 # Register the backend factory
 get_backend_registry().register_factory(
-    "kscien_publishers", lambda: KscienPublishersBackend(), default_config={}
+    "kscien_publishers", KscienPublishersBackend, default_config={}
 )
