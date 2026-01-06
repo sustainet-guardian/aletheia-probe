@@ -9,7 +9,6 @@ from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.core import DataSource
 from aletheia_probe.updater.sync_utils import update_source_data
 from aletheia_probe.updater.utils import (
-    calculate_risk_level,
     clean_html_tags,
     clean_publisher_name,
     deduplicate_journals,
@@ -230,23 +229,6 @@ class TestUtilityFunctions:
         """Test date string parsing."""
         assert parse_date_string("2023-01-15") is not None
         assert parse_date_string("invalid") is None
-
-    def test_calculate_risk_level(self):
-        """Test risk level calculation."""
-        # Function returns RiskLevel enum, not strings
-        from aletheia_probe.enums import RiskLevel
-
-        result = calculate_risk_level(0.9)
-        assert isinstance(result, RiskLevel)
-        # Just verify it returns a valid RiskLevel
-        assert result in [
-            RiskLevel.NONE,
-            RiskLevel.NOTE,
-            RiskLevel.LOW,
-            RiskLevel.MODERATE,
-            RiskLevel.HIGH,
-            RiskLevel.CRITICAL,
-        ]
 
     def test_validate_issn(self):
         """Test ISSN validation."""
