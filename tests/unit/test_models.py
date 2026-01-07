@@ -5,6 +5,7 @@ from datetime import datetime
 
 import pytest
 
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import (
     VENUE_TYPE_EMOJI,
     AssessmentResult,
@@ -51,6 +52,7 @@ class TestBackendResult:
     def test_create_basic_backend_result(self):
         """Test creating a basic BackendResult."""
         result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test_backend",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -66,6 +68,7 @@ class TestBackendResult:
         """Test confidence score validation."""
         # Valid confidence
         result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test",
             status=BackendStatus.FOUND,
             confidence=0.5,
@@ -76,6 +79,7 @@ class TestBackendResult:
         # Invalid confidence - too high
         with pytest.raises(ValueError):
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test",
                 status=BackendStatus.FOUND,
                 confidence=1.5,
@@ -85,11 +89,50 @@ class TestBackendResult:
         # Invalid confidence - too low
         with pytest.raises(ValueError):
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test",
                 status=BackendStatus.FOUND,
                 confidence=-0.1,
                 response_time=1.0,
             )
+
+    def test_fallback_chain_required(self):
+        """Test that fallback_chain is a required field."""
+        with pytest.raises(ValueError):
+            # Missing fallback_chain
+            BackendResult(
+                backend_name="test",
+                status=BackendStatus.FOUND,
+                confidence=0.5,
+                response_time=1.0,
+            )
+
+        def test_successful_strategy_population(self):
+            """Test that successful_strategy is auto-populated from fallback_chain."""
+
+            from aletheia_probe.fallback_chain import FallbackStrategy
+
+            chain = QueryFallbackChain(
+                [FallbackStrategy.ISSN, FallbackStrategy.NORMALIZED_NAME]
+            )
+
+            chain.log_attempt(FallbackStrategy.ISSN, False)
+
+            chain.log_attempt(
+                FallbackStrategy.NORMALIZED_NAME, True, match_confidence=0.9
+            )
+
+            result = BackendResult(
+                fallback_chain=chain,
+                backend_name="test",
+                status=BackendStatus.FOUND,
+                confidence=0.9,
+                response_time=1.0,
+            )
+
+            assert result.successful_strategy == FallbackStrategy.NORMALIZED_NAME
+
+            assert result.successful_strategy.value == "normalized_name"
 
 
 class TestJournalMetadata:

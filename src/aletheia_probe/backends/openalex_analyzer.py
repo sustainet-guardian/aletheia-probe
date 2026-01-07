@@ -7,6 +7,7 @@ from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
@@ -55,6 +56,15 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             f"OpenAlex: Starting query for '{query_input.raw_input}'"
         )
 
+        chain = QueryFallbackChain(
+            [
+                FallbackStrategy.NORMALIZED_NAME,
+                FallbackStrategy.ISSN,
+                FallbackStrategy.ALIASES,
+                FallbackStrategy.ACRONYMS,
+            ]
+        )
+
         try:
             async with OpenAlexClient(email=self.email) as client:
                 # Get journal data from OpenAlex
@@ -66,27 +76,38 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
                     journal_name=journal_name, issn=issn, eissn=eissn
                 )
 
+                chain.log_attempt(
+                    FallbackStrategy.NORMALIZED_NAME,
+                    success=openalex_data is not None,
+                    query_value=journal_name,
+                )
+
                 # If not found with normalized name, try aliases
                 if not openalex_data:
                     openalex_data = await self._search_with_aliases(
-                        client, query_input, journal_name, issn, eissn
+                        client, query_input, journal_name, issn, eissn, chain
                     )
 
                 response_time = time.time() - start_time
 
                 if not openalex_data:
                     return self._build_not_found_result(
-                        journal_name, issn, eissn, query_input.aliases, response_time
+                        journal_name,
+                        issn,
+                        eissn,
+                        query_input.aliases,
+                        response_time,
+                        chain,
                     )
 
                 return self._build_success_result(
-                    openalex_data, query_input, response_time
+                    openalex_data, query_input, response_time, chain
                 )
 
         except Exception as e:
             response_time = time.time() - start_time
             self.detail_logger.error(f"OpenAlex API error: {e}")
-            return self._build_error_result(e, response_time)
+            return self._build_error_result(e, response_time, chain)
 
     async def _search_with_aliases(
         self,
@@ -95,6 +116,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         journal_name: str,
         issn: str | None,
         eissn: str | None,
+        chain: QueryFallbackChain,
     ) -> dict[str, Any] | None:
         """Search for journal data using aliases when primary search fails.
 
@@ -104,6 +126,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             journal_name: Primary journal name that failed
             issn: ISSN identifier
             eissn: eISSN identifier
+            chain: Fallback chain to log attempts
 
         Returns:
             OpenAlex data if found using aliases, None otherwise
@@ -119,6 +142,11 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             openalex_data = await client.enrich_journal_data(
                 journal_name=alias, issn=issn, eissn=eissn
             )
+            chain.log_attempt(
+                FallbackStrategy.ALIASES,
+                success=openalex_data is not None,
+                query_value=alias,
+            )
             if openalex_data:
                 self.detail_logger.info(f"OpenAlex: Found match using alias '{alias}'")
                 return openalex_data
@@ -132,6 +160,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         eissn: str | None,
         aliases_tried: list[str] | None,
         response_time: float,
+        chain: QueryFallbackChain,
     ) -> BackendResult:
         """Build BackendResult for when journal is not found in OpenAlex.
 
@@ -141,6 +170,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             eissn: eISSN identifier
             aliases_tried: List of aliases that were tried
             response_time: Time taken for the query
+            chain: Fallback chain used for this query
 
         Returns:
             BackendResult with NOT_FOUND status
@@ -159,6 +189,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             sources=["https://api.openalex.org"],
             error_message=None,
             response_time=response_time,
+            fallback_chain=chain,
         )
 
     def _build_success_result(
@@ -166,6 +197,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         openalex_data: dict[str, Any],
         query_input: QueryInput,
         response_time: float,
+        chain: QueryFallbackChain,
     ) -> BackendResult:
         """Build BackendResult for successful OpenAlex query.
 
@@ -173,6 +205,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             openalex_data: Raw data from OpenAlex API
             query_input: Original query input
             response_time: Time taken for the query
+            chain: Fallback chain used for this query
 
         Returns:
             BackendResult with FOUND status and analysis
@@ -228,6 +261,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             ],
             error_message=None,
             response_time=response_time,
+            fallback_chain=chain,
         )
 
     def _store_acronym_from_openalex(

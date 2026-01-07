@@ -12,6 +12,7 @@ from click.testing import CliRunner
 
 from aletheia_probe.cli import main
 from aletheia_probe.enums import AssessmentType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -61,6 +62,7 @@ def mock_assessment_result():
         overall_score=0.9,
         backend_results=[
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.8,

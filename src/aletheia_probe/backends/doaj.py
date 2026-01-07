@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
-import time
 from typing import Any
 from urllib.parse import quote
 
@@ -16,10 +15,13 @@ from ..confidence_utils import (
 )
 from ..constants import CONFIDENCE_THRESHOLD_HIGH
 from ..enums import AssessmentType, EvidenceType
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
+from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
 from .base import ApiBackendWithCache, get_backend_registry
+from .fallback_mixin import FallbackStrategyMixin
 
 
 detail_logger = get_detail_logger()
@@ -31,7 +33,7 @@ DOAJ_WORD_SIMILARITY_THRESHOLD = 0.5
 DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE = 0.8
 
 
-class DOAJBackend(ApiBackendWithCache):
+class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
     """Backend that checks DOAJ for legitimate open access journals."""
 
     def __init__(self, cache_ttl_hours: int = 24) -> None:
@@ -59,47 +61,33 @@ class DOAJBackend(ApiBackendWithCache):
         """
         return EvidenceType.LEGITIMATE_LIST
 
+    @automatic_fallback(
+        [
+            FallbackStrategy.ISSN,
+            FallbackStrategy.NORMALIZED_NAME,
+            FallbackStrategy.FUZZY_NAME,
+            FallbackStrategy.ALIASES,
+        ]
+    )
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query DOAJ API for journal information with retry logic.
+        """Query DOAJ API with automatic fallback chain execution.
 
-        Constructs a search query based on available identifiers (ISSN) or the
-        journal name, executes the API request with automatic retries for
-        transient failures, and hands off the response for processing.
+        The @automatic_fallback decorator handles:
+        - Creating QueryFallbackChain with strategy sequence
+        - Executing each strategy until one succeeds
+        - Automatic logging of all attempts
+        - Building final BackendResult with populated fallback chain
 
         Args:
-            query_input: Normalized query input containing the journal's name
-                and identifiers used to build the DOAJ search query.
+            query_input: Normalized query input containing journal information
 
         Returns:
-            BackendResult containing the assessment findings, or a failure result
-            if errors occurred during the API communication.
+            BackendResult with assessment findings and fallback chain
         """
-        start_time = time.time()
-
-        try:
-            # Build search query for URL path
-            if query_input.identifiers.get("issn"):
-                search_query = f"issn:{query_input.identifiers['issn']}"
-            elif query_input.normalized_name:
-                # Search by journal title - encode spaces for URL
-                search_query = f'title:"{query_input.normalized_name}"'
-            else:
-                # Fallback to raw input
-                search_query = f'title:"{query_input.raw_input}"'
-
-            # Construct full URL with search query in path (URL encoded)
-            url = f"{self.base_url}/{quote(search_query, safe='')}"
-            params = {"pageSize": 10}  # Limit results
-
-            # Use retry logic for the API call
-            data = await self._fetch_from_doaj_api(url, params)
-            return self._process_doaj_response(
-                query_input, data, time.time() - start_time
-            )
-
-        except Exception as e:
-            status_logger.error(f"DOAJ API error: {e}")
-            return self._build_error_result(e, time.time() - start_time)
+        # Decorator handles all execution logic - this function is never called
+        raise NotImplementedError(
+            "This method is replaced by the @automatic_fallback decorator"
+        )
 
     @async_retry_with_backoff(
         max_retries=3,
@@ -139,96 +127,6 @@ class DOAJBackend(ApiBackendWithCache):
                         f"DOAJ API error: HTTP {response.status}. Response: {error_text[:200]}",
                         backend_name=self.get_name(),
                     )
-
-    def _process_doaj_response(
-        self,
-        query_input: QueryInput,
-        response_data: dict[str, Any],
-        response_time: float,
-    ) -> BackendResult:
-        """Process DOAJ API response and determine match quality.
-
-        Iterates through the search results from DOAJ, calculates match confidence
-        for each, and selects the best match. If the best match exceeds the
-        minimum confidence threshold, the journal is assessed as legitimate.
-
-        Args:
-            query_input: The original query input containing journal information
-                like name and ISSN.
-            response_data: JSON response data received from the DOAJ API search.
-            response_time: Total time taken for the API request in seconds.
-
-        Returns:
-            BackendResult containing the assessment status (FOUND, NOT_FOUND),
-            confidence score, and detailed metadata if a match was found.
-        """
-        results = response_data.get("results", [])
-
-        if not results:
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.NOT_FOUND,
-                confidence=0.0,
-                assessment=None,
-                data={"query_params": "searched DOAJ database"},
-                sources=["https://doaj.org"],
-                error_message=None,
-                response_time=response_time,
-            )
-
-        # Find the best match
-        best_match = None
-        best_confidence = 0.0
-
-        for result in results:
-            bibjson = result.get("bibjson", {})
-            confidence = self._calculate_match_confidence(query_input, bibjson)
-
-            if confidence > best_confidence:
-                best_confidence = confidence
-                best_match = result
-
-        if (
-            best_match and best_confidence > DOAJ_MIN_CONFIDENCE_THRESHOLD
-        ):  # Minimum confidence threshold
-            bibjson = best_match.get("bibjson", {})
-
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.FOUND,
-                confidence=best_confidence,
-                assessment=AssessmentType.LEGITIMATE,
-                data={
-                    "doaj_title": bibjson.get("title"),
-                    "doaj_issn": bibjson.get("pissn"),
-                    "doaj_eissn": bibjson.get("eissn"),
-                    "doaj_publisher": bibjson.get("publisher"),
-                    "doaj_subjects": [
-                        s.get("term") for s in bibjson.get("subject", [])
-                    ],
-                    "doaj_url": bibjson.get("ref", {}).get("journal"),
-                    "total_results": len(results),
-                    "match_confidence": best_confidence,
-                },
-                sources=["https://doaj.org"],
-                error_message=None,
-                response_time=response_time,
-            )
-        else:
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.NOT_FOUND,
-                confidence=0.0,
-                assessment=None,
-                data={
-                    "total_results": len(results),
-                    "best_match_confidence": best_confidence,
-                    "reason": "No high-confidence matches found",
-                },
-                sources=["https://doaj.org"],
-                error_message=None,
-                response_time=response_time,
-            )
 
     def _calculate_match_confidence(
         self, query_input: QueryInput, bibjson: dict[str, Any]
@@ -288,6 +186,150 @@ class DOAJBackend(ApiBackendWithCache):
                     )
 
         return min(confidence, 1.0)
+
+    # Strategy handler implementations for automatic fallback framework
+    async def _search_by_issn(self, issn: str) -> dict[str, Any] | None:
+        """Search DOAJ by ISSN/eISSN identifier.
+
+        Args:
+            issn: ISSN or eISSN identifier to search for
+
+        Returns:
+            First DOAJ result if found, None if no match
+        """
+        search_query = f"issn:{issn}"
+        url = f"{self.base_url}/{quote(search_query, safe='')}"
+        params = {"pageSize": 10}
+
+        data = await self._fetch_from_doaj_api(url, params)
+        results = data.get("results", [])
+        result: dict[str, Any] | None = results[0] if results else None
+        return result
+
+    async def _search_by_name(
+        self, name: str, exact: bool = True
+    ) -> dict[str, Any] | None:
+        """Search DOAJ by journal name.
+
+        Args:
+            name: Journal name to search for
+            exact: Whether to use exact matching (True) or fuzzy matching (False)
+
+        Returns:
+            Best matching DOAJ result if found, None if no match
+        """
+        search_query = f'title:"{name}"'
+        url = f"{self.base_url}/{quote(search_query, safe='')}"
+        params = {"pageSize": 10}
+
+        data = await self._fetch_from_doaj_api(url, params)
+        results = data.get("results", [])
+
+        if not results:
+            return None
+
+        if exact:
+            # Filter for exact title matches
+            name_lower = name.lower()
+            for result in results:
+                bibjson = result.get("bibjson", {})
+                doaj_title = bibjson.get("title", "").lower()
+                if doaj_title == name_lower:
+                    matched_result: dict[str, Any] = result
+                    return matched_result
+            return None  # No exact match found
+        else:
+            # Fuzzy matching - return best result based on confidence
+            best_result = None
+            best_confidence = 0.0
+
+            # Create a temporary QueryInput for confidence calculation
+            temp_query = QueryInput(
+                raw_input=name, normalized_name=name, identifiers={}, aliases=[]
+            )
+
+            for result in results:
+                bibjson = result.get("bibjson", {})
+                confidence = self._calculate_match_confidence(temp_query, bibjson)
+                if confidence > best_confidence:
+                    best_confidence = confidence
+                    best_result = result
+
+            # Return best result if it meets minimum threshold
+            if best_confidence >= DOAJ_MIN_CONFIDENCE_THRESHOLD:
+                final_result: dict[str, Any] | None = best_result
+                return final_result
+            else:
+                return None
+
+    def _build_success_result_with_chain(
+        self,
+        data: dict[str, Any],
+        query_input: QueryInput,
+        chain: QueryFallbackChain,
+        response_time: float,
+    ) -> BackendResult:
+        """Build success result with populated fallback chain.
+
+        Args:
+            data: Raw DOAJ result data
+            query_input: Original query input
+            chain: Populated fallback chain
+            response_time: Total response time
+
+        Returns:
+            BackendResult indicating successful match
+        """
+        bibjson = data.get("bibjson", {})
+        confidence = self._calculate_match_confidence(query_input, bibjson)
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.FOUND,
+            confidence=confidence,
+            assessment=AssessmentType.LEGITIMATE,
+            data={
+                "doaj_title": bibjson.get("title"),
+                "doaj_issn": bibjson.get("pissn"),
+                "doaj_eissn": bibjson.get("eissn"),
+                "doaj_publisher": bibjson.get("publisher"),
+                "doaj_subjects": [s.get("term") for s in bibjson.get("subject", [])],
+                "doaj_url": bibjson.get("ref", {}).get("journal"),
+                "match_confidence": confidence,
+            },
+            sources=["https://doaj.org"],
+            error_message=None,
+            response_time=response_time,
+            fallback_chain=chain,
+        )
+
+    def _build_not_found_result_with_chain(
+        self,
+        query_input: QueryInput,
+        chain: QueryFallbackChain,
+        response_time: float,
+    ) -> BackendResult:
+        """Build not found result with populated fallback chain.
+
+        Args:
+            query_input: Original query input
+            chain: Populated fallback chain
+            response_time: Total response time
+
+        Returns:
+            BackendResult indicating no match found
+        """
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.NOT_FOUND,
+            confidence=0.0,
+            assessment=None,
+            data={"query_params": "searched DOAJ database"},
+            sources=["https://doaj.org"],
+            error_message=None,
+            response_time=response_time,
+            fallback_chain=chain,
+        )
 
 
 # Register the backend with factory for configuration support

@@ -8,6 +8,7 @@ import pytest
 
 from aletheia_probe.backends.base import ApiBackendWithCache, CachedBackend
 from aletheia_probe.cache_sync import CacheSyncManager
+from aletheia_probe.fallback_chain import QueryFallbackChain
 
 
 class MockCachedBackend(CachedBackend):
@@ -38,6 +39,7 @@ class MockApiBackendWithCache(ApiBackendWithCache):
         from aletheia_probe.models import BackendResult, BackendStatus
 
         return BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name=self._name,
             status=BackendStatus.NOT_FOUND,
             confidence=0.0,

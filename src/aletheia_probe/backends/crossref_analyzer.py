@@ -9,6 +9,7 @@ import aiohttp
 
 from ..backend_exceptions import BackendError, RateLimitError
 from ..enums import AssessmentType, EvidenceType
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
@@ -175,6 +176,8 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             f"Crossref: Starting API query with identifiers: {query_input.identifiers}"
         )
 
+        chain = QueryFallbackChain([FallbackStrategy.ISSN, FallbackStrategy.EISSN])
+
         try:
             # Try to find journal by ISSN first
             journal_data = None
@@ -184,10 +187,20 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             if issn:
                 self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
                 journal_data = await self._get_journal_by_issn(issn)
+                chain.log_attempt(
+                    FallbackStrategy.ISSN,
+                    success=journal_data is not None,
+                    query_value=issn,
+                )
 
             if not journal_data and eissn:
                 self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
                 journal_data = await self._get_journal_by_issn(eissn)
+                chain.log_attempt(
+                    FallbackStrategy.EISSN,
+                    success=journal_data is not None,
+                    query_value=eissn,
+                )
 
             response_time = time.time() - start_time
 
@@ -209,6 +222,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                     sources=["https://api.crossref.org"],
                     error_message=None,
                     response_time=response_time,
+                    fallback_chain=chain,
                 )
 
             # Analyze metadata quality
@@ -238,13 +252,14 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 ],
                 error_message=None,
                 response_time=response_time,
+                fallback_chain=chain,
             )
 
         except Exception as e:
             response_time = time.time() - start_time
             self.status_logger.error(f"Crossref API error: {e}")
             self.detail_logger.exception(f"Crossref API error details: {e}")
-            return self._build_error_result(e, response_time)
+            return self._build_error_result(e, response_time, chain)
 
     @async_retry_with_backoff(
         max_retries=3,

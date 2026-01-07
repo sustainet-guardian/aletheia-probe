@@ -4,6 +4,7 @@
 import pytest
 
 from aletheia_probe.enums import EvidenceType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import BackendResult, BackendStatus
 from aletheia_probe.quality_assessment import QualityAssessmentProcessor
 
@@ -23,6 +24,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -61,6 +63,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -96,6 +99,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -132,6 +136,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -168,6 +173,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="other_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -194,6 +200,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.NOT_FOUND,
                 confidence=0.0,
@@ -220,6 +227,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -246,6 +254,7 @@ class TestQualityAssessmentProcessor:
         reasoning: list[str] = []
         backend_results = [
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_quality_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,

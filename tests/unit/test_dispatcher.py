@@ -9,6 +9,7 @@ import pytest
 
 from aletheia_probe.dispatcher import QueryDispatcher
 from aletheia_probe.enums import AssessmentType, EvidenceType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -46,6 +47,7 @@ def mock_backend():
     backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
     backend.query_with_timeout = AsyncMock(
         return_value=BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test_backend",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -120,6 +122,7 @@ class TestQueryDispatcher:
         predatory_backend.get_evidence_type.return_value = EvidenceType.PREDATORY_LIST
         predatory_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="predatory_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.9,
@@ -136,6 +139,7 @@ class TestQueryDispatcher:
         legitimate_backend.get_evidence_type.return_value = EvidenceType.LEGITIMATE_LIST
         legitimate_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="legitimate_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.7,
@@ -175,6 +179,7 @@ class TestQueryDispatcher:
         )
         retraction_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="retraction_watch",
                 status=BackendStatus.FOUND,
                 confidence=0.8,
@@ -288,6 +293,7 @@ class TestQueryDispatcher:
         slow_backend.get_evidence_type.return_value = EvidenceType.HEURISTIC
         slow_backend.query_with_timeout = AsyncMock(
             return_value=BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="slow_backend",
                 status=BackendStatus.TIMEOUT,
                 confidence=0.0,
@@ -317,6 +323,7 @@ class TestQueryDispatcher:
     ):
         """Test assessment calculation for predatory classification."""
         predatory_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test_backend",
             status=BackendStatus.FOUND,
             confidence=0.9,
@@ -345,6 +352,7 @@ class TestQueryDispatcher:
     ):
         """Test assessment calculation for legitimate classification."""
         legitimate_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test_backend",
             status=BackendStatus.FOUND,
             confidence=0.85,
@@ -373,6 +381,7 @@ class TestQueryDispatcher:
     ):
         """Test assessment calculation when no successful results."""
         error_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="test_backend",
             status=BackendStatus.ERROR,
             confidence=0.0,

@@ -15,6 +15,7 @@ from aletheia_probe.backends.base import (
     get_backend_registry,
 )
 from aletheia_probe.enums import AssessmentType, EvidenceType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
 
 
@@ -27,6 +28,7 @@ class MockBackend(Backend):
     async def query(self, query_input: QueryInput) -> BackendResult:
         """Mock query implementation."""
         return BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="mock_backend",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -206,6 +208,7 @@ class TestApiBackendWithCache:
         async def _query_api(self, query_input: QueryInput) -> BackendResult:
             """Mock API query."""
             return BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="mock_api_with_cache",
                 status=BackendStatus.FOUND,
                 confidence=0.7,
@@ -237,6 +240,7 @@ class TestApiBackendWithCache:
             overall_score=0.9,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="mock_api_with_cache",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
@@ -299,10 +303,10 @@ class TestApiBackendWithCache:
         class MissApiBackendWithCache(TestApiBackendWithCache.MockApiBackendWithCache):
             async def _query_api(self, query_input: QueryInput) -> BackendResult:
                 return BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="mock_api_with_cache",
                     status=BackendStatus.NOT_FOUND,
                     confidence=0.0,
-                    assessment=None,
                     data={},
                     sources=[],
                     response_time=0.1,
@@ -310,11 +314,22 @@ class TestApiBackendWithCache:
 
         backend = MissApiBackendWithCache()
 
-        with patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache:
-            mock_cache = Mock()
-            mock_cache.get_cached_assessment.return_value = None
-            mock_cache.cache_assessment_result = Mock()
-            MockJournalCache.return_value = mock_cache
+        with (
+            patch("aletheia_probe.backends.base.JournalCache") as MockJournalCache,
+            patch(
+                "aletheia_probe.backends.base.AssessmentCache"
+            ) as MockAssessmentCache,
+        ):
+            mock_journal_cache = Mock()
+            MockJournalCache.return_value = mock_journal_cache
+
+            mock_assessment_cache = Mock()
+            mock_assessment_cache.get_cached_assessment.return_value = None
+            mock_assessment_cache.cache_assessment_result = Mock()
+            MockAssessmentCache.return_value = mock_assessment_cache
+
+            # Re-initialize backend to use mocked caches
+            backend = MissApiBackendWithCache()
 
             result = await backend.query(sample_query_input)
 
@@ -385,6 +400,7 @@ class TestBackendRegistry:
 
             async def query(self, query_input: QueryInput) -> BackendResult:
                 return BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="mock_backend",
                     status=BackendStatus.FOUND,
                     confidence=1.0,

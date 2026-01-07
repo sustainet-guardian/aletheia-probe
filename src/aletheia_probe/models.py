@@ -5,9 +5,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .enums import AssessmentType
+from .fallback_chain import FallbackStrategy, QueryFallbackChain
 from .utils.dead_code import code_is_used
 from .validation import validate_email as _validate_email
 
@@ -72,6 +73,8 @@ class QueryInput(BaseModel):
 class BackendResult(BaseModel):
     """Result from a single backend query."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     backend_name: str = Field(..., description="Name of the backend")
     status: BackendStatus = Field(..., description="Query result status")
     confidence: float = Field(
@@ -98,6 +101,19 @@ class BackendResult(BaseModel):
         None,
         description="Type of evidence: predatory_list, legitimate_list, or heuristic",
     )
+    fallback_chain: QueryFallbackChain = Field(
+        ..., description="Fallback chain used for this query"
+    )
+    successful_strategy: FallbackStrategy | None = Field(
+        None, description="Strategy that successfully found the result"
+    )
+
+    @model_validator(mode="after")
+    def extract_successful_strategy(self) -> "BackendResult":
+        """Extract successful strategy from chain."""
+        if self.fallback_chain:
+            self.successful_strategy = self.fallback_chain.get_successful_strategy()
+        return self
 
 
 class JournalMetadata(BaseModel):
