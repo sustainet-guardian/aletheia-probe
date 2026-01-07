@@ -9,7 +9,9 @@ import aiohttp
 
 from aletheia_probe.normalizer import input_normalizer
 
+from .backend_exceptions import RateLimitError
 from .logging_config import get_detail_logger
+from .retry_utils import async_retry_with_backoff
 
 
 detail_logger = get_detail_logger()
@@ -74,6 +76,10 @@ class OpenAlexClient:
         if self.session:
             await self.session.close()
 
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
     async def get_source_by_issn(self, issn: str) -> dict[str, Any] | None:
         """Get journal source information by ISSN.
 
@@ -86,39 +92,32 @@ class OpenAlexClient:
         async with self.semaphore:
             url = f"{self.BASE_URL}/sources?filter=issn:{issn}"
 
-            try:
-                if not self.session:
-                    self.session = aiohttp.ClientSession(
-                        headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
-                    )
-
-                async with self.session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        results = data.get("results", [])
-                        if results:
-                            return dict(results[0])
-                        else:
-                            detail_logger.debug(
-                                f"No OpenAlex source found for ISSN {issn}"
-                            )
-                    elif response.status == 429:
-                        detail_logger.warning(
-                            f"OpenAlex rate limit hit for ISSN {issn}"
-                        )
-                    else:
-                        detail_logger.warning(
-                            f"OpenAlex API returned status {response.status} for ISSN {issn}"
-                        )
-
-            except asyncio.TimeoutError:
-                detail_logger.warning(f"OpenAlex API timeout for ISSN {issn}")
-            except (aiohttp.ClientError, ValueError, KeyError) as e:
-                detail_logger.error(
-                    f"Error fetching OpenAlex data for ISSN {issn}: {e}"
+            if not self.session:
+                self.session = aiohttp.ClientSession(
+                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
                 )
 
-        return None
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = data.get("results", [])
+                    if results:
+                        return dict(results[0])
+                    else:
+                        detail_logger.debug(f"No OpenAlex source found for ISSN {issn}")
+                        return None
+                elif response.status == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    retry_seconds = int(retry_after) if retry_after else None
+                    raise RateLimitError(
+                        message="OpenAlex rate limit hit",
+                        retry_after=retry_seconds,
+                        backend_name="openalex",
+                    )
+                else:
+                    raise aiohttp.ClientError(
+                        f"OpenAlex API returned status {response.status} for ISSN {issn}"
+                    )
 
     def _score_source_match(self, source: dict[str, Any], journal_name: str) -> float:
         """Score how well a source matches the journal name.
@@ -198,6 +197,10 @@ class OpenAlexClient:
 
         return min(score, 1.0)
 
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
     async def get_source_by_name(
         self, journal_name: str, is_series_lookup: bool = False
     ) -> dict[str, Any] | None:
@@ -214,62 +217,62 @@ class OpenAlexClient:
             # Use search endpoint for fuzzy matching
             url = f"{self.BASE_URL}/sources?search={journal_name}"
 
-            try:
-                if not self.session:
-                    self.session = aiohttp.ClientSession(
-                        headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
-                    )
-
-                async with self.session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        results = data.get("results", [])
-                        if results:
-                            # Score all results and pick the best match
-                            scored_results = [
-                                (self._score_source_match(result, journal_name), result)
-                                for result in results
-                            ]
-                            scored_results.sort(key=lambda x: x[0], reverse=True)
-
-                            best_score, best_result = scored_results[0]
-
-                            # Only return result if it has a reasonable score
-                            if best_score > 0.1:
-                                detail_logger.debug(
-                                    f"Selected OpenAlex source for '{journal_name}': "
-                                    f"{best_result.get('display_name')} (score: {best_score:.2f})"
-                                )
-                                if is_series_lookup:
-                                    best_result["is_series_match"] = True
-                                return dict(best_result)
-                            else:
-                                detail_logger.debug(
-                                    f"No good OpenAlex source match for '{journal_name}' "
-                                    f"(best score: {best_score:.2f})"
-                                )
-                        else:
-                            detail_logger.debug(
-                                f"No OpenAlex source found for name '{journal_name}'"
-                            )
-                    elif response.status == 429:
-                        detail_logger.warning(
-                            f"OpenAlex rate limit hit for name '{journal_name}'"
-                        )
-                    else:
-                        detail_logger.warning(
-                            f"OpenAlex API returned status {response.status} for name '{journal_name}'"
-                        )
-
-            except asyncio.TimeoutError:
-                detail_logger.warning(f"OpenAlex API timeout for name '{journal_name}'")
-            except (aiohttp.ClientError, ValueError, KeyError) as e:
-                detail_logger.error(
-                    f"Error fetching OpenAlex data for name '{journal_name}': {e}"
+            if not self.session:
+                self.session = aiohttp.ClientSession(
+                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
                 )
 
-        return None
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = data.get("results", [])
+                    if results:
+                        # Score all results and pick the best match
+                        scored_results = [
+                            (self._score_source_match(result, journal_name), result)
+                            for result in results
+                        ]
+                        scored_results.sort(key=lambda x: x[0], reverse=True)
 
+                        best_score, best_result = scored_results[0]
+
+                        # Only return result if it has a reasonable score
+                        if best_score > 0.1:
+                            detail_logger.debug(
+                                f"Selected OpenAlex source for '{journal_name}': "
+                                f"{best_result.get('display_name')} (score: {best_score:.2f})"
+                            )
+                            if is_series_lookup:
+                                best_result["is_series_match"] = True
+                            return dict(best_result)
+                        else:
+                            detail_logger.debug(
+                                f"No good OpenAlex source match for '{journal_name}' "
+                                f"(best score: {best_score:.2f})"
+                            )
+                            return None
+                    else:
+                        detail_logger.debug(
+                            f"No OpenAlex source found for name '{journal_name}'"
+                        )
+                        return None
+                elif response.status == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    retry_seconds = int(retry_after) if retry_after else None
+                    raise RateLimitError(
+                        message="OpenAlex rate limit hit",
+                        retry_after=retry_seconds,
+                        backend_name="openalex",
+                    )
+                else:
+                    raise aiohttp.ClientError(
+                        f"OpenAlex API returned status {response.status} for name '{journal_name}'"
+                    )
+
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
     async def get_works_count_by_year(
         self,
         source_id: str,
@@ -305,37 +308,31 @@ class OpenAlexClient:
                 f"group_by=publication_year&per-page=200"
             )
 
-            try:
-                if not self.session:
-                    self.session = aiohttp.ClientSession(
-                        headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
-                    )
-
-                async with self.session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return {
-                            int(item["key"]): item["count"]
-                            for item in data.get("group_by", [])
-                            if item["key"] and item["key"].isdigit()
-                        }
-                    elif response.status == 429:
-                        detail_logger.warning(
-                            f"OpenAlex rate limit hit for source {source_id}"
-                        )
-                    else:
-                        detail_logger.warning(
-                            f"OpenAlex API returned status {response.status} for source {source_id}"
-                        )
-
-            except asyncio.TimeoutError:
-                detail_logger.warning(f"OpenAlex API timeout for source {source_id}")
-            except (aiohttp.ClientError, ValueError, KeyError) as e:
-                detail_logger.error(
-                    f"Error fetching works count for source {source_id}: {e}"
+            if not self.session:
+                self.session = aiohttp.ClientSession(
+                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
                 )
 
-        return {}
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {
+                        int(item["key"]): item["count"]
+                        for item in data.get("group_by", [])
+                        if item["key"] and item["key"].isdigit()
+                    }
+                elif response.status == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    retry_seconds = int(retry_after) if retry_after else None
+                    raise RateLimitError(
+                        message="OpenAlex rate limit hit",
+                        retry_after=retry_seconds,
+                        backend_name="openalex",
+                    )
+                else:
+                    raise aiohttp.ClientError(
+                        f"OpenAlex API returned status {response.status} for source {source_id}"
+                    )
 
     async def enrich_journal_data(
         self, journal_name: str, issn: str | None = None, eissn: str | None = None

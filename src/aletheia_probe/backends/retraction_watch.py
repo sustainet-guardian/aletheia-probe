@@ -323,21 +323,9 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
                 # No data found - return not found result
                 return self._handle_not_found(start_time)
 
-        except (
-            ValueError,
-            KeyError,
-            OSError,
-            aiohttp.ClientError,
-            asyncio.TimeoutError,
-        ) as e:
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=time.time() - start_time,
-            )
+        except Exception as e:
+            status_logger.error(f"RetractionWatch API error: {e}")
+            return self._build_error_result(e, time.time() - start_time)
 
     async def _get_openalex_data_cached(
         self, journal_name: str, issn: str | None = None

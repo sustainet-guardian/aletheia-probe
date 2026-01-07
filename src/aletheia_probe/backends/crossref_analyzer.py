@@ -7,9 +7,11 @@ from typing import Any
 
 import aiohttp
 
+from ..backend_exceptions import RateLimitError
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
+from ..retry_utils import async_retry_with_backoff
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
 
@@ -179,17 +181,13 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             issn = query_input.identifiers.get("issn")
             eissn = query_input.identifiers.get("eissn")
 
-            # Create a single session for all API calls
-            async with aiohttp.ClientSession(
-                headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
-            ) as session:
-                if issn:
-                    self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
-                    journal_data = await self._get_journal_by_issn(issn, session)
+            if issn:
+                self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
+                journal_data = await self._get_journal_by_issn(issn)
 
-                if not journal_data and eissn:
-                    self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
-                    journal_data = await self._get_journal_by_issn(eissn, session)
+            if not journal_data and eissn:
+                self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
+                journal_data = await self._get_journal_by_issn(eissn)
 
             response_time = time.time() - start_time
 
@@ -246,25 +244,24 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             response_time = time.time() - start_time
             self.status_logger.error(f"Crossref API error: {e}")
             self.detail_logger.exception(f"Crossref API error details: {e}")
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=response_time,
-            )
+            return self._build_error_result(e, response_time)
 
-    async def _get_journal_by_issn(
-        self, issn: str, session: aiohttp.ClientSession
-    ) -> dict[str, Any] | None:
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
+    async def _get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:
         """Get journal data by ISSN from Crossref API."""
         url = f"{self.base_url}/journals/{issn}"
         self.detail_logger.debug(f"Crossref API request: GET {url}")
 
-        try:
+        async with aiohttp.ClientSession(
+            headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
+        ) as session:
             async with session.get(url) as response:
                 self.detail_logger.debug(f"Crossref API response: {response.status}")
+                self._check_rate_limit_response(response)
+
                 if response.status == 200:
                     data = await response.json()
                     message = data.get("message", {})
@@ -273,9 +270,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                     return None
                 else:
                     raise Exception(f"Crossref API returned status {response.status}")
-        except asyncio.TimeoutError:
-            self.detail_logger.error("Crossref API timeout")
-            raise Exception("Crossref API timeout") from None
 
     def _extract_common_analysis_vars(
         self, metrics: dict[str, Any], quality_scores: dict[str, float]

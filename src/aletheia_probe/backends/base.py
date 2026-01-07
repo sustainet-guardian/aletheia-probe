@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
+from ..backend_exceptions import (
+    BackendAuthenticationError,
+    BackendConnectionError,
+    BackendNotFoundError,
+    BackendTimeoutError,
+    RateLimitError,
+)
 from ..cache import AssessmentCache, JournalCache, OpenAlexCache
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
@@ -326,6 +333,87 @@ class ApiBackendWithCache(Backend):
             )
 
         return result
+
+    def _map_exception_to_backend_status(self, exception: Exception) -> BackendStatus:
+        """Map exception type to BackendStatus enum.
+
+        Args:
+            exception: The exception to map
+
+        Returns:
+            Corresponding BackendStatus
+        """
+        if isinstance(exception, RateLimitError):
+            return BackendStatus.RATE_LIMITED
+        elif isinstance(exception, BackendTimeoutError | asyncio.TimeoutError):
+            return BackendStatus.TIMEOUT
+        elif isinstance(exception, BackendNotFoundError):
+            return BackendStatus.NOT_FOUND
+        elif isinstance(exception, BackendConnectionError | BackendAuthenticationError):
+            return BackendStatus.ERROR
+        else:
+            return BackendStatus.ERROR
+
+    def _build_error_result(
+        self, exception: Exception, response_time: float
+    ) -> BackendResult:
+        """Create a standardized error BackendResult from an exception.
+
+        Args:
+            exception: The exception that occurred
+            response_time: Time taken before error occurred
+
+        Returns:
+            BackendResult with appropriate status and error message
+        """
+        status = self._map_exception_to_backend_status(exception)
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=status,
+            confidence=0.0,
+            assessment=None,
+            error_message=str(exception),
+            response_time=response_time,
+            cached=False,
+        )
+
+    def _check_rate_limit_response(self, response: aiohttp.ClientResponse) -> None:
+        """Check response for rate limit status codes (429, 503).
+
+        Args:
+            response: aiohttp response object
+
+        Raises:
+            RateLimitError: If status code indicates rate limiting
+        """
+        if response.status in (429, 503):
+            self._handle_rate_limit(response)
+
+    def _handle_rate_limit(self, response: aiohttp.ClientResponse) -> None:
+        """Extract retry info and raise RateLimitError.
+
+        Args:
+            response: aiohttp response object
+
+        Raises:
+            RateLimitError: Always raised with retry_after info
+        """
+        retry_after = response.headers.get("Retry-After")
+        retry_seconds: int | None = None
+
+        if retry_after:
+            try:
+                retry_seconds = int(retry_after)
+            except ValueError:
+                # Retry-After can be a date, but we'll ignore that complexity for now
+                # and just default to None (which implies standard backoff)
+                pass
+
+        raise RateLimitError(
+            message=f"Rate limit exceeded (HTTP {response.status})",
+            retry_after=retry_seconds,
+            backend_name=self.get_name(),
+        )
 
     # =============================================================================
     # ApiQueryCapable Protocol Implementation

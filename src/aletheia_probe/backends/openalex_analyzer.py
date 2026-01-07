@@ -85,14 +85,8 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
 
         except Exception as e:
             response_time = time.time() - start_time
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=response_time,
-            )
+            self.detail_logger.error(f"OpenAlex API error: {e}")
+            return self._build_error_result(e, response_time)
 
     async def _search_with_aliases(
         self,

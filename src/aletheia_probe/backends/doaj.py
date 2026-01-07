@@ -1,19 +1,24 @@
 # SPDX-License-Identifier: MIT
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
-import asyncio
 import time
 from typing import Any
 from urllib.parse import quote
 
 import aiohttp
 
-from ..constants import CONFIDENCE_THRESHOLD_HIGH, CONFIDENCE_THRESHOLD_MEDIUM
+from ..backend_exceptions import RateLimitError
+from ..confidence_utils import (
+    MatchQuality,
+    calculate_base_confidence,
+    calculate_name_similarity,
+    graduated_confidence,
+)
+from ..constants import CONFIDENCE_THRESHOLD_HIGH
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
-from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 
 
@@ -23,19 +28,7 @@ status_logger = get_status_logger()
 
 DOAJ_MIN_CONFIDENCE_THRESHOLD = 0.5
 DOAJ_WORD_SIMILARITY_THRESHOLD = 0.5
-DOAJ_ALIAS_EXACT_MATCH_CONFIDENCE = 0.9
 DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE = 0.8
-DOAJ_WORD_SIMILARITY_BASE_CONFIDENCE = 0.6
-DOAJ_WORD_SIMILARITY_MULTIPLIER = 0.25
-
-
-class RateLimitError(Exception):
-    """Raised when DOAJ API rate limit is hit."""
-
-    @code_is_used
-    def __init__(self, retry_after: int | None = None) -> None:
-        self.retry_after = retry_after
-        super().__init__(f"DOAJ API rate limit hit. Retry after {retry_after}s")
 
 
 class DOAJBackend(ApiBackendWithCache):
@@ -104,36 +97,9 @@ class DOAJBackend(ApiBackendWithCache):
                 query_input, data, time.time() - start_time
             )
 
-        except RateLimitError as e:
-            status_logger.warning(f"DOAJ API rate limit exceeded: {e}")
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.RATE_LIMITED,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=time.time() - start_time,
-            )
-        except aiohttp.ClientError as e:
-            status_logger.error(f"DOAJ API network error: {e}")
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=f"Network error: {str(e)}",
-                response_time=time.time() - start_time,
-            )
         except Exception as e:
-            status_logger.error(f"DOAJ API unexpected error: {e}")
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=f"Unexpected error: {str(e)}",
-                response_time=time.time() - start_time,
-            )
+            status_logger.error(f"DOAJ API error: {e}")
+            return self._build_error_result(e, time.time() - start_time)
 
     @async_retry_with_backoff(
         max_retries=3,
@@ -161,21 +127,11 @@ class DOAJBackend(ApiBackendWithCache):
         """
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params, timeout=30) as response:
+                self._check_rate_limit_response(response)
+
                 if response.status == 200:
                     result: dict[str, Any] = await response.json()
                     return result
-                elif response.status == 429:
-                    # Handle rate limiting with Retry-After header
-                    retry_after = response.headers.get("Retry-After")
-                    retry_seconds = int(retry_after) if retry_after else 60
-
-                    detail_logger.debug(
-                        f"DOAJ API rate limit hit. Retry-After: {retry_seconds}s. URL: {url}"
-                    )
-
-                    # Wait for the specified time before raising exception for retry
-                    await asyncio.sleep(retry_seconds)
-                    raise RateLimitError(retry_after=retry_seconds)
                 else:
                     # For other HTTP errors, don't retry
                     error_text = await response.text()
@@ -278,68 +234,57 @@ class DOAJBackend(ApiBackendWithCache):
     ) -> float:
         """Calculate confidence score for a DOAJ match.
 
-        The confidence score is determined based on several matching criteria:
-        1. ISSN Match: Highest confidence if ISSNs match exactly.
-        2. Title Match: Exact matches get high confidence, while partial
-           (substring) matches get medium confidence.
-        3. Word-based Similarity: Calculates Jaccard similarity between title
-           words for non-exact matches.
-        4. Alias Match: Checks against known journal aliases if title matching
-           confidence is low.
+        Uses standard confidence utilities to determine match quality based on:
+        1. ISSN Match
+        2. Title Match (Exact, Substring, or Similarity)
+        3. Alias Match
 
         Args:
-            query_input: Normalized query input containing the target journal's
-                name, identifiers (ISSN), and aliases.
-            bibjson: The 'bibjson' dictionary from a DOAJ API result record,
-                containing title, ISSNs, and other metadata.
+            query_input: Normalized query input
+            bibjson: DOAJ API result record
 
         Returns:
-            A confidence score between 0.0 and 1.0, where higher values indicate
-            a more certain match.
+            Confidence score between 0.0 and 1.0
         """
-        confidence = 0.0
-
-        # ISSN match (highest confidence)
+        # 1. ISSN match
         if query_input.identifiers.get("issn"):
             doaj_issn = bibjson.get("pissn") or bibjson.get("eissn")
             if doaj_issn == query_input.identifiers["issn"]:
-                return CONFIDENCE_THRESHOLD_HIGH  # Very high confidence for ISSN match
+                return calculate_base_confidence(MatchQuality.EXACT_ISSN)
 
-        # Title matching
+        # 2. Title matching
         doaj_title = bibjson.get("title", "").lower()
+        confidence = 0.0
+
         if query_input.normalized_name:
             query_title = query_input.normalized_name.lower()
 
-            # Exact title match
             if doaj_title == query_title:
-                confidence = CONFIDENCE_THRESHOLD_HIGH
-            # Check if titles contain each other
+                confidence = calculate_base_confidence(MatchQuality.EXACT_NAME)
             elif query_title in doaj_title or doaj_title in query_title:
-                confidence = CONFIDENCE_THRESHOLD_MEDIUM
+                confidence = calculate_base_confidence(MatchQuality.SUBSTRING_MATCH)
             else:
                 # Word-based similarity
-                query_words = set(query_title.split())
-                doaj_words = set(doaj_title.split())
+                similarity = calculate_name_similarity(query_title, doaj_title)
+                if similarity > DOAJ_WORD_SIMILARITY_THRESHOLD:
+                    base = calculate_base_confidence(MatchQuality.WORD_SIMILARITY)
+                    confidence = graduated_confidence(
+                        base, similarity, base, CONFIDENCE_THRESHOLD_HIGH
+                    )
 
-                if query_words and doaj_words:
-                    intersection = query_words & doaj_words
-                    union = query_words | doaj_words
-                    word_similarity = len(intersection) / len(union)
-
-                    # Only consider it a match if significant overlap
-                    if word_similarity > DOAJ_WORD_SIMILARITY_THRESHOLD:
-                        confidence = DOAJ_WORD_SIMILARITY_BASE_CONFIDENCE + (
-                            word_similarity * DOAJ_WORD_SIMILARITY_MULTIPLIER
-                        )
-
-        # Check aliases if main title didn't match well
-        if confidence < 0.8:
+        # 3. Alias matching (if confidence is low)
+        if confidence < DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE:
             for alias in query_input.aliases:
                 alias_lower = alias.lower()
                 if alias_lower == doaj_title:
-                    confidence = max(confidence, DOAJ_ALIAS_EXACT_MATCH_CONFIDENCE)
+                    confidence = max(
+                        confidence, calculate_base_confidence(MatchQuality.EXACT_ALIAS)
+                    )
                 elif alias_lower in doaj_title or doaj_title in alias_lower:
-                    confidence = max(confidence, DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE)
+                    confidence = max(
+                        confidence,
+                        calculate_base_confidence(MatchQuality.SUBSTRING_MATCH),
+                    )
 
         return min(confidence, 1.0)
 
