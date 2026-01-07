@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Automatic fallback chain execution framework for backend queries."""
 
+import asyncio
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -19,6 +20,24 @@ from .models import BackendResult, QueryInput
 
 
 T = TypeVar("T")
+
+
+async def _call_async_or_sync_method(obj: Any, method_name: str, *args: Any) -> Any:
+    """Helper to call a method that might be async or sync.
+
+    Args:
+        obj: Object containing the method
+        method_name: Name of the method to call
+        *args: Arguments to pass to the method
+
+    Returns:
+        Result of the method call
+    """
+    method = getattr(obj, method_name)
+    if asyncio.iscoroutinefunction(method):
+        return await method(*args)
+    else:
+        return method(*args)
 
 
 def automatic_fallback(
@@ -81,9 +100,15 @@ def automatic_fallback(
                         )
 
                         response_time = time.time() - start_time
+
                         success_result: BackendResult = (
-                            self._build_success_result_with_chain(
-                                result_data, query_input, chain, response_time
+                            await _call_async_or_sync_method(
+                                self,
+                                "_build_success_result_with_chain",
+                                result_data,
+                                query_input,
+                                chain,
+                                response_time,
                             )
                         )
                         return success_result
@@ -99,8 +124,11 @@ def automatic_fallback(
                             strategy, success=False, query_value=f"Rate limited: {e}"
                         )
                         response_time = time.time() - start_time
-                        rate_limit_result: BackendResult = self._build_error_result(
-                            e, response_time, chain
+
+                        rate_limit_result: BackendResult = (
+                            await _call_async_or_sync_method(
+                                self, "_build_error_result", e, response_time, chain
+                            )
                         )
                         return rate_limit_result
                     elif isinstance(
@@ -116,8 +144,11 @@ def automatic_fallback(
                             strategy, success=False, query_value=f"System error: {e}"
                         )
                         response_time = time.time() - start_time
-                        system_error_result: BackendResult = self._build_error_result(
-                            e, response_time, chain
+
+                        system_error_result: BackendResult = (
+                            await _call_async_or_sync_method(
+                                self, "_build_error_result", e, response_time, chain
+                            )
                         )
                         return system_error_result
                     elif isinstance(e, BackendError) and not isinstance(
@@ -128,21 +159,40 @@ def automatic_fallback(
                             strategy, success=False, query_value=f"Backend error: {e}"
                         )
                         response_time = time.time() - start_time
-                        backend_error_result: BackendResult = self._build_error_result(
-                            e, response_time, chain
+
+                        backend_error_result: BackendResult = (
+                            await _call_async_or_sync_method(
+                                self, "_build_error_result", e, response_time, chain
+                            )
                         )
                         return backend_error_result
-                    else:
-                        # Retriable error (BackendNotFoundError, general exceptions) - log and continue
+                    elif isinstance(e, BackendNotFoundError):
+                        # Not found error - log and continue to next strategy
                         chain.log_attempt(
-                            strategy, success=False, query_value=f"Error: {e}"
+                            strategy, success=False, query_value=f"Not found: {e}"
                         )
                         continue
+                    else:
+                        # Generic exception - treat as system error and return immediately
+                        chain.log_attempt(
+                            strategy, success=False, query_value=f"System error: {e}"
+                        )
+                        response_time = time.time() - start_time
+
+                        error_result: BackendResult = await _call_async_or_sync_method(
+                            self, "_build_error_result", e, response_time, chain
+                        )
+                        return error_result
 
             # All strategies failed - return not found result
             response_time = time.time() - start_time
-            not_found_result: BackendResult = self._build_not_found_result_with_chain(
-                query_input, chain, response_time
+
+            not_found_result: BackendResult = await _call_async_or_sync_method(
+                self,
+                "_build_not_found_result_with_chain",
+                query_input,
+                chain,
+                response_time,
             )
             return not_found_result
 
