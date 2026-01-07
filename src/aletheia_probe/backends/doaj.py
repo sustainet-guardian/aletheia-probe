@@ -16,6 +16,7 @@ from ..confidence_utils import (
 )
 from ..constants import CONFIDENCE_THRESHOLD_HIGH
 from ..enums import AssessmentType, EvidenceType
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
@@ -75,17 +76,29 @@ class DOAJBackend(ApiBackendWithCache):
             if errors occurred during the API communication.
         """
         start_time = time.time()
+        chain = QueryFallbackChain(
+            [
+                FallbackStrategy.ISSN,
+                FallbackStrategy.NORMALIZED_NAME,
+                FallbackStrategy.FUZZY_NAME,
+                FallbackStrategy.ALIASES,
+            ]
+        )
 
         try:
             # Build search query for URL path
+            strategy = FallbackStrategy.NORMALIZED_NAME
             if query_input.identifiers.get("issn"):
                 search_query = f"issn:{query_input.identifiers['issn']}"
+                strategy = FallbackStrategy.ISSN
             elif query_input.normalized_name:
                 # Search by journal title - encode spaces for URL
                 search_query = f'title:"{query_input.normalized_name}"'
+                strategy = FallbackStrategy.NORMALIZED_NAME
             else:
                 # Fallback to raw input
                 search_query = f'title:"{query_input.raw_input}"'
+                strategy = FallbackStrategy.RAW_INPUT
 
             # Construct full URL with search query in path (URL encoded)
             url = f"{self.base_url}/{quote(search_query, safe='')}"
@@ -93,13 +106,21 @@ class DOAJBackend(ApiBackendWithCache):
 
             # Use retry logic for the API call
             data = await self._fetch_from_doaj_api(url, params)
+
+            # Log this initial attempt
+            chain.log_attempt(
+                strategy,
+                success=len(data.get("results", [])) > 0,
+                query_value=search_query,
+            )
+
             return self._process_doaj_response(
-                query_input, data, time.time() - start_time
+                query_input, data, time.time() - start_time, chain
             )
 
         except Exception as e:
             status_logger.error(f"DOAJ API error: {e}")
-            return self._build_error_result(e, time.time() - start_time)
+            return self._build_error_result(e, time.time() - start_time, chain)
 
     @async_retry_with_backoff(
         max_retries=3,
@@ -145,6 +166,7 @@ class DOAJBackend(ApiBackendWithCache):
         query_input: QueryInput,
         response_data: dict[str, Any],
         response_time: float,
+        chain: QueryFallbackChain,
     ) -> BackendResult:
         """Process DOAJ API response and determine match quality.
 
@@ -157,6 +179,7 @@ class DOAJBackend(ApiBackendWithCache):
                 like name and ISSN.
             response_data: JSON response data received from the DOAJ API search.
             response_time: Total time taken for the API request in seconds.
+            chain: Fallback chain used for this query.
 
         Returns:
             BackendResult containing the assessment status (FOUND, NOT_FOUND),
@@ -174,6 +197,7 @@ class DOAJBackend(ApiBackendWithCache):
                 sources=["https://doaj.org"],
                 error_message=None,
                 response_time=response_time,
+                fallback_chain=chain,
             )
 
         # Find the best match
@@ -213,6 +237,7 @@ class DOAJBackend(ApiBackendWithCache):
                 sources=["https://doaj.org"],
                 error_message=None,
                 response_time=response_time,
+                fallback_chain=chain,
             )
         else:
             return BackendResult(
@@ -228,7 +253,36 @@ class DOAJBackend(ApiBackendWithCache):
                 sources=["https://doaj.org"],
                 error_message=None,
                 response_time=response_time,
+                fallback_chain=chain,
             )
+
+    def _build_error_result(
+        self,
+        exception: Exception,
+        response_time: float,
+        chain: QueryFallbackChain | None = None,
+    ) -> BackendResult:
+        """Create a standardized error BackendResult from an exception.
+
+        Args:
+            exception: The exception that occurred
+            response_time: Time taken before error occurred
+            chain: Fallback chain used (optional)
+
+        Returns:
+            BackendResult with appropriate status and error message
+        """
+        status = self._map_exception_to_backend_status(exception)
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=status,
+            confidence=0.0,
+            assessment=None,
+            error_message=str(exception),
+            response_time=response_time,
+            cached=False,
+            fallback_chain=chain or QueryFallbackChain([]),
+        )
 
     def _calculate_match_confidence(
         self, query_input: QueryInput, bibjson: dict[str, Any]

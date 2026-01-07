@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
-from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class FallbackStrategy(Enum):
@@ -19,8 +21,7 @@ class FallbackStrategy(Enum):
     WORD_SIMILARITY = "word_similarity"
 
 
-@dataclass
-class FallbackAttempt:
+class FallbackAttempt(BaseModel):
     """Single fallback attempt record."""
 
     strategy: FallbackStrategy
@@ -29,14 +30,14 @@ class FallbackAttempt:
     match_confidence: float | None = None
 
 
-class QueryFallbackChain:
+class QueryFallbackChain(BaseModel):
     """Documents and tracks query fallback attempts.
 
     This is the ONLY way backends should implement fallback logic.
     All backends MUST use this class to track their query attempts.
 
     Usage:
-        chain = QueryFallbackChain([
+        chain = QueryFallbackChain(strategies=[
             FallbackStrategy.ISSN,
             FallbackStrategy.NORMALIZED_NAME,
             FallbackStrategy.ALIASES
@@ -51,14 +52,14 @@ class QueryFallbackChain:
         all_attempts = chain.get_attempts()
     """
 
-    def __init__(self, strategies: list[FallbackStrategy]):
-        """Initialize fallback chain with ordered strategies.
+    strategies: list[FallbackStrategy]
+    attempts: list[FallbackAttempt] = Field(default_factory=list)
 
-        Args:
-            strategies: Ordered list of fallback strategies this backend will try
-        """
-        self.strategies = strategies
-        self._attempts: list[FallbackAttempt] = []
+    def __init__(self, strategies: list[FallbackStrategy] | None = None, **kwargs: Any):
+        """Initialize with optional positional strategies argument."""
+        if strategies is not None:
+            kwargs["strategies"] = strategies
+        super().__init__(**kwargs)
 
     def log_attempt(
         self,
@@ -75,19 +76,24 @@ class QueryFallbackChain:
             query_value: Optional query value used (for debugging)
             match_confidence: Optional confidence score if match found
         """
-        attempt = FallbackAttempt(strategy, success, query_value, match_confidence)
-        self._attempts.append(attempt)
+        attempt = FallbackAttempt(
+            strategy=strategy,
+            success=success,
+            query_value=query_value,
+            match_confidence=match_confidence,
+        )
+        self.attempts.append(attempt)
 
     def get_successful_strategy(self) -> FallbackStrategy | None:
         """Return the strategy that succeeded, if any."""
-        for attempt in self._attempts:
+        for attempt in self.attempts:
             if attempt.success:
                 return attempt.strategy
         return None
 
     def get_attempts(self) -> list[FallbackAttempt]:
         """Return all logged attempts."""
-        return self._attempts.copy()
+        return self.attempts.copy()
 
     def get_attempt_summary(self) -> str:
         """Return human-readable summary of attempts.
@@ -96,7 +102,7 @@ class QueryFallbackChain:
             String like "ISSN(fail) → NORMALIZED_NAME(success, conf=0.85)"
         """
         parts = []
-        for attempt in self._attempts:
+        for attempt in self.attempts:
             status = "success" if attempt.success else "fail"
             if attempt.match_confidence is not None:
                 status = f"{status}, conf={attempt.match_confidence:.2f}"
@@ -105,7 +111,7 @@ class QueryFallbackChain:
 
     def has_attempts(self) -> bool:
         """Check if any attempts were logged."""
-        return len(self._attempts) > 0
+        return len(self.attempts) > 0
 
     def was_successful(self) -> bool:
         """Check if any attempt succeeded."""

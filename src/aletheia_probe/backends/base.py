@@ -22,6 +22,7 @@ from ..cache import AssessmentCache, JournalCache, OpenAlexCache
 from ..confidence_utils import MatchQuality, calculate_base_confidence
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
+from ..fallback_chain import QueryFallbackChain
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from ..utils.dead_code import code_is_used
 
@@ -91,6 +92,7 @@ class Backend(ABC):
                 error_message=f"Query timed out after {timeout} seconds",
                 response_time=response_time,
                 cached=False,  # Timeout from live query
+                fallback_chain=QueryFallbackChain([]),
             )
         except (
             ValueError,
@@ -108,6 +110,7 @@ class Backend(ABC):
                 error_message=str(e),
                 response_time=response_time,
                 cached=False,  # Error from live query
+                fallback_chain=QueryFallbackChain([]),
             )
 
 
@@ -177,6 +180,7 @@ class CachedBackend(Backend):
                     error_message=None,
                     response_time=response_time,
                     cached=True,  # CachedBackend results are always from local cache
+                    fallback_chain=QueryFallbackChain([]),
                 )
             else:
                 # Not found in cache
@@ -190,6 +194,7 @@ class CachedBackend(Backend):
                     error_message=None,
                     response_time=response_time,
                     cached=True,  # Still searched local cache, just no match
+                    fallback_chain=QueryFallbackChain([]),
                 )
 
         except (ValueError, OSError, KeyError, AttributeError) as e:
@@ -201,6 +206,7 @@ class CachedBackend(Backend):
                 error_message=str(e),
                 response_time=time.time() - start_time,
                 cached=False,  # Error occurred before cache lookup
+                fallback_chain=QueryFallbackChain([]),
             )
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
@@ -376,6 +382,7 @@ class ApiBackendWithCache(Backend):
             error_message=str(exception),
             response_time=response_time,
             cached=False,
+            fallback_chain=QueryFallbackChain([]),
         )
 
     def _check_rate_limit_response(self, response: aiohttp.ClientResponse) -> None:

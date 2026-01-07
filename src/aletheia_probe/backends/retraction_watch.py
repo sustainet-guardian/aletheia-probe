@@ -12,6 +12,7 @@ from ..cache import RetractionCache
 from ..confidence_utils import MatchQuality, calculate_base_confidence
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType, RiskLevel
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
@@ -107,11 +108,14 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             # If we can't check, assume we need sync
             return True
 
-    def _search_retraction_data(self, query_input: QueryInput) -> list[dict[str, Any]]:
+    def _search_retraction_data(
+        self, query_input: QueryInput, chain: QueryFallbackChain
+    ) -> list[dict[str, Any]]:
         """Search for retraction data using various query strategies.
 
         Args:
             query_input: Normalized query input with journal information
+            chain: Fallback chain to log attempts
 
         Returns:
             List of matching journal records from the database
@@ -120,13 +124,17 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
 
         # Search by ISSN first (though we don't have ISSN in retraction data)
         detail_logger.debug("RetractionWatch._search_retraction_data try issn search")
+        results = []
         if query_input.identifiers.get("issn"):
             results = self.journal_cache.search_journals(
                 issn=query_input.identifiers["issn"],
                 source_name=self.source_name,
             )
-        else:
-            results = []
+            chain.log_attempt(
+                FallbackStrategy.ISSN,
+                success=len(results) > 0,
+                query_value=query_input.identifiers["issn"],
+            )
 
         # If no ISSN match, try exact normalized name match
         detail_logger.debug(
@@ -134,6 +142,11 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         )
         if not results and query_input.normalized_name:
             results = self._search_exact_match(query_input.normalized_name)
+            chain.log_attempt(
+                FallbackStrategy.EXACT_NAME,
+                success=len(results) > 0,
+                query_value=query_input.normalized_name,
+            )
 
         # Try aliases for exact matches only
         detail_logger.debug(
@@ -142,6 +155,11 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         if not results:
             for alias in query_input.aliases:
                 results = self._search_exact_match(alias)
+                chain.log_attempt(
+                    FallbackStrategy.EXACT_ALIASES,
+                    success=len(results) > 0,
+                    query_value=alias,
+                )
                 if results:
                     break
 
@@ -150,11 +168,14 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         )
         return results
 
-    def _handle_not_found(self, start_time: float) -> BackendResult:
+    def _handle_not_found(
+        self, start_time: float, chain: QueryFallbackChain
+    ) -> BackendResult:
         """Handle the case when no retraction data is found for a journal.
 
         Args:
             start_time: Query start time for response time calculation
+            chain: Fallback chain used for this query
 
         Returns:
             BackendResult indicating no data was found
@@ -172,10 +193,15 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             sources=[self.source_name],
             error_message=None,
             response_time=response_time,
+            fallback_chain=chain,
         )
 
     async def _build_result_data(
-        self, query_input: QueryInput, match: dict[str, Any], start_time: float
+        self,
+        query_input: QueryInput,
+        match: dict[str, Any],
+        start_time: float,
+        chain: QueryFallbackChain,
     ) -> BackendResult:
         """Build comprehensive result data from retraction and publication statistics.
 
@@ -183,6 +209,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             query_input: Original query input
             match: Matching journal record from database
             start_time: Query start time for response time calculation
+            chain: Fallback chain used for this query
 
         Returns:
             BackendResult with comprehensive retraction assessment
@@ -296,6 +323,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
             sources=[self.source_name],
             error_message=None,
             response_time=response_time,
+            fallback_chain=chain,
         )
 
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
@@ -312,22 +340,59 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
         """
         detail_logger.debug("RetractionWatch._query_api called")
         start_time = time.time()
+        chain = QueryFallbackChain(
+            [
+                FallbackStrategy.ISSN,
+                FallbackStrategy.EXACT_NAME,
+                FallbackStrategy.EXACT_ALIASES,
+            ]
+        )
 
         try:
             # Search for retraction data using multiple strategies
-            results = self._search_retraction_data(query_input)
+            results = self._search_retraction_data(query_input, chain)
 
             if results:
                 # Found data - build comprehensive result
                 match = results[0]
-                return await self._build_result_data(query_input, match, start_time)
+                return await self._build_result_data(
+                    query_input, match, start_time, chain
+                )
             else:
                 # No data found - return not found result
-                return self._handle_not_found(start_time)
+                return self._handle_not_found(start_time, chain)
 
         except Exception as e:
             status_logger.error(f"RetractionWatch API error: {e}")
-            return self._build_error_result(e, time.time() - start_time)
+            return self._build_error_result(e, time.time() - start_time, chain)
+
+    def _build_error_result(
+        self,
+        exception: Exception,
+        response_time: float,
+        chain: QueryFallbackChain | None = None,
+    ) -> BackendResult:
+        """Create a standardized error BackendResult from an exception.
+
+        Args:
+            exception: The exception that occurred
+            response_time: Time taken before error occurred
+            chain: Fallback chain used (optional)
+
+        Returns:
+            BackendResult with appropriate status and error message
+        """
+        status = self._map_exception_to_backend_status(exception)
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=status,
+            confidence=0.0,
+            assessment=None,
+            error_message=str(exception),
+            response_time=response_time,
+            cached=False,
+            fallback_chain=chain or QueryFallbackChain([]),
+        )
 
     async def _get_openalex_data_cached(
         self, journal_name: str, issn: str | None = None

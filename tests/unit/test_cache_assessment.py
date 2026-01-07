@@ -10,6 +10,7 @@ import pytest
 from aletheia_probe.cache import AssessmentCache
 from aletheia_probe.cache.schema import init_database
 from aletheia_probe.enums import AssessmentType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import AssessmentResult, BackendResult, BackendStatus
 
 
@@ -39,6 +40,7 @@ def sample_assessment_result():
         overall_score=0.9,
         backend_results=[
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="test_backend",
                 status=BackendStatus.FOUND,
                 confidence=0.8,

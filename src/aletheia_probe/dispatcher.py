@@ -16,6 +16,7 @@ from .constants import (
 )
 from .cross_validation import get_cross_validation_registry
 from .enums import AssessmentType, EvidenceType
+from .fallback_chain import QueryFallbackChain
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from .normalizer import InputNormalizer, input_normalizer
@@ -237,6 +238,7 @@ class QueryDispatcher:
                 cached=result.cached,
                 execution_time_ms=result.execution_time_ms,
                 evidence_type=result.evidence_type,
+                fallback_chain=result.fallback_chain,
             )
             adjusted_results.append(adjusted_result)
 
@@ -434,6 +436,7 @@ class QueryDispatcher:
                     error_message=str(result),
                     response_time=0.0,
                     evidence_type="heuristic",  # Default for error cases
+                    fallback_chain=QueryFallbackChain([]),
                 )
                 backend_results.append(error_result)
             elif isinstance(result, BackendResult):
@@ -457,6 +460,7 @@ class QueryDispatcher:
                     error_message=f"Unexpected result type: {type(result)}",
                     response_time=0.0,
                     evidence_type="heuristic",  # Default for error cases
+                    fallback_chain=QueryFallbackChain([]),
                 )
                 backend_results.append(error_result)
 

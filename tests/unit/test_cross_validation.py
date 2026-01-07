@@ -12,6 +12,7 @@ from aletheia_probe.cross_validation import (
     get_cross_validation_registry,
 )
 from aletheia_probe.enums import AssessmentType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import BackendResult, BackendStatus
 
 
@@ -106,6 +107,7 @@ class TestCrossValidationRegistry:
 
         # Create mock results
         result1 = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="openalex_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -123,6 +125,7 @@ class TestCrossValidationRegistry:
         )
 
         result2 = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="crossref_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.7,
@@ -171,6 +174,7 @@ class TestOpenAlexCrossRefValidator:
 
         # Create results that agree
         openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="openalex_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -193,6 +197,7 @@ class TestOpenAlexCrossRefValidator:
         )
 
         crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="crossref_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.7,
@@ -227,6 +232,7 @@ class TestOpenAlexCrossRefValidator:
 
         # Create results that disagree
         openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="openalex_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -245,6 +251,7 @@ class TestOpenAlexCrossRefValidator:
         )
 
         crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="crossref_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.5,
@@ -277,6 +284,7 @@ class TestOpenAlexCrossRefValidator:
         validator = OpenAlexCrossRefValidator()
 
         openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="openalex_analyzer",
             status=BackendStatus.FOUND,
             confidence=0.8,
@@ -292,6 +300,7 @@ class TestOpenAlexCrossRefValidator:
         )
 
         crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="crossref_analyzer",
             status=BackendStatus.NOT_FOUND,
             confidence=0.0,
@@ -314,6 +323,7 @@ class TestOpenAlexCrossRefValidator:
         validator = OpenAlexCrossRefValidator()
 
         openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="openalex_analyzer",
             status=BackendStatus.NOT_FOUND,
             confidence=0.0,
@@ -326,6 +336,7 @@ class TestOpenAlexCrossRefValidator:
         )
 
         crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
             backend_name="crossref_analyzer",
             status=BackendStatus.NOT_FOUND,
             confidence=0.0,

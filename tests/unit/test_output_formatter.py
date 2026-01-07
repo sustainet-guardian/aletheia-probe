@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 
 from aletheia_probe.enums import AssessmentType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -31,6 +32,7 @@ def predatory_result_with_details():
         overall_score=0.85,
         backend_results=[
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="openalex_analyzer",
                 status=BackendStatus.FOUND,
                 confidence=0.90,
@@ -56,6 +58,7 @@ def predatory_result_with_details():
                 response_time=0.5,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="bealls",
                 status=BackendStatus.FOUND,
                 confidence=0.90,
@@ -65,6 +68,7 @@ def predatory_result_with_details():
                 response_time=0.1,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="doaj",
                 status=BackendStatus.NOT_FOUND,
                 confidence=0.0,
@@ -91,6 +95,7 @@ def legitimate_result_with_details():
         overall_score=0.92,
         backend_results=[
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="openalex_analyzer",
                 status=BackendStatus.FOUND,
                 confidence=0.85,
@@ -116,6 +121,7 @@ def legitimate_result_with_details():
                 response_time=0.5,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="doaj",
                 status=BackendStatus.FOUND,
                 confidence=0.95,
@@ -125,6 +131,7 @@ def legitimate_result_with_details():
                 response_time=0.2,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="scopus",
                 status=BackendStatus.FOUND,
                 confidence=0.90,
@@ -151,6 +158,7 @@ def conflicting_result():
         overall_score=0.65,
         backend_results=[
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="openalex_analyzer",
                 status=BackendStatus.FOUND,
                 confidence=0.70,
@@ -172,6 +180,7 @@ def conflicting_result():
                 response_time=0.5,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="doaj",
                 status=BackendStatus.FOUND,
                 confidence=0.95,
@@ -181,6 +190,7 @@ def conflicting_result():
                 response_time=0.2,
             ),
             BackendResult(
+                fallback_chain=QueryFallbackChain([]),
                 backend_name="kscien_predatory_conferences",
                 status=BackendStatus.FOUND,
                 confidence=0.90,
@@ -503,6 +513,7 @@ class TestOutputFormatter:
             overall_score=0.80,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="openalex_analyzer",
                     status=BackendStatus.FOUND,
                     confidence=0.80,
@@ -539,6 +550,7 @@ class TestOutputFormatter:
             overall_score=0.00,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="openalex_analyzer",
                     status=BackendStatus.FOUND,
                     confidence=0.50,
@@ -568,6 +580,7 @@ class TestOutputFormatter:
             overall_score=0.50,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="openalex_analyzer",
                     status=BackendStatus.FOUND,
                     confidence=0.50,

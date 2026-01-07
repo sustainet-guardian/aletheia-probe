@@ -39,9 +39,7 @@ class FunctionTracer:
         self.src_root = src_root
         self.called_functions: set[tuple[str, str]] = set()
 
-    def trace_function(
-        self, frame: FrameType, event: str, arg: Any
-    ) -> Any:
+    def trace_function(self, frame: FrameType, event: str, arg: Any) -> Any:
         """Trace callback for sys.settrace().
 
         Args:
@@ -223,7 +221,6 @@ class CLIRunner:
     def __init__(self) -> None:
         """Initialize CLI runner."""
         import os
-        import tempfile
         from pathlib import Path
 
         # CRITICAL: Set up config file and env vars BEFORE importing CLI
@@ -350,9 +347,7 @@ heuristics:
   note = {This is a famous retracted article}
 }
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".bib", delete=False
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".bib", delete=False) as tmp:
             tmp.write(bibtex_content)
             bibtex_file = tmp.name
 
@@ -406,8 +401,24 @@ Another Journal,9876-5432,Another Publisher
             # List of commands to run
             commands = [
                 # Add custom lists BEFORE sync to test persistence
-                ["custom-list", "add", csv_file, "--list-type", "PREDATORY", "--list-name", "test-csv"],
-                ["custom-list", "add", json_file, "--list-type", "SUSPICIOUS", "--list-name", "test-json"],
+                [
+                    "custom-list",
+                    "add",
+                    csv_file,
+                    "--list-type",
+                    "PREDATORY",
+                    "--list-name",
+                    "test-csv",
+                ],
+                [
+                    "custom-list",
+                    "add",
+                    json_file,
+                    "--list-type",
+                    "SUSPICIOUS",
+                    "--list-name",
+                    "test-json",
+                ],
                 # Sync FIRST with retraction_watch enabled - populates data (including custom lists)
                 ["--config", str(self.config_default_path), "sync"],
                 # Sync AGAIN with bealls disabled - triggers cleanup (remove_source_data)
@@ -464,11 +475,32 @@ Another Journal,9876-5432,Another Publisher
                 ["acronym", "status"],
                 ["acronym", "stats"],
                 ["acronym", "list", "--limit", "5"],
-                ["acronym", "add", "ICML", "International Conference on Machine Learning", "--entity-type", "conference"],
-                ["acronym", "add", "NeurIPS", "Neural Information Processing Systems", "--entity-type", "conference"],
+                [
+                    "acronym",
+                    "add",
+                    "ICML",
+                    "International Conference on Machine Learning",
+                    "--entity-type",
+                    "conference",
+                ],
+                [
+                    "acronym",
+                    "add",
+                    "NeurIPS",
+                    "Neural Information Processing Systems",
+                    "--entity-type",
+                    "conference",
+                ],
                 # Test are_conference_names_equivalent: Add same acronym with abbreviation variation
                 # This triggers _check_existing_mapping -> are_conference_names_equivalent
-                ["acronym", "add", "ICML", "International Conf. on Machine Learning", "--entity-type", "conference"],
+                [
+                    "acronym",
+                    "add",
+                    "ICML",
+                    "International Conf. on Machine Learning",
+                    "--entity-type",
+                    "conference",
+                ],
                 ["acronym", "list", "--limit", "10"],
                 ["acronym", "list", "--offset", "5", "--limit", "5"],
                 # Retraction cache testing - clear cache to force Crossref API path
@@ -477,9 +509,22 @@ Another Journal,9876-5432,Another Publisher
                 # BibTeX with retracted DOI (triggers _parse_crossref_retraction via Crossref API)
                 ["bibtex", retraction_bibtex_file],
                 # Custom list management operations testing
-                ["custom-list", "add", csv_file, "--list-type", "LEGITIMATE", "--list-name", "test-management"],
+                [
+                    "custom-list",
+                    "add",
+                    csv_file,
+                    "--list-type",
+                    "LEGITIMATE",
+                    "--list-name",
+                    "test-management",
+                ],
                 ["custom-list", "list"],  # List all custom lists
-                ["custom-list", "remove", "test-management", "--confirm"],  # Remove the test list
+                [
+                    "custom-list",
+                    "remove",
+                    "test-management",
+                    "--confirm",
+                ],  # Remove the test list
                 ["custom-list", "list"],  # Verify removal
                 # Clear operations (at the end)
                 ["clear-cache", "--confirm"],
@@ -536,6 +581,7 @@ def _patch_threadpoolexecutor() -> None:
         initargs: tuple[Any, ...] = (),
     ) -> None:
         """Patched __init__ that chains our tracer initializer."""
+
         # Chain initializers: first call ours, then call user's if provided
         def chained_initializer(*args: Any) -> None:
             # Set up tracing first
@@ -666,7 +712,7 @@ def main() -> None:
     print(f"  Functions called (runtime trace): {len(tracer.called_functions)}")
     print(f"  Excluded by @code_is_used: {len(discoverer.excluded_functions)}")
     print(f"  Dead code candidates: {len(dead_functions)}")
-    
+
     if total_funcs > 0:
         dead_ratio = len(dead_functions) / total_funcs * 100
         # Coverage = Percentage of discovered functions that are NOT dead candidates

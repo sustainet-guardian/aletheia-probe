@@ -8,6 +8,7 @@ import pytest
 from aletheia_probe.backends.protocols import DataSyncCapable
 from aletheia_probe.backends.retraction_watch import RetractionWatchBackend
 from aletheia_probe.enums import AssessmentType, EvidenceType
+from aletheia_probe.fallback_chain import QueryFallbackChain
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -93,6 +94,7 @@ class TestRetractionWatchBackend:
             overall_score=0.9,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="retraction_watch",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
@@ -211,6 +213,7 @@ class TestRetractionWatchBackend:
             overall_score=0.9,
             backend_results=[
                 BackendResult(
+                    fallback_chain=QueryFallbackChain([]),
                     backend_name="retraction_watch",
                     status=BackendStatus.FOUND,
                     confidence=0.9,
