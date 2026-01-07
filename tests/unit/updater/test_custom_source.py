@@ -207,5 +207,4 @@ class TestCustomListSource:
                 assert journals == []
                 mock_logger.error.assert_called()
                 args, _ = mock_logger.error.call_args
-                assert "Failed to load file" in args[0]
-                assert "Access denied" in args[0]
+                assert "Permission denied" in args[0]
