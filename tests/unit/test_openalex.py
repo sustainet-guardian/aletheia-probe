@@ -56,6 +56,7 @@ class TestOpenAlexClient:
 
         with patch("aiohttp.ClientSession.get") as mock_get:
             mock_response = AsyncMock()
+            mock_response.status = 200
             mock_response.json = AsyncMock(return_value=mock_response_data)
             mock_response.raise_for_status = Mock()
             mock_get.return_value.__aenter__.return_value = mock_response
@@ -68,15 +69,17 @@ class TestOpenAlexClient:
     @pytest.mark.asyncio
     async def test_get_source_by_issn_error(self):
         """Test getting source by ISSN with HTTP error."""
+        import aiohttp
+
         with patch("aiohttp.ClientSession.get") as mock_get:
             mock_response = AsyncMock()
+            mock_response.status = 500
             mock_response.raise_for_status.side_effect = Exception("HTTP Error")
             mock_get.return_value.__aenter__.return_value = mock_response
 
             async with OpenAlexClient() as client:
-                result = await client.get_source_by_issn("0028-0836")
-
-            assert result is None
+                with pytest.raises(aiohttp.ClientError):
+                    await client.get_source_by_issn("0028-0836")
 
     @pytest.mark.asyncio
     async def test_get_source_by_name_success(self):
