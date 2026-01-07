@@ -335,7 +335,7 @@ class TestScopusBackend:
 
             assert result.status == BackendStatus.FOUND
             assert result.assessment == "legitimate"
-            assert result.confidence == 0.95  # Exact ISSN match gives 0.95 confidence
+            assert result.confidence == 1.0  # Exact ISSN match gives 1.0 confidence
 
     @pytest.mark.asyncio
     async def test_query_journal_not_found(self):
