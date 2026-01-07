@@ -80,10 +80,23 @@ async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) ->
         ),
         patch("aiohttp.ClientSession.get") as mock_get,
     ):
+        # Case 1: Generic Exception (e.g. network error)
         mock_get.side_effect = Exception("API Error")
         result = await backend.query(query_input)
         assert result.status == BackendStatus.ERROR
         assert "API Error" in result.error_message
+
+        # Case 2: HTTP 500 Error (triggers BackendError in _get_journal_by_issn)
+        mock_get.side_effect = None
+        mock_response = AsyncMock()
+        mock_response.status = 500
+        mock_response.text = AsyncMock(return_value="Internal Server Error")
+        # Need to simulate context manager
+        mock_get.return_value.__aenter__.return_value = mock_response
+
+        result = await backend.query(query_input)
+        assert result.status == BackendStatus.ERROR
+        assert "Crossref API returned status 500" in result.error_message
 
 
 def test_journal_size_classification_edge_cases(

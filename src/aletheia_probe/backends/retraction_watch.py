@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
+from ..backend_exceptions import RateLimitError
 from ..cache import RetractionCache
 from ..confidence_utils import MatchQuality, calculate_base_confidence
 from ..constants import CONFIDENCE_THRESHOLD_LOW
@@ -368,6 +369,7 @@ class RetractionWatchBackend(ApiBackendWithCache, DataSyncCapable):
                 return None
 
         except (
+            RateLimitError,
             aiohttp.ClientError,
             asyncio.TimeoutError,
             ValueError,
