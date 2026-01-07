@@ -19,6 +19,7 @@ from ..backend_exceptions import (
     RateLimitError,
 )
 from ..cache import AssessmentCache, JournalCache, OpenAlexCache
+from ..confidence_utils import MatchQuality, calculate_base_confidence
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
@@ -219,7 +220,7 @@ class CachedBackend(Backend):
             query_input.identifiers.get("issn")
             and match.get("issn") == query_input.identifiers["issn"]
         ):
-            return 0.95
+            return calculate_base_confidence(MatchQuality.EXACT_ISSN)
 
         # High confidence for exact name match (case insensitive)
         if query_input.normalized_name:
@@ -228,7 +229,7 @@ class CachedBackend(Backend):
             original_name = match.get("journal_name", "").lower().strip()
 
             if query_name == match_name or query_name == original_name:
-                return 0.90
+                return calculate_base_confidence(MatchQuality.EXACT_NAME)
 
         # If we get here, it means we have a match but it's not exact
         # This shouldn't happen with our new exact matching, so low confidence
