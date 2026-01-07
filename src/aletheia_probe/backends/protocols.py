@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Protocol definitions for backend capabilities and interfaces."""
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ..utils.dead_code import code_is_used
 
@@ -100,5 +100,167 @@ class ApiQueryCapable(Protocol):
 
         Returns:
             String cache key (typically MD5 hash of query components)
+        """
+        ...
+
+
+@runtime_checkable
+class FallbackStrategyHandler(Protocol):
+    """Protocol for backends that support automatic fallback strategy execution.
+
+    This protocol defines the interface for backends that implement strategy-specific
+    handlers for the automatic fallback chain execution framework. Each handler
+    method corresponds to a FallbackStrategy enum value and defines how to execute
+    that specific search strategy.
+
+    Example implementations:
+    - API backends with multiple query approaches (DOAJ, Crossref, OpenAlex)
+    - Cache-based backends with different lookup strategies
+    - Hybrid backends combining multiple search methods
+    """
+
+    @code_is_used
+    async def handle_issn_strategy(self, query_input: "QueryInput") -> "Any | None":
+        """Handle ISSN-based search strategy.
+
+        Args:
+            query_input: Query input containing ISSN identifier
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_eissn_strategy(self, query_input: "QueryInput") -> "Any | None":
+        """Handle eISSN-based search strategy.
+
+        Args:
+            query_input: Query input containing eISSN identifier
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_exact_name_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle exact name search strategy.
+
+        Args:
+            query_input: Query input with journal name
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_normalized_name_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle normalized name search strategy.
+
+        Args:
+            query_input: Query input with normalized journal name
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_fuzzy_name_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle fuzzy name matching strategy.
+
+        Args:
+            query_input: Query input with journal name for fuzzy matching
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_raw_input_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle raw input search strategy.
+
+        Args:
+            query_input: Query input with original raw text
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_aliases_strategy(self, query_input: "QueryInput") -> "Any | None":
+        """Handle aliases-based search strategy.
+
+        Args:
+            query_input: Query input with journal aliases
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_exact_aliases_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle exact aliases matching strategy.
+
+        Args:
+            query_input: Query input with journal aliases for exact matching
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_acronyms_strategy(self, query_input: "QueryInput") -> "Any | None":
+        """Handle acronyms-based search strategy.
+
+        Args:
+            query_input: Query input with potential acronyms
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_substring_match_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle substring matching strategy.
+
+        Args:
+            query_input: Query input for substring matching
+
+        Returns:
+            Raw result data if found, None if no match
+        """
+        ...
+
+    @code_is_used
+    async def handle_word_similarity_strategy(
+        self, query_input: "QueryInput"
+    ) -> "Any | None":
+        """Handle word similarity matching strategy.
+
+        Args:
+            query_input: Query input for similarity matching
+
+        Returns:
+            Raw result data if found, None if no match
         """
         ...
