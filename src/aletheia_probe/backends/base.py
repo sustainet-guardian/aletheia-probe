@@ -362,13 +362,17 @@ class ApiBackendWithCache(Backend):
             return BackendStatus.ERROR
 
     def _build_error_result(
-        self, exception: Exception, response_time: float
+        self,
+        exception: Exception,
+        response_time: float,
+        chain: QueryFallbackChain | None = None,
     ) -> BackendResult:
         """Create a standardized error BackendResult from an exception.
 
         Args:
             exception: The exception that occurred
             response_time: Time taken before error occurred
+            chain: Fallback chain used (optional)
 
         Returns:
             BackendResult with appropriate status and error message
@@ -382,7 +386,7 @@ class ApiBackendWithCache(Backend):
             error_message=str(exception),
             response_time=response_time,
             cached=False,
-            fallback_chain=QueryFallbackChain([]),
+            fallback_chain=chain or QueryFallbackChain([]),
         )
 
     def _check_rate_limit_response(self, response: aiohttp.ClientResponse) -> None:

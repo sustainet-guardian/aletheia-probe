@@ -256,34 +256,6 @@ class DOAJBackend(ApiBackendWithCache):
                 fallback_chain=chain,
             )
 
-    def _build_error_result(
-        self,
-        exception: Exception,
-        response_time: float,
-        chain: QueryFallbackChain | None = None,
-    ) -> BackendResult:
-        """Create a standardized error BackendResult from an exception.
-
-        Args:
-            exception: The exception that occurred
-            response_time: Time taken before error occurred
-            chain: Fallback chain used (optional)
-
-        Returns:
-            BackendResult with appropriate status and error message
-        """
-        status = self._map_exception_to_backend_status(exception)
-        return BackendResult(
-            backend_name=self.get_name(),
-            status=status,
-            confidence=0.0,
-            assessment=None,
-            error_message=str(exception),
-            response_time=response_time,
-            cached=False,
-            fallback_chain=chain or QueryFallbackChain([]),
-        )
-
     def _calculate_match_confidence(
         self, query_input: QueryInput, bibjson: dict[str, Any]
     ) -> float:
