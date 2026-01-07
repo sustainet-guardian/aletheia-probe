@@ -71,6 +71,7 @@ class KscienGenericSource(DataSource):
             detail_logger.debug(
                 f"Kscien {self.publication_type} source has no configured URL, skipping update"
             )
+            self.skip_reason = "no_url_configured"
             return False
 
         data_source_manager = DataSourceManager()
@@ -83,11 +84,14 @@ class KscienGenericSource(DataSource):
 
         # Update weekly
         days_since_update = (datetime.now() - last_update).days
-        should_update = days_since_update >= UPDATE_INTERVAL_DAYS
-        detail_logger.debug(
-            f"Last update was {days_since_update} days ago, should_update: {should_update}"
-        )
-        return should_update
+        if days_since_update < UPDATE_INTERVAL_DAYS:
+            detail_logger.debug(
+                f"Last update was {days_since_update} days ago, not updating"
+            )
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch data from Kscien for the specified publication type.

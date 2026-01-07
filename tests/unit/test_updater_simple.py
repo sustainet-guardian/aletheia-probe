@@ -146,6 +146,23 @@ class TestUpdateSourceData:
         assert result["reason"] == "no_update_needed"
 
     @pytest.mark.asyncio
+    async def test_update_source_skip_with_reason(self):
+        """Test source update skips with specific reason when provided."""
+
+        class NoUpdateReasonSource(MockDataSource):
+            def should_update(self):
+                self.skip_reason = "already_up_to_date"
+                return False
+
+        source = NoUpdateReasonSource("reason_source")
+        mock_db_writer = AsyncMock()
+
+        result = await update_source_data(source, mock_db_writer, force=False)
+
+        assert result["status"] == "skipped"
+        assert result["reason"] == "already_up_to_date"
+
+    @pytest.mark.asyncio
     async def test_update_source_force_update(self):
         """Test source update with force=True ignores should_update."""
 

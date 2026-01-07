@@ -41,8 +41,10 @@ async def update_source_data(
     detail_logger.info(f"Updating source: {source_name}")
 
     if not force and not source.should_update():
-        detail_logger.info(f"Source {source_name} does not need updating")
-        return {"status": "skipped", "reason": "no_update_needed"}
+        # Allow source to provide a specific reason for skipping
+        reason = getattr(source, "skip_reason", "no_update_needed")
+        detail_logger.info(f"Source {source_name} does not need updating: {reason}")
+        return {"status": "skipped", "reason": reason}
 
     start_time = datetime.now()
     data_source_manager = DataSourceManager()

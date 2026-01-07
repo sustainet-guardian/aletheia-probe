@@ -55,7 +55,11 @@ class RetractionWatchSource(DataSource):
             return True
 
         # Update weekly (data updated daily upstream, but weekly is sufficient)
-        return (datetime.now() - last_update).days >= UPDATE_FREQUENCY_DAYS
+        if (datetime.now() - last_update).days < UPDATE_FREQUENCY_DAYS:
+            self.skip_reason = "already_up_to_date"
+            return False
+
+        return True
 
     async def fetch_data(self) -> list[dict[str, Any]]:
         """Fetch and aggregate retraction data from GitLab repository."""

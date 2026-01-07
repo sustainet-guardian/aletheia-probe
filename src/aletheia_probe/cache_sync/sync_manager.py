@@ -364,8 +364,9 @@ class CacheSyncManager:
                     f"  {backend_name}: Cleaned {count} records (disabled)"
                 )
             elif status == UpdateStatus.SKIPPED.value:
-                reason = result_value.get("reason", "")
-                self.status_logger.info(f"  {backend_name}: Skipped ({reason})")
+                reason = str(result_value.get("reason", ""))
+                display_reason = reason.replace("_", " ")
+                self.status_logger.info(f"  {backend_name}: Skipped ({display_reason})")
             elif status == UpdateStatus.FAILED.value:
                 self.status_logger.warning(f"  {backend_name}: Failed")
             elif status == UpdateStatus.ERROR.value:
