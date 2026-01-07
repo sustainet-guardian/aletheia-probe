@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from aiohttp import ClientTimeout
+from aiohttp import ClientError, ClientTimeout
 
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.sources.predatoryjournals import PredatoryJournalsSource
@@ -112,7 +112,7 @@ class TestPredatoryJournalsSource:
 
         with patch.object(source, "_fetch_google_sheet") as mock_fetch:
             # First call (journals) raises exception, second call (publishers) succeeds
-            mock_fetch.side_effect = [Exception("Network error"), mock_publishers]
+            mock_fetch.side_effect = [ClientError("Network error"), mock_publishers]
 
             with patch(
                 "aletheia_probe.updater.sources.predatoryjournals.deduplicate_journals"
@@ -128,7 +128,7 @@ class TestPredatoryJournalsSource:
     async def test_fetch_data_both_sources_fail(self, source):
         """Test fetch_data when both journal and publisher fetches fail."""
         with patch.object(source, "_fetch_google_sheet") as mock_fetch:
-            mock_fetch.side_effect = Exception("Network error")
+            mock_fetch.side_effect = ClientError("Network error")
 
             with patch(
                 "aletheia_probe.updater.sources.predatoryjournals.deduplicate_journals"
@@ -228,7 +228,7 @@ class TestPredatoryJournalsSource:
         mock_session = Mock()
 
         with patch.object(
-            source, "_discover_sheet_url", side_effect=Exception("Network error")
+            source, "_discover_sheet_url", side_effect=ClientError("Network error")
         ):
             result = await source._fetch_google_sheet(
                 mock_session, "journals", "https://example.com"
@@ -309,7 +309,9 @@ class TestPredatoryJournalsSource:
         """Test _discover_sheet_url with exception."""
         mock_session = Mock()
 
-        with patch.object(mock_session, "get", side_effect=Exception("Network error")):
+        with patch.object(
+            mock_session, "get", side_effect=ClientError("Network error")
+        ):
             result = await source._discover_sheet_url(
                 mock_session, "https://example.com"
             )
@@ -413,7 +415,7 @@ class TestPredatoryJournalsSource:
 
         with patch(
             "aletheia_probe.updater.sources.predatoryjournals.input_normalizer.normalize",
-            side_effect=Exception("Normalization failed"),
+            side_effect=ValueError("Normalization failed"),
         ):
             result = source._parse_row(row, "journals")
 

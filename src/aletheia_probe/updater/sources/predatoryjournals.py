@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
@@ -108,7 +108,7 @@ class PredatoryJournalsSource(DataSource):
                 status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(journals)} journal entries"
                 )
-            except Exception as e:
+            except (ClientError, asyncio.TimeoutError) as e:
                 status_logger.error(
                     f"    {self.get_name()}: Failed to fetch journals - {e}"
                 )
@@ -123,7 +123,7 @@ class PredatoryJournalsSource(DataSource):
                 status_logger.info(
                     f"    {self.get_name()}: Retrieved {len(publishers)} publisher entries"
                 )
-            except Exception as e:
+            except (ClientError, asyncio.TimeoutError) as e:
                 status_logger.error(
                     f"    {self.get_name()}: Failed to fetch publishers - {e}"
                 )
@@ -174,7 +174,7 @@ class PredatoryJournalsSource(DataSource):
             status_logger.error(
                 f"    {self.get_name()}: Timeout fetching {sheet_type} sheet"
             )
-        except Exception as e:
+        except ClientError as e:
             status_logger.error(
                 f"    {self.get_name()}: Error fetching {sheet_type} sheet - {e}"
             )
@@ -212,7 +212,7 @@ class PredatoryJournalsSource(DataSource):
                         detail_logger.info(f"Discovered Google Sheet: {csv_url}")
                         return csv_url
 
-        except Exception as e:
+        except (ClientError, asyncio.TimeoutError) as e:
             status_logger.error(
                 f"    {self.get_name()}: Error discovering sheet URL - {e}"
             )
@@ -243,7 +243,7 @@ class PredatoryJournalsSource(DataSource):
                 if entry:
                     entries.append(entry)
 
-        except Exception as e:
+        except (csv.Error, ValueError, TypeError) as e:
             status_logger.error(
                 f"    {self.get_name()}: Error parsing CSV for {sheet_type} - {e}"
             )
@@ -394,7 +394,7 @@ class PredatoryJournalsSource(DataSource):
                     "raw_data": dict(row),
                 },
             }
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             detail_logger.debug(f"Failed to normalize entry '{name}': {e}")
             return None
 
