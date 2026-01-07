@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 
-from ..backend_exceptions import RateLimitError
+from ..backend_exceptions import BackendError, RateLimitError
 from ..enums import AssessmentType, EvidenceType
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
@@ -269,7 +269,11 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                 elif response.status == 404:
                     return None
                 else:
-                    raise Exception(f"Crossref API returned status {response.status}")
+                    error_text = await response.text()
+                    raise BackendError(
+                        f"Crossref API returned status {response.status}. Response: {error_text[:200]}",
+                        backend_name=self.get_name(),
+                    )
 
     def _extract_common_analysis_vars(
         self, metrics: dict[str, Any], quality_scores: dict[str, float]

@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import aiohttp
 
-from ..backend_exceptions import RateLimitError
+from ..backend_exceptions import BackendError, RateLimitError
 from ..confidence_utils import (
     MatchQuality,
     calculate_base_confidence,
@@ -135,8 +135,9 @@ class DOAJBackend(ApiBackendWithCache):
                 else:
                     # For other HTTP errors, don't retry
                     error_text = await response.text()
-                    raise Exception(
-                        f"DOAJ API error: HTTP {response.status}. Response: {error_text[:200]}"
+                    raise BackendError(
+                        f"DOAJ API error: HTTP {response.status}. Response: {error_text[:200]}",
+                        backend_name=self.get_name(),
                     )
 
     def _process_doaj_response(
