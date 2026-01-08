@@ -22,11 +22,13 @@ from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
 from .normalizer import input_normalizer, normalize_case
 from .output_formatter import output_formatter
+from .utils.dead_code import code_is_used
 
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+@code_is_used  # This is called in error scenarios
 def handle_cli_exception(
     exception: Exception, verbose: bool = False, context: str = ""
 ) -> None:

@@ -11,7 +11,6 @@ from ..confidence_utils import (
     MatchQuality,
     calculate_base_confidence,
     calculate_name_similarity,
-    graduated_confidence,
 )
 from ..constants import CONFIDENCE_THRESHOLD_HIGH
 from ..enums import AssessmentType, EvidenceType
@@ -173,9 +172,9 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
                 similarity = calculate_name_similarity(query_title, doaj_title)
                 if similarity > DOAJ_WORD_SIMILARITY_THRESHOLD:
                     base = calculate_base_confidence(MatchQuality.WORD_SIMILARITY)
-                    confidence = graduated_confidence(
-                        base, similarity, base, CONFIDENCE_THRESHOLD_HIGH
-                    )
+                    # Calculate confidence graduated from base to CONFIDENCE_THRESHOLD_HIGH
+                    score = base + (similarity * (CONFIDENCE_THRESHOLD_HIGH - base))
+                    confidence = max(base, min(CONFIDENCE_THRESHOLD_HIGH, score))
 
         # 3. Alias matching (if confidence is low)
         if confidence < DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE:
