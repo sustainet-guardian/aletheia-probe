@@ -174,7 +174,7 @@ In flowchart:
 > "Records excluded: Predatory journal (n=10)"
 
 In methods:
-> "Source quality validation: All references were validated using Aletheia-Probe v0.7.0 to identify potential predatory journals. The tool cross-references journals against DOAJ, Beall's List historical archives, Kscien databases, and publication pattern analysis from OpenAlex and Crossref. Journals flagged as predatory with confidence ≥0.75 were excluded (n=7). Journals with confidence 0.50-0.75 underwent independent review by two authors (n=12), resulting in 3 additional exclusions. This process ensures the review dataset comprises publications from legitimate scholarly venues."
+> "Source quality validation: All references were validated using Aletheia-Probe v0.8.0 to identify potential predatory journals. The tool cross-references journals against DOAJ, Beall's List historical archives, Kscien databases, and publication pattern analysis from OpenAlex and Crossref. Journals flagged as predatory with confidence ≥0.75 were excluded (n=7). Journals with confidence 0.50-0.75 underwent independent review by two authors (n=12), resulting in 3 additional exclusions. This process ensures the review dataset comprises publications from legitimate scholarly venues."
 
 ### Scientometric Studies
 
@@ -323,7 +323,7 @@ research-project/
 
 Include in methods or supplementary materials:
 
-1. **Tool version**: Aletheia-Probe version (e.g., v0.7.0)
+1. **Tool version**: Aletheia-Probe version (e.g., v0.8.0)
 2. **Assessment date**: When assessments were performed
 3. **Data sync date**: When local caches were last synchronized
 4. **Enabled backends**: Which data sources were queried
@@ -332,7 +332,7 @@ Include in methods or supplementary materials:
 
 **Example methodology text:**
 
-> "Journal classification employed Aletheia-Probe v0.7.0 (DOI: 10.5281/zenodo.17788487) executed on 2025-12-15. Local data sources (DOAJ, Beall's List, Kscien databases) were synchronized on 2025-12-10. External APIs (OpenAlex, Crossref) were queried on 2025-12-15, with all responses cached and preserved in supplementary data files. The complete assessment output, including all backend responses and confidence scores, is archived in the supplementary materials (validation-results.json). The configuration file specifying enabled backends and thresholds is also provided for full methodological transparency."
+> "Journal classification employed Aletheia-Probe v0.8.0 (DOI: 10.5281/zenodo.17788487) executed on 2025-12-15. Local data sources (DOAJ, Beall's List, Kscien databases) were synchronized on 2025-12-10. External APIs (OpenAlex, Crossref) were queried on 2025-12-15, with all responses cached and preserved in supplementary data files. The complete assessment output, including all backend responses and confidence scores, is archived in the supplementary materials (validation-results.json). The configuration file specifying enabled backends and thresholds is also provided for full methodological transparency."
 
 **Trade-offs**
 
