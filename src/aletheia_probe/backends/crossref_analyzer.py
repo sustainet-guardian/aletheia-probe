@@ -169,17 +169,19 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
 
     @automatic_fallback([FallbackStrategy.ISSN, FallbackStrategy.EISSN])
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query Crossref API and analyze metadata quality using automatic fallback chain."""
-        self.status_logger.info(
-            f"Crossref: Analyzing metadata for '{query_input.raw_input}'"
-        )
-        self.detail_logger.debug(
-            f"Crossref: Starting API query with identifiers: {query_input.identifiers}"
-        )
-        # Decorator handles all execution logic
-        # This line will never be reached as the decorator intercepts the call
+        """Query Crossref API and analyze metadata quality using automatic fallback chain.
+
+        Strategies executed in order:
+        1. ISSN - primary identifier for Crossref journals
+        2. EISSN - electronic ISSN fallback
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
+        """
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
         raise NotImplementedError(
-            "This should be handled by @automatic_fallback decorator"
+            "This method is handled by @automatic_fallback decorator"
         )
 
     # FallbackStrategyMixin required methods

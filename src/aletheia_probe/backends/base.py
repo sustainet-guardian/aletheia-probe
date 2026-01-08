@@ -22,9 +22,11 @@ from ..cache import AssessmentCache, JournalCache, OpenAlexCache
 from ..confidence_utils import MatchQuality, calculate_base_confidence
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
-from ..fallback_chain import QueryFallbackChain
+from ..fallback_chain import FallbackStrategy, QueryFallbackChain
+from ..fallback_executor import automatic_fallback
 from ..models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from ..utils.dead_code import code_is_used
+from .fallback_mixin import FallbackStrategyMixin
 
 
 # Import DataSyncCapable for explicit protocol implementation
@@ -114,14 +116,14 @@ class Backend(ABC):
             )
 
 
-class CachedBackend(Backend):
+class CachedBackend(Backend, FallbackStrategyMixin):
     """Base class for backends that use local cached data.
 
     Explicitly implements DataSyncCapable protocol to enable automatic data synchronization.
     All CachedBackend subclasses inherit sync capability and will be processed by sync manager.
 
-    Inheritance: Backend + DataSyncCapable (via runtime registration)
-    Query Pattern: Local cache only (ISSN → normalized name → aliases)
+    Inheritance: Backend + FallbackStrategyMixin + DataSyncCapable (via runtime registration)
+    Query Pattern: Local cache only using automatic fallback strategies
     Sync Behavior: Always needs sync (can be overridden by subclasses)
     """
 
@@ -134,80 +136,29 @@ class CachedBackend(Backend):
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
 
+    @automatic_fallback(
+        [
+            FallbackStrategy.ISSN,
+            FallbackStrategy.NORMALIZED_NAME,
+            FallbackStrategy.ALIASES,
+        ]
+    )
     async def query(self, query_input: QueryInput) -> BackendResult:
-        """Query cached data for journal information."""
-        start_time = time.time()
+        """Query cached data using automatic fallback chain execution.
 
-        try:
-            # Search by ISSN first (most reliable)
-            if query_input.identifiers.get("issn"):
-                results = self.journal_cache.search_journals(
-                    issn=query_input.identifiers["issn"],
-                    source_name=self.source_name,
-                    assessment=self.list_type,
-                )
-            else:
-                results = []
+        Strategies executed in order:
+        1. ISSN - most reliable identifier
+        2. NORMALIZED_NAME - exact name matching
+        3. ALIASES - try all available aliases
 
-            # If no ISSN match, try exact normalized name match
-            if not results and query_input.normalized_name:
-                results = self._search_exact_match(query_input.normalized_name)
-
-            # Try aliases for exact matches only
-            if not results:
-                for alias in query_input.aliases:
-                    results = self._search_exact_match(alias)
-                    if results:
-                        break
-
-            response_time = time.time() - start_time
-
-            if results:
-                # Found in cache
-                confidence = self._calculate_confidence(query_input, results[0])
-                assessment = self.list_type  # 'predatory' or 'legitimate'
-
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.FOUND,
-                    confidence=confidence,
-                    assessment=assessment,
-                    data={
-                        "matches": len(results),
-                        "source_data": results[0] if results else None,
-                    },
-                    sources=[self.source_name],
-                    error_message=None,
-                    response_time=response_time,
-                    cached=True,  # CachedBackend results are always from local cache
-                    fallback_chain=QueryFallbackChain([]),
-                )
-            else:
-                # Not found in cache
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.NOT_FOUND,
-                    confidence=0.0,
-                    assessment=None,
-                    data={"searched_in": self.source_name},
-                    sources=[self.source_name],
-                    error_message=None,
-                    response_time=response_time,
-                    cached=True,  # Still searched local cache, just no match
-                    fallback_chain=QueryFallbackChain([]),
-                )
-
-        except (ValueError, OSError, KeyError, AttributeError) as e:
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.ERROR,
-                confidence=0.0,
-                assessment=None,
-                error_message=str(e),
-                response_time=time.time() - start_time,
-                cached=False,  # Error occurred before cache lookup
-                fallback_chain=QueryFallbackChain([]),
-            )
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
+        """
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
+        raise NotImplementedError(
+            "This method is handled by @automatic_fallback decorator"
+        )
 
     def _search_exact_match(self, name: str) -> list[dict[str, Any]]:
         """Search for exact journal name matches using optimized SQL query."""
@@ -240,6 +191,121 @@ class CachedBackend(Backend):
         # If we get here, it means we have a match but it's not exact
         # This shouldn't happen with our new exact matching, so low confidence
         return CONFIDENCE_THRESHOLD_LOW
+
+    # =============================================================================
+    # FallbackStrategyMixin Implementation
+    # =============================================================================
+    # Required methods for @automatic_fallback decorator support
+
+    async def _search_by_issn(self, issn: str) -> dict[str, Any] | None:
+        """Search by ISSN/eISSN identifier - required by FallbackStrategyMixin.
+
+        Args:
+            issn: ISSN or eISSN identifier to search for
+
+        Returns:
+            First matching journal data dict, or None if no match
+        """
+        results = self.journal_cache.search_journals(
+            issn=issn,
+            source_name=self.source_name,
+            assessment=self.list_type,
+        )
+        return results[0] if results else None
+
+    async def _search_by_name(
+        self, name: str, exact: bool = True
+    ) -> dict[str, Any] | None:
+        """Search by journal name - required by FallbackStrategyMixin.
+
+        Args:
+            name: Journal name to search for
+            exact: Whether to use exact matching (cached backends always use exact)
+
+        Returns:
+            First matching journal data dict, or None if no match
+        """
+        # CachedBackend always uses exact matching since data is local
+        # The exact parameter is ignored since fuzzy matching would require
+        # more complex SQL queries not currently supported by journal_cache
+        results = self._search_exact_match(name)
+        return results[0] if results else None
+
+    def _calculate_match_confidence(
+        self, query_input: QueryInput, raw_data: dict[str, Any]
+    ) -> float:
+        """Calculate confidence for automatic_fallback decorator.
+
+        Args:
+            query_input: Original query input
+            raw_data: Raw result data from search
+
+        Returns:
+            Confidence score between 0.0 and 1.0
+        """
+        return self._calculate_confidence(query_input, raw_data)
+
+    def _build_success_result_with_chain(
+        self,
+        raw_data: dict[str, Any],
+        query_input: QueryInput,
+        chain: QueryFallbackChain,
+        response_time: float,
+    ) -> BackendResult:
+        """Build successful result for automatic_fallback decorator.
+
+        Args:
+            raw_data: Raw result data from successful search
+            query_input: Original query input
+            chain: Populated fallback chain with attempts
+            response_time: Total response time
+
+        Returns:
+            BackendResult with FOUND status and populated chain
+        """
+        confidence = self._calculate_match_confidence(query_input, raw_data)
+        assessment = self.list_type
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.FOUND,
+            confidence=confidence,
+            assessment=assessment,
+            data={
+                "source_data": raw_data,
+            },
+            sources=[self.source_name],
+            error_message=None,
+            response_time=response_time,
+            cached=True,
+            fallback_chain=chain,
+        )
+
+    def _build_not_found_result_with_chain(
+        self, query_input: QueryInput, chain: QueryFallbackChain, response_time: float
+    ) -> BackendResult:
+        """Build not found result for automatic_fallback decorator.
+
+        Args:
+            query_input: Original query input
+            chain: Populated fallback chain with attempts
+            response_time: Total response time
+
+        Returns:
+            BackendResult with NOT_FOUND status and populated chain
+        """
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.NOT_FOUND,
+            confidence=0.0,
+            assessment=None,
+            data={"searched_in": self.source_name},
+            sources=[self.source_name],
+            error_message=None,
+            response_time=response_time,
+            cached=True,
+            fallback_chain=chain,
+        )
 
     # =============================================================================
     # DataSyncCapable Protocol Implementation

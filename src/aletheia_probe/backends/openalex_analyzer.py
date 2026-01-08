@@ -59,14 +59,21 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         ]
     )
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query OpenAlex API and analyze patterns using automatic fallback chain."""
-        self.detail_logger.info(
-            f"OpenAlex: Starting query for '{query_input.raw_input}'"
-        )
-        # Decorator handles all execution logic
-        # This line will never be reached as the decorator intercepts the call
+        """Query OpenAlex API and analyze patterns using automatic fallback chain.
+
+        Strategies executed in order:
+        1. NORMALIZED_NAME - primary search by journal name
+        2. ISSN - ISSN identifier lookup
+        3. ALIASES - try alternative journal names
+        4. ACRONYMS - try journal acronyms/abbreviations
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
+        """
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
         raise NotImplementedError(
-            "This should be handled by @automatic_fallback decorator"
+            "This method is handled by @automatic_fallback decorator"
         )
 
     # FallbackStrategyMixin required methods

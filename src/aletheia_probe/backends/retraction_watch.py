@@ -370,7 +370,15 @@ class RetractionWatchBackend(
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query retraction data using automatic fallback chain.
 
+        Strategies executed in order:
+        1. ISSN - ISSN identifier lookup in retraction database
+        2. EXACT_NAME - exact journal name matching
+        3. EXACT_ALIASES - try exact matches with alternative names
+
         Results are automatically cached by the ApiBackendWithCache parent.
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
 
         Args:
             query_input: Normalized query input with journal information
@@ -378,11 +386,10 @@ class RetractionWatchBackend(
         Returns:
             BackendResult with retraction assessment and metadata
         """
-        detail_logger.debug("RetractionWatch._query_api called")
-        # Decorator handles all execution logic
-        # This line will never be reached as the decorator intercepts the call
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
         raise NotImplementedError(
-            "This should be handled by @automatic_fallback decorator"
+            "This method is handled by @automatic_fallback decorator"
         )
 
     # FallbackStrategyMixin required methods
