@@ -7,6 +7,148 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-08
+
+### Added
+
+#### 🚀 Major Features
+
+- **Dead Code Detection & Quality Improvements**: Implemented weekly automated dead code detection with proper exit codes (#996)
+  - GitHub Action integration creates detailed dead code reports every Saturday
+  - Revealed and fixed numerous code quality issues through automated detection
+  - Enhanced @code_is_used decorator system for flexible dead code management
+- **Parallel BibTeX Processing**: Implemented parallel execution for BibTeX files (#792)
+  - 2-4x performance improvement for large BibTeX file processing
+  - ThreadPoolExecutor-based architecture with configurable workers (default: 12)
+  - Smart thresholding with race condition prevention using WAL-mode SQLite
+- **Protocol-Based Architecture Overhaul**: Complete architectural refactoring implementing protocol-based backend design (#859)
+  - Eliminated dual-registry pattern (UpdateSourceRegistry + DataUpdater singletons)
+  - Reduced code complexity significantly (removed ~350 lines of redundant code)
+  - Introduced DataSyncCapable protocol for flexible backend sync capability
+  - Enhanced maintainability and testability with single source of truth: BackendRegistry
+- **Cross-Validation Generalization**: Extended cross-validation support to single-backend scenarios (#944)
+  - Moved cross-validation logic to generic orchestration framework for broader applicability
+  - Improved assessment accuracy across all backend types
+  - Enhanced publisher validation consistency
+- **High-Level Architecture Documentation**: Added comprehensive `ARCHITECTURE_OVERVIEW.md` document (#950)
+  - Documents core system components, data flow patterns, and design decisions
+  - Covers backend categorization and performance characteristics
+  - Provides essential onboarding resource for new developers
+- **Configuration Parameter Enhancement**: Added `--config` parameter support for flexible configuration management
+  - Enhanced command-line interface for better user experience
+  - Improved configuration flexibility and deployment options
+
+#### 🔄 Major Refactorings
+
+- **Custom List Complete Refactoring**: **BREAKING CHANGE** - Replaced 'add-list' with 'custom-list' command group (#978)
+  - Persistent custom list management with database storage
+  - Auto-registration system maintains lists between sessions
+  - New subcommands: `add`, `list`, `remove` for comprehensive management
+  - Fixed critical design flaw where registrations were lost between sessions
+
+### Changed
+
+#### ⚠️ Breaking Changes
+
+- **Algerian Ministry: RAR → ZIP Migration**: **BREAKING CHANGE** - Transitioned from RAR to ZIP archive format (#931)
+  - Improved compatibility and reduced external dependencies
+  - Enhanced reliability of data processing pipeline
+  - RAR archive support completely removed
+- **Backend Architecture Changes**: **BREAKING CHANGE** - Removed UpdateSourceRegistry and DataUpdater classes
+  - New DataSyncCapable protocol implementation required for custom backends
+  - Eliminated singleton patterns and global state
+
+#### 🛠️ Improvements & Optimizations
+
+- **Backend Standardization**: Systematic 4-phase backend pattern standardization
+  - Standardized backend error handling patterns across Phase 2 (#986)
+  - Migrated backends to use confidence_utils Phase 3 (#987)
+  - Standardized backend patterns Phase 4 (#988)
+  - Enhanced error handling consistency across all backends
+- **Performance Optimizations**:
+  - Optimized ClientSession usage in Crossref backend (#891)
+  - Reduced concurrent backends limit from 999 to 15 for enhanced stability
+  - Fixed SQLite database lock conflicts during concurrent sync operations
+  - Enhanced caching strategies and timeout configurations
+- **Automatic Fallback Chain Infrastructure** (#989, #990, #991):
+  - Crossref backend: 60+ lines → 15 lines
+  - OpenAlex backend: 70+ lines → 25 lines
+  - RetractionWatch backend: 45+ lines → 20 lines
+  - Added async/sync method detection and enhanced exception handling
+
+### Fixed
+
+#### 🐛 Bug Fixes & Code Quality
+
+- **Deprecation Warning Resolution**: Fixed Python compatibility deprecation warnings (#763)
+  - Replaced deprecated `datetime.utcnow()` with timezone-aware `datetime.now(UTC)` (#761)
+  - Replaced deprecated SQLite3 datetime adapter with explicit ISO format conversion (#768)
+  - Enhanced future Python version compatibility
+- **Database & Performance Issues**:
+  - Proper closure of SQLite database connections (#758)
+  - Database lock conflict resolution during concurrent operations
+  - Enhanced cache schema with improved retraction statistics handling
+  - Added input validation to KeyValueCache methods
+- **Code Quality Enhancements** (118 refactoring commits):
+  - Eliminated magic strings/numbers with named constants across multiple modules
+  - Replaced magic strings in AlgerianMinistrySource (#966)
+  - Replaced magic numbers with EntryType enums in PDF parser (#961)
+  - Replaced magic numbers with RiskLevel enum in retraction_watch.py (#846)
+  - Enhanced type safety and documentation coverage
+- **Backend Error Handling**:
+  - Removed broad exception handling in multiple sources (#982, #946, #912)
+  - Improved exception specificity across CustomListSource, BeallsListSource, and PredatoryJournalsSource
+  - Standardized error handling patterns and improved logging
+
+#### 🎯 Assessment & Query Logic Improvements
+
+- **Cross-Validation & Publisher Logic**:
+  - Enabled cross-validation for single-backend scenarios (#944)
+  - Moved cross-validation logic to generic orchestration framework (#939)
+  - Improved publisher validation consistency (#938)
+  - Closed journal size classification gap for 50-99 DOI journals (#889)
+- **Data Source Improvements**:
+  - Replaced blocking file I/O with async operations in Algerian downloader (#949)
+  - Improved Kscien UI elements parsing accuracy (#774)
+  - Improved sync logging and skip reasons for backends (#985)
+  - Force config reload after backend registration in add-list command (#972)
+
+### Documentation & Testing
+
+#### 📝 Documentation Improvements (47 commits)
+
+- **Comprehensive Docstring Updates**:
+  - Added Google-style docstrings to example functions (#958)
+  - Added comprehensive docstrings for DOAJ backend complex methods (#867)
+  - Enhanced CLI module (#898), Cross validator module (#929), and Kscien helpers (#930)
+  - Enhanced updater utility functions (#910) and BeallsListSource (#942)
+- **Architecture & Standards**:
+  - Enhanced updater module documentation (#905) and updater/core.py (#914)
+  - Added testing scope standard to CODING_STANDARDS.md (#965)
+  - Documented regex pattern in JournalNameCleaner (#922)
+  - Updated database schema documentation
+
+#### 🧪 Testing Infrastructure Expansion (65 commits)
+
+- **Comprehensive Test Coverage Additions**:
+  - CustomListSource class (#980)
+  - KscienHijackedJournalsSource (#960) and KscienStandaloneJournalsSource (#956)
+  - PDF parser (#953) and ArchiveExtractor (#962)
+  - Crossref assessment logic (#894) and KscienPublishersBackend (#843)
+  - AlgerianMinistryBackend (#839) and PredatoryJournals backend (#831)
+- **Test Quality Improvements**:
+  - Removed tests for private methods to focus on public APIs
+  - Improved test assertion quality with exact value checks
+  - Enhanced test assertion quality across multiple test suites
+
+### Performance Metrics
+
+- **2-4x speedup** for large BibTeX file processing through parallel execution
+- **~350 lines** of redundant code eliminated through architectural improvements
+- **378 total commits** with comprehensive quality improvements since v0.7.0
+- **Enhanced stability** through reduced concurrent backend limits and improved error handling
+- **Significant complexity reduction** in core backend implementations
+
 ## [0.7.0] - 2025-12-11
 
 ### Added

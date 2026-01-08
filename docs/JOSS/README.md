@@ -92,7 +92,7 @@ Once all requirements are met:
 1. Go to https://joss.theoj.org/papers/new
 2. Fill in the submission form:
    - **Repository URL**: https://github.com/sustainet-guardian/aletheia-probe
-   - **Version**: v0.7.0 (or latest release)
+   - **Version**: v0.8.0 (or latest release)
    - **Archive DOI**: Your Zenodo DOI
    - **Editor suggestions**: (optional) Editors with expertise in research software, scientific publishing, or bibliometrics
 3. Submit the form
