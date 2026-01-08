@@ -20,6 +20,7 @@ from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
+from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
 
@@ -61,6 +62,7 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """
         return EvidenceType.LEGITIMATE_LIST
 
+    @code_is_used  # Called by ApiBackendWithCache.query()
     @automatic_fallback(
         [
             FallbackStrategy.ISSN,

@@ -11,6 +11,7 @@ from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
+from ..utils.dead_code import code_is_used
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
@@ -50,6 +51,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """Return evidence type."""
         return EvidenceType.HEURISTIC
 
+    @code_is_used  # Called by ApiBackendWithCache.query()
     @automatic_fallback(
         [
             FallbackStrategy.NORMALIZED_NAME,
@@ -131,6 +133,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             return await self._search_by_name(raw_input, exact=True)
         return None
 
+    @code_is_used  # Called by decorated methods
     async def _search_with_aliases(
         self,
         client: OpenAlexClient,
@@ -284,6 +287,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             fallback_chain=chain,
         )
 
+    @code_is_used  # Called by @automatic_fallback decorator
     def _build_error_result(
         self,
         exception: Exception,
