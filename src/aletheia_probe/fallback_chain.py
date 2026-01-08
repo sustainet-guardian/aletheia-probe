@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .utils.dead_code import code_is_used
+
 
 class FallbackStrategy(Enum):
     """Standard fallback strategies used across backends."""
@@ -91,10 +93,12 @@ class QueryFallbackChain(BaseModel):
                 return attempt.strategy
         return None
 
+    @code_is_used  # Part of public API, used in tests, needed for observability
     def get_attempts(self) -> list[FallbackAttempt]:
         """Return all logged attempts."""
         return self.attempts.copy()
 
+    @code_is_used  # Part of public API, used in tests, needed for logging/debugging
     def get_attempt_summary(self) -> str:
         """Return human-readable summary of attempts.
 
@@ -109,10 +113,12 @@ class QueryFallbackChain(BaseModel):
             parts.append(f"{attempt.strategy.value}({status})")
         return " → ".join(parts) if parts else "no attempts"
 
+    @code_is_used  # Part of public API, used in tests
     def has_attempts(self) -> bool:
         """Check if any attempts were logged."""
         return len(self.attempts) > 0
 
+    @code_is_used  # Part of public API, used in tests
     def was_successful(self) -> bool:
         """Check if any attempt succeeded."""
         return self.get_successful_strategy() is not None
