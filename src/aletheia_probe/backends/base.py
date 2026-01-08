@@ -136,6 +136,7 @@ class CachedBackend(Backend, FallbackStrategyMixin):
         self.journal_cache = JournalCache()
         self.assessment_cache = AssessmentCache()
 
+    @code_is_used  # Decorator replaces method body
     @automatic_fallback(
         [
             FallbackStrategy.ISSN,
@@ -407,6 +408,7 @@ class ApiBackendWithCache(Backend):
 
         return result
 
+    @code_is_used  # Called by _build_error_result
     def _map_exception_to_backend_status(self, exception: Exception) -> BackendStatus:
         """Map exception type to BackendStatus enum.
 
@@ -427,6 +429,7 @@ class ApiBackendWithCache(Backend):
         else:
             return BackendStatus.ERROR
 
+    @code_is_used  # Called by @automatic_fallback decorator
     def _build_error_result(
         self,
         exception: Exception,
@@ -467,6 +470,7 @@ class ApiBackendWithCache(Backend):
         if response.status in (429, 503):
             self._handle_rate_limit(response)
 
+    @code_is_used  # Called by _check_rate_limit_response
     def _handle_rate_limit(self, response: aiohttp.ClientResponse) -> None:
         """Extract retry info and raise RateLimitError.
 

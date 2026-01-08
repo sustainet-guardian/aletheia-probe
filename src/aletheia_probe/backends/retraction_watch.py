@@ -17,6 +17,7 @@ from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
 from ..risk_calculator import calculate_retraction_risk_level
+from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
 from .protocols import DataSyncCapable
@@ -111,6 +112,7 @@ class RetractionWatchBackend(
             # If we can't check, assume we need sync
             return True
 
+    @code_is_used  # Called by decorated methods
     def _search_retraction_data(
         self, query_input: QueryInput, chain: QueryFallbackChain
     ) -> list[dict[str, Any]]:
@@ -330,6 +332,7 @@ class RetractionWatchBackend(
             fallback_chain=chain,
         )
 
+    @code_is_used  # Called by @automatic_fallback decorator
     def _build_error_result(
         self,
         exception: Exception,
@@ -360,6 +363,7 @@ class RetractionWatchBackend(
             fallback_chain=chain or QueryFallbackChain([]),
         )
 
+    @code_is_used  # Called by ApiBackendWithCache.query()
     @automatic_fallback(
         [
             FallbackStrategy.ISSN,

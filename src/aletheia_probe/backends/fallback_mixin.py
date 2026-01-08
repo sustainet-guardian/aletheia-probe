@@ -4,6 +4,7 @@
 from typing import Any
 
 from ..models import QueryInput
+from ..utils.dead_code import code_is_used
 
 
 class FallbackStrategyMixin:
@@ -104,6 +105,7 @@ class FallbackStrategyMixin:
             return await self._search_by_name(query_input.normalized_name, exact=False)
         return None
 
+    @code_is_used  # Called dynamically by FallbackStrategyExecutor
     async def handle_raw_input_strategy(self, query_input: QueryInput) -> Any | None:
         """Default raw input strategy implementation.
 
@@ -134,6 +136,7 @@ class FallbackStrategyMixin:
                 return result
         return None
 
+    @code_is_used  # Called dynamically by FallbackStrategyExecutor
     async def handle_exact_aliases_strategy(
         self, query_input: QueryInput
     ) -> Any | None:
@@ -149,6 +152,7 @@ class FallbackStrategyMixin:
         """
         return await self.handle_aliases_strategy(query_input)
 
+    @code_is_used  # Called dynamically by FallbackStrategyExecutor
     async def handle_acronyms_strategy(self, query_input: QueryInput) -> Any | None:
         """Default acronyms strategy implementation.
 
@@ -163,6 +167,7 @@ class FallbackStrategyMixin:
         """
         return None
 
+    @code_is_used  # Called dynamically by FallbackStrategyExecutor
     async def handle_substring_match_strategy(
         self, query_input: QueryInput
     ) -> Any | None:
@@ -187,6 +192,7 @@ class FallbackStrategyMixin:
                 )
         return None
 
+    @code_is_used  # Called dynamically by FallbackStrategyExecutor
     async def handle_word_similarity_strategy(
         self, query_input: QueryInput
     ) -> Any | None:
@@ -212,6 +218,7 @@ class FallbackStrategyMixin:
         return None
 
     # Abstract methods that backends must implement
+    @code_is_used  # Called by strategy handlers
     async def _search_by_issn(self, issn: str) -> Any | None:
         """Search by ISSN/eISSN - must be implemented by backend.
 
@@ -228,6 +235,7 @@ class FallbackStrategyMixin:
             f"Backend {self.__class__.__name__} must implement _search_by_issn"
         )
 
+    @code_is_used  # Called by strategy handlers
     async def _search_by_name(self, name: str, exact: bool = True) -> Any | None:
         """Search by name - must be implemented by backend.
 
@@ -245,6 +253,7 @@ class FallbackStrategyMixin:
             f"Backend {self.__class__.__name__} must implement _search_by_name"
         )
 
+    @code_is_used  # Called by handle_substring_match_strategy
     async def _search_by_substring(self, name: str) -> Any | None:
         """Search by substring - can be overridden by backend.
 
@@ -258,6 +267,7 @@ class FallbackStrategyMixin:
         """
         return await self._search_by_name(name, exact=False)
 
+    @code_is_used  # Called by handle_word_similarity_strategy
     async def _search_by_similarity(self, name: str) -> Any | None:
         """Search by similarity - can be overridden by backend.
 

@@ -13,6 +13,7 @@ from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
+from ..utils.dead_code import code_is_used
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
@@ -167,6 +168,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             return f"Good license documentation: {license_score}% of articles have license information"
         return None
 
+    @code_is_used  # Called by ApiBackendWithCache.query()
     @automatic_fallback([FallbackStrategy.ISSN, FallbackStrategy.EISSN])
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query Crossref API and analyze metadata quality using automatic fallback chain.
@@ -197,6 +199,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
         return await self._get_journal_by_issn(issn)
 
+    @code_is_used  # Overrides FallbackStrategyMixin method
     async def _search_by_name(self, name: str, exact: bool = True) -> Any | None:
         """Search by journal name - Crossref doesn't support name-based search.
 
@@ -330,6 +333,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             fallback_chain=chain,
         )
 
+    @code_is_used  # Called by @automatic_fallback decorator
     def _build_error_result(
         self,
         exception: Exception,

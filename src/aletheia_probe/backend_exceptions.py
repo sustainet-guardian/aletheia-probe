@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: MIT
 """Standard exceptions for Aletheia Probe backends."""
 
+from aletheia_probe.utils.dead_code import code_is_used
+
 
 class BackendError(Exception):
     """Base class for all backend-related exceptions."""
 
+    @code_is_used  # Called via super().__init__() from subclasses
     def __init__(self, message: str, backend_name: str | None = None) -> None:
         self.backend_name = backend_name
         super().__init__(message)
@@ -13,6 +16,7 @@ class BackendError(Exception):
 class RateLimitError(BackendError):
     """Raised when a backend API rate limit is hit."""
 
+    @code_is_used  # Raised in openalex.py and base.py
     def __init__(
         self,
         message: str = "API rate limit exceeded",

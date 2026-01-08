@@ -8,13 +8,49 @@ This script:
 3. Tracks which functions are actually called
 4. Reports functions that were never executed
 
-Functions can be excluded from dead code detection by decorating them
-with @code_is_used from aletheia_probe.utils.dead_code. This should be
-used for:
+IMPORTANT LIMITATIONS:
+
+This script uses runtime tracing which has inherent limitations:
+
+1. **Inheritance and Polymorphism**:
+   When a base class method is overridden in a subclass, runtime tracing sees
+   only the concrete class that executes the method, NOT the base class.
+
+   Example:
+   - BaseClass.method() is defined but overridden
+   - SubClass.method() is the actual implementation
+   - At runtime, calls go to SubClass.method()
+   - BaseClass.method() appears as DEAD CODE (false positive)
+
+   This affects:
+   - Abstract methods in base classes
+   - Methods overridden in subclasses
+   - Exception __init__ methods called via super().__init__()
+   - Interface/protocol methods
+
+2. **Decorator-Replaced Methods**:
+   Decorators like @automatic_fallback replace method bodies entirely.
+   The original method body is never executed but the method signature
+   must exist for the decorator to work.
+
+3. **Dynamic Invocation**:
+   Functions called via getattr(), exec(), reflection, or generated code
+   are not detected by static tracing.
+
+WHEN TO USE @code_is_used DECORATOR:
+
+Mark functions with @code_is_used from aletheia_probe.utils.dead_code when:
 - Functions called by frameworks (e.g., Pydantic validators)
 - Dynamically called functions (getattr, reflection, etc.)
 - Plugin entry points
 - Python magic methods (__init__, __str__, etc.)
+- Abstract/base class methods that are overridden
+- Methods whose body is replaced by decorators
+- Exception __init__ methods called only via super()
+- Protocol/interface method definitions
+
+The @code_is_used decorator is a no-op with zero runtime overhead. It only
+serves as a marker for this detection script.
 """
 
 import ast
@@ -625,6 +661,16 @@ def main() -> None:
     called_lookup = {(mod, name) for mod, name in tracer.called_functions}
 
     # Find dead code
+    #
+    # NOTE: This comparison has known limitations with inheritance and polymorphism.
+    # When methods are overridden in subclasses, runtime tracing sees only the
+    # concrete class name, not the base class. This causes false positives where
+    # base class methods appear as "dead" even though they're called via subclasses.
+    #
+    # Similarly, decorator-replaced methods (like @automatic_fallback) appear dead
+    # because their original body is never executed.
+    #
+    # Use the @code_is_used decorator to mark such methods and prevent false positives.
     dead_functions = []
     for module, qualified_name, line in discoverer.all_functions:
         if (module, qualified_name) not in called_lookup:
