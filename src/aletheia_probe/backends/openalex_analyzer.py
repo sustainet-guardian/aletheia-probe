@@ -1,18 +1,19 @@
 # SPDX-License-Identifier: MIT
 """OpenAlex backend with pattern analysis for predatory journal detection."""
 
-import time
 from datetime import datetime
 from typing import Any
 
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
 from ..fallback_chain import FallbackStrategy, QueryFallbackChain
+from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import OpenAlexClient
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
+from .fallback_mixin import FallbackStrategyMixin
 
 
 # OpenAlex pattern analysis constants
@@ -21,7 +22,7 @@ GROWTH_RATE_THRESHOLD: float = 0.5
 MIN_PUBLICATION_VOLUME: int = 100
 
 
-class OpenAlexAnalyzerBackend(ApiBackendWithCache):
+class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
     """Backend that analyzes OpenAlex data patterns to assess journal legitimacy."""
 
     def __init__(
@@ -49,65 +50,86 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
         """Return evidence type."""
         return EvidenceType.HEURISTIC
 
+    @automatic_fallback(
+        [
+            FallbackStrategy.NORMALIZED_NAME,
+            FallbackStrategy.ISSN,
+            FallbackStrategy.ALIASES,
+            FallbackStrategy.ACRONYMS,
+        ]
+    )
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query OpenAlex API and analyze patterns."""
-        start_time = time.time()
-        self.detail_logger.info(
-            f"OpenAlex: Starting query for '{query_input.raw_input}'"
+        """Query OpenAlex API and analyze patterns using automatic fallback chain.
+
+        Strategies executed in order:
+        1. NORMALIZED_NAME - primary search by journal name
+        2. ISSN - ISSN identifier lookup
+        3. ALIASES - try alternative journal names
+        4. ACRONYMS - try journal acronyms/abbreviations
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
+        """
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
+        raise NotImplementedError(
+            "This method is handled by @automatic_fallback decorator"
         )
 
-        chain = QueryFallbackChain(
-            [
-                FallbackStrategy.NORMALIZED_NAME,
-                FallbackStrategy.ISSN,
-                FallbackStrategy.ALIASES,
-                FallbackStrategy.ACRONYMS,
-            ]
-        )
+    # FallbackStrategyMixin required methods
+    async def _search_by_issn(self, issn: str) -> dict[str, Any] | None:
+        """Search OpenAlex by ISSN/eISSN identifier.
 
-        try:
-            async with OpenAlexClient(email=self.email) as client:
-                # Get journal data from OpenAlex
-                issn = query_input.identifiers.get("issn")
-                eissn = query_input.identifiers.get("eissn")
-                journal_name = query_input.normalized_name or query_input.raw_input
+        Args:
+            issn: ISSN or eISSN identifier to search for
 
-                openalex_data = await client.enrich_journal_data(
-                    journal_name=journal_name, issn=issn, eissn=eissn
-                )
+        Returns:
+            OpenAlex data if found, None if no match
+        """
+        self.detail_logger.debug(f"OpenAlex: Searching by ISSN {issn}")
+        async with OpenAlexClient(email=self.email) as client:
+            # OpenAlex client requires journal_name, so use empty string for ISSN-only searches
+            return await client.enrich_journal_data(
+                journal_name="", issn=issn, eissn=None
+            )
 
-                chain.log_attempt(
-                    FallbackStrategy.NORMALIZED_NAME,
-                    success=openalex_data is not None,
-                    query_value=journal_name,
-                )
+    async def _search_by_name(
+        self, name: str, exact: bool = True
+    ) -> dict[str, Any] | None:
+        """Search OpenAlex by journal name.
 
-                # If not found with normalized name, try aliases
-                if not openalex_data:
-                    openalex_data = await self._search_with_aliases(
-                        client, query_input, journal_name, issn, eissn, chain
-                    )
+        Args:
+            name: Journal name to search for
+            exact: Whether to use exact matching (not implemented differently in OpenAlex)
 
-                response_time = time.time() - start_time
+        Returns:
+            OpenAlex data if found, None if no match
+        """
+        self.detail_logger.debug(f"OpenAlex: Searching by name '{name}'")
+        async with OpenAlexClient(email=self.email) as client:
+            return await client.enrich_journal_data(
+                journal_name=name, issn=None, eissn=None
+            )
 
-                if not openalex_data:
-                    return self._build_not_found_result(
-                        journal_name,
-                        issn,
-                        eissn,
-                        query_input.aliases,
-                        response_time,
-                        chain,
-                    )
+    async def handle_acronyms_strategy(self, query_input: QueryInput) -> Any | None:
+        """OpenAlex-specific acronyms strategy implementation.
 
-                return self._build_success_result(
-                    openalex_data, query_input, response_time, chain
-                )
+        OpenAlex supports acronym expansion, so we try to search with acronyms.
 
-        except Exception as e:
-            response_time = time.time() - start_time
-            self.detail_logger.error(f"OpenAlex API error: {e}")
-            return self._build_error_result(e, response_time, chain)
+        Args:
+            query_input: Query input with potential acronyms
+
+        Returns:
+            OpenAlex data if found, None if no match
+        """
+        # OpenAlex doesn't have special acronym handling in the client,
+        # but we can try searching with the raw input if it looks like an acronym
+        raw_input = query_input.raw_input
+        if raw_input and len(raw_input) <= 10 and raw_input.isupper():
+            # Looks like an acronym
+            self.detail_logger.debug(f"OpenAlex: Searching for acronym '{raw_input}'")
+            return await self._search_by_name(raw_input, exact=True)
+        return None
 
     async def _search_with_aliases(
         self,
@@ -153,28 +175,26 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
 
         return None
 
-    def _build_not_found_result(
+    def _build_not_found_result_with_chain(
         self,
-        journal_name: str,
-        issn: str | None,
-        eissn: str | None,
-        aliases_tried: list[str] | None,
-        response_time: float,
+        query_input: QueryInput,
         chain: QueryFallbackChain,
+        response_time: float,
     ) -> BackendResult:
         """Build BackendResult for when journal is not found in OpenAlex.
 
         Args:
-            journal_name: Primary journal name searched
-            issn: ISSN identifier
-            eissn: eISSN identifier
-            aliases_tried: List of aliases that were tried
-            response_time: Time taken for the query
+            query_input: Original query input
             chain: Fallback chain used for this query
+            response_time: Time taken for the query
 
         Returns:
             BackendResult with NOT_FOUND status
         """
+        journal_name = query_input.normalized_name or query_input.raw_input
+        issn = query_input.identifiers.get("issn")
+        eissn = query_input.identifiers.get("eissn")
+
         return BackendResult(
             backend_name=self.get_name(),
             status=BackendStatus.NOT_FOUND,
@@ -184,7 +204,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
                 "searched_for": journal_name,
                 "issn": issn,
                 "eissn": eissn,
-                "aliases_tried": aliases_tried,
+                "aliases_tried": query_input.aliases,
             },
             sources=["https://api.openalex.org"],
             error_message=None,
@@ -192,12 +212,12 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             fallback_chain=chain,
         )
 
-    def _build_success_result(
+    def _build_success_result_with_chain(
         self,
         openalex_data: dict[str, Any],
         query_input: QueryInput,
-        response_time: float,
         chain: QueryFallbackChain,
+        response_time: float,
     ) -> BackendResult:
         """Build BackendResult for successful OpenAlex query.
 
@@ -262,6 +282,36 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache):
             error_message=None,
             response_time=response_time,
             fallback_chain=chain,
+        )
+
+    def _build_error_result(
+        self,
+        exception: Exception,
+        response_time: float,
+        chain: QueryFallbackChain | None = None,
+    ) -> BackendResult:
+        """Build error result with populated fallback chain.
+
+        Args:
+            exception: Exception that occurred during query
+            response_time: Query response time
+            chain: Fallback chain with logged attempts
+
+        Returns:
+            Error BackendResult
+        """
+        self.detail_logger.error(f"OpenAlex API error: {exception}")
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.ERROR,
+            confidence=0.0,
+            assessment=None,
+            data={"error_details": str(exception)},
+            sources=["https://api.openalex.org"],
+            error_message=str(exception),
+            response_time=response_time,
+            fallback_chain=chain or QueryFallbackChain([]),
         )
 
     def _store_acronym_from_openalex(

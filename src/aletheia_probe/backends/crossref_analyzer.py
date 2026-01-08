@@ -2,7 +2,6 @@
 """Crossref backend with metadata quality analysis for predatory journal detection."""
 
 import asyncio
-import time
 from typing import Any
 
 import aiohttp
@@ -10,11 +9,13 @@ import aiohttp
 from ..backend_exceptions import BackendError, RateLimitError
 from ..enums import AssessmentType, EvidenceType
 from ..fallback_chain import FallbackStrategy, QueryFallbackChain
+from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..retry_utils import async_retry_with_backoff
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
+from .fallback_mixin import FallbackStrategyMixin
 
 
 # Local thresholds for Crossref metadata analysis
@@ -79,7 +80,7 @@ _YEARS_THRESHOLD_RECENT = 3
 _YEARS_THRESHOLD_EXPLOSION = 2
 
 
-class CrossrefAnalyzerBackend(ApiBackendWithCache):
+class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
     """Backend that analyzes Crossref metadata quality to assess journal legitimacy."""
 
     def __init__(
@@ -166,100 +167,48 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
             return f"Good license documentation: {license_score}% of articles have license information"
         return None
 
+    @automatic_fallback([FallbackStrategy.ISSN, FallbackStrategy.EISSN])
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
-        """Query Crossref API and analyze metadata quality."""
-        start_time = time.time()
-        self.status_logger.info(
-            f"Crossref: Analyzing metadata for '{query_input.raw_input}'"
+        """Query Crossref API and analyze metadata quality using automatic fallback chain.
+
+        Strategies executed in order:
+        1. ISSN - primary identifier for Crossref journals
+        2. EISSN - electronic ISSN fallback
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
+        """
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
+        raise NotImplementedError(
+            "This method is handled by @automatic_fallback decorator"
         )
-        self.detail_logger.debug(
-            f"Crossref: Starting API query with identifiers: {query_input.identifiers}"
-        )
 
-        chain = QueryFallbackChain([FallbackStrategy.ISSN, FallbackStrategy.EISSN])
+    # FallbackStrategyMixin required methods
+    async def _search_by_issn(self, issn: str) -> dict[str, Any] | None:
+        """Search Crossref by ISSN/eISSN identifier.
 
-        try:
-            # Try to find journal by ISSN first
-            journal_data = None
-            issn = query_input.identifiers.get("issn")
-            eissn = query_input.identifiers.get("eissn")
+        Args:
+            issn: ISSN or eISSN identifier to search for
 
-            if issn:
-                self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
-                journal_data = await self._get_journal_by_issn(issn)
-                chain.log_attempt(
-                    FallbackStrategy.ISSN,
-                    success=journal_data is not None,
-                    query_value=issn,
-                )
+        Returns:
+            Journal data if found, None if no match
+        """
+        self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
+        return await self._get_journal_by_issn(issn)
 
-            if not journal_data and eissn:
-                self.detail_logger.debug(f"Crossref: Searching by eISSN {eissn}")
-                journal_data = await self._get_journal_by_issn(eissn)
-                chain.log_attempt(
-                    FallbackStrategy.EISSN,
-                    success=journal_data is not None,
-                    query_value=eissn,
-                )
+    async def _search_by_name(self, name: str, exact: bool = True) -> Any | None:
+        """Search by journal name - Crossref doesn't support name-based search.
 
-            response_time = time.time() - start_time
+        Args:
+            name: Journal name to search for
+            exact: Whether to use exact matching (ignored for Crossref)
 
-            if not journal_data:
-                # Not found in Crossref
-                self.detail_logger.info(
-                    f"Crossref: Journal not found for {query_input.raw_input}"
-                )
-                return BackendResult(
-                    backend_name=self.get_name(),
-                    status=BackendStatus.NOT_FOUND,
-                    confidence=0.0,
-                    assessment=None,
-                    data={
-                        "searched_for": query_input.raw_input,
-                        "issn": issn,
-                        "eissn": eissn,
-                    },
-                    sources=["https://api.crossref.org"],
-                    error_message=None,
-                    response_time=response_time,
-                    fallback_chain=chain,
-                )
-
-            # Analyze metadata quality
-            self.detail_logger.debug(
-                f"Crossref: Analyzing metadata for {journal_data.get('title')}"
-            )
-            analysis = self._analyze_metadata_quality(journal_data)
-            self.detail_logger.info(
-                f"Crossref: Analysis complete. Assessment: {analysis['assessment']}, Confidence: {analysis['confidence']:.2f}"
-            )
-
-            return BackendResult(
-                backend_name=self.get_name(),
-                status=BackendStatus.FOUND,
-                confidence=analysis["confidence"],
-                assessment=analysis["assessment"],
-                data={
-                    "crossref_data": journal_data,
-                    "analysis": analysis,
-                    "metrics": analysis["metrics"],
-                    "red_flags": analysis["red_flags"],
-                    "green_flags": analysis["green_flags"],
-                },
-                sources=[
-                    "https://api.crossref.org",
-                    f"https://api.crossref.org/journals/{issn or eissn}",
-                ],
-                error_message=None,
-                response_time=response_time,
-                fallback_chain=chain,
-            )
-
-        except Exception as e:
-            response_time = time.time() - start_time
-            self.status_logger.error(f"Crossref API error: {e}")
-            self.detail_logger.exception(f"Crossref API error details: {e}")
-            return self._build_error_result(e, response_time, chain)
+        Returns:
+            None (Crossref only supports ISSN-based lookup)
+        """
+        # Crossref API only supports ISSN-based journal lookup, not name search
+        return None
 
     @async_retry_with_backoff(
         max_retries=3,
@@ -289,6 +238,133 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache):
                         f"Crossref API returned status {response.status}. Response: {error_text[:200]}",
                         backend_name=self.get_name(),
                     )
+
+    # Result building methods for automatic fallback framework
+    def _build_success_result_with_chain(
+        self,
+        journal_data: dict[str, Any],
+        query_input: QueryInput,
+        chain: QueryFallbackChain,
+        response_time: float,
+    ) -> BackendResult:
+        """Build success result with populated fallback chain.
+
+        Args:
+            journal_data: Raw journal data from Crossref
+            query_input: Original query input
+            chain: Fallback chain with logged attempts
+            response_time: Query response time
+
+        Returns:
+            Success BackendResult with analysis data
+        """
+        # Analyze metadata quality
+        self.detail_logger.debug(
+            f"Crossref: Analyzing metadata for {journal_data.get('title')}"
+        )
+        analysis = self._analyze_metadata_quality(journal_data)
+        self.detail_logger.info(
+            f"Crossref: Analysis complete. Assessment: {analysis['assessment']}, Confidence: {analysis['confidence']:.2f}"
+        )
+
+        # Determine which ISSN was used for the source URL
+        issn = query_input.identifiers.get("issn")
+        eissn = query_input.identifiers.get("eissn")
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.FOUND,
+            confidence=analysis["confidence"],
+            assessment=analysis["assessment"],
+            data={
+                "crossref_data": journal_data,
+                "analysis": analysis,
+                "metrics": analysis["metrics"],
+                "red_flags": analysis["red_flags"],
+                "green_flags": analysis["green_flags"],
+            },
+            sources=[
+                "https://api.crossref.org",
+                f"https://api.crossref.org/journals/{issn or eissn}",
+            ],
+            error_message=None,
+            response_time=response_time,
+            fallback_chain=chain,
+        )
+
+    def _build_not_found_result_with_chain(
+        self,
+        query_input: QueryInput,
+        chain: QueryFallbackChain,
+        response_time: float,
+    ) -> BackendResult:
+        """Build not found result with populated fallback chain.
+
+        Args:
+            query_input: Original query input
+            chain: Fallback chain with logged attempts
+            response_time: Query response time
+
+        Returns:
+            Not found BackendResult
+        """
+        self.detail_logger.info(
+            f"Crossref: Journal not found for {query_input.raw_input}"
+        )
+        issn = query_input.identifiers.get("issn")
+        eissn = query_input.identifiers.get("eissn")
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=BackendStatus.NOT_FOUND,
+            confidence=0.0,
+            assessment=None,
+            data={
+                "searched_for": query_input.raw_input,
+                "issn": issn,
+                "eissn": eissn,
+            },
+            sources=["https://api.crossref.org"],
+            error_message=None,
+            response_time=response_time,
+            fallback_chain=chain,
+        )
+
+    def _build_error_result(
+        self,
+        exception: Exception,
+        response_time: float,
+        chain: QueryFallbackChain | None = None,
+    ) -> BackendResult:
+        """Build error result with populated fallback chain.
+
+        Args:
+            exception: Exception that occurred during query
+            response_time: Query response time
+            chain: Fallback chain with logged attempts
+
+        Returns:
+            Error BackendResult
+        """
+        self.status_logger.error(f"Crossref API error: {exception}")
+        self.detail_logger.exception(f"Crossref API error details: {exception}")
+
+        if isinstance(exception, RateLimitError):
+            status = BackendStatus.RATE_LIMITED
+        else:
+            status = BackendStatus.ERROR
+
+        return BackendResult(
+            backend_name=self.get_name(),
+            status=status,
+            confidence=0.0,
+            assessment=None,
+            data={"error_details": str(exception)},
+            sources=["https://api.crossref.org"],
+            error_message=str(exception),
+            response_time=response_time,
+            fallback_chain=chain or QueryFallbackChain([]),
+        )
 
     def _extract_common_analysis_vars(
         self, metrics: dict[str, Any], quality_scores: dict[str, float]

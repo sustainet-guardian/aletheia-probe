@@ -72,11 +72,14 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
     async def _query_api(self, query_input: QueryInput) -> BackendResult:
         """Query DOAJ API with automatic fallback chain execution.
 
-        The @automatic_fallback decorator handles:
-        - Creating QueryFallbackChain with strategy sequence
-        - Executing each strategy until one succeeds
-        - Automatic logging of all attempts
-        - Building final BackendResult with populated fallback chain
+        Strategies executed in order:
+        1. ISSN - primary ISSN identifier lookup
+        2. NORMALIZED_NAME - exact journal name matching
+        3. FUZZY_NAME - fuzzy journal name matching
+        4. ALIASES - try alternative journal names
+
+        The @automatic_fallback decorator handles all execution logic and
+        calls the appropriate strategy handler methods automatically.
 
         Args:
             query_input: Normalized query input containing journal information
@@ -84,9 +87,10 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             BackendResult with assessment findings and fallback chain
         """
-        # Decorator handles all execution logic - this function is never called
+        # This method body is replaced by @automatic_fallback decorator
+        # The NotImplementedError is never reached but satisfies mypy type checking
         raise NotImplementedError(
-            "This method is replaced by the @automatic_fallback decorator"
+            "This method is handled by @automatic_fallback decorator"
         )
 
     @async_retry_with_backoff(
