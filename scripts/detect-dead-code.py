@@ -723,6 +723,11 @@ def main() -> None:
     else:
         print("  No functions discovered.")
 
+    # Exit with error code if dead code was found
+    if dead_functions:
+        import sys
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
