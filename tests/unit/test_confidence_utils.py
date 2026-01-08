@@ -5,7 +5,6 @@ from aletheia_probe.confidence_utils import (
     MatchQuality,
     calculate_base_confidence,
     calculate_name_similarity,
-    graduated_confidence,
 )
 
 
@@ -44,27 +43,3 @@ class TestConfidenceUtils:
         """Test empty strings."""
         assert calculate_name_similarity("", "Journal") == 0.0
         assert calculate_name_similarity("Journal", "") == 0.0
-
-    def test_graduated_confidence(self) -> None:
-        """Test graduated confidence calculation."""
-        # Base 0.6, max 0.85, similarity 1.0 -> should be 0.85
-        score = graduated_confidence(0.6, 1.0, 0.0, 0.85)
-        assert score == 0.85
-
-        # Base 0.6, max 0.85, similarity 0.0 -> should be 0.6
-        score = graduated_confidence(0.6, 0.0, 0.0, 0.85)
-        assert score == 0.6
-
-        # Base 0.6, max 0.85, similarity 0.5 -> should be 0.725
-        score = graduated_confidence(0.6, 0.5, 0.0, 0.85)
-        assert score == 0.725
-
-    def test_graduated_confidence_clamping(self) -> None:
-        """Test clamping of confidence values."""
-        # Should not exceed max
-        score = graduated_confidence(0.8, 1.0, 0.0, 0.9)
-        assert score == 0.9
-
-        # Should not go below min
-        score = graduated_confidence(0.5, 0.0, 0.5, 1.0)
-        assert score == 0.5

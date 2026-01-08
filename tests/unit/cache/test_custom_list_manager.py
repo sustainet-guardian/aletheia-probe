@@ -135,49 +135,6 @@ class TestCustomListManager:
         # Now it exists
         assert manager.custom_list_exists("test_list") is True
 
-    def test_update_custom_list_path(self, temp_db, temp_csv_file):
-        """Test updating custom list file path."""
-        manager = CustomListManager(db_path=temp_db)
-
-        # Add list
-        manager.add_custom_list("test_list", temp_csv_file, AssessmentType.PREDATORY)
-
-        # Create new file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("journal_name\nNew Journal")
-            new_csv_path = Path(f.name)
-
-        try:
-            # Update path
-            result = manager.update_custom_list_path("test_list", new_csv_path)
-            assert result is True
-
-            # Verify path was updated
-            custom_lists = manager.get_all_custom_lists()
-            assert len(custom_lists) == 1
-            assert custom_lists[0]["file_path"] == str(new_csv_path.resolve())
-
-        finally:
-            new_csv_path.unlink(missing_ok=True)
-
-    def test_update_custom_list_path_not_found(self, temp_db, temp_csv_file):
-        """Test updating path for non-existent custom list."""
-        manager = CustomListManager(db_path=temp_db)
-
-        result = manager.update_custom_list_path("nonexistent", temp_csv_file)
-        assert result is False
-
-    def test_update_custom_list_path_invalid_file(self, temp_db, temp_csv_file):
-        """Test updating path to non-existent file."""
-        manager = CustomListManager(db_path=temp_db)
-
-        # Add list
-        manager.add_custom_list("test_list", temp_csv_file, AssessmentType.PREDATORY)
-
-        # Try to update to non-existent file
-        with pytest.raises(ValueError, match="File does not exist"):
-            manager.update_custom_list_path("test_list", "/nonexistent/file.csv")
-
 
 class TestAutoRegisterCustomLists:
     """Test cases for auto_register_custom_lists function."""

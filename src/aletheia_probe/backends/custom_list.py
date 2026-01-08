@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..enums import AssessmentType, EvidenceType
+from ..utils.dead_code import code_is_used
 from .base import CachedBackend
 
 
@@ -52,6 +53,7 @@ class CustomListBackend(CachedBackend):
         """
         return self.source_name
 
+    @code_is_used  # Polymorphic method called via Backend interface
     def get_evidence_type(self) -> EvidenceType:
         """Return the type of evidence this backend provides.
 

@@ -79,24 +79,3 @@ def calculate_name_similarity(
         return len(intersection) / len(union)
 
     return 0.0
-
-
-def graduated_confidence(
-    base: float, similarity: float, min_val: float, max_val: float
-) -> float:
-    """Calculate a graduated confidence score.
-
-    Adjusts the base confidence by the similarity score, scaled within
-    the [min_val, max_val] range.
-
-    Args:
-        base: Base confidence score
-        similarity: Similarity score (0.0-1.0)
-        min_val: Minimum possible confidence
-        max_val: Maximum possible confidence
-
-    Returns:
-        Calculated confidence score
-    """
-    score = base + (similarity * (max_val - base))
-    return max(min_val, min(max_val, score))

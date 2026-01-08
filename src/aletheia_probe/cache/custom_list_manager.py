@@ -173,47 +173,6 @@ class CustomListManager(CacheBase):
             )
             return cursor.fetchone() is not None
 
-    def update_custom_list_path(
-        self, list_name: str, new_file_path: str | Path
-    ) -> bool:
-        """Update the file path for an existing custom list.
-
-        Args:
-            list_name: Name of the custom list to update
-            new_file_path: New path to the data file
-
-        Returns:
-            True if updated successfully, False if list doesn't exist
-
-        Raises:
-            ValueError: If new file path doesn't exist
-        """
-        file_path_obj = Path(new_file_path)
-
-        if not file_path_obj.exists():
-            raise ValueError(f"File does not exist: {file_path_obj}")
-
-        absolute_path = str(file_path_obj.resolve())
-
-        with self.get_connection() as conn:
-            cursor = conn.execute(
-                """
-                UPDATE custom_lists
-                SET file_path = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE list_name = ?
-                """,
-                (absolute_path, list_name),
-            )
-
-            if cursor.rowcount > 0:
-                detail_logger.info(
-                    f"Updated file path for custom list '{list_name}' to '{absolute_path}'"
-                )
-                return True
-            else:
-                detail_logger.warning(f"Custom list '{list_name}' not found for update")
-                return False
-
 
 def auto_register_custom_lists() -> None:
     """Auto-register all enabled custom lists in the backend registry.

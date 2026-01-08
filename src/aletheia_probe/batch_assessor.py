@@ -116,8 +116,17 @@ class BibtexBatchAssessor:
                 BibtexBatchAssessor._update_counters(result, entry, assessment)
 
             except (ValueError, KeyError, AttributeError, TypeError) as e:
-                error_assessment = BibtexBatchAssessor._handle_assessment_error(
-                    entry, e, status_logger, detail_logger
+                status_logger.warning(f"    → ERROR: {e}")
+                detail_logger.exception(f"Error assessing {entry.journal_name}: {e}")
+                error_assessment = AssessmentResult(
+                    input_query=entry.journal_name,
+                    assessment=AssessmentType.INSUFFICIENT_DATA,
+                    confidence=0.0,
+                    overall_score=0.0,
+                    backend_results=[],
+                    metadata=None,
+                    reasoning=[f"Error during assessment: {e}"],
+                    processing_time=0.0,
                 )
                 assessment_results.append((entry, error_assessment))
                 result.insufficient_data_count += 1
@@ -305,28 +314,6 @@ class BibtexBatchAssessor:
                 result.journal_suspicious += 1
         else:
             result.insufficient_data_count += 1
-
-    @staticmethod
-    def _handle_assessment_error(
-        entry: BibtexEntry,
-        error: Exception,
-        status_logger: logging.Logger,
-        detail_logger: logging.Logger,
-    ) -> AssessmentResult:
-        """Handle errors during assessment and create an error assessment result."""
-        status_logger.warning(f"    → ERROR: {error}")
-        detail_logger.exception(f"Error assessing {entry.journal_name}: {error}")
-
-        return AssessmentResult(
-            input_query=entry.journal_name,
-            assessment=AssessmentType.INSUFFICIENT_DATA,
-            confidence=0.0,
-            overall_score=0.0,
-            backend_results=[],
-            metadata=None,
-            reasoning=[f"Error during assessment: {error}"],
-            processing_time=0.0,
-        )
 
     @staticmethod
     def _finalize_result(
