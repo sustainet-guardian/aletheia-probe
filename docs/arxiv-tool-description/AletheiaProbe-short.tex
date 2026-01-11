@@ -6,6 +6,8 @@
 %\usepackage{siunitx}
 \usepackage{orcidlink}
 
+\frenchspacing
+
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 \definecolor{codepurple}{rgb}{0.58,0,0.82}
@@ -112,14 +114,23 @@ websites? A literature review with 150 papers requires verifying each
 source journal, which conservatively amounts to 12 hours of tedious
 manual work across multiple websites.
 
-This paper introduces Aletheia-Probe, an automated journal assessment
-tool that combines data from multiple trusted sources with transparent
-confidence scoring. ``Aletheia'' comes from ancient Greek
-philosophy, representing truth and unconcealment --- reflecting the
-tool's mission to reveal the truth about academic journals. By
-reducing assessment overhead from hours to seconds, the tool
-transforms scattered quality indicators into actionable guidance at
-the point of decision.
+This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
+automated journal assessment tool that combines data from multiple
+trusted sources with transparent confidence scoring. ``Aletheia''
+comes from ancient Greek philosophy, representing truth and
+unconcealment --- reflecting the tool's mission to reveal the truth
+about academic journals. By reducing assessment overhead from hours to
+minutes, the tool transforms scattered quality indicators into
+actionable guidance at the point of decision.
+
+\textbf{Setting Realistic Expectations:} If you are an honest
+researcher using established, well-known journals and conferences
+through major search engines and databases, you will likely never
+encounter predatory venues. This tool functions like a virus scanner
+for academic publishing --- you should have it installed and running
+in your everyday work, but hopefully never receive any warnings. It is
+designed to catch edge cases and protect against less obvious threats
+that might slip through normal research workflows.
 
 \section{Problem and Motivation}
 Researchers face journal assessment challenges at multiple points in
@@ -189,23 +200,100 @@ specialized databases for predatory conferences, standalone journals,
 publishers, and hijacked journals~\cite{kscien}. Retraction Watch
 helps identify journals with problematic retraction
 patterns~\cite{retraction_watch}. Optional Scopus coverage enables
-checking against indexed journals.
+checking against indexed journals. Additionally, the Custom List
+Backend allows institutions and users to provide their own curated
+lists in CSV or JSON format, supporting both predatory and legitimate
+classifications to accommodate organization-specific policies and
+regional requirements.
 
-\textbf{Pattern Analysis Backends} analyze journal characteristics without predefined lists. The OpenAlex Analyzer queries over 270,000 journals for publication patterns and citation metrics, detecting warning signs like abnormal publication volumes~\cite{openalex}. The Crossref Analyzer checks metadata quality through publication records, examining ORCID identifiers, funding information, and licensing details~\cite{crossref}. The Cross-Validator compares information across sources to catch inconsistencies indicating potential fraud.
+\textbf{Pattern Analysis Backends} analyze journal characteristics
+without predefined lists. The OpenAlex Analyzer queries over 270,000
+journals for publication patterns and citation metrics, detecting
+warning signs like abnormal publication volumes~\cite{openalex}. The
+Crossref Analyzer checks metadata quality through publication records,
+examining ORCID identifiers, funding information, and licensing
+details~\cite{crossref}. The Cross-Validator compares information
+across sources to catch inconsistencies indicating potential fraud.
 
 \subsection{Assessment Methodology}
+The tool employs a hybrid two-part approach. First, it checks
+high-trust curated databases for clear yes/no answers. Second, it
+analyzes patterns to provide coverage beyond simple
+blacklists. Pattern analysis becomes the primary assessment method for
+journals absent from curated databases and supplies supplemental
+evidence for known journals. Sophisticated data normalization handles
+journal name variations, ISSN formatting differences, and publisher
+name matching across sources. Assessments include confidence scores
+and clear explanations showing which sources contributed to each
+evaluation.
 
-The tool employs a hybrid two-part approach. First, it checks high-trust curated databases for clear yes/no answers. Second, it analyzes patterns to provide coverage beyond simple blacklists. Pattern analysis becomes the primary assessment method for journals absent from curated databases and supplies supplemental evidence for known journals. Sophisticated data normalization handles journal name variations, ISSN formatting differences, and publisher name matching across sources. Assessments include confidence scores and clear explanations showing which sources contributed to each evaluation.
+\subsection{Transparency and Reproducibility}
+A critical design principle of Aletheia-Probe is complete
+transparency. The tool explicitly reports all data sources consulted
+and their individual contributions to the final assessment. Each
+result includes reasoning showing which backends provided evidence,
+their confidence scores, and how they influenced the overall
+classification (see Appendix~\ref{sec:examples} for representative
+output examples). This transparency enables researchers to understand
+and validate the assessment logic rather than accepting opaque "black
+box" results.
+
+Furthermore, as open source software, all assessment algorithms are
+publicly available and auditable. Researchers can examine the exact
+logic used for pattern analysis, confidence scoring, and result
+aggregation. This reproducibility is essential for academic integrity
+--- assessments can be independently verified, and the methodology can
+be peer-reviewed and improved by the research community. The
+combination of transparent output and open source implementation
+ensures that journal assessments are not only automated but also
+scientifically rigorous and verifiable.
+
+Importantly, Aletheia-Probe is a decision support tool, not a decision
+maker. The tool presents assessment data and reasoning, but the final
+judgment always rests with the human researcher. Users must evaluate
+the evidence provided, consider their specific context, and make
+informed decisions based on the tool's output combined with their own
+expertise and institutional guidelines.
+
+\subsection{Coverage Limitations and UNKNOWN Results}
+While the tool aggregates extensive data sources covering over 240
+million publication records, the curated databases have inherently
+limited coverage --- e.g.~DOAJ covers 22,000 journals, Beall's List
+approximately 2,900 entries, and even Scopus only indexes 30,000
+journals from the millions that exist globally. This limited coverage
+means many legitimate regional, institutional, or newly established
+journals are not present in any curated database. Consequently,
+assessments for such journals often return \texttt{INSUFFICIENT\_DATA}
+or \texttt{UNKNOWN} classifications when pattern analysis cannot
+provide conclusive evidence. Researchers should interpret these
+results as "not enough information to make a determination" rather
+than evidence of illegitimacy. For journals receiving \texttt{UNKNOWN}
+assessments, additional manual verification using institutional
+guidelines or domain expert consultation remains necessary.
 
 \section{Research Applications}
 
-Beyond individual researcher support, Aletheia-Probe serves as research infrastructure for empirical studies where journal legitimacy assessment is methodologically required.
+Beyond individual researcher support, Aletheia-Probe serves as
+research infrastructure for empirical studies where journal legitimacy
+assessment is methodologically required.
 
-\textbf{Systematic Literature Reviews} require explicit documentation of search strategies and source quality criteria under PRISMA guidelines. The tool automates source validation that traditionally required manual checking across multiple databases, providing audit trails for reproducibility.
+\textbf{Systematic Literature Reviews} require explicit documentation
+of search strategies and source quality criteria under PRISMA
+guidelines. The tool automates source validation that traditionally
+required manual checking across multiple databases, providing audit
+trails for reproducibility.
 
-\textbf{Bibliometric Analysis} depends on accurate journal classification, as predatory journals in the dataset directly affect study validity. The tool provides confidence-scored assessments based on multiple authoritative sources, enabling researchers to document their quality control methodology transparently.
+\textbf{Bibliometric Analysis} depends on accurate journal
+classification, as predatory journals in the dataset directly affect
+study validity. The tool provides confidence-scored assessments based
+on multiple authoritative sources, enabling researchers to document
+their quality control methodology transparently.
 
-\textbf{Meta-Research Studies} examining predatory publishing trends need systematic journal classification across large datasets. The tool's data aggregation architecture enables quantitative analysis of predatory publishing patterns across disciplines, regions, and time periods.
+\textbf{Meta-Research Studies} examining predatory publishing trends
+need systematic journal classification across large datasets. The
+tool's data aggregation architecture enables quantitative analysis of
+predatory publishing patterns across disciplines, regions, and time
+periods.
 
 \section{Practical Features and Implementation}
 The tool provides multiple interfaces for integration into existing
@@ -223,16 +311,93 @@ The tool is released as open source software under MIT license at
 community contributions and institutional customization.
 
 \section{Conclusion}
-
-Researchers need practical tools to assess journal legitimacy integrated into existing workflows. Aletheia-Probe addresses this by aggregating multiple authoritative data sources into a unified assessment system covering over 240 million publication records. The hybrid methodology combines curated databases with pattern analysis, achieving transparent confidence-scored evaluations. By transforming scattered quality indicators into actionable guidance at the point of decision, the tool demonstrates that the primary barrier to practical predatory journal detection has been engineering infrastructure rather than algorithmic novelty. The modular architecture invites community contributions to expand coverage and adapt functionality to institutional needs.
+Researchers need practical tools to assess journal legitimacy
+integrated into existing workflows. Aletheia-Probe addresses this by
+aggregating multiple authoritative data sources into a unified
+assessment system covering over 240 million publication records. The
+hybrid methodology combines curated databases with pattern analysis,
+achieving transparent evaluations. By transforming scattered quality
+indicators into actionable guidance at the point of decision, the tool
+demonstrates that the primary barrier to practical predatory journal
+detection has been engineering infrastructure rather than algorithmic
+novelty. The modular architecture invites community contributions to
+expand coverage and adapt functionality to institutional needs.
 
 \section{Acknowledgements}
+This work was funded by the Federal Ministry of Research, Technology
+and Space (BMFTR) in Germany under grant number 16KIS2251 of the
+SUSTAINET-guardian project.
 
-This work was funded by the Federal Ministry of Research, Technology and Space (BMFTR) in Germany under grant number 16KIS2251 of the SUSTAINET-guardian project. We gratefully acknowledge the organizations maintaining data sources: DOAJ, Beall's List maintainers, OpenAlex, Crossref, Retraction Watch, Scopus, and the Algerian Ministry of Higher Education.
+We gratefully acknowledge the organizations maintaining data sources:
+DOAJ, Beall's List maintainers, OpenAlex, Crossref, Retraction Watch,
+Scopus, and the Algerian Ministry of Higher Education.
 
 \section{Remarks}
+The author declares no conflicts of interest. Data source sizes
+reflect the state of aggregated databases as of January 2026. All data
+sources are publicly available as referenced. The tool's source code,
+documentation, and examples are openly available, enabling
+reproducibility.
 
-The author declares no conflicts of interest. Data source sizes reflect the state of aggregated databases as of January 2026. All data sources are publicly available as referenced. The tool's source code, documentation, and examples are openly available, enabling reproducibility.
+\appendix
+
+\section{Example Output}
+\label{sec:examples}
+This appendix provides representative examples of tool output for
+different journal assessment scenarios.
+
+\subsection{Well-Known Legitimate Journal}
+The following example demonstrates assessment of a well-established
+journal indexed in major databases:
+
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+$ aletheia-probe journal "Nature"
+Journal: Nature
+Assessment: LEGITIMATE
+Confidence: 0.86
+Overall Score: 0.76
+Processing Time: 1.38s
+
+Reasoning:
+  * Classified as legitimate based on 4 source(s)
+  * 155 retraction(s): 0.035% rate (within normal range
+    for 446,231 publications)
+  * doaj: legitimate (confidence: 0.70)
+  * openalex_analyzer: legitimate (confidence: 0.64)
+  * scopus: legitimate (confidence: 0.95)
+  * Confidence boosted by agreement across multiple backends
+
+Recommendation:
+  ACCEPTABLE - Strong evidence of legitimacy, appears trustworthy
+\end{lstlisting}
+
+This example illustrates how multiple independent sources (DOAJ,
+OpenAlex, Scopus) provide converging evidence, resulting in high
+confidence despite a notable number of retractions (which remains
+within expected rates for high-volume journals).
+
+\subsection{Predatory Journal with High Confidence}
+
+The following example shows the output of a journal that
+is listed in two curated list as predatory.
+
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+$ aletheia-probe journal "2425 Publishers"
+Journal: 2425 Publishers
+Assessment: PREDATORY
+Confidence: 1.00
+Overall Score: 0.95
+Processing Time: 0.79s
+
+Reasoning:
+  * Classified as predatory based on 2 predatory list(s)
+  * bealls: predatory (confidence: 0.95)
+  * predatoryjournals: predatory (confidence: 0.95)
+  * Confidence boosted by agreement across multiple backends
+
+Recommendation:
+  AVOID - Strong evidence of predatory characteristics detected
+\end{lstlisting}
 
 \onecolumn
 \phantomsection
