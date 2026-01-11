@@ -273,21 +273,33 @@ the evidence provided, consider their specific context, and make
 informed decisions based on the tool's output combined with their own
 expertise and institutional guidelines.
 
-\subsection{Coverage Limitations and UNKNOWN Results}
-While the tool aggregates extensive data sources covering over 240
-million publication records, the curated databases have inherently
-limited coverage --- e.g.~DOAJ covers 22,000 journals, Beall's List
-approximately 2,900 entries, and even Scopus only indexes 30,000
-journals from the millions that exist globally. This limited coverage
-means many legitimate regional, institutional, or newly established
-journals are not present in any curated database. Consequently,
-assessments for such journals often return \texttt{INSUFFICIENT\_DATA}
-or \texttt{UNKNOWN} classifications when pattern analysis cannot
-provide conclusive evidence. Researchers should interpret these
-results as "not enough information to make a determination" rather
-than evidence of illegitimacy. For journals receiving \texttt{UNKNOWN}
-assessments, additional manual verification using institutional
-guidelines or domain expert consultation remains necessary.
+\subsection{Explicit UNKNOWN Results: Transparency Over Guessing}
+
+A critical design feature of Aletheia-Probe is its explicit handling
+of insufficient data. When the tool cannot make a reliable
+determination, it returns an \texttt{UNKNOWN} or
+\texttt{INSUFFICIENT\_DATA} classification rather than providing a
+low-confidence guess. This intentional refusal to speculate is a
+feature, not a limitation.
+
+The global journal landscape contains millions of publications. Even
+with extensive data aggregation covering over 240 million publication
+records, curated databases have inherently limited coverage ---
+e.g.~DOAJ indexes 22,000 journals, Beall's List approximately 2,900
+entries, and Scopus only 30,000 journals. Many legitimate regional,
+institutional, or newly established journals are not present in any
+curated database and may lack sufficient publication history for
+pattern analysis.
+
+Rather than extrapolating from insufficient evidence, the tool
+explicitly reports \texttt{UNKNOWN}. This transparency is more
+valuable than providing unreliable assessments masked by low
+confidence scores. An \texttt{UNKNOWN} result prompts researchers to
+apply manual verification, consult institutional guidelines, or seek
+domain expert assessment --- which is precisely the appropriate
+response when automated methods cannot make reliable determinations.
+The tool's explicit acknowledgment of uncertainty represents honest
+transparency rather than algorithmic failure.
 
 \section{Research Applications}
 
