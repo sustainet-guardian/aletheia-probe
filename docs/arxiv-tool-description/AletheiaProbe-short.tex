@@ -73,17 +73,18 @@
 
 \Abstract{Researchers lack practical tools to efficiently assess
   journal legitimacy while conducting literature reviews and selecting
-  publication venues. We present Aletheia-Probe, an automated
-  assessment tool that aggregates data from multiple authoritative
-  sources including DOAJ, Beall's List, OpenAlex, Crossref, and
-  others. The tool combines curated databases with pattern analysis to
-  provide confidence-scored assessments covering over 240 million
-  publication records. It offers command-line and programmatic
-  interfaces for integration into research workflows, including batch
-  processing of BibTeX files. By reducing assessment overhead from
-  hours of manual checking to seconds of automated queries, this open
-  source tool bridges the gap between available knowledge about
-  journal quality and practical researcher needs.}
+  publication venues. This paper introduces Aletheia-Probe, an
+  automated assessment tool that aggregates data from multiple
+  authoritative sources including DOAJ, Beall's List, OpenAlex,
+  Crossref, and others. The tool combines curated databases with
+  pattern analysis to provide confidence-scored assessments covering
+  over 240 million publication records. It offers command-line and
+  programmatic interfaces for integration into research workflows,
+  including batch processing of BibTeX files. We present the tool's
+  architecture, design philosophy, and integration approach. This
+  initial presentation establishes the system design and demonstrates
+  practical applicability; comprehensive empirical validation across
+  large journal datasets will be presented in forthcoming work.}
 
 \begin{document}
 
@@ -131,6 +132,16 @@ for academic publishing --- you should have it installed and running
 in your everyday work, but hopefully never receive any warnings. It is
 designed to catch edge cases and protect against less obvious threats
 that might slip through normal research workflows.
+
+\textbf{Scope of This Paper:} This work presents the architecture,
+design principles, and practical implementation of Aletheia-Probe. We
+describe the data aggregation approach, assessment methodology, and
+integration capabilities that enable researchers to incorporate journal
+quality checking into their workflows. The paper demonstrates the
+tool's practical applicability through representative examples.
+Comprehensive empirical validation, including systematic coverage
+analysis across large journal datasets and comparative evaluation
+against existing approaches, will be presented in forthcoming work.
 
 \section{Problem and Motivation}
 Researchers face journal assessment challenges at multiple points in
@@ -311,17 +322,25 @@ The tool is released as open source software under MIT license at
 community contributions and institutional customization.
 
 \section{Conclusion}
-Researchers need practical tools to assess journal legitimacy
-integrated into existing workflows. Aletheia-Probe addresses this by
-aggregating multiple authoritative data sources into a unified
-assessment system covering over 240 million publication records. The
+This paper introduces Aletheia-Probe, a practical tool for assessing
+journal legitimacy integrated into research workflows. The system
+aggregates multiple authoritative data sources into a unified
+assessment framework covering over 240 million publication records. The
 hybrid methodology combines curated databases with pattern analysis,
-achieving transparent evaluations. By transforming scattered quality
-indicators into actionable guidance at the point of decision, the tool
+achieving transparent evaluations through complete disclosure of
+sources and reasoning. By transforming scattered quality indicators
+into actionable guidance at the point of decision, the tool
 demonstrates that the primary barrier to practical predatory journal
 detection has been engineering infrastructure rather than algorithmic
-novelty. The modular architecture invites community contributions to
-expand coverage and adapt functionality to institutional needs.
+novelty.
+
+This initial presentation establishes the tool's architecture, design
+philosophy, and practical integration approach. The modular design
+invites community contributions to expand coverage and adapt
+functionality to institutional needs. Future work will present
+comprehensive empirical validation, including systematic coverage
+analysis across large journal datasets, comparative evaluation against
+existing approaches, and longitudinal studies of assessment accuracy.
 
 \section{Acknowledgements}
 This work was funded by the Federal Ministry of Research, Technology
