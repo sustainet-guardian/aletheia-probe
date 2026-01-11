@@ -77,14 +77,15 @@
   automated assessment tool that aggregates data from multiple
   authoritative sources including DOAJ, Beall's List, OpenAlex,
   Crossref, and others. The tool combines curated databases with
-  pattern analysis to provide confidence-scored assessments covering
-  over 240 million publication records. It offers command-line and
-  programmatic interfaces for integration into research workflows,
-  including batch processing of BibTeX files. We present the tool's
-  architecture, design philosophy, and integration approach. This
-  initial presentation establishes the system design and demonstrates
-  practical applicability; comprehensive empirical validation across
-  large journal datasets will be presented in forthcoming work.}
+  pattern analysis to provide assessments with confidence indicators
+  covering over 240 million publication records. It offers
+  command-line and programmatic interfaces for integration into
+  research workflows, including batch processing of BibTeX files. We
+  present the tool's architecture, design philosophy, and integration
+  approach. This initial presentation establishes the system design
+  and demonstrates practical applicability; comprehensive empirical
+  validation across large journal datasets will be presented in
+  forthcoming work.}
 
 \begin{document}
 
@@ -117,7 +118,7 @@ manual work across multiple websites.
 
 This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
 automated journal assessment tool that combines data from multiple
-trusted sources with transparent confidence scoring. ``Aletheia''
+trusted sources with transparent confidence indicators. ``Aletheia''
 comes from ancient Greek philosophy, representing truth and
 unconcealment --- reflecting the tool's mission to reveal the truth
 about academic journals. By reducing assessment overhead from hours to
@@ -172,13 +173,13 @@ experts to standardize the definition of ``predatory
 journal''~\cite{grudniewicz2019predatory}. While machine learning
 approaches like AJPC have been explored~\cite{chen2023ajpc}, no
 existing tool systematically aggregates authoritative curated sources
-with transparent confidence scoring.
+with transparent confidence indicators.
 
 \section{System Design and Features}
 Aletheia-Probe follows a modular, data-aggregation approach built on
 three core principles: it acts as a data aggregator rather than a data
 creator, uses multiple independent sources for reliability, and
-provides transparent confidence scores.
+provides transparent confidence indicators.
 
 \subsection{Architecture Overview}
 The system comprises five main components. The data synchronization
@@ -186,10 +187,11 @@ layer downloads information from multiple data-sets during initial
 setup, organizing data for fast searching. The backend abstraction
 layer provides a common interface to query all sources, whether local
 databases or web APIs. The assessment dispatcher sends queries to all
-relevant backends simultaneously, improving speed. The scoring engine
-weights responses based on source quality and combines them into a
-final assessment with confidence scores. Finally, command-line and
-library interfaces provide two usage modes.
+relevant backends simultaneously, improving speed. The aggregation
+component combines responses from multiple sources into a unified
+assessment, reporting a confidence indicator alongside the
+classification. Finally, command-line and library interfaces provide
+two usage modes.
 
 \subsection{Data Sources}
 
@@ -234,25 +236,30 @@ blacklists. Pattern analysis becomes the primary assessment method for
 journals absent from curated databases and supplies supplemental
 evidence for known journals. Sophisticated data normalization handles
 journal name variations, ISSN formatting differences, and publisher
-name matching across sources. Assessments include confidence scores
-and clear explanations showing which sources contributed to each
-evaluation.
+name matching across sources.
+
+Each assessment reports a confidence indicator as a transparency
+mechanism. Confidence reflects the strength and consistency of
+available evidence: higher when multiple independent sources agree on
+the same classification, lower when evidence is sparse, sources
+conflict, or only pattern analysis is available. This indicator helps
+researchers understand the certainty of each assessment and make
+informed decisions about whether additional verification is warranted.
 
 \subsection{Transparency and Reproducibility}
 A critical design principle of Aletheia-Probe is complete
 transparency. The tool explicitly reports all data sources consulted
 and their individual contributions to the final assessment. Each
-result includes reasoning showing which backends provided evidence,
-their confidence scores, and how they influenced the overall
-classification (see Appendix~\ref{sec:examples} for representative
-output examples). This transparency enables researchers to understand
-and validate the assessment logic rather than accepting opaque "black
-box" results.
+result includes detailed reasoning showing which backends provided
+evidence and the overall confidence indicator (see
+Appendix~\ref{sec:examples} for representative output examples). This
+transparency enables researchers to understand and validate the
+assessment logic rather than accepting opaque "black box" results.
 
 Furthermore, as open source software, all assessment algorithms are
 publicly available and auditable. Researchers can examine the exact
-logic used for pattern analysis, confidence scoring, and result
-aggregation. This reproducibility is essential for academic integrity
+logic used for pattern analysis, result aggregation, and confidence
+indication. This reproducibility is essential for academic integrity
 --- assessments can be independently verified, and the methodology can
 be peer-reviewed and improved by the research community. The
 combination of transparent output and open source implementation
@@ -296,9 +303,10 @@ trails for reproducibility.
 
 \textbf{Bibliometric Analysis} depends on accurate journal
 classification, as predatory journals in the dataset directly affect
-study validity. The tool provides confidence-scored assessments based
-on multiple authoritative sources, enabling researchers to document
-their quality control methodology transparently.
+study validity. The tool provides assessments with confidence
+indicators based on multiple authoritative sources, enabling
+researchers to document their quality control methodology
+transparently.
 
 \textbf{Meta-Research Studies} examining predatory publishing trends
 need systematic journal classification across large datasets. The
