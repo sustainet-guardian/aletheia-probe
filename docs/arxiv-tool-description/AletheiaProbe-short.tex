@@ -145,23 +145,43 @@ analysis across large journal datasets and comparative evaluation
 against existing approaches, will be presented in forthcoming work.
 
 \section{Problem and Motivation}
-Researchers face journal assessment challenges at multiple points in
-their work. When selecting publication venues, they must distinguish
-legitimate journals from predatory ones. During literature reviews,
-they must verify source quality for systematic reviews, where PRISMA
-guidelines~\cite{page2021prisma} require explicit documentation of
-source quality criteria. When conducting bibliometric analysis,
-dataset composition directly affects study
-validity~\cite{mongeon2016journal}.
 
-The challenge is compounded by several factors. First, the number of
-journals has grown substantially with open access publishing. Second,
-predatory journals continuously evolve their tactics to avoid
-detection, making simple blacklists insufficient. Third, effective
-assessment requires checking multiple independent sources, as no
-single database covers everything. Finally, researchers need quick
-answers --- decisions about publication venues cannot wait days for
-manual checking.
+\textbf{Concrete Researcher Scenarios.} Consider a systematic review
+author conducting a meta-analysis who must verify 300 journals for
+PRISMA compliance~\cite{page2021prisma}. PRISMA requires explicit
+documentation of source quality criteria. DOAJ alone doesn't cover
+many regional journals, so the researcher must manually check each
+journal against multiple databases --- DOAJ for open access journals,
+Scopus for indexed venues, Beall's List archives for known predatory
+publishers, ministry lists for regional warnings. Cross-referencing
+300 journals across 5--10 sources, accounting for name variations and
+ISSN formats, conservatively requires 12 hours of tedious, error-prone
+manual work.
+
+Or consider an early-career researcher seeking to publish in an
+open-access journal. They receive invitations from dozens of venues
+with professional-looking websites, impressive editorial boards, and
+promises of fast peer review. Without institutional guidance, how do
+they distinguish legitimate journals from predatory ones? Manually
+checking each venue against multiple databases is time-consuming, and
+missing a predatory journal can damage career prospects.
+
+Similarly, research integrity officers investigating suspicious
+citations must verify journal legitimacy across institutional
+publications. Librarians managing budgets need to assess whether
+open-access journals merit institutional support. In all these
+scenarios, researchers need quick, reliable assessments but face
+scattered information across incompatible sources.
+
+\textbf{Compounding Factors.} The challenge intensifies due to several
+factors. First, journal proliferation has accelerated with open access
+publishing, creating a larger landscape to evaluate. Second, predatory
+journals continuously evolve tactics to mimic legitimate publications,
+making simple blacklists insufficient. Third, effective assessment
+requires checking multiple independent sources, as no single database
+provides comprehensive coverage. Finally, researchers need answers in
+seconds, not hours --- publication venue decisions cannot wait for
+days of manual verification.
 
 Previous work has extensively studied predatory publishing. Bohannon's
 sting operation submitted flawed papers to 304 open-access journals
