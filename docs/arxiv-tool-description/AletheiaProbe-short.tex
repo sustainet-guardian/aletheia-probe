@@ -175,13 +175,16 @@ scattered information across incompatible sources.
 
 \textbf{Compounding Factors.} The challenge intensifies due to several
 factors. First, journal proliferation has accelerated with open access
-publishing, creating a larger landscape to evaluate. Second, predatory
-journals continuously evolve tactics to mimic legitimate publications,
-making simple blacklists insufficient. Third, effective assessment
-requires checking multiple independent sources, as no single database
-provides comprehensive coverage. Finally, researchers need answers in
-seconds, not hours --- publication venue decisions cannot wait for
-days of manual verification.
+publishing, creating a larger landscape to evaluate. Second, while
+predatory journals do evolve tactics to mimic legitimate publications,
+no automated tool can detect all novel approaches --- curated lists
+are retrospective, and heuristic checks catch obvious anomalies but
+not sophisticated mimicry. Assessment tools form one layer of defense
+alongside institutional guidelines and domain expertise. Third,
+effective assessment requires checking multiple independent sources,
+as no single database provides comprehensive coverage. Finally,
+researchers need answers in seconds, not hours --- publication venue
+decisions cannot wait for days of manual verification.
 
 Previous work has extensively studied predatory publishing. Bohannon's
 sting operation submitted flawed papers to 304 open-access journals
@@ -279,6 +282,19 @@ patterns). Pattern analysis provides evidence-based suggestions, not
 definitive judgments, and assessments carry lower confidence than
 curated database matches. Pattern checks also supplement curated
 database findings by providing additional context.
+
+\textbf{Multi-Layered Defense Model.} The tool functions as one layer
+in a comprehensive defense against predatory publishing. Curated
+databases handle known predatory publishers identified through
+retrospective analysis. Heuristic checks catch obvious quality
+anomalies like publication mills or incomplete metadata. However, novel
+predatory tactics that successfully mimic legitimate journal practices
+will not be detected until they appear in curated databases or trigger
+heuristic thresholds. For edge cases and sophisticated mimicry,
+researchers must apply institutional guidelines, domain expertise, and
+editorial board verification. The tool reduces manual verification
+burden for routine cases while explicitly flagging uncertain
+situations where human judgment remains essential.
 
 \textbf{Aggregation as the Core Contribution.} The primary engineering
 challenge lies in combining heterogeneous data sources. Each source
