@@ -199,10 +199,48 @@ existing tool systematically aggregates authoritative curated sources
 with transparent confidence indicators.
 
 \section{System Design and Features}
-Aletheia-Probe follows a modular, data-aggregation approach built on
-three core principles: it acts as a data aggregator rather than a data
-creator, uses multiple independent sources for reliability, and
-provides transparent confidence indicators.
+
+\subsection{Core Design Principles}
+
+Aletheia-Probe's architecture follows three fundamental principles that
+shape all design decisions and distinguish it from other approaches:
+
+\textbf{1. Aggregator, Not Creator.} The tool does not create its own
+journal quality data or judgments. Instead, it systematically
+aggregates information from existing authoritative sources maintained
+by domain experts and established organizations (DOAJ, Beall's List,
+Scopus, ministry lists, etc.). This principle acknowledges that journal
+quality assessment requires domain expertise distributed across the
+scholarly community. The tool's value lies in making scattered
+authoritative information accessible and queryable, not in substituting
+its own algorithmic judgments for expert human curation.
+
+\textbf{2. Multiple Independent Sources.} The tool queries multiple
+data sources for each assessment and reports all findings. No single
+database provides comprehensive coverage or perfect accuracy. DOAJ
+covers legitimate open access journals but not subscription venues.
+Beall's List captures historically identified predatory publishers but
+is no longer updated. Scopus indexes established journals but has
+limited regional coverage. By consulting multiple independent sources,
+the tool provides more complete information than any single database
+and enables researchers to see when sources agree or conflict.
+
+\textbf{3. Transparent Reasoning.} Every assessment explicitly reports
+which sources were consulted, what each source found, and how that
+evidence contributed to the overall classification. This transparency
+is not a limitation but a core feature. Rather than providing opaque
+``trust this score'' outputs, the tool shows its work, enabling
+researchers to understand the basis for each assessment and make
+informed decisions. When data is insufficient, the tool says so
+explicitly (returning \texttt{UNKNOWN}) rather than manufacturing
+low-confidence guesses. This honest reporting of uncertainty respects
+researchers' need to understand the reliability of information they act
+upon.
+
+These principles prioritize transparency, expert curation, and
+comprehensive information over algorithmic sophistication. The
+following subsections describe how these principles manifest in system
+architecture and functionality.
 
 \subsection{Architecture Overview}
 The system comprises five main components. The data synchronization
