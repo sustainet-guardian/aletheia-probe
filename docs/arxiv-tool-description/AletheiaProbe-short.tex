@@ -234,9 +234,24 @@ high-trust curated databases for clear yes/no answers. Second, it
 analyzes patterns to provide coverage beyond simple
 blacklists. Pattern analysis becomes the primary assessment method for
 journals absent from curated databases and supplies supplemental
-evidence for known journals. Sophisticated data normalization handles
-journal name variations, ISSN formatting differences, and publisher
-name matching across sources.
+evidence for known journals.
+
+\textbf{Aggregation as the Core Contribution.} The primary engineering
+challenge lies in combining heterogeneous data sources. Each source
+uses different naming conventions: DOAJ may list ``Journal of Computer
+Science'' while Crossref records ``J. Comput. Sci.'' and OpenAlex
+indexes the same journal under multiple name variants. ISSN formats
+differ (``1234-5678'' vs ``12345678''), and publisher names vary
+(``Springer'' vs ``Springer Nature'' vs ``Springer-Verlag''). Sources
+update at different frequencies --- DOAJ quarterly, Beall's List
+historically frozen, OpenAlex weekly --- creating temporal consistency
+challenges. Different sources have different reliability profiles, and
+they sometimes disagree on the same journal. Handling these
+inconsistencies through robust normalization, fuzzy matching, and
+conflict resolution is the real engineering contribution. The value
+lies not in algorithmic sophistication but in systematically
+aggregating scattered authoritative information into a unified,
+queryable system.
 
 Each assessment reports a confidence indicator as a transparency
 mechanism. Confidence reflects the strength and consistency of
