@@ -379,6 +379,22 @@ combination of transparent output and open source implementation
 ensures that journal assessments are not only automated but also
 scientifically rigorous and verifiable.
 
+\textbf{Temporal Dimension of Reproducibility.} While the tool's code
+logic is fully reproducible, assessment results depend on the state of
+underlying data sources at query time. A researcher assessing journal
+``X'' today may receive a different classification in six months if
+DOAJ updates their index, a ministry list adds new entries, or the
+journal accumulates sufficient publication history to trigger pattern
+analysis thresholds. This temporal variability is not a weakness but
+reflects an important reality: journal legitimacy can genuinely change
+over time. A journal may gain legitimacy through improved editorial
+practices and DOAJ inclusion, or lose legitimacy if identified as
+predatory. The tool's behavior is reproducible (same data state yields
+same results), but data sources evolve to reflect the changing
+scholarly publishing landscape. For research documentation, users
+should record assessment timestamps and note that conclusions reflect
+data state at the time of evaluation.
+
 Importantly, Aletheia-Probe is a decision support tool, not a decision
 maker. The tool presents assessment data and reasoning, but the final
 judgment always rests with the human researcher. Users must evaluate
