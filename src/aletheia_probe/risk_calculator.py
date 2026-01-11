@@ -42,6 +42,53 @@ class RetractionThresholds:
 # Instance for use throughout the application
 RETRACTION_THRESHOLDS = RetractionThresholds()
 
+# Risk level thresholds ordered from highest to lowest severity
+_RATE_THRESHOLDS: list[tuple[RiskLevel, float, float]] = [
+    (
+        RiskLevel.CRITICAL,
+        RETRACTION_THRESHOLDS.rate_critical,
+        RETRACTION_THRESHOLDS.recent_rate_critical,
+    ),
+    (
+        RiskLevel.HIGH,
+        RETRACTION_THRESHOLDS.rate_high,
+        RETRACTION_THRESHOLDS.recent_rate_high,
+    ),
+    (
+        RiskLevel.MODERATE,
+        RETRACTION_THRESHOLDS.rate_moderate,
+        RETRACTION_THRESHOLDS.recent_rate_moderate,
+    ),
+    (
+        RiskLevel.LOW,
+        RETRACTION_THRESHOLDS.rate_low,
+        RETRACTION_THRESHOLDS.recent_rate_low,
+    ),
+]
+
+_COUNT_THRESHOLDS: list[tuple[RiskLevel, int, int]] = [
+    (
+        RiskLevel.CRITICAL,
+        RETRACTION_THRESHOLDS.count_critical,
+        RETRACTION_THRESHOLDS.recent_count_critical,
+    ),
+    (
+        RiskLevel.HIGH,
+        RETRACTION_THRESHOLDS.count_high,
+        RETRACTION_THRESHOLDS.recent_count_high,
+    ),
+    (
+        RiskLevel.MODERATE,
+        RETRACTION_THRESHOLDS.count_moderate,
+        RETRACTION_THRESHOLDS.recent_count_moderate,
+    ),
+    (
+        RiskLevel.LOW,
+        RETRACTION_THRESHOLDS.count_low,
+        RETRACTION_THRESHOLDS.recent_count_low,
+    ),
+]
+
 
 def calculate_retraction_risk_level(
     total_retractions: int,
@@ -49,8 +96,7 @@ def calculate_retraction_risk_level(
     total_publications: int | None = None,
     recent_publications: int | None = None,
 ) -> RiskLevel:
-    """
-    Calculate retraction risk level and classification.
+    """Calculate retraction risk level and classification.
 
     Uses rate-based thresholds when publication data is available,
     falls back to absolute count thresholds otherwise.
@@ -76,62 +122,26 @@ def calculate_retraction_risk_level(
         >>> calculate_retraction_risk_level(50, 20, 5000, 1000)
         <RiskLevel.HIGH: 'high'>
     """
-    # No retractions
     if total_retractions == 0:
         return RiskLevel.NONE
 
     # Rate-based thresholds when publication data is available
     if total_publications and total_publications > 0:
-        overall_rate = (total_retractions / total_publications) * 100  # Percentage
-
-        # Calculate recent rate
+        overall_rate = (total_retractions / total_publications) * 100
         recent_rate = 0.0
         if recent_publications and recent_publications > 0:
             recent_rate = (recent_retractions / recent_publications) * 100
 
-        # Use either overall OR recent rate to flag issues
-        # Thresholds are percentage values
-        if (
-            overall_rate >= RETRACTION_THRESHOLDS.rate_critical
-            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_critical
-        ):
-            return RiskLevel.CRITICAL  # Very high rate (25x+ normal)
-        elif (
-            overall_rate >= RETRACTION_THRESHOLDS.rate_high
-            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_high
-        ):
-            return RiskLevel.HIGH  # High rate (10x normal)
-        elif (
-            overall_rate >= RETRACTION_THRESHOLDS.rate_moderate
-            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_moderate
-        ):
-            return RiskLevel.MODERATE  # Moderate rate (5x normal)
-        elif (
-            overall_rate >= RETRACTION_THRESHOLDS.rate_low
-            or recent_rate >= RETRACTION_THRESHOLDS.recent_rate_low
-        ):
-            return RiskLevel.LOW  # Elevated rate (2-3x normal)
-        else:
-            return RiskLevel.NOTE  # Within normal range but some retractions exist
+        for level, rate_threshold, recent_threshold in _RATE_THRESHOLDS:
+            if overall_rate >= rate_threshold or recent_rate >= recent_threshold:
+                return level
+        return RiskLevel.NOTE
 
     # Fallback to absolute counts if no publication data
-    # Based on analysis of retraction data patterns
-    if (
-        total_retractions >= RETRACTION_THRESHOLDS.count_critical
-        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_critical
-    ):
-        return RiskLevel.CRITICAL
-    elif (
-        total_retractions >= RETRACTION_THRESHOLDS.count_high
-        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_high
-    ):
-        return RiskLevel.HIGH
-    elif (
-        total_retractions >= RETRACTION_THRESHOLDS.count_moderate
-        or recent_retractions >= RETRACTION_THRESHOLDS.recent_count_moderate
-    ):
-        return RiskLevel.MODERATE
-    elif total_retractions >= RETRACTION_THRESHOLDS.count_low:
-        return RiskLevel.LOW
-    else:
-        return RiskLevel.NOTE
+    for level, count_threshold, recent_threshold in _COUNT_THRESHOLDS:
+        if (
+            total_retractions >= count_threshold
+            or recent_retractions >= recent_threshold
+        ):
+            return level
+    return RiskLevel.NOTE
