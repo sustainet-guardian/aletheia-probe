@@ -218,12 +218,12 @@ two usage modes.
 The tool integrates multiple data sources organized into two
 categories:
 
-\textbf{Curated Database Backends} provide reliable assessments for
-journals they cover. The Directory of Open Access Journals (DOAJ)
-maintains a curated list of over 22,000 legitimate open access
-journals~\cite{doaj}. Beall's List, while no longer actively
-maintained, provides historical archives of approximately 2,900
-predatory publishers and
+\textbf{Curated Database Backends} provide authoritative yes/no
+determinations for journals they cover through expert human curation.
+The Directory of Open Access Journals (DOAJ) maintains a curated list
+of over 22,000 legitimate open access journals~\cite{doaj}. Beall's
+List, while no longer actively maintained, provides historical
+archives of approximately 2,900 predatory publishers and
 journals~\cite{bealls_list}. PredatoryJournals.org maintains
 community-curated lists updated
 monthly~\cite{predatoryjournals}. Regional authorities like the
@@ -239,22 +239,46 @@ lists in CSV or JSON format, supporting both predatory and legitimate
 classifications to accommodate organization-specific policies and
 regional requirements.
 
-\textbf{Pattern Analysis Backends} analyze journal characteristics
-without predefined lists. The OpenAlex Analyzer queries over 270,000
-journals for publication patterns and citation metrics, detecting
-warning signs like abnormal publication volumes~\cite{openalex}. The
-Crossref Analyzer checks metadata quality through publication records,
-examining ORCID identifiers, funding information, and licensing
-details~\cite{crossref}. The Cross-Validator compares information
-across sources to catch inconsistencies indicating potential fraud.
+\textbf{Heuristic Pattern Analysis Backends} complement curated
+databases by checking data quality indicators and metadata consistency
+for journals not present in curated lists. These are not machine
+learning models or predictive algorithms, but rather systematic checks
+of observable patterns that suggest quality or concerns. The OpenAlex
+Analyzer queries over 270,000 journals to examine publication volume
+(e.g., $>$1000 papers/year suggests publication mill behavior), citation
+ratios (e.g., $<$0.5 citations/paper indicates low impact), author
+diversity, and growth patterns~\cite{openalex}. The Crossref Analyzer
+checks metadata completeness and quality: presence of abstracts,
+reference lists, author ORCID identifiers, funding information, and
+licensing details~\cite{crossref}. Missing or incomplete metadata
+suggests poor editorial standards. The Cross-Validator compares
+information across sources to detect inconsistencies in publisher
+names or journal metadata that may indicate fraudulent
+activity. Pattern analysis provides supplemental evidence but carries
+lower confidence than curated database matches.
 
 \subsection{Assessment Methodology}
-The tool employs a hybrid two-part approach. First, it checks
-high-trust curated databases for clear yes/no answers. Second, it
-analyzes patterns to provide coverage beyond simple
-blacklists. Pattern analysis becomes the primary assessment method for
-journals absent from curated databases and supplies supplemental
-evidence for known journals.
+
+The tool employs a hybrid two-part approach with clearly differentiated
+roles:
+
+\textbf{Primary: Curated Database Lookups.} When a journal appears in
+authoritative curated databases (DOAJ, Beall's List, Scopus, ministry
+lists), the tool reports that determination with high confidence. These
+databases represent expert human judgment and provide the most
+reliable assessments. A match in DOAJ indicates legitimacy; a match in
+Beall's List indicates a predatory publisher.
+
+\textbf{Secondary: Heuristic Pattern Checks.} For journals absent from
+curated databases, the tool examines observable patterns through
+OpenAlex and Crossref: publication volumes, citation ratios, metadata
+completeness, publisher consistency. These heuristic checks identify
+potential warning signs (e.g., publication mills, missing metadata)
+or positive indicators (e.g., complete metadata, healthy citation
+patterns). Pattern analysis provides evidence-based suggestions, not
+definitive judgments, and assessments carry lower confidence than
+curated database matches. Pattern checks also supplement curated
+database findings by providing additional context.
 
 \textbf{Aggregation as the Core Contribution.} The primary engineering
 challenge lies in combining heterogeneous data sources. Each source
