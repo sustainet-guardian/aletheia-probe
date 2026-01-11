@@ -517,15 +517,45 @@ burden for routine assessments while explicitly identifying cases where
 human expertise is needed.
 
 \section{Practical Features and Implementation}
-The tool provides multiple interfaces for integration into existing
-research workflows. Command-line queries enable assessment of
-individual journals or conferences. Batch processing of BibTeX files
-automatically checks entire bibliographies, with the current
-implementation reducing assessment overhead. The tool supports
-flexible output formats (human-readable text and JSON) for integration
-with other tools. Configurable YAML-based settings enable
-customization of backend selection and assessment thresholds. Data
-caching in SQLite improves performance for repeated queries.
+
+The tool's design directly supports diverse researcher workflows
+through targeted features:
+
+\textbf{Quick Verification Checks.} Researchers encountering an
+unfamiliar journal invitation or citation can quickly verify legitimacy
+through command-line queries. The \ilcode{aletheia-probe journal
+"Journal Name"} command returns human-readable assessments in seconds,
+showing all consulted sources and their findings. This serves
+early-career researchers evaluating publication invitations, reviewers
+checking citation quality, or research integrity officers investigating
+specific journals.
+
+\textbf{Systematic Literature Reviews.} Batch processing of BibTeX
+files enables efficient verification of entire bibliographies. The
+\ilcode{aletheia-probe bibtex references.bib} command processes
+hundreds of journals concurrently, automating what would otherwise
+require hours of manual cross-referencing across multiple databases.
+This directly supports PRISMA-compliant systematic reviews requiring
+explicit source quality documentation.
+
+\textbf{Integration with Research Infrastructure.} JSON output format
+(\ilcode{--format json}) enables integration into institutional
+workflows, bibliography management systems, and research data
+pipelines. Institutions can incorporate journal assessment into
+existing submission workflows, research information systems, or
+automated compliance checking tools.
+
+\textbf{Institutional Customization.} YAML-based configuration allows
+institutions to customize backend selection, assessment thresholds, and
+add custom journal lists reflecting institutional policies. Research
+libraries can configure the tool to match local acquisition criteria,
+while regional institutions can supplement with local language journal
+databases.
+
+\textbf{Performance Optimization.} SQLite caching stores previous
+assessments and data source queries, improving performance for repeated
+queries. This benefits research groups working on related projects or
+institutions processing multiple systematic reviews concurrently.
 
 The tool is released as open source software under MIT license at
 \url{https://github.com/sustainet-guardian/aletheia-probe}, enabling
