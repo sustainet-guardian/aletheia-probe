@@ -276,40 +276,8 @@ class OutputFormatter:
 
         lines = ["\nRecommendation:"]
 
-        if assessment == AssessmentType.PREDATORY:
-            if confidence >= 0.8:
-                lines.append(
-                    "  🚫 AVOID - Strong evidence of predatory characteristics detected"
-                )
-            elif confidence >= 0.6:
-                lines.append(
-                    "  ⚠️  AVOID - Multiple predatory indicators present, proceed with caution"
-                )
-            else:
-                lines.append(
-                    "  ⚠️  USE CAUTION - Some predatory indicators detected, investigate further"
-                )
-        elif assessment == AssessmentType.LEGITIMATE:
-            if confidence >= 0.8:
-                lines.append(
-                    "  ✓ ACCEPTABLE - Strong evidence of legitimacy, appears trustworthy"
-                )
-            elif confidence >= 0.6:
-                lines.append(
-                    "  ✓ ACCEPTABLE - Generally legitimate, minor concerns if any"
-                )
-            else:
-                lines.append(
-                    "  ℹ️  INVESTIGATE - Appears legitimate but confidence is moderate"
-                )
-        elif assessment == AssessmentType.SUSPICIOUS:
-            lines.append(
-                "  ⚠️  INVESTIGATE - Mixed signals detected, requires careful evaluation"
-            )
-        else:  # insufficient_data or unknown
-            lines.append(
-                "  ℹ️  INSUFFICIENT DATA - Unable to make definitive assessment, research required"
-            )
+        recommendation = self._get_recommendation_text(assessment, confidence)
+        lines.append(recommendation)
 
         # Add specific guidance based on conflicting signals
         conflicting = self._check_conflicting_signals(result)
@@ -319,6 +287,40 @@ class OutputFormatter:
             )
 
         return "\n".join(lines)
+
+    def _get_recommendation_text(
+        self, assessment: AssessmentType, confidence: float
+    ) -> str:
+        """Get recommendation text based on assessment type and confidence level.
+
+        Args:
+            assessment: Assessment type
+            confidence: Confidence score
+
+        Returns:
+            Recommendation text string
+        """
+        match assessment:
+            case AssessmentType.PREDATORY:
+                if confidence >= 0.8:
+                    return "  🚫 AVOID - Strong evidence of predatory characteristics detected"
+                elif confidence >= 0.6:
+                    return "  ⚠️  AVOID - Multiple predatory indicators present, proceed with caution"
+                else:
+                    return "  ⚠️  USE CAUTION - Some predatory indicators detected, investigate further"
+            case AssessmentType.LEGITIMATE:
+                if confidence >= 0.8:
+                    return "  ✓ ACCEPTABLE - Strong evidence of legitimacy, appears trustworthy"
+                elif confidence >= 0.6:
+                    return (
+                        "  ✓ ACCEPTABLE - Generally legitimate, minor concerns if any"
+                    )
+                else:
+                    return "  ℹ️  INVESTIGATE - Appears legitimate but confidence is moderate"
+            case AssessmentType.SUSPICIOUS:
+                return "  ⚠️  INVESTIGATE - Mixed signals detected, requires careful evaluation"
+            case _:
+                return "  ℹ️  INSUFFICIENT DATA - Unable to make definitive assessment, research required"
 
     def _check_conflicting_signals(self, result: AssessmentResult) -> str | None:
         """Check if there are conflicting signals from different backends.

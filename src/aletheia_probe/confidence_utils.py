@@ -25,20 +25,21 @@ def calculate_base_confidence(match_quality: MatchQuality) -> float:
     Returns:
         Base confidence score (0.0-1.0)
     """
-    if match_quality == MatchQuality.EXACT_ISSN:
-        return 1.0
-    elif match_quality == MatchQuality.EXACT_NAME:
-        return 0.95
-    elif match_quality == MatchQuality.EXACT_ALIAS:
-        return 0.90
-    elif match_quality == MatchQuality.SUBSTRING_MATCH:
-        return 0.70
-    elif match_quality == MatchQuality.WORD_SIMILARITY:
-        return 0.60
-    elif match_quality == MatchQuality.FUZZY_MATCH:
-        return 0.50
-    else:
-        return 0.0
+    match match_quality:
+        case MatchQuality.EXACT_ISSN:
+            return 1.0
+        case MatchQuality.EXACT_NAME:
+            return 0.95
+        case MatchQuality.EXACT_ALIAS:
+            return 0.90
+        case MatchQuality.SUBSTRING_MATCH:
+            return 0.70
+        case MatchQuality.WORD_SIMILARITY:
+            return 0.60
+        case MatchQuality.FUZZY_MATCH:
+            return 0.50
+        case _:
+            return 0.0
 
 
 def calculate_name_similarity(
