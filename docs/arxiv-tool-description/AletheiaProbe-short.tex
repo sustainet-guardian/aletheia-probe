@@ -529,12 +529,16 @@ The author declares no conflicts of interest.
 
 \section{Example Output}
 \label{sec:examples}
-This appendix provides representative examples of tool output for
-different journal assessment scenarios.
 
-\subsection{Well-Known Legitimate Journal}
-The following example demonstrates assessment of a well-established
-journal indexed in major databases:
+These examples demonstrate the tool's core transparency principle:
+every assessment explicitly reports all data sources consulted and
+their individual contributions. The examples illustrate how the tool
+presents complete evidence to researchers rather than providing opaque
+scores.
+
+\subsection{Straightforward Case: Well-Known Journal}
+When curated databases agree, the tool reports high-confidence
+assessments with clear source attribution:
 
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
 $ aletheia-probe journal "Nature"
@@ -557,15 +561,14 @@ Recommendation:
   ACCEPTABLE - Strong evidence of legitimacy, appears trustworthy
 \end{lstlisting}
 
-This example illustrates how multiple independent sources (DOAJ,
-OpenAlex, Scopus) provide converging evidence, resulting in high
-confidence despite a notable number of retractions (which remains
-within expected rates for high-volume journals).
+This straightforward case shows multiple independent sources (DOAJ,
+OpenAlex, Scopus) providing converging evidence. The tool explicitly
+lists all consulted sources and their individual assessments.
 
-\subsection{Predatory Journal with High Confidence}
+\subsection{Straightforward Case: Known Predatory Publisher}
 
-The following example shows the output of a journal that
-is listed in two curated list as predatory.
+Similarly, when curated predatory lists agree, the tool reports clear
+assessments with source attribution:
 
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
 $ aletheia-probe journal "2425 Publishers"
@@ -584,6 +587,49 @@ Reasoning:
 Recommendation:
   AVOID - Strong evidence of predatory characteristics detected
 \end{lstlisting}
+
+Both straightforward examples demonstrate source transparency: every
+assessment explicitly shows which databases were consulted and what
+they found.
+
+\subsection{Challenging Case: Conflicting Source Assessments}
+
+The tool's transparency is most valuable when sources disagree. This
+example demonstrates how the tool explicitly reports conflicting
+evidence rather than hiding disagreement behind an opaque score:
+
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+$ aletheia-probe journal "Asian Journal of Chemistry"
+Journal: Asian Journal of Chemistry
+Assessment: PREDATORY
+Confidence: 0.57
+Overall Score: 0.57
+Processing Time: 1.42s
+
+Reasoning:
+  * Classified as predatory based on 3 predatory list(s)
+  * 1 retraction(s): 0.009% rate (within normal range
+    for 11,116 publications)
+  * algerian_ministry: predatory (confidence: 0.95)
+  * bealls: predatory (confidence: 0.95)
+  * openalex_analyzer: legitimate (confidence: 0.55)
+  * predatoryjournals: predatory (confidence: 0.95)
+  * scopus: legitimate (confidence: 0.95)
+  * NOTE: Sources disagree (3 predatory, 3 legitimate) - review
+    carefully
+
+Recommendation:
+  USE CAUTION - Some predatory indicators detected, investigate
+  further
+\end{lstlisting}
+
+This example demonstrates the tool's core value: it explicitly reports
+the conflict (``Sources disagree''), shows all contributing evidence,
+and provides moderate confidence (0.57) reflecting genuine uncertainty.
+Rather than forcing a high-confidence classification, the tool
+transparently presents the contradictory evidence and flags the case
+for manual review. This honest handling of ambiguity enables informed
+human judgment.
 
 \onecolumn
 \phantomsection
