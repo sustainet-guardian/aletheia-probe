@@ -456,33 +456,23 @@ documentation of source quality criteria, so they must verify each
 journal's legitimacy before including papers in the analysis.
 
 \textbf{Traditional Manual Workflow:} The researcher would manually
-check each journal against multiple databases: (1) Search DOAJ website
-for open access legitimacy; (2) Check Beall's List archives via
-Internet Archive; (3) Search Scopus title lists (if institutional
-access available); (4) Check ministry warning lists; (5) Manually
-verify publisher legitimacy. For 150 unique journals, accounting for
-name variations and cross-referencing across 5--10 sources,
-many hours of tedious work. Inconsistent naming (``J.~
-Comput.~Sci.'' vs ``Journal of Computer Science'') requires
-careful manual matching. Results must be documented for PRISMA
-compliance, typically in spreadsheets maintained manually.
+check each journal against multiple databases (DOAJ, Beall's List,
+Scopus, ministry lists), accounting for naming variations and
+cross-referencing across sources. For 150 unique journals, this process
+requires many hours of tedious, error-prone manual work.
 
 \textbf{With Aletheia-Probe:} The researcher exports their bibliography
 to BibTeX format and runs:
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
 aletheia-probe bibtex references.bib --format json > results.json
 \end{lstlisting}
-The tool queries all configured backends concurrently, returning
-results in typically under 10 minutes for 300 journals. Output
-includes classifications, confidence indicators, and complete source
-attribution. The researcher can post-process the results using
-standard tools like texttt{jq} or import results into the review
-management software, filters by confidence levels, and focuses manual
-verification effort on \texttt{UNKNOWN} or low-confidence cases.  This
-decreases the needed time for an evaluation dramatically --- but of
-course depending on the coverage of the used journals, the researcher
-still needs to process the results of the tool and possibly manually
-evaluate \texttt{UNKNOWN} assessments.
+The tool queries backends concurrently, typically returning results in
+under 10 minutes for 300 journals. Rather than eliminating human
+judgment, this dramatically reduces manual burden for routine cases
+while explicitly flagging cases needing expert verification. The
+researcher can post-process results using standard tools or import into
+review management software, filtering by confidence levels and focusing
+manual verification effort on \texttt{UNKNOWN} or low-confidence cases.
 
 This workflow transformation demonstrates the tool's practical value:
 it doesn't eliminate human judgment but dramatically reduces the manual
