@@ -5,6 +5,8 @@
 \usepackage{xcolor}
 %\usepackage{siunitx}
 \usepackage{orcidlink}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
 
 \frenchspacing
 
@@ -187,10 +189,91 @@ like AJPC have been explored~\cite{chen2023ajpc}. However, no existing
 tool systematically aggregates authoritative curated sources with
 transparent confidence indicators.
 
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={
+    rectangle,
+    draw=black,
+    thick,
+    minimum width=3cm,
+    minimum height=0.6cm,
+    text centered,
+    font=\small
+  },
+  cache/.style={
+    rectangle,
+    draw=gray,
+    dashed,
+    minimum width=2.5cm,
+    minimum height=0.6cm,
+    text centered,
+    font=\scriptsize
+  },
+  arrow/.style={
+    ->,
+    thick,
+    >=stealth
+  }
+]
+
+  % User Input
+  \node[box] (input) at (0,9) {User Input};
+  
+  % Input Normalization
+  \node[box] (normalize) at (0,7.5) {Input Normalization};
+  \node[cache] (cache) at (3.5,7.5) {Acronym Cache};
+  
+  % Query Orchestration
+  \node[box] (orchestrate) at (0,6) {Query Orchestration};
+  
+  % Parallel backends
+  \node[box] (curated) at (-4.5,4) {\begin{minipage}{2.5cm}Curated List Backends: DOAJ, Beall, Kscien, Scopus, \ldots\end{minipage}};
+  
+  \node[box] (api) at (0,4) {\begin{minipage}{2.5cm}API Analyzer Backends: OpenAlex, CrossRef\end{minipage}};
+  
+  \node[box] (pattern) at (4.5,4) {\begin{minipage}{2.5cm}Pattern Heuristics:\\ Crossref,\\ Retraction Watch\end{minipage}};
+  
+  % Cross-Validation
+  \node[box] (validate) at (0,2) {Cross-Validation};
+  
+  % Evidence Aggregation
+  \node[box] (aggregate) at (0,0.5) {Evidence Aggregation\& Confidence Scoring};
+  
+  % Output Formatting
+  \node[box] (format) at (0,-1) {Output Formatting};
+  
+  % User Output
+  \node[box] (output) at (0,-2.5) {User Output};
+  
+  % Arrows - Main flow
+  \draw[arrow] (input) -- (normalize);
+  \draw[arrow] (cache) -- (cache -| normalize.east);
+  \draw[arrow] (normalize) -- (orchestrate);
+  
+  % Branching
+  \draw[arrow] (orchestrate) -- (curated);
+  \draw[arrow] (orchestrate) -- (api);
+  \draw[arrow] (orchestrate) -- (pattern);
+  
+  % Converging
+  \draw[arrow] (curated) -- (validate);
+  \draw[arrow] (api) -- (validate);
+  \draw[arrow] (pattern) -- (validate);
+  
+  % Main flow continuation
+  \draw[arrow] (validate) -- (aggregate);
+  \draw[arrow] (aggregate) -- (format);
+  \draw[arrow] (format) -- (output);
+
+\end{tikzpicture}
+\caption{Aletheia Probe Data Flow Architecture: Multi-stage pipeline for journal legitimacy assessment combining curated lists, API analyzers, and pattern heuristics.}
+\label{fig:dataflow-architecture}
+\end{figure*}
+
 \section{System Design and Features}
 
 \subsection{Core Design Principles}
-
 Aletheia-Probe's architecture follows three fundamental principles that
 shape all design decisions and distinguish it from other approaches:
 
