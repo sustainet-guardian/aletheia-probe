@@ -75,8 +75,8 @@
 
 \Abstract{Assessing journal legitimacy during literature reviews,
   publication venue selection, and citation verification requires
-  consulting authoritative information scattered across multiple
-  incompatible databases. This paper introduces Aletheia-Probe, an
+  consulting information scattered across multiple
+  incompatible data-sets. This paper introduces Aletheia-Probe, an
   open-source tool that systematically aggregates curated databases and
   pattern analysis from multiple authoritative sources to provide
   transparent, confidence-scored journal assessments. The tool explicitly
@@ -88,7 +88,7 @@
   approach. Comprehensive empirical validation will be presented in
   forthcoming work.
 
-  aletheia-probe is open-source: \url{https://github.com/sustainet-guardian/aletheia-probe}
+  Aletheia-Probe is open-source: \url{https://github.com/sustainet-guardian/aletheia-probe}
 }
 
 \begin{document}
@@ -122,10 +122,10 @@ manual work across multiple websites.
 
 This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
 automated journal assessment tool that combines data from multiple
-trusted sources with transparent confidence indicators. ``Aletheia''
-comes from ancient Greek philosophy, representing truth and
-unconcealment --- reflecting the tool's mission to reveal the truth
-about academic journals. The tool transforms scattered quality
+trusted sources with transparent confidence indicators. The word
+``Aletheia'' comes from ancient Greek philosophy, representing truth
+and unconcealment --- reflecting the tool's mission to reveal the
+truth about academic journals. The tool transforms scattered quality
 indicators into actionable guidance at the point of decision.
 
 The tool is designed for integration into everyday research workflows,
@@ -238,7 +238,7 @@ transparent confidence indicators.
   \node[box] (validate) at (0,2) {Cross-Validation};
   
   % Evidence Aggregation
-  \node[box] (aggregate) at (0,0.5) {Evidence Aggregation\& Confidence Scoring};
+  \node[box] (aggregate) at (0,0.5) {Evidence Aggregation \& Confidence Scoring};
   
   % Output Formatting
   \node[box] (format) at (0,-1) {Output Formatting};
@@ -313,7 +313,8 @@ following subsections describe how these principles manifest in system
 architecture and functionality.
 
 \subsection{Architecture Overview}
-The system comprises five main components. The data synchronization
+The system comprises five main components
+(Figure~\ref{fig:dataflow-architecture}). The data synchronization
 layer downloads information from multiple data-sets during initial
 setup, organizing data for fast searching. The backend abstraction
 layer provides a common interface to query all sources, whether local
