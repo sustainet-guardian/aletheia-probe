@@ -390,85 +390,65 @@ researchers understand the certainty of each assessment and make
 informed decisions about whether additional verification is warranted.
 
 \subsection{Transparency and Reproducibility}
-A critical design principle of Aletheia-Probe is complete
-transparency. The tool explicitly reports all data sources consulted
-and their individual contributions to the final assessment. Each
-result includes detailed reasoning showing which backends provided
-evidence and the overall confidence indicator (see
-Appendix~\ref{sec:examples} for representative output examples). This
-transparency enables researchers to understand and validate the
-assessment logic rather than accepting opaque "black box" results.
 
-Furthermore, as open source software, all assessment algorithms are
-publicly available and auditable. Researchers can examine the exact
-logic used for pattern analysis, result aggregation, and confidence
-indication. This reproducibility is essential for academic integrity
---- assessments can be independently verified, and the methodology can
-be peer-reviewed and improved by the research community. The
-combination of transparent output and open source implementation
-ensures that journal assessments are not only automated but also
-scientifically rigorous and verifiable.
+Transparency manifests in four complementary ways throughout the tool's
+design and operation.
 
-\textbf{Temporal Dimension of Reproducibility.} While the tool's code
-logic is fully reproducible, assessment results depend on the state of
-underlying data sources at query time. A researcher assessing journal
-``X'' today may receive a different classification in six months if
-DOAJ updates their index, a ministry list adds new entries, or the
-journal accumulates sufficient publication history to trigger pattern
-analysis thresholds. This temporal variability is not a weakness but
-reflects an important reality: journal legitimacy can genuinely change
-over time. A journal may gain legitimacy through improved editorial
-practices and DOAJ inclusion, or lose legitimacy if identified as
-predatory. The tool's behavior is reproducible (same data state yields
-same results), but data sources evolve to reflect the changing
-scholarly publishing landscape. For research documentation, users
-should record assessment timestamps and note that conclusions reflect
-data state at the time of evaluation.
+\subsubsection{Transparent Reasoning and Source Attribution}
 
-\textbf{Evidence-Based Decision Support.} Aletheia-Probe provides
-comprehensive evidence and transparent reasoning that researchers use
-to make informed decisions according to their institutional policies
-and risk tolerance. Rather than issuing binary directives to ``accept''
-or ``reject'' journals, the tool presents all available evidence---what
-each source found, how confident each assessment is, where sources
-agree or conflict---enabling researchers to understand the basis for
-classification. This approach respects the reality that appropriate
-decisions depend on context: a journal flagged with moderate confidence
-might be acceptable for one institution's bibliography but warrant
-additional scrutiny for another's publication venue selection.
-Researchers should evaluate the presented evidence alongside their
-domain expertise, institutional guidelines, and specific use case
-requirements. This evidence-based approach makes assessments more
-trustworthy precisely because researchers understand what they're
-acting upon rather than blindly following opaque recommendations.
+The tool explicitly reports all data sources consulted and their
+individual contributions to each assessment. Every result includes
+detailed reasoning showing which backends provided evidence, their
+confidence indicators, and where sources agree or conflict (see
+Appendix~\ref{sec:examples}). Rather than providing opaque ``trust
+this score'' outputs, the tool presents all available evidence---what
+each source found, how confident each assessment is---enabling
+researchers to understand the basis for classification and make
+informed decisions according to their institutional policies and risk
+tolerance. This transparency enables validation rather than requiring
+blind trust.
 
-\subsection{Explicit UNKNOWN Results: Transparency Over Guessing}
+\subsubsection{Open Source Code Auditability}
 
-A critical design feature of Aletheia-Probe is its explicit handling
-of insufficient data. When the tool cannot make a reliable
-determination, it returns an \texttt{UNKNOWN} or
-\texttt{INSUFFICIENT\_DATA} classification rather than providing a
-low-confidence guess. This intentional refusal to speculate is a
-feature, not a limitation.
+All assessment algorithms are publicly available and auditable.
+Researchers can examine the exact logic used for pattern analysis,
+result aggregation, and confidence indication. This reproducibility is
+essential for academic integrity---assessments can be independently
+verified, and the methodology can be peer-reviewed and improved by the
+research community. The combination of transparent output and open
+source implementation ensures scientifically rigorous and verifiable
+journal assessments.
 
-The global journal landscape contains millions of publications. Even
-with extensive data aggregation covering over 240 million publication
-records, curated databases have inherently limited coverage ---
-e.g.~DOAJ indexes 22,000 journals, Beall's List approximately 2,900
-entries, and Scopus only 30,000 journals. Many legitimate regional,
-institutional, or newly established journals are not present in any
-curated database and may lack sufficient publication history for
-pattern analysis.
+\subsubsection{Temporal Dimension of Reproducibility}
 
+While code logic is fully reproducible, assessment results depend on
+data source state at query time. A journal assessed today may receive a
+different classification in six months if DOAJ updates their index,
+ministry lists change, or publication history accumulates. This
+temporal variability reflects reality: journal legitimacy genuinely
+changes over time. A journal may gain legitimacy through DOAJ inclusion
+or lose it if identified as predatory. The tool's behavior is
+reproducible (same data state yields same results), but data sources
+evolve. For research documentation, users should record assessment
+timestamps noting conclusions reflect data state at evaluation time.
+
+\subsubsection{Explicit UNKNOWN Results as Honest Transparency}
+
+When the tool cannot make a reliable determination, it returns
+\texttt{UNKNOWN} or \texttt{INSUFFICIENT\_DATA} rather than
+low-confidence guesses. This intentional refusal to speculate is a
+feature, not a limitation. Curated databases have inherently limited
+coverage (DOAJ: 22,000 journals; Beall's: 2,900 entries; Scopus:
+30,000). Many legitimate regional, institutional, or newly established
+journals lack coverage and publication history for pattern analysis.
 Rather than extrapolating from insufficient evidence, the tool
-explicitly reports \texttt{UNKNOWN}. This transparency is more
-valuable than providing unreliable assessments masked by low
-confidence scores. An \texttt{UNKNOWN} result prompts researchers to
-apply manual verification, consult institutional guidelines, or seek
-domain expert assessment --- which is precisely the appropriate
-response when automated methods cannot make reliable determinations.
-The tool's explicit acknowledgment of uncertainty represents honest
-transparency rather than algorithmic failure.
+explicitly reports \texttt{UNKNOWN}---more valuable than unreliable
+assessments masked by low confidence scores. \texttt{UNKNOWN} results
+prompt researchers to apply manual verification, consult institutional
+guidelines, or seek expert assessment, which is precisely the
+appropriate response when automated methods cannot make reliable
+determinations. This explicit acknowledgment of uncertainty represents
+honest transparency rather than algorithmic failure.
 
 \section{Research Workflow Integration: A Systematic Review Example}
 
