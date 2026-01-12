@@ -123,9 +123,8 @@ automated journal assessment tool that combines data from multiple
 trusted sources with transparent confidence indicators. ``Aletheia''
 comes from ancient Greek philosophy, representing truth and
 unconcealment --- reflecting the tool's mission to reveal the truth
-about academic journals. By reducing assessment overhead from hours to
-minutes, the tool transforms scattered quality indicators into
-actionable guidance at the point of decision.
+about academic journals. The tool transforms scattered quality
+indicators into actionable guidance at the point of decision.
 
 The tool is designed for integration into everyday research workflows,
 where it primarily addresses edge cases. Researchers using established,
@@ -437,24 +436,22 @@ journal's legitimacy before including papers in the analysis.
 \textbf{Traditional Manual Workflow:} The researcher would manually
 check each journal against multiple databases (DOAJ, Beall's List,
 Scopus, ministry lists), accounting for naming variations and
-cross-referencing across sources. For 150 unique journals, this process
-requires many hours of tedious, error-prone manual work.
+cross-referencing across sources---a tedious, error-prone process for
+150 unique journals.
 
 \textbf{With Aletheia-Probe:} The researcher exports their bibliography
 to BibTeX format and runs:
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
 aletheia-probe bibtex references.bib --format json > results.json
 \end{lstlisting}
-The tool queries backends concurrently, typically returning results in
-under 10 minutes for 300 journals. Rather than eliminating human
-judgment, this dramatically reduces manual burden for routine cases
-while explicitly flagging cases needing expert verification. The
-researcher can post-process results using standard tools or import into
-review management software, filtering by confidence levels and focusing
-manual verification effort on \texttt{UNKNOWN} or low-confidence cases.
+The tool queries backends concurrently, reducing manual assessment from
+hours to minutes while explicitly flagging cases needing expert
+verification. The researcher can post-process results using standard
+tools or import into review management software, filtering by confidence
+levels and focusing manual verification effort on \texttt{UNKNOWN} or
+low-confidence cases.
 
-This workflow transformation demonstrates the tool's practical value:
-it doesn't eliminate human judgment but dramatically reduces the manual
+This workflow demonstrates the tool's practical value: it reduces manual
 burden for routine assessments while explicitly identifying cases where
 human expertise is needed.
 
