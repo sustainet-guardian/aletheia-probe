@@ -112,10 +112,10 @@ journals --- Beall's List~\cite{bealls_list}, the Directory of Open
 Access Journals (DOAJ)~\cite{doaj}, indexing services like
 Scopus~\cite{scopus}, and regional ministry
 lists~\cite{DGRSDT2024}. However, researchers lack practical tools to
-use these scattered resources. Who has time to manually check hundreds
-or even thousands of journal entries across multiple databases and
-websites? A literature review with 150 papers requires verifying each
-source journal, which requires many hours of tedious
+use these scattered resources. Manually checking hundreds or thousands
+of journal entries across multiple databases and websites is impractical
+for most researchers. A literature review with 150 papers requires
+verifying each source journal, which requires many hours of tedious
 manual work across multiple websites.
 
 This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
@@ -172,8 +172,8 @@ not sophisticated mimicry. Assessment tools form one layer of defense
 alongside institutional guidelines and domain expertise. Third,
 effective assessment requires checking multiple independent sources,
 as no single database provides comprehensive coverage. Finally,
-researchers need answers in seconds, not hours --- publication venue
-decisions cannot wait for days of manual verification.
+publication venue decisions require rapid assessment --- manual
+verification requiring hours or days is impractical.
 
 Previous work has extensively studied predatory publishing. Bohannon's
 sting operation submitted flawed papers to 304 open-access journals
@@ -216,10 +216,10 @@ and enables researchers to see when sources agree or conflict.
 which sources were consulted, what each source found, and how that
 evidence contributed to the overall classification. This transparency
 is not a limitation but a core feature. Rather than providing opaque
-``trust this score'' outputs, the tool shows its work, enabling
-researchers to understand the basis for each assessment and make
-informed decisions. When data is insufficient, the tool says so
-explicitly (returning \texttt{UNKNOWN}) rather than manufacturing
+``trust this score'' outputs, the tool explicitly presents its reasoning,
+enabling researchers to understand the basis for each assessment and
+make informed decisions. When data is insufficient, the tool explicitly
+reports this (returning \texttt{UNKNOWN}) rather than manufacturing
 low-confidence guesses. This honest reporting of uncertainty respects
 researchers' need to understand the reliability of information they act
 upon.
@@ -259,7 +259,7 @@ Algerian Ministry of Higher Education publish lists of questionable
 journals~\cite{DGRSDT2024}. The KSCIEN Organisation provides
 specialized databases for predatory conferences, standalone journals,
 publishers, and hijacked journals~\cite{kscien}. Retraction Watch
-helps identify journals with problematic retraction
+provides data for identifying journals with problematic retraction
 patterns~\cite{retraction_watch}. Optional Scopus~\cite{scopus} coverage
 enables checking against indexed journals. Additionally, the Custom List
 Backend allows institutions and users to provide their own curated
@@ -297,10 +297,10 @@ and physical sciences have better representation than social sciences,
 humanities, or regional studies.
 
 This limitation is not unique to Aletheia-Probe but reflects the
-global scholarly publishing landscape's structural inequities. We
-acknowledge this upfront: the tool currently serves researchers
-working with internationally indexed, English-language journals more
-effectively than those working with regional, non-English publications.
+global scholarly publishing landscape's structural inequities. The tool
+currently provides more effective coverage for researchers working with
+internationally indexed, English-language journals than those working
+with regional, non-English publications.
 The Custom List Backend partially addresses this by allowing
 institutions to supplement with regional databases, but comprehensive
 global coverage remains an open challenge for the entire scholarly
@@ -357,8 +357,8 @@ Each assessment reports a confidence indicator as a transparency
 mechanism. Confidence reflects the strength and consistency of
 available evidence: higher when multiple independent sources agree on
 the same classification, lower when evidence is sparse, sources
-conflict, or only pattern analysis is available. This indicator helps
-researchers understand the certainty of each assessment and make
+conflict, or only pattern analysis is available. This indicator enables
+researchers to understand the certainty of each assessment and make
 informed decisions about whether additional verification is warranted.
 
 \subsection{Transparency and Reproducibility}
@@ -460,13 +460,13 @@ The tool's design directly supports diverse researcher workflows
 through targeted features:
 
 \textbf{Quick Verification Checks.} Researchers encountering an
-unfamiliar journal invitation or citation can quickly verify legitimacy
-through command-line queries. The \ilcode{aletheia-probe journal
-"Journal Name"} command returns human-readable assessments in seconds,
-showing all consulted sources and their findings. This serves
-early-career researchers evaluating publication invitations, reviewers
-checking citation quality, or research integrity officers investigating
-specific journals.
+unfamiliar journal invitation or citation can verify legitimacy through
+command-line queries. The \ilcode{aletheia-probe journal "Journal Name"}
+command returns human-readable assessments with minimal latency, showing
+all consulted sources and their findings. This supports early-career
+researchers evaluating publication invitations, reviewers checking
+citation quality, or research integrity officers investigating specific
+journals.
 
 \textbf{Systematic Literature Reviews.} Batch processing of BibTeX
 files enables efficient verification of entire bibliographies. The
@@ -502,7 +502,7 @@ community contributions and institutional customization.
 \section{Appropriate Use: When to Use the Tool vs. Manual Verification}
 \label{sec:appropriate-use}
 
-Understanding the tool's intended scope helps researchers apply it
+Understanding the tool's intended scope enables researchers to apply it
 effectively as one component of their assessment toolkit.
 
 \textbf{Appropriate Use Cases.} The tool is designed for everyday
