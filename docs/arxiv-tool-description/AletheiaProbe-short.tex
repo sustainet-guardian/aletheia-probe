@@ -127,24 +127,17 @@ about academic journals. By reducing assessment overhead from hours to
 minutes, the tool transforms scattered quality indicators into
 actionable guidance at the point of decision.
 
-\textbf{Setting Realistic Expectations:} If you are an honest
-researcher using established, well-known journals and conferences
-through major search engines and databases, you will likely never
-encounter predatory venues. This tool functions like a virus scanner
-for academic publishing --- you should have it installed and running
-in your everyday work, but hopefully never receive any warnings. It is
-designed to catch edge cases and protect against less obvious threats
-that might slip through normal research workflows.
-
-\textbf{Scope of This Paper:} This work presents the architecture,
-design principles, and practical implementation of Aletheia-Probe. We
-describe the data aggregation approach, assessment methodology, and
-integration capabilities that enable researchers to incorporate journal
-quality checking into their workflows. The paper demonstrates the
-tool's practical applicability through representative examples.
-Comprehensive empirical validation, including systematic coverage
-analysis across large journal datasets and comparative evaluation
-against existing approaches, will be presented in forthcoming work.
+This tool functions like a virus scanner for academic publishing---
+designed to be installed in everyday research work but hopefully
+triggering alerts only for edge cases. Honest researchers using
+established, well-known journals through major search engines will
+likely never encounter predatory venues; the tool catches less obvious
+threats that might slip through normal workflows. This paper presents
+Aletheia-Probe's architecture, design principles, and practical
+integration approach. The system aggregates multiple authoritative
+data sources to provide assessments. Comprehensive empirical
+validation, including systematic coverage analysis and comparative
+evaluation, will be presented in forthcoming work.
 
 \section{Problem and Motivation}
 
@@ -207,15 +200,13 @@ with transparent confidence indicators.
 Aletheia-Probe's architecture follows three fundamental principles that
 shape all design decisions and distinguish it from other approaches:
 
-\textbf{1. Aggregator, Not Creator.} The tool does not create its own
-journal quality data or judgments. Instead, it systematically
-aggregates information from existing authoritative sources maintained
-by domain experts and established organizations (DOAJ, Beall's List,
-Scopus, ministry lists, etc.). This principle acknowledges that journal
-quality assessment requires domain expertise distributed across the
-scholarly community. The tool's value lies in making scattered
-authoritative information accessible and queryable, not in substituting
-its own algorithmic judgments for expert human curation.
+\textbf{1. Aggregator, Not Creator.} The tool is a data aggregator that
+systematically combines existing authoritative sources rather than
+creating its own judgments. It acknowledges that expert curation is
+distributed across the scholarly community---DOAJ for open access,
+Beall's for predatory publishers, Scopus for indexed journals. The
+tool's value lies in making this scattered expertise accessible and
+queryable through a unified interface.
 
 \textbf{2. Multiple Independent Sources.} The tool queries multiple
 data sources for each assessment and reports all findings. No single
