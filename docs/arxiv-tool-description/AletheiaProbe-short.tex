@@ -81,13 +81,16 @@
   assessments. Rather than providing opaque recommendations, the tool
   explicitly reports which sources were consulted, what each found, and
   where evidence conflicts, enabling researchers to make informed
-  decisions. Designed for integration into research workflows through
-  command-line and programmatic interfaces, the tool reduces manual
-  assessment overhead from hours to minutes while explicitly flagging
-  uncertain cases requiring human expertise. We present the tool's
+  decisions. The tool integrates into research workflows through
+  command-line and programmatic interfaces. It reduces manual assessment
+  overhead from hours to minutes while explicitly flagging uncertain
+  cases requiring human expertise. We present the tool's
   architecture, core design principles, and practical integration
   approach. Comprehensive empirical validation will be presented in
-  forthcoming work.}
+  forthcoming work.
+
+  aletheia-probe is open-source: \url{https://github.com/sustainet-guardian/aletheia-probe}
+}
 
 \begin{document}
 
@@ -115,7 +118,7 @@ lists~\cite{DGRSDT2024}. However, researchers lack practical tools to
 use these scattered resources. Who has time to manually check hundreds
 or even thousands of journal entries across multiple databases and
 websites? A literature review with 150 papers requires verifying each
-source journal, which conservatively amounts to 12 hours of tedious
+source journal, which requires many hours of tedious
 manual work across multiple websites.
 
 This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
@@ -130,7 +133,7 @@ actionable guidance at the point of decision.
 This tool functions like a virus scanner for academic publishing---
 designed to be installed in everyday research work but hopefully
 triggering alerts only for edge cases. Honest researchers using
-established, well-known journals through major search engines will
+established, and well-known journals through major search engines will
 likely never encounter predatory venues; the tool catches less obvious
 threats that might slip through normal workflows. This paper presents
 Aletheia-Probe's architecture, design principles, and practical
@@ -150,7 +153,7 @@ journal against multiple databases --- DOAJ for open access journals,
 Scopus for indexed venues, Beall's List archives for known predatory
 publishers, ministry lists for regional warnings. Cross-referencing
 300 journals across 5--10 sources, accounting for name variations and
-ISSN formats, conservatively requires 12 hours of tedious, error-prone
+ISSN formats, requires many hours of tedious, error-prone
 manual work.
 
 Or consider an early-career researcher seeking to publish in an
