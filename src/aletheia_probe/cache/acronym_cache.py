@@ -51,7 +51,7 @@ class AcronymCache(CacheBase):
 
             cursor.execute(
                 """
-                SELECT normalized_name FROM venue_acronyms
+                SELECT normalized_name, is_ambiguous FROM venue_acronyms
                 WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
                 (acronym.strip(), entity_type),
@@ -59,6 +59,16 @@ class AcronymCache(CacheBase):
 
             row = cursor.fetchone()
             if row:
+                # Check if acronym is ambiguous
+                if row["is_ambiguous"]:
+                    detail_logger.debug(
+                        f"Acronym '{acronym}' is ambiguous (maps to multiple venues), cannot be used for matching"
+                    )
+                    status_logger.warning(
+                        f"Acronym '{acronym}' is ambiguous and cannot be used for automatic matching"
+                    )
+                    return None
+
                 detail_logger.debug(
                     f"Found mapping for '{acronym}' -> '{row['normalized_name']}'"
                 )
@@ -189,8 +199,8 @@ class AcronymCache(CacheBase):
         cursor.execute(
             """
             INSERT OR REPLACE INTO venue_acronyms
-            (acronym, normalized_name, entity_type, source, created_at, last_used_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            (acronym, normalized_name, entity_type, source, is_ambiguous, created_at, last_used_at)
+            VALUES (?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """,
             (acronym, normalized_name, entity_type, source),
         )
@@ -465,3 +475,141 @@ class AcronymCache(CacheBase):
                 f"Database clear operation completed, {count} entries deleted"
             )
             return count
+
+    def mark_acronym_as_ambiguous(
+        self, acronym: str, entity_type: str, venues: list[str] | None = None
+    ) -> None:
+        """Mark an acronym as ambiguous (maps to multiple venues).
+
+        Args:
+            acronym: The acronym to mark as ambiguous
+            entity_type: VenueType value (e.g., 'journal', 'conference')
+            venues: Optional list of conflicting venue names for logging
+        """
+        detail_logger.debug(
+            f"Marking acronym '{acronym}' (entity_type={entity_type}) as ambiguous"
+        )
+
+        if venues:
+            status_logger.warning(
+                f"Acronym '{acronym}' is ambiguous - maps to multiple venues: {', '.join(venues)}"
+            )
+        else:
+            status_logger.warning(
+                f"Acronym '{acronym}' (entity_type={entity_type}) marked as ambiguous"
+            )
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE venue_acronyms
+                SET is_ambiguous = TRUE
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                """,
+                (acronym.strip(), entity_type),
+            )
+            conn.commit()
+            detail_logger.debug(f"Marked acronym '{acronym}' as ambiguous in database")
+
+    def check_acronym_conflict(
+        self, acronym: str, entity_type: str, normalized_name: str
+    ) -> tuple[bool, str | None]:
+        """Check if storing this acronym would create a conflict.
+
+        Args:
+            acronym: The acronym to check
+            entity_type: VenueType value
+            normalized_name: The normalized venue name
+
+        Returns:
+            Tuple of (has_conflict, existing_name)
+            - has_conflict: True if acronym exists with different normalized_name
+            - existing_name: The existing normalized_name if conflict exists, None otherwise
+        """
+        detail_logger.debug(
+            f"Checking for conflict: '{acronym}' (entity_type={entity_type}) -> '{normalized_name}'"
+        )
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT normalized_name FROM venue_acronyms
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                """,
+                (acronym.strip(), entity_type),
+            )
+
+            row = cursor.fetchone()
+            if row:
+                existing_name = str(row["normalized_name"])
+                if existing_name != normalized_name:
+                    # Check if names are equivalent (minor variations)
+                    if not are_conference_names_equivalent(
+                        existing_name, normalized_name
+                    ):
+                        detail_logger.debug(
+                            f"Conflict detected: existing '{existing_name}' != new '{normalized_name}'"
+                        )
+                        return True, existing_name
+                    else:
+                        detail_logger.debug(
+                            f"Names are equivalent variants: '{existing_name}' ≈ '{normalized_name}'"
+                        )
+                        return False, None
+                else:
+                    detail_logger.debug("Acronym already mapped to same venue")
+                    return False, None
+            else:
+                detail_logger.debug("No existing mapping found")
+                return False, None
+
+    def list_ambiguous_acronyms(
+        self, entity_type: str | None = None
+    ) -> list[dict[str, str]]:
+        """List all acronyms marked as ambiguous.
+
+        Args:
+            entity_type: Optional VenueType value to filter by
+
+        Returns:
+            List of dictionaries containing ambiguous acronym details
+        """
+        detail_logger.debug(
+            f"Listing ambiguous acronyms (entity_type={entity_type or 'all'})"
+        )
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            if entity_type:
+                query = """
+                    SELECT acronym, normalized_name, entity_type, source, created_at
+                    FROM venue_acronyms
+                    WHERE is_ambiguous = TRUE AND entity_type = ?
+                    ORDER BY acronym ASC
+                """
+                cursor.execute(query, (entity_type,))
+            else:
+                query = """
+                    SELECT acronym, normalized_name, entity_type, source, created_at
+                    FROM venue_acronyms
+                    WHERE is_ambiguous = TRUE
+                    ORDER BY acronym ASC
+                """
+                cursor.execute(query)
+
+            rows = cursor.fetchall()
+            detail_logger.debug(f"Found {len(rows)} ambiguous acronym entries")
+
+            return [
+                {
+                    "acronym": row["acronym"],
+                    "normalized_name": row["normalized_name"],
+                    "entity_type": row["entity_type"],
+                    "source": row["source"],
+                    "created_at": row["created_at"],
+                }
+                for row in rows
+            ]

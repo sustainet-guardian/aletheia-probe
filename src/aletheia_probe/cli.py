@@ -19,7 +19,7 @@ from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
-from .logging_config import get_status_logger, setup_logging
+from .logging_config import get_detail_logger, get_status_logger, setup_logging
 from .normalizer import input_normalizer, normalize_case
 from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
@@ -530,6 +530,154 @@ def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
     status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
     status_logger.info(f"Entity type: {entity_type}")
     status_logger.info(f"Source: {source}")
+
+
+@acronym.command(name="add-bibtex")
+@click.argument("bibtex_file", type=click.Path(exists=True))
+@click.option("--dry-run", is_flag=True, help="Preview changes without storing")
+@handle_cli_errors
+def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
+    """Extract and add acronyms from a BibTeX file.
+
+    Args:
+        bibtex_file: Path to the BibTeX file to process.
+        dry_run: If True, show what would be added without storing.
+    """
+    from pathlib import Path
+
+    from .bibtex_parser import BibtexParser
+    from .models import AcronymCollectionResult, AcronymConflict, AcronymMapping
+
+    status_logger = get_status_logger()
+    detail_logger = get_detail_logger()
+
+    file_path = Path(bibtex_file)
+    status_logger.info(f"Processing BibTeX file: {file_path}")
+
+    # Parse BibTeX file
+    parser = BibtexParser()
+    try:
+        entries, skipped_non_preprint, preprint_count = parser.parse_bibtex_file(
+            file_path, relax_parsing=True
+        )
+        detail_logger.debug(f"Parsed {len(entries)} entries from BibTeX file")
+    except Exception as e:
+        status_logger.error(f"Failed to parse BibTeX file: {e}")
+        raise click.Abort() from e
+
+    # Extract acronyms
+    acronym_cache = AcronymCache()
+    new_mappings, conflicts = BibtexParser.extract_acronyms_from_entries(
+        entries, acronym_cache
+    )
+
+    # Build result object
+    result = AcronymCollectionResult(
+        file_path=str(file_path),
+        total_processed=len(entries),
+        new_acronyms=[
+            AcronymMapping(
+                acronym=acronym,
+                venue_name=venue_name,
+                normalized_name=normalized_name,
+                entity_type=entity_type,
+            )
+            for acronym, venue_name, normalized_name, entity_type in new_mappings
+        ],
+        conflicts=[
+            AcronymConflict(acronym=acronym, entity_type=entity_type, venues=venues)
+            for acronym, entity_type, venues in conflicts
+        ],
+        skipped=len(entries) - len(new_mappings) - len(conflicts),
+    )
+
+    # Display summary
+    status_logger.info(f"Processed {result.total_processed} entries")
+    status_logger.info(f"New acronyms found: {len(result.new_acronyms)}")
+    status_logger.info(f"Conflicts detected: {len(result.conflicts)}")
+    status_logger.info(f"Entries without acronyms: {result.skipped}")
+
+    # Show new acronyms
+    if result.new_acronyms:
+        status_logger.info("\nNew acronyms to add:")
+        for mapping in result.new_acronyms:
+            status_logger.info(
+                f"  - {mapping.acronym} → {mapping.normalized_name} ({mapping.entity_type})"
+            )
+
+    # Show conflicts
+    if result.conflicts:
+        status_logger.warning("\nConflicts detected (will be marked as ambiguous):")
+        for conflict in result.conflicts:
+            status_logger.warning(f"  - {conflict.acronym} ({conflict.entity_type}):")
+            for venue in conflict.venues:
+                status_logger.warning(f"    - {venue}")
+
+    # If dry-run, stop here
+    if dry_run:
+        status_logger.info("\nDry-run mode: No changes made to database")
+        return
+
+    # Store new acronyms
+    stored_count = 0
+    for mapping in result.new_acronyms:
+        acronym_cache.store_acronym_mapping(
+            mapping.acronym,
+            mapping.venue_name,
+            mapping.entity_type,
+            source="bibtex_extraction",
+        )
+        stored_count += 1
+
+    # Mark conflicts as ambiguous
+    ambiguous_count = 0
+    for conflict in result.conflicts:
+        acronym_cache.mark_acronym_as_ambiguous(
+            conflict.acronym, conflict.entity_type, conflict.venues
+        )
+        ambiguous_count += 1
+
+    status_logger.info(f"\nAdded {stored_count} new acronyms to database")
+    if ambiguous_count > 0:
+        status_logger.warning(
+            f"Marked {ambiguous_count} acronyms as ambiguous (cannot be used for matching)"
+        )
+
+
+@acronym.command(name="list-ambiguous")
+@click.option(
+    "--entity-type",
+    help="Filter by entity type: journal, conference, workshop, symposium, etc.",
+)
+@handle_cli_errors
+def list_ambiguous(entity_type: str | None) -> None:
+    """List all acronyms marked as ambiguous.
+
+    Args:
+        entity_type: Optional entity type filter.
+    """
+    status_logger = get_status_logger()
+
+    acronym_cache = AcronymCache()
+    ambiguous_acronyms = acronym_cache.list_ambiguous_acronyms(entity_type)
+
+    if not ambiguous_acronyms:
+        if entity_type:
+            status_logger.info(
+                f"No ambiguous acronyms found for entity_type '{entity_type}'"
+            )
+        else:
+            status_logger.info("No ambiguous acronyms found")
+        return
+
+    status_logger.info(f"Ambiguous acronyms ({len(ambiguous_acronyms)} total):")
+    status_logger.info("These acronyms cannot be used for automatic matching:\n")
+
+    for entry in ambiguous_acronyms:
+        status_logger.info(f"  {entry['acronym']} ({entry['entity_type']})")
+        status_logger.info(f"    Normalized name: {entry['normalized_name']}")
+        status_logger.info(f"    Source: {entry['source']}")
+        status_logger.info(f"    Created: {entry['created_at']}\n")
 
 
 @main.group(name="retraction-cache")

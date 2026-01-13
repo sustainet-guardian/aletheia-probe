@@ -22,6 +22,19 @@ def init_database(db_path: Path) -> None:
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
     with get_configured_connection(db_path) as conn:
+        # Check if venue_acronyms table exists and has correct schema
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
+        )
+        if cursor.fetchone():
+            # Table exists, check if it has is_ambiguous column
+            cursor.execute("PRAGMA table_info(venue_acronyms)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "is_ambiguous" not in columns:
+                # Old schema, drop and recreate
+                cursor.execute("DROP TABLE venue_acronyms")
+                conn.commit()
         conn.executescript(
             f"""
             -- Core journals table (normalized, one entry per unique journal)
@@ -98,6 +111,7 @@ def init_database(db_path: Path) -> None:
                 normalized_name TEXT NOT NULL,
                 entity_type TEXT NOT NULL,
                 source TEXT,
+                is_ambiguous BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (acronym, entity_type),
