@@ -502,6 +502,23 @@ class InputNormalizer:
         # Pattern to match ordinals (e.g., "11th", "1st", "2nd", "3rd")
         ordinal_pattern = r"\b\d+(st|nd|rd|th)\b"
 
+        # Pattern to match spelled-out ordinals (e.g., "first", "second", "third")
+        spelled_ordinal_pattern = (
+            r"\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|"
+            r"eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|"
+            r"seventeenth|eighteenth|nineteenth|twentieth|"
+            r"twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|"
+            r"twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|"
+            r"thirty-first|thirty-second|thirty-third|thirty-fourth|thirty-fifth|"
+            r"thirty-sixth|thirty-seventh|thirty-eighth|thirty-ninth|fortieth|fiftieth|sixtieth)\b"
+        )
+
+        # Pattern to match embedded year markers (French/other languages: "28e", "29e", "1re", "2ème")
+        embedded_year_pattern = r"\b\d{1,2}(e|re|ème|è)\b"
+
+        # Pattern to match edition markers
+        edition_pattern = r"\b(edition|ed\.)\s+\d{4}\b|\b\d{4}\s+(edition|ed\.)\b"
+
         # Pattern to match "Proceedings of" prefix
         proceedings_pattern = r"^proceedings\s+of\s+"
 
@@ -509,6 +526,9 @@ class InputNormalizer:
         series = text
         series = re.sub(year_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(ordinal_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(spelled_ordinal_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(embedded_year_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(edition_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(proceedings_pattern, "", series, flags=re.IGNORECASE)
 
         # Clean up extra whitespace
@@ -635,6 +655,11 @@ def normalize_for_comparison(text: str) -> str:
     """
     text = html.unescape(text)
     text = text.lower()
+
+    # Remove organization prefixes (IEEE, ACM, etc.) for better comparison
+    org_prefix_pattern = r"^(ieee|acm|aaai|aaas|acl|springer|elsevier|ieee/cvf)\s+"
+    text = re.sub(org_prefix_pattern, "", text, flags=re.IGNORECASE)
+
     # Remove common special characters, keeping only alphanumeric and spaces
     text = re.sub(r"[^\w\s]", "", text)
     words = [word for word in text.split() if word not in STOP_WORDS]

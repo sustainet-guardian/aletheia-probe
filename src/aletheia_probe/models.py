@@ -304,12 +304,21 @@ class AcronymMapping(BaseModel):
     )
 
 
+class VenueWithCount(BaseModel):
+    """Represents a venue name with its occurrence count."""
+
+    venue_name: str = Field(..., description="The venue name")
+    count: int = Field(..., description="Number of occurrences in the file")
+
+
 class AcronymConflict(BaseModel):
     """Represents a conflict where an acronym maps to multiple venues."""
 
     acronym: str = Field(..., description="The conflicting acronym")
     entity_type: str = Field(..., description="VenueType value")
-    venues: list[str] = Field(..., description="List of conflicting venue names")
+    venues: list[VenueWithCount] = Field(
+        ..., description="List of conflicting venues with occurrence counts"
+    )
 
 
 class AcronymCollectionResult(BaseModel):
@@ -319,6 +328,9 @@ class AcronymCollectionResult(BaseModel):
     total_processed: int = Field(..., description="Total number of entries processed")
     new_acronyms: list[AcronymMapping] = Field(
         default_factory=list, description="New acronym mappings to be added"
+    )
+    existing_acronyms: list[AcronymMapping] = Field(
+        default_factory=list, description="Acronym mappings already in database"
     )
     conflicts: list[AcronymConflict] = Field(
         default_factory=list, description="Acronyms with conflicting mappings"

@@ -514,7 +514,7 @@ class AcronymCache(CacheBase):
 
     def check_acronym_conflict(
         self, acronym: str, entity_type: str, normalized_name: str
-    ) -> tuple[bool, str | None]:
+    ) -> tuple[bool, bool, str | None]:
         """Check if storing this acronym would create a conflict.
 
         Args:
@@ -523,9 +523,10 @@ class AcronymCache(CacheBase):
             normalized_name: The normalized venue name
 
         Returns:
-            Tuple of (has_conflict, existing_name)
-            - has_conflict: True if acronym exists with different normalized_name
-            - existing_name: The existing normalized_name if conflict exists, None otherwise
+            Tuple of (has_conflict, already_exists, existing_name)
+            - has_conflict: True if acronym exists with different non-equivalent normalized_name
+            - already_exists: True if acronym exists with same or equivalent normalized_name
+            - existing_name: The existing normalized_name if found, None otherwise
         """
         detail_logger.debug(
             f"Checking for conflict: '{acronym}' (entity_type={entity_type}) -> '{normalized_name}'"
@@ -544,26 +545,22 @@ class AcronymCache(CacheBase):
             row = cursor.fetchone()
             if row:
                 existing_name = str(row["normalized_name"])
-                if existing_name != normalized_name:
-                    # Check if names are equivalent (minor variations)
-                    if not are_conference_names_equivalent(
-                        existing_name, normalized_name
-                    ):
-                        detail_logger.debug(
-                            f"Conflict detected: existing '{existing_name}' != new '{normalized_name}'"
-                        )
-                        return True, existing_name
-                    else:
-                        detail_logger.debug(
-                            f"Names are equivalent variants: '{existing_name}' ≈ '{normalized_name}'"
-                        )
-                        return False, None
-                else:
+                if existing_name == normalized_name:
                     detail_logger.debug("Acronym already mapped to same venue")
-                    return False, None
+                    return False, True, existing_name  # No conflict, already exists
+                elif are_conference_names_equivalent(existing_name, normalized_name):
+                    detail_logger.debug(
+                        f"Names are equivalent variants: '{existing_name}' ≈ '{normalized_name}'"
+                    )
+                    return False, True, existing_name  # No conflict, equivalent exists
+                else:
+                    detail_logger.debug(
+                        f"Conflict detected: existing '{existing_name}' != new '{normalized_name}'"
+                    )
+                    return True, False, existing_name  # Conflict detected
             else:
                 detail_logger.debug("No existing mapping found")
-                return False, None
+                return False, False, None  # New acronym
 
     def list_ambiguous_acronyms(
         self, entity_type: str | None = None
@@ -613,3 +610,29 @@ class AcronymCache(CacheBase):
                 }
                 for row in rows
             ]
+
+    def increment_usage_count(self, acronym: str, entity_type: str) -> None:
+        """Increment the usage count for an acronym.
+
+        Args:
+            acronym: The acronym to increment
+            entity_type: VenueType value (e.g., 'journal', 'conference')
+        """
+        detail_logger.debug(
+            f"Incrementing usage count for '{acronym}' (entity_type={entity_type})"
+        )
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE venue_acronyms
+                SET usage_count = usage_count + 1, last_used_at = CURRENT_TIMESTAMP
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                """,
+                (acronym.strip(), entity_type),
+            )
+            conn.commit()
+            detail_logger.debug(
+                f"Incremented usage count for acronym '{acronym}' (entity_type={entity_type})"
+            )

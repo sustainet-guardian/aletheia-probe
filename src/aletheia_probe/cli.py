@@ -546,7 +546,12 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
     from pathlib import Path
 
     from .bibtex_parser import BibtexParser
-    from .models import AcronymCollectionResult, AcronymConflict, AcronymMapping
+    from .models import (
+        AcronymCollectionResult,
+        AcronymConflict,
+        AcronymMapping,
+        VenueWithCount,
+    )
 
     status_logger = get_status_logger()
     detail_logger = get_detail_logger()
@@ -567,8 +572,8 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
 
     # Extract acronyms
     acronym_cache = AcronymCache()
-    new_mappings, conflicts = BibtexParser.extract_acronyms_from_entries(
-        entries, acronym_cache
+    new_mappings, existing_mappings, conflicts = (
+        BibtexParser.extract_acronyms_from_entries(entries, acronym_cache)
     )
 
     # Build result object
@@ -584,16 +589,37 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
             )
             for acronym, venue_name, normalized_name, entity_type in new_mappings
         ],
-        conflicts=[
-            AcronymConflict(acronym=acronym, entity_type=entity_type, venues=venues)
-            for acronym, entity_type, venues in conflicts
+        existing_acronyms=[
+            AcronymMapping(
+                acronym=acronym,
+                venue_name=venue_name,
+                normalized_name=normalized_name,
+                entity_type=entity_type,
+            )
+            for acronym, venue_name, normalized_name, entity_type in existing_mappings
         ],
-        skipped=len(entries) - len(new_mappings) - len(conflicts),
+        conflicts=[
+            AcronymConflict(
+                acronym=acronym,
+                entity_type=entity_type,
+                venues=[
+                    VenueWithCount(venue_name=venue, count=count)
+                    for venue, count in venue_counts
+                ],
+            )
+            for acronym, entity_type, venue_counts in conflicts
+        ],
+        skipped=len(entries)
+        - len(new_mappings)
+        - len(existing_mappings)
+        - len(conflicts),
+        existing_count=len(existing_mappings),
     )
 
     # Display summary
     status_logger.info(f"Processed {result.total_processed} entries")
     status_logger.info(f"New acronyms found: {len(result.new_acronyms)}")
+    status_logger.info(f"Existing acronyms: {len(result.existing_acronyms)}")
     status_logger.info(f"Conflicts detected: {len(result.conflicts)}")
     status_logger.info(f"Entries without acronyms: {result.skipped}")
 
@@ -605,13 +631,31 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
                 f"  - {mapping.acronym} → {mapping.normalized_name} ({mapping.entity_type})"
             )
 
-    # Show conflicts
+    # Show existing acronyms (only if verbose or if there are many)
+    if result.existing_acronyms and len(result.existing_acronyms) <= 10:
+        status_logger.info("\nExisting acronyms (already in database):")
+        for mapping in result.existing_acronyms:
+            status_logger.info(
+                f"  - {mapping.acronym} → {mapping.normalized_name} ({mapping.entity_type})"
+            )
+
+    # Show conflicts with frequency statistics
     if result.conflicts:
         status_logger.warning("\nConflicts detected (will be marked as ambiguous):")
         for conflict in result.conflicts:
-            status_logger.warning(f"  - {conflict.acronym} ({conflict.entity_type}):")
-            for venue in conflict.venues:
-                status_logger.warning(f"    - {venue}")
+            total_occurrences = sum(v.count for v in conflict.venues)
+            status_logger.warning(
+                f"  - {conflict.acronym} ({conflict.entity_type}): "
+                f"{len(conflict.venues)} variants, {total_occurrences} total occurrences"
+            )
+
+            # Sort by count (descending) to show most common first
+            sorted_venues = sorted(conflict.venues, key=lambda v: v.count, reverse=True)
+            for i, venue_with_count in enumerate(sorted_venues):
+                marker = " ← Most common" if i == 0 else ""
+                status_logger.warning(
+                    f"    - {venue_with_count.venue_name} ({venue_with_count.count} times){marker}"
+                )
 
     # If dry-run, stop here
     if dry_run:
@@ -632,8 +676,9 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
     # Mark conflicts as ambiguous
     ambiguous_count = 0
     for conflict in result.conflicts:
+        venue_names = [v.venue_name for v in conflict.venues]
         acronym_cache.mark_acronym_as_ambiguous(
-            conflict.acronym, conflict.entity_type, conflict.venues
+            conflict.acronym, conflict.entity_type, venue_names
         )
         ambiguous_count += 1
 

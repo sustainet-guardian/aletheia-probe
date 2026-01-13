@@ -28,10 +28,10 @@ def init_database(db_path: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
         )
         if cursor.fetchone():
-            # Table exists, check if it has is_ambiguous column
+            # Table exists, check if it has required columns
             cursor.execute("PRAGMA table_info(venue_acronyms)")
             columns = {row[1] for row in cursor.fetchall()}
-            if "is_ambiguous" not in columns:
+            if "is_ambiguous" not in columns or "usage_count" not in columns:
                 # Old schema, drop and recreate
                 cursor.execute("DROP TABLE venue_acronyms")
                 conn.commit()
@@ -112,6 +112,7 @@ def init_database(db_path: Path) -> None:
                 entity_type TEXT NOT NULL,
                 source TEXT,
                 is_ambiguous BOOLEAN DEFAULT FALSE,
+                usage_count INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (acronym, entity_type),

@@ -1080,7 +1080,11 @@ class BibtexParser:
     @staticmethod
     def extract_acronyms_from_entries(
         entries: list[BibtexEntry], acronym_cache: AcronymCache
-    ) -> tuple[list[tuple[str, str, str, str]], list[tuple[str, str, list[str]]]]:
+    ) -> tuple[
+        list[tuple[str, str, str, str]],
+        list[tuple[str, str, str, str]],
+        list[tuple[str, str, list[tuple[str, int]]]],
+    ]:
         """Extract acronym mappings from BibTeX entries.
 
         Args:
@@ -1088,9 +1092,10 @@ class BibtexParser:
             acronym_cache: AcronymCache instance for conflict checking
 
         Returns:
-            Tuple of (new_mappings, conflicts) where:
+            Tuple of (new_mappings, existing_mappings, conflicts) where:
             - new_mappings: List of (acronym, venue_name, normalized_name, entity_type)
-            - conflicts: List of (acronym, entity_type, [venue_names])
+            - existing_mappings: List of (acronym, venue_name, normalized_name, entity_type)
+            - conflicts: List of (acronym, entity_type, [(venue_name, count), ...])
         """
         from .normalizer import input_normalizer
 
@@ -1098,6 +1103,8 @@ class BibtexParser:
 
         # Track mappings: (acronym, entity_type) -> list of (venue_name, normalized_name)
         mappings: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        # Track occurrence counts: (acronym, entity_type, normalized_name) -> count
+        occurrence_counts: dict[tuple[str, str, str], int] = {}
 
         for entry in entries:
             if not entry.journal_name:
@@ -1119,22 +1126,41 @@ class BibtexParser:
                 if key not in mappings:
                     mappings[key] = []
 
-                # Check if this venue is already in the list (avoid duplicates)
-                venue_pair = (full_name, normalized_name)
-                if venue_pair not in mappings[key]:
-                    mappings[key].append(venue_pair)
+                # Check if this normalized name is equivalent to any existing one (avoid false positive conflicts)
+                from .normalizer import are_conference_names_equivalent
+
+                is_duplicate = False
+                for _, existing_normalized in mappings[key]:
+                    if are_conference_names_equivalent(
+                        normalized_name, existing_normalized
+                    ):
+                        is_duplicate = True
+                        break
+
+                if not is_duplicate:
+                    mappings[key].append((full_name, normalized_name))
+
+                # Track occurrence count (increment even if duplicate for accurate statistics)
+                count_key = (acronym, entity_type, normalized_name)
+                occurrence_counts[count_key] = occurrence_counts.get(count_key, 0) + 1
 
         # Detect conflicts and build result lists
         new_mappings: list[tuple[str, str, str, str]] = []
-        conflicts: list[tuple[str, str, list[str]]] = []
+        existing_mappings: list[tuple[str, str, str, str]] = []
+        conflicts: list[tuple[str, str, list[tuple[str, int]]]] = []
 
         for (acronym, entity_type), venue_list in mappings.items():
             if len(venue_list) == 1:
                 # No conflict within file, check against database
                 full_name, normalized_name = venue_list[0]
-                has_conflict, existing_name = acronym_cache.check_acronym_conflict(
-                    acronym, entity_type, normalized_name
+                has_conflict, already_exists, existing_name = (
+                    acronym_cache.check_acronym_conflict(
+                        acronym, entity_type, normalized_name
+                    )
                 )
+
+                count_key = (acronym, entity_type, normalized_name)
+                count = occurrence_counts.get(count_key, 1)
 
                 if has_conflict:
                     # Conflict with existing database entry
@@ -1142,23 +1168,41 @@ class BibtexParser:
                         f"Database conflict: '{acronym}' maps to '{normalized_name}' but database has '{existing_name}'"
                     )
                     conflicts.append(
-                        (acronym, entity_type, [normalized_name, existing_name or ""])
+                        (
+                            acronym,
+                            entity_type,
+                            [(normalized_name, count), (existing_name or "", 0)],
+                        )
+                    )
+                elif already_exists:
+                    # Acronym already exists in database with same/equivalent name
+                    detail_logger.debug(
+                        f"Acronym '{acronym}' already exists in database"
+                    )
+                    existing_mappings.append(
+                        (acronym, full_name, normalized_name, entity_type)
                     )
                 else:
-                    # No conflict, add to new mappings
+                    # New acronym
                     new_mappings.append(
                         (acronym, full_name, normalized_name, entity_type)
                     )
             else:
                 # Multiple venues for same acronym within file
-                venue_names = [normalized for _, normalized in venue_list]
+                venue_with_counts = [
+                    (
+                        normalized,
+                        occurrence_counts.get((acronym, entity_type, normalized), 1),
+                    )
+                    for _, normalized in venue_list
+                ]
                 detail_logger.debug(
-                    f"File conflict: '{acronym}' maps to multiple venues: {venue_names}"
+                    f"File conflict: '{acronym}' maps to multiple venues: {[v for v, _ in venue_with_counts]}"
                 )
-                conflicts.append((acronym, entity_type, venue_names))
+                conflicts.append((acronym, entity_type, venue_with_counts))
 
         detail_logger.debug(
-            f"Extracted {len(new_mappings)} new acronyms, found {len(conflicts)} conflicts"
+            f"Extracted {len(new_mappings)} new acronyms, {len(existing_mappings)} existing, found {len(conflicts)} conflicts"
         )
 
-        return new_mappings, conflicts
+        return new_mappings, existing_mappings, conflicts
