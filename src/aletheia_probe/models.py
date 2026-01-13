@@ -291,3 +291,37 @@ class BibtexAssessmentResult(BaseModel):
         0, description="Number of articles checked for retraction (had DOIs)"
     )
     processing_time: float = Field(..., description="Total processing time in seconds")
+
+
+class AcronymMapping(BaseModel):
+    """Represents a single acronym to venue name mapping."""
+
+    acronym: str = Field(..., description="The acronym (e.g., 'ICML', 'JMLR')")
+    venue_name: str = Field(..., description="The full venue name")
+    normalized_name: str = Field(..., description="The normalized venue name")
+    entity_type: str = Field(
+        ..., description="VenueType value (e.g., 'journal', 'conference')"
+    )
+
+
+class AcronymConflict(BaseModel):
+    """Represents a conflict where an acronym maps to multiple venues."""
+
+    acronym: str = Field(..., description="The conflicting acronym")
+    entity_type: str = Field(..., description="VenueType value")
+    venues: list[str] = Field(..., description="List of conflicting venue names")
+
+
+class AcronymCollectionResult(BaseModel):
+    """Result of collecting acronyms from a BibTeX file."""
+
+    file_path: str = Field(..., description="Path to the processed BibTeX file")
+    total_processed: int = Field(..., description="Total number of entries processed")
+    new_acronyms: list[AcronymMapping] = Field(
+        default_factory=list, description="New acronym mappings to be added"
+    )
+    conflicts: list[AcronymConflict] = Field(
+        default_factory=list, description="Acronyms with conflicting mappings"
+    )
+    skipped: int = Field(0, description="Number of entries without acronyms")
+    existing_count: int = Field(0, description="Number of acronyms already in database")

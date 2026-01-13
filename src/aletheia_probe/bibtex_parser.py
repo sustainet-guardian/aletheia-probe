@@ -1076,3 +1076,89 @@ class BibtexParser:
             f"No venue type pattern matched for '{venue_name}' (entry type: {entry.type})"
         )
         return VenueType.UNKNOWN
+
+    @staticmethod
+    def extract_acronyms_from_entries(
+        entries: list[BibtexEntry], acronym_cache: AcronymCache
+    ) -> tuple[list[tuple[str, str, str, str]], list[tuple[str, str, list[str]]]]:
+        """Extract acronym mappings from BibTeX entries.
+
+        Args:
+            entries: List of BibtexEntry objects to process
+            acronym_cache: AcronymCache instance for conflict checking
+
+        Returns:
+            Tuple of (new_mappings, conflicts) where:
+            - new_mappings: List of (acronym, venue_name, normalized_name, entity_type)
+            - conflicts: List of (acronym, entity_type, [venue_names])
+        """
+        from .normalizer import input_normalizer
+
+        detail_logger.debug(f"Extracting acronyms from {len(entries)} BibTeX entries")
+
+        # Track mappings: (acronym, entity_type) -> list of (venue_name, normalized_name)
+        mappings: dict[tuple[str, str], list[tuple[str, str]]] = {}
+
+        for entry in entries:
+            if not entry.journal_name:
+                continue
+
+            # Use normalizer to extract acronyms from venue name
+            extracted_acronyms = input_normalizer._extract_acronyms(entry.journal_name)
+            acronym_mappings = input_normalizer._extract_acronym_mappings_from_text(
+                entry.journal_name, extracted_acronyms
+            )
+
+            # Store each acronym mapping
+            for acronym, full_name in acronym_mappings.items():
+                # Normalize the venue name
+                normalized_name = acronym_cache._normalize_venue_name(full_name)
+                entity_type = entry.venue_type.value
+
+                key = (acronym, entity_type)
+                if key not in mappings:
+                    mappings[key] = []
+
+                # Check if this venue is already in the list (avoid duplicates)
+                venue_pair = (full_name, normalized_name)
+                if venue_pair not in mappings[key]:
+                    mappings[key].append(venue_pair)
+
+        # Detect conflicts and build result lists
+        new_mappings: list[tuple[str, str, str, str]] = []
+        conflicts: list[tuple[str, str, list[str]]] = []
+
+        for (acronym, entity_type), venue_list in mappings.items():
+            if len(venue_list) == 1:
+                # No conflict within file, check against database
+                full_name, normalized_name = venue_list[0]
+                has_conflict, existing_name = acronym_cache.check_acronym_conflict(
+                    acronym, entity_type, normalized_name
+                )
+
+                if has_conflict:
+                    # Conflict with existing database entry
+                    detail_logger.debug(
+                        f"Database conflict: '{acronym}' maps to '{normalized_name}' but database has '{existing_name}'"
+                    )
+                    conflicts.append(
+                        (acronym, entity_type, [normalized_name, existing_name or ""])
+                    )
+                else:
+                    # No conflict, add to new mappings
+                    new_mappings.append(
+                        (acronym, full_name, normalized_name, entity_type)
+                    )
+            else:
+                # Multiple venues for same acronym within file
+                venue_names = [normalized for _, normalized in venue_list]
+                detail_logger.debug(
+                    f"File conflict: '{acronym}' maps to multiple venues: {venue_names}"
+                )
+                conflicts.append((acronym, entity_type, venue_names))
+
+        detail_logger.debug(
+            f"Extracted {len(new_mappings)} new acronyms, found {len(conflicts)} conflicts"
+        )
+
+        return new_mappings, conflicts
