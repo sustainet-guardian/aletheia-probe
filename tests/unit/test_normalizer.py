@@ -27,12 +27,21 @@ class TestInputNormalizer:
         assert result.normalized_name == "Journal of Computer Science"
         assert "Computer Science" in result.aliases
 
-    def test_abbreviation_expansion(self, normalizer):
-        """Test abbreviation expansion."""
+    def test_abbreviation_expansion_edge_cases(self, normalizer):
+        """Test abbreviation expansion for non-learnable edge cases."""
+        # Only non-learnable abbreviations (Jrnl, Intl) are expanded from static list
+        # All other abbreviations are learned dynamically from the database
+        result = normalizer.normalize("Intl Jrnl of Science")
+
+        assert result.normalized_name == "International Journal of Science"
+
+    def test_abbreviation_no_expansion_without_learning(self, normalizer):
+        """Test that learnable abbreviations are not expanded without database learning."""
+        # Without learned abbreviations in database, these stay as-is
         result = normalizer.normalize("J. Sci. Tech.")
 
-        assert result.normalized_name == "Journal Science Technology"
-        assert "Jrnl Sci. Tech." in result.aliases
+        # These abbreviations need to be learned first - without database they stay unchanged
+        assert result.normalized_name == "J. Sci. Tech."
 
     def test_issn_extraction(self, normalizer):
         """Test ISSN extraction from input."""

@@ -19,6 +19,7 @@ positive effect while making cross-venue queries more difficult.
 
 import re
 import sqlite3
+from typing import Any
 
 from ..logging_config import get_detail_logger, get_status_logger
 from ..normalizer import are_conference_names_equivalent, input_normalizer
@@ -33,14 +34,14 @@ class AcronymCache(CacheBase):
     """Manages venue acronym to full name mappings."""
 
     def get_full_name_for_acronym(self, acronym: str, entity_type: str) -> str | None:
-        """Look up the normalized name for a venue acronym.
+        """Look up the normalized name for a venue acronym using variant system.
 
         Args:
             acronym: The acronym to look up (e.g., 'ICML', 'JMLR')
             entity_type: VenueType value (e.g., 'journal', 'conference', 'workshop')
 
         Returns:
-            Normalized name if found in cache, None otherwise
+            Canonical normalized name if found and not ambiguous, None otherwise
         """
         detail_logger.debug(
             f"Looking up acronym '{acronym}' for entity_type '{entity_type}'"
@@ -49,10 +50,13 @@ class AcronymCache(CacheBase):
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
+            # Get canonical variant
             cursor.execute(
                 """
-                SELECT normalized_name, is_ambiguous FROM venue_acronyms
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                SELECT normalized_name, is_ambiguous FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE
+                  AND entity_type = ?
+                  AND is_canonical = TRUE
                 """,
                 (acronym.strip(), entity_type),
             )
@@ -70,25 +74,27 @@ class AcronymCache(CacheBase):
                     return None
 
                 detail_logger.debug(
-                    f"Found mapping for '{acronym}' -> '{row['normalized_name']}'"
+                    f"Found canonical mapping for '{acronym}' -> '{row['normalized_name']}'"
                 )
-                # Update last_used_at timestamp
+                # Update last_seen_at timestamp
                 cursor.execute(
                     """
-                    UPDATE venue_acronyms
-                    SET last_used_at = CURRENT_TIMESTAMP
-                    WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                    UPDATE venue_acronym_variants
+                    SET last_seen_at = CURRENT_TIMESTAMP
+                    WHERE acronym = ? COLLATE NOCASE
+                      AND entity_type = ?
+                      AND is_canonical = TRUE
                     """,
                     (acronym.strip(), entity_type),
                 )
                 conn.commit()
                 detail_logger.debug(
-                    f"Updated last_used_at timestamp for acronym '{acronym}'"
+                    f"Updated last_seen_at timestamp for acronym '{acronym}'"
                 )
                 return str(row["normalized_name"])
             else:
                 detail_logger.debug(
-                    f"No mapping found for acronym '{acronym}' with entity_type '{entity_type}'"
+                    f"No canonical mapping found for acronym '{acronym}' with entity_type '{entity_type}'"
                 )
             return None
 
@@ -141,7 +147,7 @@ class AcronymCache(CacheBase):
         )
         cursor.execute(
             """
-            SELECT normalized_name FROM venue_acronyms
+            SELECT normalized_name FROM venue_acronym_variants
             WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
             """,
             (acronym, entity_type),
@@ -183,7 +189,7 @@ class AcronymCache(CacheBase):
         entity_type: str,
         source: str,
     ) -> None:
-        """Store the mapping to the database.
+        """Store the mapping to the database using new variant system.
 
         Args:
             cursor: Database cursor
@@ -192,18 +198,79 @@ class AcronymCache(CacheBase):
             entity_type: VenueType value
             source: Source of the mapping
         """
-        # Insert or replace the mapping with normalized form
+        # Insert or update using new variant system
         detail_logger.debug(
             f"Storing acronym mapping: '{acronym}' -> '{normalized_name}' (entity_type: {entity_type})"
         )
+
+        # Check if variant already exists
         cursor.execute(
             """
-            INSERT OR REPLACE INTO venue_acronyms
-            (acronym, normalized_name, entity_type, source, is_ambiguous, created_at, last_used_at)
-            VALUES (?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            SELECT id, usage_count FROM venue_acronym_variants
+            WHERE acronym = ? COLLATE NOCASE
+              AND entity_type = ?
+              AND normalized_name = ?
             """,
-            (acronym, normalized_name, entity_type, source),
+            (acronym.strip(), entity_type, normalized_name),
         )
+        existing = cursor.fetchone()
+
+        if existing:
+            # Update existing variant
+            cursor.execute(
+                """
+                UPDATE venue_acronym_variants
+                SET usage_count = usage_count + 1,
+                    last_seen_at = CURRENT_TIMESTAMP,
+                    is_canonical = TRUE
+                WHERE id = ?
+                """,
+                (existing["id"],),
+            )
+            detail_logger.debug(f"Updated existing variant {existing['id']}")
+        else:
+            # Check for any existing variants for this acronym
+            cursor.execute(
+                """
+                SELECT id, normalized_name FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                """,
+                (acronym.strip(), entity_type),
+            )
+            existing_variants = cursor.fetchall()
+
+            # For backward compatibility: if there are existing non-equivalent variants,
+            # delete them (this mimics the old INSERT OR REPLACE behavior)
+            for variant in existing_variants:
+                if not are_conference_names_equivalent(
+                    variant["normalized_name"], normalized_name
+                ):
+                    cursor.execute(
+                        "DELETE FROM venue_acronym_variants WHERE id = ?",
+                        (variant["id"],),
+                    )
+                    detail_logger.debug(
+                        f"Deleted non-equivalent variant {variant['id']}"
+                    )
+
+            # Insert new variant
+            cursor.execute(
+                """
+                INSERT INTO venue_acronym_variants
+                (acronym, entity_type, variant_name, normalized_name, usage_count, source, is_canonical)
+                VALUES (?, ?, ?, ?, 1, ?, TRUE)
+                """,
+                (
+                    acronym.strip(),
+                    entity_type,
+                    normalized_name,
+                    normalized_name,
+                    source,
+                ),
+            )
+            variant_id = cursor.lastrowid
+            detail_logger.debug(f"Inserted new variant {variant_id} as canonical")
+
         detail_logger.debug("Successfully stored acronym mapping to database")
 
     def store_acronym_mapping(
@@ -245,7 +312,7 @@ class AcronymCache(CacheBase):
 
             conn.commit()
 
-    def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int | str]:
+    def get_acronym_stats(self, entity_type: str | None = None) -> dict[str, int]:
         """Get statistics about the acronym database.
 
         Args:
@@ -253,100 +320,23 @@ class AcronymCache(CacheBase):
                         If None, returns stats for all entity types.
 
         Returns:
-            Dictionary containing count, most_recent, and oldest entry info
+            Dictionary containing total_count
         """
-        if entity_type:
-            detail_logger.debug(f"Getting stats for entity_type '{entity_type}'")
-        else:
-            detail_logger.debug("Getting stats for all entity types")
-
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
             if entity_type:
-                # Get stats for specific entity type
                 cursor.execute(
-                    "SELECT COUNT(*) as count FROM venue_acronyms WHERE entity_type = ?",
+                    "SELECT COUNT(*) as count FROM venue_acronym_variants WHERE entity_type = ?",
                     (entity_type,),
                 )
-                count = cursor.fetchone()["count"]
-                detail_logger.debug(
-                    f"Found {count} acronym entries for entity_type '{entity_type}'"
-                )
-
-                cursor.execute(
-                    """
-                    SELECT acronym, normalized_name, entity_type, last_used_at
-                    FROM venue_acronyms
-                    WHERE entity_type = ?
-                    ORDER BY last_used_at DESC
-                    LIMIT 1
-                    """,
-                    (entity_type,),
-                )
-                most_recent = cursor.fetchone()
-
-                cursor.execute(
-                    """
-                    SELECT acronym, normalized_name, entity_type, created_at
-                    FROM venue_acronyms
-                    WHERE entity_type = ?
-                    ORDER BY created_at ASC
-                    LIMIT 1
-                    """,
-                    (entity_type,),
-                )
-                oldest = cursor.fetchone()
             else:
-                # Get stats for all entity types
-                cursor.execute("SELECT COUNT(*) as count FROM venue_acronyms")
-                count = cursor.fetchone()["count"]
-                detail_logger.debug(
-                    f"Found {count} total acronym entries across all entity types"
-                )
+                cursor.execute("SELECT COUNT(*) as count FROM venue_acronym_variants")
 
-                cursor.execute(
-                    """
-                    SELECT acronym, normalized_name, entity_type, last_used_at
-                    FROM venue_acronyms
-                    ORDER BY last_used_at DESC
-                    LIMIT 1
-                    """
-                )
-                most_recent = cursor.fetchone()
+            count = cursor.fetchone()["count"]
+            detail_logger.debug(f"Total acronym count: {count}")
 
-                cursor.execute(
-                    """
-                    SELECT acronym, normalized_name, entity_type, created_at
-                    FROM venue_acronyms
-                    ORDER BY created_at ASC
-                    LIMIT 1
-                    """
-                )
-                oldest = cursor.fetchone()
-
-            if most_recent:
-                detail_logger.debug(
-                    f"Most recent acronym: '{most_recent['acronym']}' -> '{most_recent['normalized_name']}' (last used: {most_recent['last_used_at']})"
-                )
-            if oldest:
-                detail_logger.debug(
-                    f"Oldest acronym: '{oldest['acronym']}' -> '{oldest['normalized_name']}' (created: {oldest['created_at']})"
-                )
-
-            stats = {"total_count": count}
-
-            if most_recent:
-                stats["most_recent_acronym"] = most_recent["acronym"]
-                stats["most_recent_normalized_name"] = most_recent["normalized_name"]
-                stats["most_recent_used"] = most_recent["last_used_at"]
-
-            if oldest:
-                stats["oldest_acronym"] = oldest["acronym"]
-                stats["oldest_normalized_name"] = oldest["normalized_name"]
-                stats["oldest_created"] = oldest["created_at"]
-
-            return stats
+            return {"total_count": count}
 
     def list_all_acronyms(
         self, entity_type: str | None = None, limit: int | None = None, offset: int = 0
@@ -381,8 +371,8 @@ class AcronymCache(CacheBase):
             params: list[str | int]
             if entity_type:
                 query = """
-                    SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
-                    FROM venue_acronyms
+                    SELECT acronym, normalized_name, entity_type, usage_count
+                    FROM venue_acronym_variants
                     WHERE entity_type = ?
                     ORDER BY acronym ASC
                 """
@@ -392,8 +382,8 @@ class AcronymCache(CacheBase):
                 )
             else:
                 query = """
-                    SELECT acronym, normalized_name, entity_type, source, created_at, last_used_at
-                    FROM venue_acronyms
+                    SELECT acronym, normalized_name, entity_type, usage_count
+                    FROM venue_acronym_variants
                     ORDER BY acronym ASC
                 """
                 params = []
@@ -415,9 +405,7 @@ class AcronymCache(CacheBase):
                     "acronym": row["acronym"],
                     "normalized_name": row["normalized_name"],
                     "entity_type": row["entity_type"],
-                    "source": row["source"],
-                    "created_at": row["created_at"],
-                    "last_used_at": row["last_used_at"],
+                    "usage_count": row["usage_count"],
                 }
                 for row in rows
             ]
@@ -445,7 +433,7 @@ class AcronymCache(CacheBase):
             if entity_type:
                 # Get count before deletion
                 cursor.execute(
-                    "SELECT COUNT(*) FROM venue_acronyms WHERE entity_type = ?",
+                    "SELECT COUNT(*) FROM venue_acronym_variants WHERE entity_type = ?",
                     (entity_type,),
                 )
                 result = cursor.fetchone()
@@ -456,18 +444,19 @@ class AcronymCache(CacheBase):
 
                 # Delete entries for specific entity type
                 cursor.execute(
-                    "DELETE FROM venue_acronyms WHERE entity_type = ?", (entity_type,)
+                    "DELETE FROM venue_acronym_variants WHERE entity_type = ?",
+                    (entity_type,),
                 )
                 detail_logger.debug(f"Deleted entries for entity_type '{entity_type}'")
             else:
                 # Get count before deletion
-                cursor.execute("SELECT COUNT(*) FROM venue_acronyms")
+                cursor.execute("SELECT COUNT(*) FROM venue_acronym_variants")
                 result = cursor.fetchone()
                 count = result[0] if result else 0
                 detail_logger.debug(f"Found {count} total entries to delete")
 
                 # Delete all entries
-                cursor.execute("DELETE FROM venue_acronyms")
+                cursor.execute("DELETE FROM venue_acronym_variants")
                 detail_logger.debug("Deleted all entries from acronym database")
 
             conn.commit()
@@ -503,7 +492,7 @@ class AcronymCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 """
-                UPDATE venue_acronyms
+                UPDATE venue_acronym_variants
                 SET is_ambiguous = TRUE
                 WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
@@ -536,7 +525,7 @@ class AcronymCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT normalized_name FROM venue_acronyms
+                SELECT normalized_name FROM venue_acronym_variants
                 WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
                 (acronym.strip(), entity_type),
@@ -582,16 +571,16 @@ class AcronymCache(CacheBase):
 
             if entity_type:
                 query = """
-                    SELECT acronym, normalized_name, entity_type, source, created_at
-                    FROM venue_acronyms
+                    SELECT acronym, normalized_name, entity_type, usage_count
+                    FROM venue_acronym_variants
                     WHERE is_ambiguous = TRUE AND entity_type = ?
                     ORDER BY acronym ASC
                 """
                 cursor.execute(query, (entity_type,))
             else:
                 query = """
-                    SELECT acronym, normalized_name, entity_type, source, created_at
-                    FROM venue_acronyms
+                    SELECT acronym, normalized_name, entity_type, usage_count
+                    FROM venue_acronym_variants
                     WHERE is_ambiguous = TRUE
                     ORDER BY acronym ASC
                 """
@@ -605,8 +594,7 @@ class AcronymCache(CacheBase):
                     "acronym": row["acronym"],
                     "normalized_name": row["normalized_name"],
                     "entity_type": row["entity_type"],
-                    "source": row["source"],
-                    "created_at": row["created_at"],
+                    "usage_count": row["usage_count"],
                 }
                 for row in rows
             ]
@@ -626,8 +614,8 @@ class AcronymCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 """
-                UPDATE venue_acronyms
-                SET usage_count = usage_count + 1, last_used_at = CURRENT_TIMESTAMP
+                UPDATE venue_acronym_variants
+                SET usage_count = usage_count + 1, last_seen_at = CURRENT_TIMESTAMP
                 WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
                 """,
                 (acronym.strip(), entity_type),
@@ -636,3 +624,316 @@ class AcronymCache(CacheBase):
             detail_logger.debug(
                 f"Incremented usage count for acronym '{acronym}' (entity_type={entity_type})"
             )
+
+    # ========== Variant Management Methods ==========
+
+    def get_variants(self, acronym: str, entity_type: str) -> list[dict[str, Any]]:
+        """Get all variants for an acronym.
+
+        Args:
+            acronym: The acronym to look up
+            entity_type: VenueType value
+
+        Returns:
+            List of variant records as dictionaries
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, acronym, entity_type, variant_name, normalized_name,
+                       usage_count, is_canonical, is_ambiguous, source,
+                       first_seen_at, last_seen_at
+                FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                ORDER BY usage_count DESC, id ASC
+                """,
+                (acronym.strip(), entity_type),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def store_variant(
+        self,
+        acronym: str,
+        entity_type: str,
+        variant_name: str,
+        normalized_name: str,
+        usage_count: int,
+        source: str,
+    ) -> int:
+        """Store a new variant or update existing one.
+
+        Args:
+            acronym: The acronym
+            entity_type: VenueType value
+            variant_name: Original form
+            normalized_name: Normalized form for comparison
+            usage_count: Number of occurrences
+            source: Source of mapping
+
+        Returns:
+            variant_id of the stored/updated variant
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            # Check if variant already exists
+            cursor.execute(
+                """
+                SELECT id, usage_count FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE
+                  AND entity_type = ?
+                  AND normalized_name = ?
+                """,
+                (acronym.strip(), entity_type, normalized_name),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                # Update existing variant
+                variant_id = int(existing["id"])
+                new_count = existing["usage_count"] + usage_count
+                cursor.execute(
+                    """
+                    UPDATE venue_acronym_variants
+                    SET usage_count = ?,
+                        last_seen_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (new_count, variant_id),
+                )
+                detail_logger.debug(
+                    f"Updated variant {variant_id}: usage_count {existing['usage_count']} -> {new_count}"
+                )
+            else:
+                # Insert new variant
+                cursor.execute(
+                    """
+                    INSERT INTO venue_acronym_variants
+                    (acronym, entity_type, variant_name, normalized_name,
+                     usage_count, source)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        acronym.strip(),
+                        entity_type,
+                        variant_name,
+                        normalized_name,
+                        usage_count,
+                        source,
+                    ),
+                )
+                variant_id = int(cursor.lastrowid)
+                detail_logger.debug(
+                    f"Inserted new variant {variant_id}: '{variant_name}' (normalized: '{normalized_name}')"
+                )
+
+            conn.commit()
+            return variant_id
+
+    def increment_variant_count(self, variant_id: int, increment: int = 1) -> None:
+        """Increment usage count for an existing variant.
+
+        Args:
+            variant_id: Database ID of the variant
+            increment: Amount to increment by
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE venue_acronym_variants
+                SET usage_count = usage_count + ?,
+                    last_seen_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (increment, variant_id),
+            )
+            conn.commit()
+            detail_logger.debug(
+                f"Incremented variant {variant_id} usage_count by {increment}"
+            )
+
+    def update_canonical_variant(self, acronym: str, entity_type: str) -> None:
+        """Recalculate and set canonical variant (highest usage_count).
+
+        Args:
+            acronym: The acronym
+            entity_type: VenueType value
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            # First, clear all canonical flags for this acronym
+            cursor.execute(
+                """
+                UPDATE venue_acronym_variants
+                SET is_canonical = FALSE
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                """,
+                (acronym.strip(), entity_type),
+            )
+
+            # Find the variant with highest usage_count
+            cursor.execute(
+                """
+                SELECT id, usage_count FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                ORDER BY usage_count DESC, id ASC
+                LIMIT 1
+                """,
+                (acronym.strip(), entity_type),
+            )
+            top_variant = cursor.fetchone()
+
+            if top_variant:
+                # Set this variant as canonical
+                cursor.execute(
+                    """
+                    UPDATE venue_acronym_variants
+                    SET is_canonical = TRUE
+                    WHERE id = ?
+                    """,
+                    (top_variant["id"],),
+                )
+                detail_logger.debug(
+                    f"Set variant {top_variant['id']} as canonical (usage_count={top_variant['usage_count']})"
+                )
+
+            conn.commit()
+
+    # ========== Learned Abbreviation Methods ==========
+
+    def get_learned_abbreviations(
+        self, min_confidence: float = 0.05
+    ) -> dict[str, list[tuple[str, float]]]:
+        """Get abbreviation mappings above confidence threshold.
+
+        Args:
+            min_confidence: Minimum confidence score to include
+
+        Returns:
+            dict mapping abbreviated form to list of (expanded_form, confidence) tuples
+            Example: {
+                "int.": [("international", 0.9), ("integer", 0.3)],
+                "conf.": [("conference", 0.95)]
+            }
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT abbreviated_form, expanded_form, confidence_score
+                FROM learned_abbreviations
+                WHERE confidence_score >= ?
+                ORDER BY abbreviated_form, confidence_score DESC
+                """,
+                (min_confidence,),
+            )
+
+            result: dict[str, list[tuple[str, float]]] = {}
+            for row in cursor.fetchall():
+                abbrev = row["abbreviated_form"]
+                expanded = row["expanded_form"]
+                confidence = row["confidence_score"]
+
+                if abbrev not in result:
+                    result[abbrev] = []
+                result[abbrev].append((expanded, confidence))
+
+            detail_logger.debug(
+                f"Loaded {len(result)} abbreviations with min_confidence >= {min_confidence}"
+            )
+            return result
+
+    def store_learned_abbreviation(
+        self,
+        abbrev: str,
+        expanded: str,
+        confidence: float,
+        context: str | None = None,
+        log_prefix: str = "",
+    ) -> None:
+        """Store or update a learned abbreviation mapping.
+
+        Args:
+            abbrev: Abbreviated form
+            expanded: Expanded form
+            confidence: Initial confidence score
+            context: Optional context (venue type, etc.)
+            log_prefix: Optional prefix for log messages (e.g., file path)
+        """
+        import math
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            # Check if mapping already exists
+            cursor.execute(
+                """
+                SELECT occurrence_count FROM learned_abbreviations
+                WHERE abbreviated_form = ? AND expanded_form = ?
+                """,
+                (abbrev, expanded),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                # Update existing mapping
+                new_count = existing["occurrence_count"] + 1
+                # Recalculate confidence using logarithmic formula
+                new_confidence = min(1.0, 0.1 + 0.3 * math.log10(new_count + 1))
+
+                cursor.execute(
+                    """
+                    UPDATE learned_abbreviations
+                    SET occurrence_count = ?,
+                        confidence_score = ?,
+                        last_seen_at = CURRENT_TIMESTAMP
+                    WHERE abbreviated_form = ? AND expanded_form = ?
+                    """,
+                    (new_count, new_confidence, abbrev, expanded),
+                )
+                status_logger.info(
+                    f"{log_prefix}updated abbrev '{abbrev}' → '{expanded}' "
+                    f"(confidence: {new_confidence:.2f}, count: {new_count})"
+                )
+            else:
+                # Insert new mapping
+                cursor.execute(
+                    """
+                    INSERT INTO learned_abbreviations
+                    (abbreviated_form, expanded_form, confidence_score,
+                     occurrence_count, context)
+                    VALUES (?, ?, ?, 1, ?)
+                    """,
+                    (abbrev, expanded, confidence, context),
+                )
+                status_logger.info(
+                    f"{log_prefix}learned abbrev '{abbrev}' → '{expanded}' "
+                    f"(confidence: {confidence:.2f}, count: 1)"
+                )
+
+            conn.commit()
+
+    def get_abbreviation_confidence(self, abbrev: str, expanded: str) -> float:
+        """Get confidence score for a specific mapping.
+
+        Args:
+            abbrev: Abbreviated form
+            expanded: Expanded form
+
+        Returns:
+            Confidence score (0.0-1.0), or 0.0 if mapping doesn't exist
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT confidence_score FROM learned_abbreviations
+                WHERE abbreviated_form = ? AND expanded_form = ?
+                """,
+                (abbrev, expanded),
+            )
+            row = cursor.fetchone()
+            return float(row["confidence_score"]) if row else 0.0

@@ -658,23 +658,13 @@ class TestConferenceAcronymCommands:
         """Test acronym stats command."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_cache.get_acronym_stats.return_value = {
-                "total_count": 5,
-                "most_recent_acronym": "ICML",
-                "most_recent_normalized_name": "international conference on machine learning",
-                "most_recent_used": "2024-01-15 10:30:00",
-                "oldest_acronym": "CVPR",
-                "oldest_normalized_name": "computer vision and pattern recognition",
-                "oldest_created": "2024-01-10 09:00:00",
-            }
+            mock_cache.get_acronym_stats.return_value = {"total_count": 5}
             mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["acronym", "stats"])
 
             assert result.exit_code == 0
             assert "5" in result.output
-            assert "ICML" in result.output
-            assert "CVPR" in result.output
 
     def test_acronym_stats_empty(self, runner):
         """Test acronym stats command with empty database."""
@@ -690,25 +680,20 @@ class TestConferenceAcronymCommands:
 
     def test_acronym_list(self, runner):
         """Test acronym list command."""
-        with (
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-        ):
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = [
                 {
                     "acronym": "ICML",
                     "normalized_name": "international conference on machine learning",
-                    "source": "bibtex_extraction",
-                    "created_at": "2024-01-10 09:00:00",
-                    "last_used_at": "2024-01-15 10:30:00",
+                    "entity_type": "conference",
+                    "usage_count": 5,
                 },
                 {
                     "acronym": "CVPR",
                     "normalized_name": "computer vision and pattern recognition",
-                    "source": "manual",
-                    "created_at": "2024-01-12 11:00:00",
-                    "last_used_at": "2024-01-14 14:20:00",
+                    "entity_type": "conference",
+                    "usage_count": 3,
                 },
             ]
             mock_cache.get_acronym_stats.return_value = {"total_count": 2}
@@ -724,7 +709,7 @@ class TestConferenceAcronymCommands:
                 assert result.exit_code == 0
                 assert "ICML" in result.output
                 assert "CVPR" in result.output
-                assert "Normalized:" in result.output
+                assert "count:" in result.output
 
     def test_acronym_list_empty(self, runner):
         """Test acronym list command with empty database."""
@@ -740,18 +725,14 @@ class TestConferenceAcronymCommands:
 
     def test_acronym_list_with_limit(self, runner):
         """Test acronym list command with limit option."""
-        with (
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-        ):
+        with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
             mock_cache.list_all_acronyms.return_value = [
                 {
                     "acronym": "ICML",
                     "normalized_name": "international conference on machine learning",
-                    "source": "test",
-                    "created_at": "2024-01-10",
-                    "last_used_at": "2024-01-15",
+                    "entity_type": "conference",
+                    "usage_count": 5,
                 }
             ]
             mock_cache.get_acronym_stats.return_value = {"total_count": 10}

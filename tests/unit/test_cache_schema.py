@@ -58,7 +58,8 @@ class TestCacheSchema:
             "assessment_cache",
             "article_retractions",
             "openalex_cache",
-            "venue_acronyms",
+            "venue_acronym_variants",
+            "learned_abbreviations",
             "custom_lists",
         }
 
@@ -84,7 +85,8 @@ class TestCacheSchema:
             "source_updates",
             "assessment_cache",
             "article_retractions",
-            "venue_acronyms",
+            "venue_acronym_variants",
+            "learned_abbreviations",
             "custom_lists",
         ]
 
@@ -130,7 +132,10 @@ class TestCacheSchema:
                 "idx_source_assessments_journal_id",
                 "idx_assessment_cache_expires",
                 "idx_article_retractions_doi",
-                "idx_venue_acronyms_normalized_name",
+                "idx_variants_acronym",
+                "idx_variants_canonical",
+                "idx_variants_normalized",
+                "idx_abbrev_lookup",
                 "idx_custom_lists_list_name",
             }
 
