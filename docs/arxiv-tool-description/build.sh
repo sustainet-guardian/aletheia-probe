@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: LicenseRef-arXiv-1.0
+# SPDX-FileCopyrightText: 2026 Andreas Florath
+#
 # Build script for Aletheia-Probe arXiv paper
 # Requires: pdflatex, bibtex
 

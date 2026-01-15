@@ -1,7 +1,8 @@
 #!/bin/bash
+# SPDX-License-Identifier: LicenseRef-arXiv-1.0
+# SPDX-FileCopyrightText: 2026 Andreas Florath
 #
 # This creates a tar.gz file for the submission to arxiv.
-#
 
 set -e
 
