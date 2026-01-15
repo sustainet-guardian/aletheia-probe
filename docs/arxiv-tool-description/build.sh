@@ -38,9 +38,9 @@ else
     exit 1
 fi
 
-# Optional: Clean up auxiliary files
+# Optional: Clean up auxiliary files (keep .bbl for arXiv submission)
 echo "Cleaning up auxiliary files..."
-rm -f *.aux *.bbl *.blg *.log *.out *.toc
+rm -f *.aux *.blg *.log *.out *.toc
 
 echo "Build completed successfully!"
 echo "Output: $PAPER_NAME.pdf"
