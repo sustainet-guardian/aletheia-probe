@@ -18,7 +18,6 @@ fi
 bash build.sh
 
 F2COPY="${BNAME}.tex
-${BNAME}.bbl
 ${BNAME}.bib
 SelfArx.cls"
 cp ${F2COPY} ${TMPDIR}
