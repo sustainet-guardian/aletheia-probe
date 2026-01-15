@@ -70,7 +70,7 @@
 \PaperTitle{Aletheia-Probe: A Multi-Source Tool for Automated Journal Assessment}
 \Authors{Andreas Florath\orcidlink{0009-0001-6471-7372}\textsuperscript{1}}
 \affiliation{\textsuperscript{1}\textit{Deutsche Telekom AG, Andreas.Florath@telekom.de}}
-\Keywords{Predatory Journals --- Academic Integrity --- Publication Ethics --- Journal Assessment --- Research Workflows}
+\Keywords{Predatory Journals --- Academic Integrity --- Journal Assessment}
 \newcommand{\keywordname}{Keywords}
 
 \Abstract{Assessing journal legitimacy during literature reviews,
@@ -101,10 +101,11 @@
 Predatory academic journals pose a significant and growing threat to
 scholarly integrity. Article volumes in predatory journals grew from
 53,000 in 2010 to over 420,000 in 2014~\cite{shen2015predatory},
-affecting researchers across all scientific disciplines---from
-mathematics and engineering to nursing and biomedical
-sciences~\cite{agricola2025,gabrielsson2020nursing}. These journals
-increasingly mimic legitimate publications through
+affecting researchers across all scientific disciplines --- from
+nursing and radiology to chemistry and biomedical sciences, from
+engineering and computer science to mathematics and the life
+sciences~\cite{gabrielsson2020nursing,aribal2020radiology,Sevryugina2023,Sharma2018,agricola2025}. These
+journals increasingly mimic legitimate publications through
 professional-looking websites and editorial structures, making them
 difficult to distinguish when researchers choose publication venues or
 conduct literature reviews.
@@ -118,7 +119,7 @@ use these scattered resources. Manually checking hundreds or thousands
 of journal entries across multiple databases and websites is impractical
 for most researchers. A literature review with 150 papers requires
 verifying each source journal, which requires many hours of tedious
-manual work across multiple websites.
+manual work.
 
 This paper introduces Aletheia-Probe~\cite{aletheia_probe}, an
 automated journal assessment tool that combines data from multiple
@@ -126,56 +127,50 @@ trusted sources with transparent confidence indicators. The word
 ``Aletheia'' comes from ancient Greek philosophy, representing truth
 and unconcealment --- reflecting the tool's mission to reveal the
 truth about academic journals. The tool transforms scattered quality
-indicators into actionable guidance at the point of decision.
+indicators into actionable guidance.
 
 The tool is designed for integration into everyday research workflows,
 where it primarily addresses edge cases. Researchers using established,
 well-known journals through major search engines are unlikely to
 encounter predatory venues; the tool identifies less obvious cases that
-may not be detected through standard research practices. This paper presents
-Aletheia-Probe's architecture, design principles, and practical
-integration approach. The system aggregates multiple authoritative
-data sources to provide assessments. Comprehensive empirical
-validation, including systematic coverage analysis and comparative
-evaluation, will be presented in forthcoming work.
+may not be detected through standard research practices.
 
-The paper's contributions are: (1) a multi-source aggregation
-architecture that systematically combines curated databases (DOAJ,
-Beall's List, regional ministry lists) with pattern analysis backends
-(OpenAlex, Crossref) into a unified assessment framework. (2) Design
-principles for transparent journal assessment that explicitly report all
-source consultations, confidence indicators, and evidence conflicts
-rather than providing opaque scores. (3) An open-source implementation
-with command-line and programmatic interfaces enabling integration into
+This paper presents Aletheia-Probe's architecture, design principles,
+and practical integration approach. Empirical validation will be
+presented in forthcoming work.
+
+The contributions are: (1) A multi-source aggregation architecture
+that systematically combines curated databases (e.g.~DOAJ, Beall's
+List, regional ministry lists) with pattern analysis backends
+(e.g.~OpenAlex, Crossref) into a unified assessment framework. (2)
+Transparent journal assessment that explicitly report all source
+consultations, confidence indicators, and evidence conflicts rather
+than providing opaque scores. (3) An open-source implementation with
+command-line and programmatic interfaces enabling integration into
 research workflows including systematic reviews and bibliographic
 processing.
 
 \section{Problem and Motivation}
 
-\textbf{Concrete Researcher Scenarios.} A systematic review author
-verifying 300 journals for PRISMA compliance~\cite{page2021prisma} must
-cross-reference each journal against multiple databases---DOAJ for open
-access journals, Scopus for indexed venues, Beall's List for known
-predatory publishers, ministry lists for regional warnings. This
-requires many hours of tedious, error-prone manual work. Similar
-challenges face early-career researchers evaluating publication venue
-invitations, research integrity officers investigating suspicious
-citations, and librarians assessing institutional support for
-open-access journals. All require quick, reliable assessments but face
-scattered information across incompatible sources.
+A systematic review author verifying 300 journals for PRISMA
+compliance~\cite{page2021prisma} must cross-reference each journal
+against multiple databases. This requires many hours of tedious,
+error-prone manual work. Similar challenges face researchers
+evaluating publication venue invitations, research integrity officers
+investigating suspicious citations, and librarians assessing
+institutional support for open-access journals. All require quick,
+reliable assessments but face scattered information across
+incompatible sources.
 
-\textbf{Compounding Factors.} The challenge intensifies due to several
-factors. First, journal proliferation has accelerated with open access
-publishing, creating a larger landscape to evaluate. Second, while
-predatory journals do evolve tactics to mimic legitimate publications,
-no automated tool can detect all novel approaches --- curated lists
-are retrospective, and heuristic checks catch obvious anomalies but
-not sophisticated mimicry. Assessment tools form one layer of defense
-alongside institutional guidelines and domain expertise. Third,
-effective assessment requires checking multiple independent sources,
-as no single database provides comprehensive coverage. Finally,
-publication venue decisions require rapid assessment --- manual
-verification requiring hours or days is impractical.
+The challenge intensifies due to several factors. First, journal
+proliferation has accelerated with open access publishing, creating a
+larger landscape to evaluate. Second, while predatory journals do
+evolve tactics to mimic legitimate publications, no automated tool can
+detect all novel approaches --- curated lists are retrospective, and
+heuristic checks catch obvious anomalies but not sophisticated
+mimicry. Third, effective assessment requires checking multiple
+independent sources, as no single database provides comprehensive
+coverage.
 
 Previous work has extensively studied predatory publishing. Bohannon's
 sting operation submitted flawed papers to 304 open-access journals
@@ -186,8 +181,8 @@ recommendations~\cite{agricola2025}. Grudniewicz et al. worked with
 experts to standardize the definition of ``predatory
 journal''~\cite{grudniewicz2019predatory}. Machine learning approaches
 like AJPC have been explored~\cite{chen2023ajpc}. However, no existing
-tool systematically aggregates authoritative curated sources with
-transparent confidence indicators.
+open-source tool systematically aggregates authoritative curated
+sources with transparent confidence indicators.
 
 \begin{figure*}[t]
 \centering
@@ -222,7 +217,7 @@ transparent confidence indicators.
   
   % Input Normalization
   \node[box] (normalize) at (0,7.5) {Input Normalization};
-  \node[cache] (cache) at (3.5,7.5) {Acronym Cache};
+  \node[cache] (cache) at (3.5,7.5) {Acronyms, Abbreviations};
   
   % Query Orchestration
   \node[box] (orchestrate) at (0,6) {Query Orchestration};
@@ -275,15 +270,15 @@ transparent confidence indicators.
 
 \subsection{Core Design Principles}
 Aletheia-Probe's architecture follows three fundamental principles that
-shape all design decisions and distinguish it from other approaches:
+shape all design decisions:
 
-\textbf{1. Aggregator, Not Creator.} The tool is a data aggregator that
-systematically combines existing authoritative sources rather than
-creating its own judgments. It acknowledges that expert curation is
-distributed across the scholarly community---DOAJ for open access,
-Beall's for predatory publishers, Scopus for indexed journals. The
-tool's value lies in making this scattered expertise accessible and
-queryable through a unified interface.
+\textbf{1. Aggregator, Not Creator.} The tool is a data aggregator
+that systematically combines existing authoritative sources rather
+than creating its own judgments. It acknowledges that expert curation
+is distributed across the scholarly community --- e.g.~DOAJ for open
+access or Beall's for predatory publishers. The tool's value lies in
+making this scattered expertise accessible and queryable through a
+unified interface.
 
 \textbf{2. Multiple Independent Sources.} The tool queries multiple
 data sources for each assessment and reports all findings. No single
@@ -307,23 +302,15 @@ low-confidence guesses. This honest reporting of uncertainty respects
 researchers' need to understand the reliability of information they act
 upon.
 
-These principles prioritize transparency, expert curation, and
-comprehensive information over algorithmic sophistication. The
-following subsections describe how these principles manifest in system
-architecture and functionality.
-
 \subsection{Architecture Overview}
-The system comprises five main components
-(Figure~\ref{fig:dataflow-architecture}). The data synchronization
+The data synchronization
 layer downloads information from multiple data-sets during initial
-setup, organizing data for fast searching. The backend abstraction
-layer provides a common interface to query all sources, whether local
-databases or web APIs. The assessment dispatcher sends queries to all
-relevant backends simultaneously, improving speed. The aggregation
-component combines responses from multiple sources into a unified
-assessment, reporting a confidence indicator alongside the
-classification. Finally, command-line and library interfaces provide
-two usage modes.
+setup, organizing data for fast searching.
+
+After normalization of the user input (possible BibTeX files), the
+query orchestrator sends queries to all backends simultanously.
+A possible cross validation between two results enhances the input
+for the evidence aggregation (Figure~\ref{fig:dataflow-architecture}). 
 
 \subsection{Data Sources}
 
@@ -356,7 +343,7 @@ databases by checking data quality indicators and metadata consistency
 for journals not present in curated lists. These are not machine
 learning models or predictive algorithms, but rather systematic checks
 of observable patterns that suggest quality or concerns. The OpenAlex
-Analyzer queries over 270,000 journals to examine publication volume
+Analyzer queries journals to examine publication volume
 (e.g., $>$1000 papers/year suggests publication mill behavior), citation
 ratios (e.g., $<$0.5 citations/paper indicates low impact), author
 diversity, and growth patterns~\cite{openalex}. The Crossref Analyzer
@@ -425,17 +412,15 @@ their anomalies trigger pattern analysis. For such edge cases,
 researchers must apply institutional guidelines, domain expertise, and
 editorial board verification.
 
-\textbf{Aggregation as the Core Contribution.} The primary engineering
-challenge lies in combining heterogeneous data sources with different
-naming conventions (``Journal of Computer Science'' vs ``J. Comput.
-Sci.''), ISSN formats (``1234-5678'' vs ``12345678''), publisher
-variants (``Springer'' vs ``Springer Nature''), and update frequencies
-(DOAJ quarterly, Beall's List frozen, OpenAlex weekly). Sources have
-different reliability profiles and sometimes disagree. Handling these
-inconsistencies through robust normalization, fuzzy matching, and
-conflict resolution is the engineering contribution. The value lies in
-systematically aggregating scattered authoritative information into a
-unified, queryable system.
+An engineering challenge lies in combining heterogeneous data sources
+with different naming conventions (``Journal of Computer Science'' vs
+``J. Comput.  Sci.''), ISSN formats (``1234-5678'' vs ``12345678''),
+publisher variants (``Springer'' vs ``Springer Nature''), and update
+frequencies (DOAJ quarterly, Beall's List frozen, OpenAlex
+weekly). Sources have different reliability profiles and sometimes
+disagree. Handling these inconsistencies through robust normalization,
+fuzzy matching, and conflict resolution is the engineering
+contribution.
 
 Each assessment reports a confidence indicator as a transparency
 mechanism. Confidence reflects the strength and consistency of
@@ -448,9 +433,6 @@ informed decisions about whether additional verification is warranted.
 \subsection{Transparency and Reproducibility}
 \label{sec:transparency}
 
-Transparency manifests in four complementary ways throughout the tool's
-design and operation.
-
 \subsubsection{Transparent Reasoning and Source Attribution}
 
 The tool explicitly reports all data sources consulted and their
@@ -458,7 +440,7 @@ individual contributions to each assessment. Every result includes
 detailed reasoning showing which backends provided evidence, their
 confidence indicators, and where sources agree or conflict (see
 Appendix~\ref{sec:examples}). Rather than providing opaque ``trust this
-score'' outputs, the tool presents all available evidence---what each
+score'' outputs, the tool presents all available evidence --- what each
 source found, how confident each assessment is. This enables researchers
 to understand the basis for classification and make informed decisions
 according to their institutional policies and risk tolerance. This
@@ -468,12 +450,11 @@ transparency enables validation rather than requiring blind trust.
 
 All assessment algorithms are publicly available and auditable.
 Researchers can examine the exact logic used for pattern analysis,
-result aggregation, and confidence indication. This reproducibility is
-essential for academic integrity---assessments can be independently
-verified, and the methodology can be peer-reviewed and improved by the
-research community. The combination of transparent output and open
-source implementation ensures scientifically rigorous and verifiable
-journal assessments.
+result aggregation, and confidence indication. Assessments can be
+independently verified, and the methodology can be peer-reviewed and
+improved by the research community. The combination of transparent
+output and open source implementation ensures scientifically rigorous
+and verifiable journal assessments.
 
 \subsubsection{Temporal Dimension of Reproducibility}
 
@@ -489,24 +470,16 @@ should record assessment timestamps for research documentation.
 When the tool cannot make a reliable determination, it returns
 \texttt{UNKNOWN} or \texttt{INSUFFICIENT\_DATA} rather than
 low-confidence guesses. This intentional refusal to speculate is a
-feature, not a limitation. Curated databases have inherently limited
-coverage (DOAJ: 22,000 journals; Beall's: 2,900 entries; Scopus:
-30,000). Many legitimate regional, institutional, or newly established
-journals lack coverage and publication history for pattern analysis.
-Rather than extrapolating from insufficient evidence, the tool
-explicitly reports \texttt{UNKNOWN}---more valuable than unreliable
-assessments masked by low confidence scores. \texttt{UNKNOWN} results
-prompt researchers to apply manual verification, consult institutional
-guidelines, or seek expert assessment, which is precisely the
-appropriate response when automated methods cannot make reliable
-determinations. This explicit acknowledgment of uncertainty represents
-honest transparency rather than algorithmic failure.
+feature, not a limitation. \texttt{UNKNOWN} results prompt researchers
+to apply manual verification, consult institutional guidelines, or
+seek expert assessment, which is precisely the appropriate response
+when automated methods cannot make reliable determinations.
 
 \section{Research Workflow Integration: A Systematic Review Example}
 
 Beyond individual journal checks, Aletheia-Probe integrates into
-research workflows requiring systematic quality assessment. We
-illustrate this with a concrete systematic literature review scenario.
+research workflows requiring systematic quality assessment. This is
+illustrated with a systematic literature review example.
 
 \textbf{Scenario:} A researcher conducts a systematic review on machine
 learning applications in healthcare, following PRISMA
@@ -519,24 +492,19 @@ journal's legitimacy before including papers in the analysis.
 \textbf{Traditional Manual Workflow:} The researcher would manually
 check each journal against multiple databases (DOAJ, Beall's List,
 Scopus, ministry lists), accounting for naming variations and
-cross-referencing across sources---a tedious, error-prone process for
-150 unique journals.
+cross-referencing across sources.
 
 \textbf{With Aletheia-Probe:} The researcher exports their bibliography
 to BibTeX format and runs:
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
 aletheia-probe bibtex references.bib --format json > results.json
 \end{lstlisting}
-The tool queries backends concurrently, reducing manual assessment from
-hours to minutes while explicitly flagging cases needing expert
-verification. The researcher can post-process results using standard
-tools or import into review management software, filtering by confidence
-levels and focusing manual verification effort on \texttt{UNKNOWN} or
+The tool queries backends concurrently, reducing manual assessment
+while explicitly flagging cases needing expert verification. The
+researcher can post-process results using standard tools or import
+into review management software, filtering by confidence levels and
+focusing manual verification effort on \texttt{UNKNOWN} or
 low-confidence cases.
-
-This workflow demonstrates the tool's practical value: it reduces manual
-burden for routine assessments while explicitly identifying cases where
-human expertise is needed.
 
 \section{Practical Features and Implementation}
 
@@ -545,43 +513,35 @@ through targeted features:
 
 \textbf{Quick Verification Checks.} Researchers encountering an
 unfamiliar journal invitation or citation can verify legitimacy through
-command-line queries. The \ilcode{aletheia-probe journal "Journal Name"}
+command-line queries. The
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+aletheia-probe journal "Journal Name"
+\end{lstlisting}
 command returns human-readable assessments with minimal latency, showing
-all consulted sources and their findings. This supports early-career
-researchers evaluating publication invitations, reviewers checking
-citation quality, or research integrity officers investigating specific
-journals.
+all consulted sources and their findings. This supports
+researchers evaluating publication invitations or reviewers checking
+citation quality.
 
 \textbf{Systematic Literature Reviews.} Batch processing of BibTeX
 files enables efficient verification of entire bibliographies. The
-\ilcode{aletheia-probe bibtex references.bib} command processes
-hundreds of journals concurrently, automating what would otherwise
-require hours of manual cross-referencing across multiple databases.
-This directly supports PRISMA-compliant systematic reviews requiring
-explicit source quality documentation.
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+aletheia-probe bibtex references.bib
+\end{lstlisting}
+command processes journals concurrently, automating what
+would otherwise require hours.
 
 \textbf{Integration with Research Infrastructure.} JSON output format
 (\ilcode{--format json}) enables integration into institutional
 workflows, bibliography management systems, and research data
-pipelines. Institutions can incorporate journal assessment into
-existing submission workflows, research information systems, or
-automated compliance checking tools.
-
-\textbf{Institutional Customization.} YAML-based configuration allows
-institutions to customize backend selection, assessment thresholds, and
-add custom journal lists reflecting institutional policies. Research
-libraries can configure the tool to match local acquisition criteria,
-while regional institutions can supplement with local language journal
-databases.
+pipelines.
 
 \textbf{Performance Optimization.} SQLite caching stores previous
 assessments and data source queries, improving performance for repeated
 queries. This benefits research groups working on related projects or
 institutions processing multiple systematic reviews concurrently.
 
-The tool is released as open source software under MIT license at
-\url{https://github.com/sustainet-guardian/aletheia-probe}, enabling
-community contributions and institutional customization.
+The tool is released as open source at
+\url{https://github.com/sustainet-guardian/aletheia-probe}.
 
 \section{Appropriate Use: When to Use the Tool vs. Manual Verification}
 \label{sec:appropriate-use}
@@ -677,9 +637,7 @@ This initial presentation establishes the tool's architecture, design
 philosophy, and practical integration approach. The modular design
 invites community contributions to expand coverage and adapt
 functionality to institutional needs. Future work will present
-comprehensive empirical validation, including systematic coverage
-analysis across large journal datasets, comparative evaluation against
-existing approaches, and longitudinal studies of assessment accuracy.
+comprehensive empirical validation.
 
 \section{Acknowledgements}
 This work was funded by the Federal Ministry of Research, Technology
@@ -704,10 +662,7 @@ high-confidence assessments and showing the tool's standard operation
 when evidence is clear. Subsection A.3 demonstrates the tool's most
 important function: explicitly presenting conflicting evidence when
 sources disagree, enabling researchers to make informed judgments rather
-than accepting opaque scores. This transparent handling of
-ambiguity---showing \emph{all} source disagreements rather than
-obscuring them behind averaged scores---distinguishes the tool's
-approach from black-box alternatives.
+than accepting opaque scores.
 
 \subsection{Straightforward Case: Well-Known Journal}
 When curated databases agree, the tool reports high-confidence
@@ -761,9 +716,8 @@ Recommendation:
   AVOID - Strong evidence of predatory characteristics detected
 \end{lstlisting}
 
-Both straightforward examples demonstrate source transparency: every
-assessment explicitly shows which databases were consulted and what
-they found.
+Every assessment explicitly shows which databases were consulted and
+what they found.
 
 \subsection{Challenging Case: Conflicting Source Assessments}
 
@@ -796,13 +750,9 @@ Recommendation:
   further
 \end{lstlisting}
 
-This example demonstrates the tool's core value: it explicitly reports
+The tool explicitly reports
 the conflict (``Sources disagree''), shows all contributing evidence,
 and provides moderate confidence (0.57) reflecting genuine uncertainty.
-Rather than forcing a high-confidence classification, the tool
-transparently presents the contradictory evidence and flags the case
-for manual review. This honest handling of ambiguity enables informed
-human judgment.
 
 \onecolumn
 \phantomsection
