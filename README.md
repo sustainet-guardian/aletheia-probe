@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17788487.svg)](https://doi.org/10.5281/zenodo.17788487)
 
-Aletheia-Probe is a comprehensive command-line tool for evaluating the legitimacy of academic journals and conferences. By aggregating data from authoritative sources and applying advanced pattern analysis, it helps researchers, librarians, and institutions detect predatory venues and ensure the integrity of scholarly publishing.
+Aletheia-Probe is a command-line tool for evaluating the legitimacy of academic journals and conferences. By aggregating data from authoritative sources and applying advanced pattern analysis, it helps researchers, librarians, and institutions detect predatory venues and ensure the integrity of scholarly publishing.
 
 **Dual-Purpose Tool**: Aletheia-Probe serves both individual researchers checking publication venues and as research infrastructure for empirical studies on scholarly publishing. Beyond individual use, the tool supports systematic literature reviews, bibliometric analysis, and meta-research workflows leveraging 240M+ publication records. For detailed research applications, see the [Research Applications Guide](docs/research-applications.md).
 
@@ -251,6 +251,27 @@ To enhance coverage with Scopus data:
   - [Extending Guide](docs/api-reference/extending-guide.md) - Extension patterns
 - [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
 - [Coding Standards](dev-notes/CODING_STANDARDS.md) - Code quality requirements
+
+## Paper and Citation
+
+This tool and its methodology are described in the following academic paper:
+
+**Aletheia-Probe: A Tool for Automated Journal Assessment**
+Available at: https://arxiv.org/abs/2601.10431
+
+To cite this work, please use the following BibTeX entry:
+
+```bibtex
+@misc{florath2026aletheiaprobetoolautomatedjournal,
+      title={Aletheia-Probe: A Tool for Automated Journal Assessment},
+      author={Andreas Florath},
+      year={2026},
+      eprint={2601.10431},
+      archivePrefix={arXiv},
+      primaryClass={cs.DL},
+      url={https://arxiv.org/abs/2601.10431},
+}
+```
 
 ## Funding Acknowledgment
 
