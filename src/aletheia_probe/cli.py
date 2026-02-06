@@ -534,10 +534,25 @@ def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
 
 @acronym.command(name="add-bibtex")
 @click.argument("bibtex_file", type=click.Path(exists=True), required=False)
-@click.option("--directory", "-d", type=click.Path(exists=True), help="Process all .bib files in directory")
-@click.option("--recursive", "-r", is_flag=True, help="Search subdirectories recursively")
-@click.option("--workers", "-w", type=int, default=None, help="Number of parallel workers")
-@click.option("--batch-size", "-b", type=int, default=100, help="Batch size for database operations")
+@click.option(
+    "--directory",
+    "-d",
+    type=click.Path(exists=True),
+    help="Process all .bib files in directory",
+)
+@click.option(
+    "--recursive", "-r", is_flag=True, help="Search subdirectories recursively"
+)
+@click.option(
+    "--workers", "-w", type=int, default=None, help="Number of parallel workers"
+)
+@click.option(
+    "--batch-size",
+    "-b",
+    type=int,
+    default=100,
+    help="Batch size for database operations",
+)
 @click.option("--dry-run", is_flag=True, help="Preview changes without storing")
 @handle_cli_errors
 def add_bibtex(
@@ -641,7 +656,13 @@ def add_bibtex(
         # Show new acronyms (limited to first 50)
         if merged.new_acronyms:
             status_logger.info("\nNew acronyms to add:")
-            for acronym, venue_name, normalized, entity_type, count in merged.new_acronyms[:50]:
+            for (
+                acronym,
+                _venue_name,
+                normalized,
+                entity_type,
+                count,
+            ) in merged.new_acronyms[:50]:
                 status_logger.info(
                     f"  - {acronym} → {normalized} ({entity_type}) [{count} occurrence(s)]"
                 )

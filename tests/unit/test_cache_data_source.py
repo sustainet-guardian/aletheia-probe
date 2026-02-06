@@ -2,7 +2,7 @@
 """Tests for the DataSourceManager cache module."""
 
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -46,14 +46,15 @@ class TestDataSourceManager:
         )
 
         # Log an update and capture the time (truncate to seconds for SQLite TIMESTAMP precision)
-        before_update = datetime.now().replace(microsecond=0)
+        # Use UTC to match SQLite's CURRENT_TIMESTAMP (returns timezone-naive UTC)
+        before_update = datetime.utcnow().replace(microsecond=0)
         temp_cache.log_update(
             source_name,
             UpdateType.FULL.value,
             UpdateStatus.SUCCESS.value,
             records_added=5,
         )
-        after_update = datetime.now().replace(microsecond=0) + timedelta(seconds=1)
+        after_update = datetime.utcnow().replace(microsecond=0) + timedelta(seconds=1)
 
         # Should now have update time that is recent (within the update window)
         last_updated = temp_cache.get_source_last_updated(source_name)

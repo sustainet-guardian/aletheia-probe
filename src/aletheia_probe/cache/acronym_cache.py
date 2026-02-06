@@ -641,7 +641,7 @@ class AcronymCache(CacheBase):
             cursor = conn.cursor()
 
             stored_count = 0
-            for acronym, full_name, normalized_name, entity_type in mappings:
+            for acronym, _full_name, normalized_name, entity_type in mappings:
                 acronym = acronym.strip()
                 normalized_name = normalized_name.strip()
 
@@ -651,7 +651,9 @@ class AcronymCache(CacheBase):
                 )
 
                 # Store the mapping
-                self._store_mapping(cursor, acronym, normalized_name, entity_type, source)
+                self._store_mapping(
+                    cursor, acronym, normalized_name, entity_type, source
+                )
                 stored_count += 1
 
             conn.commit()
