@@ -412,11 +412,11 @@ def stats() -> None:
     status_logger.info(f"Total acronyms: {total:,}")
 
 
-@acronym.command()
+@acronym.command(name="list")
 @click.option("--limit", type=int, help="Maximum number of entries to display")
 @click.option("--offset", type=int, default=0, help="Number of entries to skip")
 @handle_cli_errors
-def list(limit: int | None, offset: int) -> None:
+def list_acronyms(limit: int | None, offset: int) -> None:
     """List all acronym mappings in the database.
 
     Args:
@@ -444,6 +444,75 @@ def list(limit: int | None, offset: int) -> None:
 
     if limit is not None or offset > 0:
         status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
+
+
+@acronym.command()
+@click.argument("output_file", type=click.Path())
+@handle_cli_errors
+def export(output_file: str) -> None:
+    """Export the entire acronym database to a JSON file.
+
+    Args:
+        output_file: Path to the output JSON file.
+    """
+    status_logger = get_status_logger()
+    acronym_cache = AcronymCache()
+
+    variants = acronym_cache.export_all_variants()
+
+    try:
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(variants, f, indent=2, ensure_ascii=False)
+
+        status_logger.info(
+            f"Successfully exported {len(variants)} acronym variants to {output_file}"
+        )
+    except Exception as e:
+        status_logger.error(f"Failed to export acronyms: {e}")
+        raise click.ClickException(str(e)) from e
+
+
+@acronym.command(name="import")
+@click.argument("input_file", type=click.Path(exists=True))
+@click.option(
+    "--merge/--no-merge",
+    default=True,
+    help="Merge with existing data (default) or replace",
+)
+@handle_cli_errors
+def import_acronyms(input_file: str, merge: bool) -> None:
+    """Import acronyms from a JSON file.
+
+    Args:
+        input_file: Path to the input JSON file.
+        merge: Whether to merge with existing data.
+    """
+    status_logger = get_status_logger()
+    acronym_cache = AcronymCache()
+
+    try:
+        with open(input_file, encoding="utf-8") as f:
+            variants = json.load(f)
+
+        if not isinstance(variants, list):
+            raise ValueError("Input file must contain a JSON list of variants")
+
+        status_logger.info(f"Read {len(variants)} variants from {input_file}")
+
+        if not merge:
+            if click.confirm(
+                "This will clear existing acronyms before importing. Continue?",
+                abort=True,
+            ):
+                acronym_cache.clear_acronym_database()
+
+        count = acronym_cache.import_variants(variants, merge=True)
+
+        status_logger.info(f"Successfully imported {count} acronym variants")
+
+    except Exception as e:
+        status_logger.error(f"Failed to import acronyms: {e}")
+        raise click.ClickException(str(e)) from e
 
 
 @acronym.command()
