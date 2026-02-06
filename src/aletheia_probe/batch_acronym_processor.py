@@ -346,12 +346,14 @@ def merge_file_results(
 ) -> MergedAcronymResult:
     """Merge results from multiple files and check against database.
 
-    Simplified version for main's schema (no usage counts, no learned abbreviations).
+    Uses the variant system with learned abbreviations for intelligent
+    conflict resolution.
 
     This function:
     1. Aggregates mappings across all files
-    2. Detects cross-file conflicts (same acronym -> different venues)
-    3. Checks against existing database entries
+    2. Uses learned abbreviations to resolve cross-file variants
+    3. Detects cross-file conflicts (same acronym -> truly different venues)
+    4. Checks against existing database variants
 
     Args:
         results: List of FileProcessingResult from parallel processing
@@ -360,7 +362,8 @@ def merge_file_results(
     Returns:
         MergedAcronymResult with categorized acronyms
     """
-    from .normalizer import are_conference_names_equivalent
+    from .abbreviation_learner import learn_abbreviations_from_pair
+    from .normalizer import are_variants_of_same_venue
 
     merged = MergedAcronymResult()
 
@@ -370,6 +373,9 @@ def merge_file_results(
         merged.files_processed += 1
         if result.error:
             merged.files_with_errors.append((result.file_path, result.error))
+
+    # Load learned abbreviations once for all comparisons
+    learned_abbrevs = acronym_cache.get_learned_abbreviations()
 
     # Aggregate mappings across files
     # Key: (acronym, entity_type) -> dict of normalized_name -> (venue_name, total_count)
@@ -409,19 +415,33 @@ def merge_file_results(
                 else:
                     aggregated[key][normalized] = (normalized, count)
 
-    # Now check each aggregated mapping against database (simplified for main's schema)
+    # Now check each aggregated mapping against database using variant system
     for (acronym, entity_type), normalized_dict in aggregated.items():
-        # Check if acronym exists in database using check_acronym_conflict
         file_normalized_names = list(normalized_dict.keys())
+
+        # Try to learn abbreviations from cross-file venue pairs
+        if len(file_normalized_names) > 1:
+            for i, norm1 in enumerate(file_normalized_names):
+                for norm2 in file_normalized_names[i + 1 :]:
+                    new_abbrevs = learn_abbreviations_from_pair(norm1, norm2)
+                    for abbrev_form, expanded_form, confidence in new_abbrevs:
+                        acronym_cache.store_learned_abbreviation(
+                            abbrev_form, expanded_form, confidence
+                        )
+                        if abbrev_form not in learned_abbrevs:
+                            learned_abbrevs[abbrev_form] = []
+                        learned_abbrevs[abbrev_form].append((expanded_form, confidence))
 
         # Detect cross-file conflicts within the processed files
         if len(file_normalized_names) > 1:
-            # Multiple variants in files - check if they're equivalent
+            # Multiple variants in files - check if they're equivalent using variant system
             reference_name = file_normalized_names[0]
             all_equivalent = True
 
             for normalized in file_normalized_names[1:]:
-                if not are_conference_names_equivalent(reference_name, normalized):
+                if not are_variants_of_same_venue(
+                    reference_name, normalized, learned_abbrevs
+                ):
                     all_equivalent = False
                     break
 
@@ -440,20 +460,42 @@ def merge_file_results(
         )
         venue_name, total_count = normalized_dict[best_normalized]
 
-        # Check against database
-        has_conflict, existing_name = acronym_cache.check_acronym_conflict(
-            acronym, entity_type, best_normalized
+        # Check against database using 3-tuple check_acronym_conflict
+        has_conflict, already_exists, existing_name = (
+            acronym_cache.check_acronym_conflict(acronym, entity_type, best_normalized)
         )
 
         if has_conflict and existing_name:
-            # Conflict with database entry
-            venue_with_counts = [
-                (best_normalized, total_count),
-                (existing_name, 0),  # No usage count in main's schema
-            ]
-            merged.conflicts.append((acronym, entity_type, venue_with_counts))
-        elif existing_name:
-            # Already exists with same mapping
+            # Try to resolve with learned abbreviations before declaring conflict
+            if are_variants_of_same_venue(
+                best_normalized, existing_name, learned_abbrevs
+            ):
+                # Resolved - learn from this pair and treat as existing
+                new_abbrevs = learn_abbreviations_from_pair(
+                    best_normalized, existing_name
+                )
+                for abbrev_form, expanded_form, confidence in new_abbrevs:
+                    acronym_cache.store_learned_abbreviation(
+                        abbrev_form, expanded_form, confidence
+                    )
+                merged.existing_acronyms.append(
+                    (acronym, venue_name, best_normalized, entity_type, total_count)
+                )
+            else:
+                # True conflict with database entry
+                existing_variants = acronym_cache.get_variants(acronym, entity_type)
+                existing_count = 0
+                if existing_variants:
+                    existing_count = max(
+                        v.get("usage_count", 0) for v in existing_variants
+                    )
+                venue_with_counts = [
+                    (best_normalized, total_count),
+                    (existing_name, existing_count),
+                ]
+                merged.conflicts.append((acronym, entity_type, venue_with_counts))
+        elif already_exists:
+            # Already exists with same or equivalent mapping
             merged.existing_acronyms.append(
                 (acronym, venue_name, best_normalized, entity_type, total_count)
             )
