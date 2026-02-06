@@ -412,6 +412,22 @@ def stats() -> None:
     status_logger.info(f"Total acronyms: {total:,}")
 
 
+@acronym.command(name="abbreviation-stats")
+@handle_cli_errors
+def abbreviation_stats() -> None:
+    """Show statistics about the learned abbreviations database."""
+    status_logger = get_status_logger()
+
+    acronym_cache = AcronymCache()
+    abbreviations = acronym_cache.export_all_abbreviations()
+    total = len(abbreviations)
+
+    if total == 0:
+        status_logger.info("No abbreviations learned yet")
+    else:
+        status_logger.info(f"Total learned abbreviations: {total:,}")
+
+
 @acronym.command(name="list")
 @click.option("--limit", type=int, help="Maximum number of entries to display")
 @click.option("--offset", type=int, default=0, help="Number of entries to skip")
@@ -450,7 +466,7 @@ def list_acronyms(limit: int | None, offset: int) -> None:
 @click.argument("output_file", type=click.Path())
 @handle_cli_errors
 def export(output_file: str) -> None:
-    """Export the entire acronym database to a JSON file.
+    """Export the entire acronym and abbreviation database to a JSON file.
 
     Args:
         output_file: Path to the output JSON file.
@@ -459,16 +475,27 @@ def export(output_file: str) -> None:
     acronym_cache = AcronymCache()
 
     variants = acronym_cache.export_all_variants()
+    abbreviations = acronym_cache.export_all_abbreviations()
+
+    dataset = {
+        "acronyms": variants,
+        "abbreviations": abbreviations,
+        "metadata": {
+            "version": "1.0",
+            "type": "aletheia-probe-venue-intelligence",
+        },
+    }
 
     try:
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(variants, f, indent=2, ensure_ascii=False)
+            json.dump(dataset, f, indent=2, ensure_ascii=False)
 
         status_logger.info(
-            f"Successfully exported {len(variants)} acronym variants to {output_file}"
+            f"Successfully exported {len(variants)} acronym variants and "
+            f"{len(abbreviations)} learned abbreviations to {output_file}"
         )
     except Exception as e:
-        status_logger.error(f"Failed to export acronyms: {e}")
+        status_logger.error(f"Failed to export dataset: {e}")
         raise click.ClickException(str(e)) from e
 
 
@@ -481,7 +508,9 @@ def export(output_file: str) -> None:
 )
 @handle_cli_errors
 def import_acronyms(input_file: str, merge: bool) -> None:
-    """Import acronyms from a JSON file.
+    """Import acronyms and abbreviations from a JSON file.
+
+    Supports both unified dataset format and legacy list-only format.
 
     Args:
         input_file: Path to the input JSON file.
@@ -492,44 +521,69 @@ def import_acronyms(input_file: str, merge: bool) -> None:
 
     try:
         with open(input_file, encoding="utf-8") as f:
-            variants = json.load(f)
+            data = json.load(f)
 
-        if not isinstance(variants, list):
-            raise ValueError("Input file must contain a JSON list of variants")
+        variants = []
+        abbreviations = []
 
-        status_logger.info(f"Read {len(variants)} variants from {input_file}")
+        # Detect format
+        if isinstance(data, list):
+            # Legacy format: list of variants
+            variants = data
+            status_logger.info(f"Detected legacy format with {len(variants)} variants")
+        elif isinstance(data, dict):
+            # Unified format
+            variants = data.get("acronyms", [])
+            abbreviations = data.get("abbreviations", [])
+            status_logger.info(
+                f"Detected unified format with {len(variants)} variants and "
+                f"{len(abbreviations)} abbreviations"
+            )
+        else:
+            raise ValueError("Input file must contain a JSON list or object")
 
         if not merge:
             if click.confirm(
-                "This will clear existing acronyms before importing. Continue?",
+                "This will clear existing data before importing. Continue?",
                 abort=True,
             ):
                 acronym_cache.clear_acronym_database()
+                acronym_cache.clear_learned_abbreviations()
 
-        count = acronym_cache.import_variants(variants, merge=True)
+        variant_count = acronym_cache.import_variants(variants, merge=True)
+        abbrev_count = acronym_cache.import_abbreviations(abbreviations, merge=True)
 
-        status_logger.info(f"Successfully imported {count} acronym variants")
+        status_logger.info(
+            f"Successfully imported {variant_count} acronym variants and "
+            f"{abbrev_count} learned abbreviations"
+        )
 
     except Exception as e:
-        status_logger.error(f"Failed to import acronyms: {e}")
+        status_logger.error(f"Failed to import dataset: {e}")
         raise click.ClickException(str(e)) from e
 
 
 @acronym.command()
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+@click.option(
+    "--include-abbreviations", is_flag=True, help="Also clear learned abbreviations"
+)
 @handle_cli_errors
-def clear(confirm: bool) -> None:
-    """Clear all entries from the acronym database.
+def clear(confirm: bool, include_abbreviations: bool) -> None:
+    """Clear entries from the acronym database.
 
     Args:
         confirm: Whether to skip the confirmation prompt.
+        include_abbreviations: Whether to also clear learned abbreviations.
     """
     status_logger = get_status_logger()
 
+    msg = "This will delete all conference acronym mappings."
+    if include_abbreviations:
+        msg = "This will delete all acronym mappings AND learned abbreviations."
+
     if not confirm:
-        click.confirm(
-            "This will delete all conference acronym mappings. Continue?", abort=True
-        )
+        click.confirm(f"{msg} Continue?", abort=True)
 
     acronym_cache = AcronymCache()
     count = acronym_cache.clear_acronym_database()
@@ -538,6 +592,13 @@ def clear(confirm: bool) -> None:
         status_logger.info("Acronym database is already empty.")
     else:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
+
+    if include_abbreviations:
+        abbrev_count = acronym_cache.clear_learned_abbreviations()
+        if abbrev_count == 0:
+            status_logger.info("Learned abbreviations database is already empty.")
+        else:
+            status_logger.info(f"Cleared {abbrev_count:,} learned abbreviation(s).")
 
 
 @acronym.command()
