@@ -304,12 +304,66 @@ class AcronymMapping(BaseModel):
     )
 
 
+class VenueWithCount(BaseModel):
+    """Represents a venue name with its occurrence count."""
+
+    venue_name: str = Field(..., description="The venue name")
+    count: int = Field(..., description="Number of occurrences in the file")
+
+
 class AcronymConflict(BaseModel):
     """Represents a conflict where an acronym maps to multiple venues."""
 
     acronym: str = Field(..., description="The conflicting acronym")
     entity_type: str = Field(..., description="VenueType value")
-    venues: list[str] = Field(..., description="List of conflicting venue names")
+    venues: list[VenueWithCount] = Field(
+        ..., description="List of conflicting venues with occurrence counts"
+    )
+
+
+class VariantRecord(BaseModel):
+    """Represents a single variant of an acronym-to-venue mapping."""
+
+    id: int | None = Field(None, description="Database ID")
+    acronym: str = Field(..., description="The acronym (e.g., 'CVPR', 'ICML')")
+    entity_type: str = Field(
+        ..., description="VenueType value (e.g., 'journal', 'conference')"
+    )
+    variant_name: str = Field(..., description="Original variant form")
+    normalized_name: str = Field(..., description="Normalized form for comparison")
+    usage_count: int = Field(1, description="Number of occurrences")
+    is_canonical: bool = Field(False, description="Is this the preferred variant")
+    is_ambiguous: bool = Field(
+        False, description="Part of ambiguous acronym (multiple venues)"
+    )
+    source: str | None = Field(
+        None,
+        description="Source of mapping: bibtex_extraction, openalex_response, manual",
+    )
+    first_seen_at: datetime | None = Field(
+        None, description="First observation timestamp"
+    )
+    last_seen_at: datetime | None = Field(
+        None, description="Last observation timestamp"
+    )
+
+
+class LearnedAbbreviation(BaseModel):
+    """Represents a learned abbreviation mapping."""
+
+    abbreviated_form: str = Field(
+        ..., description="Abbreviated form (e.g., 'int.', 'conf.')"
+    )
+    expanded_form: str = Field(
+        ..., description="Expanded form (e.g., 'international', 'conference')"
+    )
+    confidence_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Confidence score for this mapping (0.0-1.0)"
+    )
+    occurrence_count: int = Field(
+        ..., ge=1, description="Number of times this mapping was observed"
+    )
+    context: str | None = Field(None, description="Optional context (venue type, etc.)")
 
 
 class AcronymCollectionResult(BaseModel):
@@ -319,6 +373,9 @@ class AcronymCollectionResult(BaseModel):
     total_processed: int = Field(..., description="Total number of entries processed")
     new_acronyms: list[AcronymMapping] = Field(
         default_factory=list, description="New acronym mappings to be added"
+    )
+    existing_acronyms: list[AcronymMapping] = Field(
+        default_factory=list, description="Acronym mappings already in database"
     )
     conflicts: list[AcronymConflict] = Field(
         default_factory=list, description="Acronyms with conflicting mappings"

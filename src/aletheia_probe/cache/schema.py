@@ -22,19 +22,16 @@ def init_database(db_path: Path) -> None:
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
     with get_configured_connection(db_path) as conn:
-        # Check if venue_acronyms table exists and has correct schema
+        # Migrate from old venue_acronyms table to new venue_acronym_variants schema
+        # Drop old table if it exists (clean replacement, no data migration per requirements)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
         )
         if cursor.fetchone():
-            # Table exists, check if it has is_ambiguous column
-            cursor.execute("PRAGMA table_info(venue_acronyms)")
-            columns = {row[1] for row in cursor.fetchall()}
-            if "is_ambiguous" not in columns:
-                # Old schema, drop and recreate
-                cursor.execute("DROP TABLE venue_acronyms")
-                conn.commit()
+            # Old table exists, drop it to replace with new variant system
+            cursor.execute("DROP TABLE venue_acronyms")
+            conn.commit()
         conn.executescript(
             f"""
             -- Core journals table (normalized, one entry per unique journal)
@@ -104,21 +101,41 @@ def init_database(db_path: Path) -> None:
                 UNIQUE(journal_id, source_id)
             );
 
-            -- Venue acronym mappings (self-learning cache)
-            -- Tracks acronym-to-name mappings for journals, conferences, and other venue types
-            CREATE TABLE IF NOT EXISTS venue_acronyms (
+            -- Venue acronym variants (self-learning cache with multiple variants per acronym)
+            -- Stores ALL variants of acronym-to-name mappings for journals, conferences, and other venue types
+            CREATE TABLE IF NOT EXISTS venue_acronym_variants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 acronym TEXT NOT NULL COLLATE NOCASE,
-                normalized_name TEXT NOT NULL,
                 entity_type TEXT NOT NULL,
-                source TEXT,
+                variant_name TEXT NOT NULL,
+                normalized_name TEXT NOT NULL,
+                usage_count INTEGER DEFAULT 1,
+                is_canonical BOOLEAN DEFAULT FALSE,
                 is_ambiguous BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (acronym, entity_type),
+                source TEXT,
+                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(acronym, entity_type, normalized_name),
                 CHECK (entity_type IN ({entity_type_values}))
             );
-            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_normalized_name ON venue_acronyms(normalized_name);
-            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_entity_type ON venue_acronyms(entity_type);
+            CREATE INDEX IF NOT EXISTS idx_variants_acronym ON venue_acronym_variants(acronym, entity_type);
+            CREATE INDEX IF NOT EXISTS idx_variants_canonical ON venue_acronym_variants(is_canonical) WHERE is_canonical = TRUE;
+            CREATE INDEX IF NOT EXISTS idx_variants_normalized ON venue_acronym_variants(normalized_name);
+
+            -- Learned abbreviations (self-learning abbreviation mappings)
+            -- Stores discovered abbreviation patterns from variant comparisons
+            CREATE TABLE IF NOT EXISTS learned_abbreviations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                abbreviated_form TEXT NOT NULL,
+                expanded_form TEXT NOT NULL,
+                confidence_score REAL DEFAULT 0.1,
+                occurrence_count INTEGER DEFAULT 1,
+                context TEXT,
+                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(abbreviated_form, expanded_form)
+            );
+            CREATE INDEX IF NOT EXISTS idx_abbrev_lookup ON learned_abbreviations(abbreviated_form);
 
             -- Retraction statistics (purpose-built for RetractionWatch data)
             CREATE TABLE IF NOT EXISTS retraction_statistics (

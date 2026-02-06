@@ -96,21 +96,15 @@ COMMON_ACRONYMS: set[str] = {
     "NATO",
 }
 
-# Common abbreviation expansions
+# Edge-case abbreviations that cannot be learned automatically
+# (because the abbreviated form is not a prefix of the expanded form,
+# or they are acronyms rather than prefix abbreviations)
+# All other abbreviations are learned dynamically and stored in the database.
 COMMON_ABBREVIATIONS: dict[str, str] = {
-    "J.": "Journal",
-    "Jrnl": "Journal",
-    "Int.": "International",
-    "Intl": "International",
-    "Nat.": "National",
-    "Sci.": "Science",
-    "Tech.": "Technology",
-    "Rev.": "Review",
-    "Res.": "Research",
-    "Proc.": "Proceedings",
-    "Trans.": "Transactions",
-    "Ann.": "Annual",
-    "Q.": "Quarterly",
+    "Jrnl": "Journal",  # Not a prefix - can't be learned
+    "Intl": "International",  # Not a prefix - can't be learned
+    "intl.": "international",  # Not a prefix - can't be learned
+    "AI": "Artificial Intelligence",  # Acronym - can't be learned as prefix
 }
 
 # Keywords that indicate metadata, not acronyms
@@ -422,12 +416,36 @@ class InputNormalizer:
         return text.strip()
 
     def _expand_abbreviations(self, text: str) -> str:
-        """Expand common journal abbreviations."""
+        """Expand abbreviations using learned mappings from database and edge-case fallbacks."""
+        # Lazy load learned abbreviations from database
+        if not hasattr(self, "_learned_abbrevs_cache"):
+            try:
+                from .cache.acronym_cache import AcronymCache
+
+                cache = AcronymCache()
+                # Get learned abbreviations as dict: abbrev -> [(expanded, confidence), ...]
+                self._learned_abbrevs_cache = cache.get_learned_abbreviations()
+            except Exception:
+                self._learned_abbrevs_cache = {}
+
         words = text.split()
         expanded_words = []
 
         for word in words:
-            # Check for abbreviation (word ending with period)
+            # First check learned abbreviations from database (use highest confidence match)
+            word_lower = word.lower()
+            if word_lower in self._learned_abbrevs_cache:
+                expansions = self._learned_abbrevs_cache[word_lower]
+                if expansions:
+                    # Use the expansion with highest confidence
+                    best_expansion = expansions[0][0]  # Already sorted by confidence
+                    # Preserve original case if first letter was uppercase
+                    if word[0].isupper():
+                        best_expansion = best_expansion.capitalize()
+                    expanded_words.append(best_expansion)
+                    continue
+
+            # Fall back to edge-case abbreviations (non-learnable ones)
             if word in self.abbreviations:
                 expanded_words.append(self.abbreviations[word])
             else:
@@ -502,6 +520,23 @@ class InputNormalizer:
         # Pattern to match ordinals (e.g., "11th", "1st", "2nd", "3rd")
         ordinal_pattern = r"\b\d+(st|nd|rd|th)\b"
 
+        # Pattern to match spelled-out ordinals (e.g., "first", "second", "third")
+        spelled_ordinal_pattern = (
+            r"\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|"
+            r"eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|"
+            r"seventeenth|eighteenth|nineteenth|twentieth|"
+            r"twenty-first|twenty-second|twenty-third|twenty-fourth|twenty-fifth|"
+            r"twenty-sixth|twenty-seventh|twenty-eighth|twenty-ninth|thirtieth|"
+            r"thirty-first|thirty-second|thirty-third|thirty-fourth|thirty-fifth|"
+            r"thirty-sixth|thirty-seventh|thirty-eighth|thirty-ninth|fortieth|fiftieth|sixtieth)\b"
+        )
+
+        # Pattern to match embedded year markers (French/other languages: "28e", "29e", "1re", "2ème")
+        embedded_year_pattern = r"\b\d{1,2}(e|re|ème|è)\b"
+
+        # Pattern to match edition markers
+        edition_pattern = r"\b(edition|ed\.)\s+\d{4}\b|\b\d{4}\s+(edition|ed\.)\b"
+
         # Pattern to match "Proceedings of" prefix
         proceedings_pattern = r"^proceedings\s+of\s+"
 
@@ -509,6 +544,9 @@ class InputNormalizer:
         series = text
         series = re.sub(year_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(ordinal_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(spelled_ordinal_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(embedded_year_pattern, "", series, flags=re.IGNORECASE)
+        series = re.sub(edition_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(proceedings_pattern, "", series, flags=re.IGNORECASE)
 
         # Clean up extra whitespace
@@ -635,6 +673,15 @@ def normalize_for_comparison(text: str) -> str:
     """
     text = html.unescape(text)
     text = text.lower()
+
+    # Remove organization prefixes (IEEE, ACM, etc.) for better comparison
+    org_prefix_pattern = r"^(ieee|acm|aaai|aaas|acl|springer|elsevier|ieee/cvf)\s+"
+    text = re.sub(org_prefix_pattern, "", text, flags=re.IGNORECASE)
+
+    # Replace hyphens with spaces before removing special characters
+    # This ensures "high-performance" matches "high performance"
+    text = text.replace("-", " ")
+
     # Remove common special characters, keeping only alphanumeric and spaces
     text = re.sub(r"[^\w\s]", "", text)
     words = [word for word in text.split() if word not in STOP_WORDS]
@@ -709,6 +756,81 @@ def are_conference_names_equivalent(name1: str, name2: str) -> bool:
             or normalized_for_comp2 in normalized_for_comp1
         ):
             return True
+
+    return False
+
+
+def are_variants_of_same_venue(
+    variant1: str,
+    variant2: str,
+    learned_abbrevs: dict[str, list[tuple[str, float]]],
+) -> bool:
+    """Check if two venue name variants represent the same venue using learned abbreviations.
+
+    This function extends are_conference_names_equivalent() by expanding abbreviated
+    forms using learned abbreviation mappings. It handles cases like:
+    - "int. conf." vs "international conference"
+    - "modelling" vs "modeling" (spelling variants)
+    - Multiple expansions per abbreviation (e.g., "int." -> "international" or "integer")
+
+    Args:
+        variant1: First venue name variant
+        variant2: Second venue name variant
+        learned_abbrevs: Dictionary mapping abbreviated forms to list of
+                        (expanded_form, confidence) tuples
+
+    Returns:
+        True if variants represent the same venue, False otherwise
+    """
+    # Step 1: Try existing equivalence check first
+    if are_conference_names_equivalent(variant1, variant2):
+        return True
+
+    # Step 2: Merge learned abbreviations with edge-case static abbreviations
+    # COMMON_ABBREVIATIONS contains non-learnable cases like "intl." -> "international"
+    all_abbrevs = dict(learned_abbrevs) if learned_abbrevs else {}
+    for abbrev, expanded in COMMON_ABBREVIATIONS.items():
+        abbrev_lower = abbrev.lower()
+        if abbrev_lower not in all_abbrevs:
+            all_abbrevs[abbrev_lower] = [(expanded.lower(), 0.9)]
+
+    if not all_abbrevs:
+        return False  # No abbreviations to expand
+
+    # Tokenize both variants
+    tokens1 = variant1.lower().split()
+    tokens2 = variant2.lower().split()
+
+    # Find tokens in variant1 that might be abbreviations
+    tokens_to_expand = []
+    for i, token in enumerate(tokens1):
+        if token in all_abbrevs and all_abbrevs[token]:
+            tokens_to_expand.append((i, token, all_abbrevs[token]))
+
+    # If no abbreviations found, cannot match via expansion
+    if not tokens_to_expand:
+        # Try the reverse: maybe variant2 has abbreviations
+        tokens1, tokens2 = tokens2, tokens1
+        tokens_to_expand = []
+        for i, token in enumerate(tokens1):
+            if token in all_abbrevs and all_abbrevs[token]:
+                tokens_to_expand.append((i, token, all_abbrevs[token]))
+
+        if not tokens_to_expand:
+            return False  # No abbreviations to expand in either direction
+
+    # Step 3: Expand ALL abbreviations at once (using highest confidence expansion)
+    expanded_tokens = tokens1.copy()
+    for idx, _abbrev, expansions in tokens_to_expand:
+        # Use the highest confidence expansion (first in list, already sorted)
+        if expansions:
+            expanded_tokens[idx] = expansions[0][0]  # (expanded_form, confidence)
+
+    expanded_variant = " ".join(expanded_tokens)
+
+    # Compare fully expanded version with variant2
+    if are_conference_names_equivalent(expanded_variant, " ".join(tokens2)):
+        return True
 
     return False
 

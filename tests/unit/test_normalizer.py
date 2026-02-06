@@ -28,11 +28,14 @@ class TestInputNormalizer:
         assert "Computer Science" in result.aliases
 
     def test_abbreviation_expansion(self, normalizer):
-        """Test abbreviation expansion."""
-        result = normalizer.normalize("J. Sci. Tech.")
+        """Test abbreviation expansion (only static abbreviations: Jrnl, Intl, intl., AI)."""
+        # Static abbreviation: Intl -> International
+        result = normalizer.normalize("Intl Journal of Testing")
+        assert result.normalized_name == "International Journal of Testing"
 
-        assert result.normalized_name == "Journal Science Technology"
-        assert "Jrnl Sci. Tech." in result.aliases
+        # Abbreviations without static mappings are not expanded
+        result = normalizer.normalize("J. Sci. Tech.")
+        assert result.normalized_name == "J. Sci. Tech."
 
     def test_issn_extraction(self, normalizer):
         """Test ISSN extraction from input."""

@@ -232,14 +232,14 @@ class TestAcronymMapping:
             == "conference on computer vision and pattern recognition"
         )
 
-    def test_bulk_store_acronyms_updates_existing(self, temp_cache):
-        """Test that bulk_store_acronyms updates existing mappings."""
+    def test_bulk_store_acronyms_adds_variant(self, temp_cache):
+        """Test that bulk_store_acronyms adds new variant alongside existing."""
         # Store initial mapping
         temp_cache.store_acronym_mapping(
             acronym="TEST", full_name="Test Conference", entity_type="conference"
         )
 
-        # Bulk update with new mapping
+        # Bulk store adds a different variant
         mappings = [
             (
                 "TEST",
@@ -251,8 +251,13 @@ class TestAcronymMapping:
         count = temp_cache.bulk_store_acronyms(mappings)
         assert count == 1
 
+        # Both variants should exist
+        variants = temp_cache.get_variants("TEST", "conference")
+        assert len(variants) == 2
+
+        # The canonical one is determined by usage count (both have 1, so first wins)
         result = temp_cache.get_full_name_for_acronym("TEST", "conference")
-        assert result == "test conference updated"
+        assert result == "test conference"
 
     def test_bulk_store_acronyms_transaction(self, temp_cache):
         """Test that bulk_store_acronyms uses a single transaction."""

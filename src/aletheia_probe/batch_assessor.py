@@ -147,8 +147,17 @@ class BibtexBatchAssessor:
         Returns:
             Tuple of (bibtex_entries, skipped_count, preprint_count)
         """
+        import io
+
+        import pybtex.io  # type: ignore[import-untyped]
+
         status_logger.info(f"Parsing BibTeX file: {file_path}")
         detail_logger.debug(f"Starting BibTeX file assessment: {file_path}")
+
+        # Redirect pybtex.io.stderr to suppress pybtex print warnings
+        # (pybtex prints warnings to pybtex.io.stderr, which is bound at import time)
+        old_pybtex_stderr = pybtex.io.stderr
+        pybtex.io.stderr = io.StringIO()
 
         try:
             bibtex_entries, skipped_count, preprint_count = (
@@ -160,6 +169,8 @@ class BibtexBatchAssessor:
         except (OSError, ValueError, KeyError, UnicodeDecodeError) as e:
             detail_logger.error(f"Failed to parse BibTeX file: {e}")
             raise ValueError(f"Failed to parse BibTeX file: {e}") from e
+        finally:
+            pybtex.io.stderr = old_pybtex_stderr
 
         status_logger.info(
             f"Found {len(bibtex_entries)} entries with journal information"
