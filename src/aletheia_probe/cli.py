@@ -533,14 +533,59 @@ def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
 
 
 @acronym.command(name="add-bibtex")
-@click.argument("bibtex_file", type=click.Path(exists=True))
+@click.argument("bibtex_file", type=click.Path(exists=True), required=False)
+@click.option(
+    "--directory",
+    "-d",
+    type=click.Path(exists=True),
+    help="Process all .bib files in directory",
+)
+@click.option(
+    "--recursive", "-r", is_flag=True, help="Search subdirectories recursively"
+)
+@click.option(
+    "--workers", "-w", type=int, default=None, help="Number of parallel workers"
+)
+@click.option(
+    "--batch-size",
+    "-b",
+    type=int,
+    default=100,
+    help="Batch size for database operations",
+)
 @click.option("--dry-run", is_flag=True, help="Preview changes without storing")
 @handle_cli_errors
-def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
-    """Extract and add acronyms from a BibTeX file.
+def add_bibtex(
+    bibtex_file: str | None,
+    directory: str | None,
+    recursive: bool,
+    workers: int | None,
+    batch_size: int,
+    dry_run: bool,
+) -> None:
+    """Extract and add acronyms from BibTeX file(s).
+
+    Can process a single file or multiple files from a directory.
+
+    Examples:
+        # Single file
+        aletheia-probe acronym add-bibtex paper.bib
+
+        # All files in directory
+        aletheia-probe acronym add-bibtex -d /path/to/bibtex/files
+
+        # Recursive directory search
+        aletheia-probe acronym add-bibtex -d /path/to/bibtex -r
+
+        # With parallel processing
+        aletheia-probe acronym add-bibtex -d /path/to/bibtex -r -w 4
 
     Args:
-        bibtex_file: Path to the BibTeX file to process.
+        bibtex_file: Path to a single BibTeX file to process.
+        directory: Path to directory containing BibTeX files.
+        recursive: Search subdirectories recursively.
+        workers: Number of parallel workers for processing.
+        batch_size: Batch size for database operations.
         dry_run: If True, show what would be added without storing.
     """
     from pathlib import Path
@@ -551,7 +596,118 @@ def add_bibtex(bibtex_file: str, dry_run: bool) -> None:
     status_logger = get_status_logger()
     detail_logger = get_detail_logger()
 
-    file_path = Path(bibtex_file)
+    # Validate arguments
+    if not bibtex_file and not directory:
+        status_logger.error("Must provide either BIBTEX_FILE or --directory")
+        raise click.Abort()
+
+    if bibtex_file and directory:
+        status_logger.error("Cannot use both BIBTEX_FILE and --directory")
+        raise click.Abort()
+
+    # Multi-file processing mode
+    if directory or (bibtex_file and workers and workers > 1):
+        from .batch_acronym_processor import (
+            discover_bibtex_files,
+            merge_file_results,
+            process_files_parallel,
+        )
+
+        # Discover files
+        files = discover_bibtex_files(
+            single_file=bibtex_file,
+            directory=directory,
+            recursive=recursive,
+        )
+
+        if not files:
+            status_logger.warning("No BibTeX files found")
+            return
+
+        status_logger.info(f"Found {len(files)} BibTeX file(s) to process")
+
+        # Process files in parallel
+        def progress_callback(completed: int, total: int, file_path: Path) -> None:
+            status_logger.info(f"[{completed}/{total}] Processed {file_path.name}")
+
+        results = process_files_parallel(
+            files, max_workers=workers, progress_callback=progress_callback
+        )
+
+        # Merge results and check against database
+        acronym_cache = AcronymCache()
+        merged = merge_file_results(results, acronym_cache)
+
+        # Display errors
+        if merged.files_with_errors:
+            status_logger.warning(
+                f"\n{len(merged.files_with_errors)} file(s) had errors:"
+            )
+            for file_path, error in merged.files_with_errors:
+                status_logger.warning(f"  - {file_path.name}: {error}")
+
+        # Display summary
+        status_logger.info(f"\nProcessed {merged.files_processed} file(s)")
+        status_logger.info(f"Total entries: {merged.total_entries}")
+        status_logger.info(f"New acronyms: {len(merged.new_acronyms)}")
+        status_logger.info(f"Existing acronyms: {len(merged.existing_acronyms)}")
+        status_logger.info(f"Conflicts: {len(merged.conflicts)}")
+
+        # Show new acronyms (limited to first 50)
+        if merged.new_acronyms:
+            status_logger.info("\nNew acronyms to add:")
+            for (
+                acronym,
+                _venue_name,
+                normalized,
+                entity_type,
+                count,
+            ) in merged.new_acronyms[:50]:
+                status_logger.info(
+                    f"  - {acronym} → {normalized} ({entity_type}) [{count} occurrence(s)]"
+                )
+            if len(merged.new_acronyms) > 50:
+                status_logger.info(f"  ... and {len(merged.new_acronyms) - 50} more")
+
+        # Show conflicts
+        if merged.conflicts:
+            status_logger.warning("\nConflicts detected (will be marked as ambiguous):")
+            for acronym, entity_type, venue_counts in merged.conflicts:
+                status_logger.warning(f"  - {acronym} ({entity_type}):")
+                for venue, count in venue_counts:
+                    status_logger.warning(f"    - {venue} [{count} occurrence(s)]")
+
+        # If dry-run, stop here
+        if dry_run:
+            status_logger.info("\nDry-run mode: No changes made to database")
+            return
+
+        # Store new acronyms using bulk method
+        if merged.new_acronyms:
+            mappings = [
+                (acronym, venue_name, normalized, entity_type)
+                for acronym, venue_name, normalized, entity_type, _ in merged.new_acronyms
+            ]
+            stored_count = acronym_cache.bulk_store_acronyms(
+                mappings, source="bibtex_extraction"
+            )
+            status_logger.info(f"\nAdded {stored_count} new acronyms to database")
+
+        # Mark conflicts as ambiguous
+        if merged.conflicts:
+            ambiguous_count = 0
+            for acronym, entity_type, venue_counts in merged.conflicts:
+                venues = [venue for venue, _ in venue_counts]
+                acronym_cache.mark_acronym_as_ambiguous(acronym, entity_type, venues)
+                ambiguous_count += 1
+            status_logger.warning(
+                f"Marked {ambiguous_count} acronyms as ambiguous (cannot be used for matching)"
+            )
+
+        return
+
+    # Single file processing mode (original logic)
+    file_path = Path(bibtex_file)  # type: ignore[arg-type]
     status_logger.info(f"Processing BibTeX file: {file_path}")
 
     # Parse BibTeX file
