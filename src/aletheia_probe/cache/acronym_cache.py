@@ -613,3 +613,48 @@ class AcronymCache(CacheBase):
                 }
                 for row in rows
             ]
+
+    def bulk_store_acronyms(
+        self,
+        mappings: list[tuple[str, str, str, str]],
+        source: str = "bibtex_extraction",
+    ) -> int:
+        """Efficiently store multiple acronym mappings in a single transaction.
+
+        This method is optimized for batch processing of BibTeX files. It stores
+        all mappings in a single database transaction for better performance.
+
+        Args:
+            mappings: List of (acronym, full_name, normalized_name, entity_type) tuples
+            source: Source of the mappings (e.g., 'bibtex_extraction')
+
+        Returns:
+            Number of acronyms stored/updated
+        """
+        if not mappings:
+            detail_logger.debug("No mappings to store")
+            return 0
+
+        detail_logger.debug(f"Bulk storing {len(mappings)} acronym mappings")
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            stored_count = 0
+            for acronym, full_name, normalized_name, entity_type in mappings:
+                acronym = acronym.strip()
+                normalized_name = normalized_name.strip()
+
+                # Check for existing mapping (for logging only)
+                self._check_existing_mapping(
+                    cursor, acronym, entity_type, normalized_name
+                )
+
+                # Store the mapping
+                self._store_mapping(cursor, acronym, normalized_name, entity_type, source)
+                stored_count += 1
+
+            conn.commit()
+            detail_logger.debug(f"Successfully stored {stored_count} acronym mappings")
+
+        return stored_count
