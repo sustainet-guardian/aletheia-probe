@@ -358,6 +358,26 @@ class AcronymCache(CacheBase):
             )
             return [dict(row) for row in cursor.fetchall()]
 
+    def export_all_abbreviations(self) -> list[dict[str, Any]]:
+        """Export all learned abbreviations from the database.
+
+        Returns:
+            List of dictionaries containing all abbreviation fields.
+        """
+        detail_logger.debug("Exporting all learned abbreviations")
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT abbreviated_form, expanded_form, confidence_score,
+                       occurrence_count, context
+                FROM learned_abbreviations
+                ORDER BY abbreviated_form, expanded_form
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
     def import_variants(
         self, variants: list[dict[str, Any]], merge: bool = True
     ) -> int:
@@ -409,6 +429,46 @@ class AcronymCache(CacheBase):
             # Update canonical status
             self.update_canonical_variant(variant["acronym"], variant["entity_type"])
 
+            count += 1
+
+        return count
+
+    def import_abbreviations(
+        self, abbreviations: list[dict[str, Any]], merge: bool = True
+    ) -> int:
+        """Import learned abbreviations into the database.
+
+        Args:
+            abbreviations: List of abbreviation dictionaries.
+            merge: If True, merges with existing data.
+
+        Returns:
+            Number of abbreviations imported/updated.
+        """
+        if not abbreviations:
+            return 0
+
+        detail_logger.debug(f"Importing {len(abbreviations)} learned abbreviations")
+        count = 0
+
+        for abbrev in abbreviations:
+            # Validate required fields
+            if not all(k in abbrev for k in ["abbreviated_form", "expanded_form"]):
+                detail_logger.warning(f"Skipping invalid abbreviation: {abbrev}")
+                continue
+
+            # Default values for missing fields
+            confidence = abbrev.get("confidence_score", 0.1)
+            context = abbrev.get("context")
+
+            # Use store_learned_abbreviation to handle merge logic
+            self.store_learned_abbreviation(
+                abbrev=abbrev["abbreviated_form"],
+                expanded=abbrev["expanded_form"],
+                confidence=confidence,
+                context=context,
+                log_prefix="[import] ",
+            )
             count += 1
 
         return count
@@ -537,6 +597,35 @@ class AcronymCache(CacheBase):
             conn.commit()
             detail_logger.debug(
                 f"Database clear operation completed, {count} entries deleted"
+            )
+            return count
+
+    def clear_learned_abbreviations(self) -> int:
+        """Clear all entries from the learned abbreviations database.
+
+        Returns:
+            Number of entries deleted
+        """
+        detail_logger.debug("Clearing entire learned abbreviations database")
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get count before deletion
+            cursor.execute("SELECT COUNT(*) FROM learned_abbreviations")
+            result = cursor.fetchone()
+            count = result[0] if result else 0
+            detail_logger.debug(f"Found {count} abbreviations to delete")
+
+            # Delete all entries
+            cursor.execute("DELETE FROM learned_abbreviations")
+            detail_logger.debug(
+                "Deleted all entries from learned abbreviations database"
+            )
+
+            conn.commit()
+            detail_logger.debug(
+                f"Abbreviation clear operation completed, {count} entries deleted"
             )
             return count
 
