@@ -338,6 +338,81 @@ class AcronymCache(CacheBase):
 
             return {"total_count": count}
 
+    def export_all_variants(self) -> list[dict[str, Any]]:
+        """Export all acronym variants from the database.
+
+        Returns:
+            List of dictionaries containing all variant fields.
+        """
+        detail_logger.debug("Exporting all acronym variants")
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT acronym, entity_type, variant_name, normalized_name,
+                       usage_count, is_canonical, is_ambiguous, source
+                FROM venue_acronym_variants
+                ORDER BY acronym, entity_type, usage_count DESC
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def import_variants(
+        self, variants: list[dict[str, Any]], merge: bool = True
+    ) -> int:
+        """Import acronym variants into the database.
+
+        Args:
+            variants: List of variant dictionaries (as exported by export_all_variants).
+            merge: If True, merges with existing data (increments counts).
+                   If False, fails on conflict or requires clear first (currently only merge supported).
+
+        Returns:
+            Number of variants imported/updated.
+        """
+        if not variants:
+            return 0
+
+        detail_logger.debug(f"Importing {len(variants)} acronym variants")
+        count = 0
+
+        for variant in variants:
+            # Validate required fields
+            if not all(
+                k in variant for k in ["acronym", "entity_type", "normalized_name"]
+            ):
+                detail_logger.warning(f"Skipping invalid variant: {variant}")
+                continue
+
+            # Default values for missing fields
+            variant_name = variant.get("variant_name", variant["normalized_name"])
+            usage_count = variant.get("usage_count", 1)
+            source = variant.get("source", "import")
+
+            # Use store_variant to handle merge logic
+            self.store_variant(
+                acronym=variant["acronym"],
+                entity_type=variant["entity_type"],
+                variant_name=variant_name,
+                normalized_name=variant["normalized_name"],
+                usage_count=usage_count,
+                source=source,
+            )
+
+            # Restore is_ambiguous status if present
+            if variant.get("is_ambiguous"):
+                self.mark_acronym_as_ambiguous(
+                    variant["acronym"], variant["entity_type"]
+                )
+
+            # Update canonical status
+            self.update_canonical_variant(variant["acronym"], variant["entity_type"])
+
+            count += 1
+
+        return count
+
     def list_all_acronyms(
         self, entity_type: str | None = None, limit: int | None = None, offset: int = 0
     ) -> list[dict[str, str]]:
