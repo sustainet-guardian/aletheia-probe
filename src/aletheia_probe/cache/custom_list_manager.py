@@ -229,9 +229,9 @@ def auto_register_custom_lists() -> None:
             try:
                 backend_registry.register_factory(
                     list_name,
-                    lambda fp=file_path_obj,
-                    lt=list_type,
-                    ln=list_name: CustomListBackend(fp, lt, ln),
+                    lambda fp=file_path_obj, lt=list_type, ln=list_name: (
+                        CustomListBackend(fp, lt, ln)
+                    ),
                     default_config={"enabled": True},
                 )
                 detail_logger.debug(

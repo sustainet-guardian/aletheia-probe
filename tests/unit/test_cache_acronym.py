@@ -180,8 +180,12 @@ class TestAcronymMapping:
     def test_bulk_store_acronyms_single_mapping(self, temp_cache):
         """Test bulk_store_acronyms with a single mapping."""
         mappings = [
-            ("ICML", "International Conference on Machine Learning",
-             "international conference on machine learning", "conference"),
+            (
+                "ICML",
+                "International Conference on Machine Learning",
+                "international conference on machine learning",
+                "conference",
+            ),
         ]
         count = temp_cache.bulk_store_acronyms(mappings)
         assert count == 1
@@ -192,20 +196,41 @@ class TestAcronymMapping:
     def test_bulk_store_acronyms_multiple_mappings(self, temp_cache):
         """Test bulk_store_acronyms with multiple mappings."""
         mappings = [
-            ("ICML", "International Conference on Machine Learning",
-             "international conference on machine learning", "conference"),
-            ("JMLR", "Journal of Machine Learning Research",
-             "journal of machine learning research", "journal"),
-            ("CVPR", "Conference on Computer Vision and Pattern Recognition",
-             "conference on computer vision and pattern recognition", "conference"),
+            (
+                "ICML",
+                "International Conference on Machine Learning",
+                "international conference on machine learning",
+                "conference",
+            ),
+            (
+                "JMLR",
+                "Journal of Machine Learning Research",
+                "journal of machine learning research",
+                "journal",
+            ),
+            (
+                "CVPR",
+                "Conference on Computer Vision and Pattern Recognition",
+                "conference on computer vision and pattern recognition",
+                "conference",
+            ),
         ]
         count = temp_cache.bulk_store_acronyms(mappings, source="bibtex_extraction")
         assert count == 3
 
         # Verify all mappings were stored
-        assert temp_cache.get_full_name_for_acronym("ICML", "conference") == "international conference on machine learning"
-        assert temp_cache.get_full_name_for_acronym("JMLR", "journal") == "journal of machine learning research"
-        assert temp_cache.get_full_name_for_acronym("CVPR", "conference") == "conference on computer vision and pattern recognition"
+        assert (
+            temp_cache.get_full_name_for_acronym("ICML", "conference")
+            == "international conference on machine learning"
+        )
+        assert (
+            temp_cache.get_full_name_for_acronym("JMLR", "journal")
+            == "journal of machine learning research"
+        )
+        assert (
+            temp_cache.get_full_name_for_acronym("CVPR", "conference")
+            == "conference on computer vision and pattern recognition"
+        )
 
     def test_bulk_store_acronyms_updates_existing(self, temp_cache):
         """Test that bulk_store_acronyms updates existing mappings."""
@@ -216,7 +241,12 @@ class TestAcronymMapping:
 
         # Bulk update with new mapping
         mappings = [
-            ("TEST", "Test Conference Updated", "test conference updated", "conference"),
+            (
+                "TEST",
+                "Test Conference Updated",
+                "test conference updated",
+                "conference",
+            ),
         ]
         count = temp_cache.bulk_store_acronyms(mappings)
         assert count == 1
@@ -227,10 +257,18 @@ class TestAcronymMapping:
     def test_bulk_store_acronyms_transaction(self, temp_cache):
         """Test that bulk_store_acronyms uses a single transaction."""
         mappings = [
-            ("ACM", "Association for Computing Machinery",
-             "association for computing machinery", "journal"),
-            ("IEEE", "Institute of Electrical and Electronics Engineers",
-             "institute of electrical and electronics engineers", "journal"),
+            (
+                "ACM",
+                "Association for Computing Machinery",
+                "association for computing machinery",
+                "journal",
+            ),
+            (
+                "IEEE",
+                "Institute of Electrical and Electronics Engineers",
+                "institute of electrical and electronics engineers",
+                "journal",
+            ),
         ]
 
         # Should complete in a single transaction

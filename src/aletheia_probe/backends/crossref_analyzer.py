@@ -754,9 +754,8 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "crossref_analyzer",
-    lambda email="noreply@aletheia-probe.org",
-    cache_ttl_hours=_DEFAULT_CACHE_TTL: CrossrefAnalyzerBackend(
-        email=email, cache_ttl_hours=cache_ttl_hours
+    lambda email="noreply@aletheia-probe.org", cache_ttl_hours=_DEFAULT_CACHE_TTL: (
+        CrossrefAnalyzerBackend(email=email, cache_ttl_hours=cache_ttl_hours)
     ),
     default_config={
         "email": "noreply@aletheia-probe.org",

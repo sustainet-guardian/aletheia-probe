@@ -850,9 +850,8 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "openalex_analyzer",
-    lambda email="noreply@aletheia-probe.org",
-    cache_ttl_hours=24: OpenAlexAnalyzerBackend(
-        email=email, cache_ttl_hours=cache_ttl_hours
+    lambda email="noreply@aletheia-probe.org", cache_ttl_hours=24: (
+        OpenAlexAnalyzerBackend(email=email, cache_ttl_hours=cache_ttl_hours)
     ),
     default_config={"email": "noreply@aletheia-probe.org", "cache_ttl_hours": 24},
 )
