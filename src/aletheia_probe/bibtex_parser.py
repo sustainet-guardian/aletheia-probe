@@ -834,9 +834,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in ARXIV_PREPRINT_PATTERNS:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected arXiv pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -859,9 +856,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in biorxiv_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected bioRxiv pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -884,9 +878,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in ssrn_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected SSRN pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -908,9 +899,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in medrxiv_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected medRxiv pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -932,9 +920,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in zenodo_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected Zenodo pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -961,9 +946,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in rxiv_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected *rxiv pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -989,9 +971,6 @@ class BibtexParser:
         checked_content = BibtexParser._get_preprint_check_content(entry)
         for pattern in other_patterns:
             if re.search(pattern, checked_content, re.IGNORECASE):
-                detail_logger.debug(
-                    f"Detected preprint repository pattern '{pattern}' in entry: {entry.key}"
-                )
                 return True
         return False
 
@@ -1059,9 +1038,6 @@ class BibtexParser:
 
         for pattern in symposium_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected symposium pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.SYMPOSIUM
 
         # Workshop patterns (check before conference since workshops often contain "conference")
@@ -1076,9 +1052,6 @@ class BibtexParser:
 
         for pattern in workshop_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected workshop pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.WORKSHOP
 
         # Conference patterns (check after workshop/symposium)
@@ -1101,9 +1074,6 @@ class BibtexParser:
 
             for pattern in conference_patterns:
                 if re.search(pattern, venue_name_lower):
-                    detail_logger.debug(
-                        f"Detected conference pattern '{pattern}' in '{venue_name}'"
-                    )
                     return VenueType.CONFERENCE
 
             # If it's a conference-type entry but no conference patterns, might be proceedings
@@ -1134,9 +1104,6 @@ class BibtexParser:
         if entry_type_lower in ["article", "periodical", "suppperiodical"]:
             for pattern in journal_patterns:
                 if re.search(pattern, venue_name_lower):
-                    detail_logger.debug(
-                        f"Detected journal pattern '{pattern}' in '{venue_name}'"
-                    )
                     return VenueType.JOURNAL
 
             # Default to journal for article-type entries
@@ -1149,15 +1116,9 @@ class BibtexParser:
         # Check for other venue type patterns regardless of entry type
         for pattern in journal_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected journal pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.JOURNAL
 
         # If no patterns match, return UNKNOWN
-        detail_logger.debug(
-            f"No venue type pattern matched for '{venue_name}' (entry type: {entry.type})"
-        )
         return VenueType.UNKNOWN
 
     @staticmethod

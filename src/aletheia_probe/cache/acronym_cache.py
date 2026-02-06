@@ -43,10 +43,6 @@ class AcronymCache(CacheBase):
         Returns:
             Canonical normalized name if found and not ambiguous, None otherwise
         """
-        detail_logger.debug(
-            f"Looking up acronym '{acronym}' for entity_type '{entity_type}'"
-        )
-
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
 
@@ -65,17 +61,11 @@ class AcronymCache(CacheBase):
             if row:
                 # Check if acronym is ambiguous
                 if row["is_ambiguous"]:
-                    detail_logger.debug(
-                        f"Acronym '{acronym}' is ambiguous (maps to multiple venues), cannot be used for matching"
-                    )
                     status_logger.warning(
                         f"Acronym '{acronym}' is ambiguous and cannot be used for automatic matching"
                     )
                     return None
 
-                detail_logger.debug(
-                    f"Found canonical mapping for '{acronym}' -> '{row['normalized_name']}'"
-                )
                 # Update last_seen_at timestamp
                 cursor.execute(
                     """
@@ -88,14 +78,7 @@ class AcronymCache(CacheBase):
                     (acronym.strip(), entity_type),
                 )
                 conn.commit()
-                detail_logger.debug(
-                    f"Updated last_seen_at timestamp for acronym '{acronym}'"
-                )
                 return str(row["normalized_name"])
-            else:
-                detail_logger.debug(
-                    f"No canonical mapping found for acronym '{acronym}' with entity_type '{entity_type}'"
-                )
             return None
 
     def _normalize_venue_name(self, full_name: str) -> str:
@@ -802,6 +785,215 @@ class AcronymCache(CacheBase):
 
             conn.commit()
 
+    def bulk_store_acronyms(
+        self,
+        new_acronyms: list[tuple[str, str, str, str, int]],
+        updates: list[tuple[str, str, str, int]],
+    ) -> tuple[list[int], list[tuple[int, int, int]]]:
+        """Store multiple acronyms and updates in a single transaction.
+
+        Args:
+            new_acronyms: List of (acronym, entity_type, variant_name, normalized_name, count)
+            updates: List of (acronym, entity_type, normalized_name, count) for incrementing
+
+        Returns:
+            Tuple of (new_variant_ids, update_results) where update_results is
+            list of (variant_id, old_count, new_count)
+        """
+        new_variant_ids: list[int] = []
+        update_results: list[tuple[int, int, int]] = []
+        acronyms_to_update_canonical: set[tuple[str, str]] = set()
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            # Process new acronyms
+            for (
+                acronym,
+                entity_type,
+                variant_name,
+                normalized_name,
+                count,
+            ) in new_acronyms:
+                # Check if variant already exists
+                cursor.execute(
+                    """
+                    SELECT id, usage_count FROM venue_acronym_variants
+                    WHERE acronym = ? COLLATE NOCASE
+                      AND entity_type = ?
+                      AND normalized_name = ?
+                    """,
+                    (acronym.strip(), entity_type, normalized_name),
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    variant_id = int(existing["id"])
+                    new_count = existing["usage_count"] + count
+                    cursor.execute(
+                        """
+                        UPDATE venue_acronym_variants
+                        SET usage_count = ?,
+                            last_seen_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (new_count, variant_id),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO venue_acronym_variants
+                        (acronym, entity_type, variant_name, normalized_name,
+                         usage_count, source)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            acronym.strip(),
+                            entity_type,
+                            variant_name,
+                            normalized_name,
+                            count,
+                            "bibtex_extraction",
+                        ),
+                    )
+                    variant_id = int(cursor.lastrowid)
+
+                new_variant_ids.append(variant_id)
+                acronyms_to_update_canonical.add((acronym.strip(), entity_type))
+
+            # Process updates (increment existing variants)
+            for acronym, entity_type, normalized_name, count in updates:
+                cursor.execute(
+                    """
+                    SELECT id, usage_count FROM venue_acronym_variants
+                    WHERE acronym = ? COLLATE NOCASE
+                      AND entity_type = ?
+                      AND normalized_name = ?
+                    """,
+                    (acronym.strip(), entity_type, normalized_name),
+                )
+                row = cursor.fetchone()
+                if row:
+                    variant_id = int(row["id"])
+                    old_count = int(row["usage_count"])
+                    new_count = old_count + count
+                    cursor.execute(
+                        """
+                        UPDATE venue_acronym_variants
+                        SET usage_count = ?,
+                            last_seen_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (new_count, variant_id),
+                    )
+                    update_results.append((variant_id, old_count, new_count))
+                    acronyms_to_update_canonical.add((acronym.strip(), entity_type))
+
+            # Update canonical variants in same transaction
+            for acronym, entity_type in acronyms_to_update_canonical:
+                cursor.execute(
+                    """
+                    UPDATE venue_acronym_variants
+                    SET is_canonical = FALSE
+                    WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                    """,
+                    (acronym, entity_type),
+                )
+                cursor.execute(
+                    """
+                    SELECT id FROM venue_acronym_variants
+                    WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                    ORDER BY usage_count DESC, id ASC
+                    LIMIT 1
+                    """,
+                    (acronym, entity_type),
+                )
+                top = cursor.fetchone()
+                if top:
+                    cursor.execute(
+                        "UPDATE venue_acronym_variants SET is_canonical = TRUE WHERE id = ?",
+                        (top["id"],),
+                    )
+
+            conn.commit()
+
+        return new_variant_ids, update_results
+
+    def bulk_store_conflicts(
+        self,
+        conflict_variants: list[tuple[str, str, str, str, int]],
+        ambiguous_acronyms: list[tuple[str, str]],
+    ) -> None:
+        """Store conflict variants and mark acronyms as ambiguous in single transaction.
+
+        Args:
+            conflict_variants: List of (acronym, entity_type, variant_name, normalized_name, count)
+            ambiguous_acronyms: List of (acronym, entity_type) to mark as ambiguous
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            # Store all conflict variants
+            for (
+                acronym,
+                entity_type,
+                variant_name,
+                normalized_name,
+                count,
+            ) in conflict_variants:
+                cursor.execute(
+                    """
+                    SELECT id, usage_count FROM venue_acronym_variants
+                    WHERE acronym = ? COLLATE NOCASE
+                      AND entity_type = ?
+                      AND normalized_name = ?
+                    """,
+                    (acronym.strip(), entity_type, normalized_name),
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    new_count = existing["usage_count"] + count
+                    cursor.execute(
+                        """
+                        UPDATE venue_acronym_variants
+                        SET usage_count = ?,
+                            last_seen_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (new_count, existing["id"]),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO venue_acronym_variants
+                        (acronym, entity_type, variant_name, normalized_name,
+                         usage_count, source)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            acronym.strip(),
+                            entity_type,
+                            variant_name,
+                            normalized_name,
+                            count,
+                            "bibtex_extraction",
+                        ),
+                    )
+
+            # Mark all as ambiguous
+            for acronym, entity_type in ambiguous_acronyms:
+                cursor.execute(
+                    """
+                    UPDATE venue_acronym_variants
+                    SET is_ambiguous = TRUE
+                    WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                    """,
+                    (acronym.strip(), entity_type),
+                )
+
+            conn.commit()
+
     # ========== Learned Abbreviation Methods ==========
 
     def get_learned_abbreviations(
@@ -937,3 +1129,68 @@ class AcronymCache(CacheBase):
             )
             row = cursor.fetchone()
             return float(row["confidence_score"]) if row else 0.0
+
+    # ========== Export Methods ==========
+
+    def get_all_variants_for_export(
+        self,
+        min_usage_count: int = 1,
+        entity_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch all acronym variants for export.
+
+        Retrieves all variant records with full metadata for dataset export.
+
+        Args:
+            min_usage_count: Minimum usage count to include (default: 1)
+            entity_type: Optional filter by entity type (e.g., 'conference', 'journal')
+
+        Returns:
+            List of dictionaries containing variant details:
+            - acronym: The acronym (e.g., 'ICML')
+            - entity_type: Type of venue (e.g., 'conference')
+            - variant_name: Original form of the name
+            - normalized_name: Normalized form for comparison
+            - usage_count: Number of times this variant was seen
+            - is_canonical: Whether this is the canonical variant
+            - is_ambiguous: Whether the acronym is ambiguous
+        """
+        detail_logger.debug(
+            f"Fetching all variants for export (min_usage_count={min_usage_count}, "
+            f"entity_type={entity_type or 'all'})"
+        )
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            params: list[Any] = [min_usage_count]
+            query = """
+                SELECT acronym, entity_type, variant_name, normalized_name,
+                       usage_count, is_canonical, is_ambiguous
+                FROM venue_acronym_variants
+                WHERE usage_count >= ?
+            """
+
+            if entity_type:
+                query += " AND entity_type = ?"
+                params.append(entity_type)
+
+            query += " ORDER BY acronym ASC, usage_count DESC"
+
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+            detail_logger.debug(f"Retrieved {len(rows)} variants for export")
+
+            return [
+                {
+                    "acronym": row["acronym"],
+                    "entity_type": row["entity_type"],
+                    "variant_name": row["variant_name"],
+                    "normalized_name": row["normalized_name"],
+                    "usage_count": row["usage_count"],
+                    "is_canonical": bool(row["is_canonical"]),
+                    "is_ambiguous": bool(row["is_ambiguous"]),
+                }
+                for row in rows
+            ]

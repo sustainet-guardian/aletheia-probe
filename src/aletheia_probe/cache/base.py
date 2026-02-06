@@ -55,7 +55,6 @@ class CacheBase:
             try:
                 db_path_str = get_config_manager().load_config().cache.db_path
                 db_path = Path(db_path_str)
-                detail_logger.debug(f"Using database path from config: {db_path}")
             except AttributeError as e:
                 error_msg = (
                     "Invalid config structure: missing 'cache.db_path' configuration"
@@ -67,9 +66,6 @@ class CacheBase:
             try:
                 # Ensure parent directory exists
                 db_path.parent.mkdir(parents=True, exist_ok=True)
-                detail_logger.debug(
-                    f"Ensured parent directory exists: {db_path.parent}"
-                )
             except OSError as e:
                 error_msg = f"Failed to create database directory: {db_path.parent}"
                 status_logger.error(error_msg)
@@ -79,7 +75,6 @@ class CacheBase:
             try:
                 # Initialize database schema
                 init_database(db_path)
-                detail_logger.debug(f"Database schema initialized: {db_path}")
             except (sqlite3.Error, OSError) as e:
                 error_msg = f"Failed to initialize database at {db_path}"
                 status_logger.error(error_msg)

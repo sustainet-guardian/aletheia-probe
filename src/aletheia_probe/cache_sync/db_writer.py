@@ -149,17 +149,10 @@ class AsyncDBWriter:
         Args:
             conn: SQLite database connection to configure
         """
-        self.detail_logger.debug(
-            "Configuring SQLite PRAGMA settings for batch operations"
-        )
         conn.execute("PRAGMA journal_mode = WAL")
-        self.detail_logger.debug("Set PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA synchronous = NORMAL")
-        self.detail_logger.debug("Set PRAGMA synchronous = NORMAL")
         conn.execute("PRAGMA cache_size = 10000")
-        self.detail_logger.debug("Set PRAGMA cache_size = 10000")
         conn.execute("PRAGMA temp_store = MEMORY")
-        self.detail_logger.debug("Set PRAGMA temp_store = MEMORY")
 
     def _ensure_source_registered(
         self,
