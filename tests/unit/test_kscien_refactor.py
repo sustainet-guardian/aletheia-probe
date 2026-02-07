@@ -27,9 +27,7 @@ def mock_session():
 async def test_fetch_kscien_data_single_page(mock_session):
     """Test fetching data from a single page."""
     publication_type: PublicationType = PublicationType.PREDATORY_CONFERENCES
-    base_url = (
-        f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
-    )
+    base_url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type.value}"
     max_pages = 1
 
     def get_name() -> str:
@@ -69,9 +67,7 @@ def create_mock_response(html_content: str) -> AsyncMock:
 async def test_fetch_kscien_data_pagination(mock_session):
     """Test fetching data with pagination."""
     publication_type: PublicationType = PublicationType.STANDALONE_JOURNALS
-    base_url = (
-        f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
-    )
+    base_url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type.value}"
     max_pages = 2
 
     def get_name() -> str:
