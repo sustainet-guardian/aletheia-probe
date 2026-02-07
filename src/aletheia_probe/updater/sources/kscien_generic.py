@@ -52,7 +52,7 @@ class KscienGenericSource(DataSource):
         self.list_type = list_type
 
         # Configure base URL for the specific publication type
-        self.base_url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}"
+        self.base_url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type.value}"
 
         self.timeout = ClientTimeout(total=60)
         self.max_pages = MAX_PAGINATION_PAGES

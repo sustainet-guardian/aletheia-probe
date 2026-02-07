@@ -65,7 +65,7 @@ async def fetch_kscien_data(
                 url = base_url
             else:
                 # Kscien pagination requires BOTH _publishing_list and _pagination parameters
-                url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type}&_pagination={page}"
+                url = f"https://kscien.org/predatory-publishing/?_publishing_list={publication_type.value}&_pagination={page}"
 
             detail_logger.debug(
                 f"Fetching Kscien {publication_type} page {page}: {url}"
@@ -369,24 +369,19 @@ def _has_next_page(
             detail_logger.debug(
                 f"Fetched {items_fetched}/{expected_count} items so far, continuing"
             )
-
-        # Check for numbered pagination links to next page
-        next_page = current_page + 1
-        next_page_pattern = (
-            rf'<a[^>]*href=["\'][^"\']*_pagination={next_page}[^"\']*["\'][^>]*>'
-        )
-        if re.search(next_page_pattern, html, re.IGNORECASE):
-            detail_logger.debug(f"Found link to page {next_page}")
+            # Continue fetching if we haven't reached the expected count
             return True
 
-        # Note: The pagination text "1 - 90 of 3539" is static and shows the total
-        # across ALL categories, not the specific publication type, so we don't use it
-        detail_logger.debug(f"No pagination link found for page {next_page}")
+        # If we don't have an expected count, continue fetching
+        # The empty page check in fetch_kscien_data will stop pagination
+        detail_logger.debug(
+            "No expected count available, continuing to fetch (rely on empty page detection)"
+        )
+        return True
 
     except Exception as e:
         detail_logger.debug(f"Error checking pagination: {e}")
-
-    return False
+        return True  # Continue on error, let empty page detection stop us
 
 
 def deduplicate_entries(publications: list[dict[str, Any]]) -> list[dict[str, Any]]:
