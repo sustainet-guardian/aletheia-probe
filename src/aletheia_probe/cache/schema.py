@@ -8,11 +8,136 @@ from ..models import VenueType
 from .connection_utils import get_configured_connection
 
 
-def init_database(db_path: Path) -> None:
-    """Initialize normalized database schema.
+# Schema version constants
+SCHEMA_VERSION = 2  # Current schema version
+MIN_COMPATIBLE_VERSION = 2  # Minimum version this code can work with
+
+
+class SchemaVersionError(Exception):
+    """Raised when database schema version is incompatible."""
+
+    pass
+
+
+def get_schema_version(db_path: Path) -> int | None:
+    """Get current schema version from database.
 
     Args:
         db_path: Path to the SQLite database file
+
+    Returns:
+        Version number if found, None if schema_version table doesn't exist
+    """
+    with get_configured_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
+        )
+        if not cursor.fetchone():
+            return None
+
+        cursor.execute("SELECT version FROM schema_version LIMIT 1")
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+
+def set_schema_version(db_path: Path, version: int, description: str) -> None:
+    """Set schema version in database.
+
+    This replaces any existing version entries to ensure only one version is stored.
+
+    Args:
+        db_path: Path to the SQLite database file
+        version: Version number to set
+        description: Description of this schema version
+    """
+    with get_configured_connection(db_path) as conn:
+        # Delete all existing versions first (we only want one version at a time)
+        conn.execute("DELETE FROM schema_version")
+        # Insert the new version
+        conn.execute(
+            """
+            INSERT INTO schema_version (version, applied_at, description)
+            VALUES (?, datetime('now'), ?)
+            """,
+            (version, description),
+        )
+        conn.commit()
+
+
+def validate_schema_version(db_path: Path) -> None:
+    """Validate that database schema version is compatible with current code.
+
+    This is a convenience wrapper around check_schema_compatibility that can be
+    called to validate the schema before performing operations on the database.
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Raises:
+        SchemaVersionError: If schema version is incompatible
+    """
+    if not db_path.exists():
+        # Database doesn't exist yet, nothing to validate
+        return
+
+    check_schema_compatibility(db_path)
+
+
+def check_schema_compatibility(db_path: Path) -> bool:
+    """Check if database schema is compatible with current code.
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Returns:
+        True if compatible
+
+    Raises:
+        SchemaVersionError: If schema version is incompatible
+    """
+    current_version = get_schema_version(db_path)
+
+    if current_version is None:
+        # Legacy database without versioning
+        raise SchemaVersionError(
+            f"Database schema version is unknown (legacy database detected).\n"
+            f"This database needs to be migrated to schema version {SCHEMA_VERSION}.\n\n"
+            f"To migrate: aletheia-probe db migrate\n"
+            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+        )
+
+    if current_version < MIN_COMPATIBLE_VERSION:
+        raise SchemaVersionError(
+            f"Database schema version ({current_version}) is too old.\n"
+            f"Minimum required version: {MIN_COMPATIBLE_VERSION}\n"
+            f"Current code version: {SCHEMA_VERSION}\n\n"
+            f"To migrate: aletheia-probe db migrate\n"
+            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+        )
+
+    if current_version > SCHEMA_VERSION:
+        raise SchemaVersionError(
+            f"Database was created with a newer version of aletheia-probe.\n"
+            f"Database schema version: {current_version}\n"
+            f"This code supports up to: {SCHEMA_VERSION}\n\n"
+            f"Please upgrade aletheia-probe:\n"
+            f"  pip install --upgrade aletheia-probe"
+        )
+
+    return True
+
+
+def init_database(db_path: Path, check_version: bool = False) -> None:
+    """Initialize normalized database schema with version tracking.
+
+    Args:
+        db_path: Path to the SQLite database file
+        check_version: If True, check schema compatibility for existing databases.
+                      If False (default), skip version check during initialization.
+
+    Raises:
+        SchemaVersionError: If check_version=True and existing database has incompatible schema version
     """
     # Generate CHECK constraint strings from enums
     source_type_values = ", ".join(f"'{t.value}'" for t in AssessmentType)
@@ -22,9 +147,20 @@ def init_database(db_path: Path) -> None:
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
     with get_configured_connection(db_path) as conn:
+        # Check if database already exists
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        is_new_db = cursor.fetchone() is None
+
+        if not is_new_db:
+            # Existing database - optionally check compatibility
+            if check_version:
+                check_schema_compatibility(db_path)
+            return
+
+        # New database - create with current schema
         # Migrate from old venue_acronyms table to new venue_acronym_variants schema
         # Drop old table if it exists (clean replacement, no data migration per requirements)
-        cursor = conn.cursor()
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
         )
@@ -32,8 +168,16 @@ def init_database(db_path: Path) -> None:
             # Old table exists, drop it to replace with new variant system
             cursor.execute("DROP TABLE venue_acronyms")
             conn.commit()
+
         conn.executescript(
             f"""
+            -- Schema version tracking table
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT NOT NULL
+            );
+
             -- Core journals table (normalized, one entry per unique journal)
             CREATE TABLE IF NOT EXISTS journals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -265,4 +409,11 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_custom_lists_list_name ON custom_lists(list_name);
             CREATE INDEX IF NOT EXISTS idx_custom_lists_enabled ON custom_lists(enabled);
         """
+        )
+
+        # Set initial schema version for new database
+        set_schema_version(
+            db_path,
+            SCHEMA_VERSION,
+            "Initial schema v2 with venue_acronym_variants and learned_abbreviations",
         )
