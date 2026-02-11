@@ -5,17 +5,16 @@ This comprehensive guide covers all aspects of using the Journal Assessment Tool
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Quick Start](#quick-start)
-4. [Command Line Usage](#command-line-usage)
-5. [Output Formats](#output-formats)
-6. [Understanding Results](#understanding-results)
-7. [Configuration](#configuration)
-8. [Venue Acronym Management](#venue-acronym-management)
-9. [Article Retraction Checking](#article-retraction-checking)
-10. [Data Sources](#data-sources)
-11. [Best Practices](#best-practices)
-12. [Troubleshooting](#troubleshooting)
+2. [Installation and Quick Start](#installation-and-quick-start)
+3. [Command Line Usage](#command-line-usage)
+4. [Output Formats](#output-formats)
+5. [Understanding Results](#understanding-results)
+6. [Configuration](#configuration)
+7. [Venue Acronym Management](#venue-acronym-management)
+8. [Article Retraction Checking](#article-retraction-checking)
+9. [Data Sources](#data-sources)
+10. [Best Practices](#best-practices)
+11. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -32,85 +31,11 @@ The Journal Assessment Tool helps researchers and institutions evaluate whether 
 - **Fast performance**: Local caching reduces API calls and improves speed
 - **Flexible output**: JSON, YAML, or human-readable formats
 
-## Installation
+## Installation and Quick Start
 
-### System Requirements
-
-- Python 3.10 or higher
-- Internet connection for data source queries
-- 50MB disk space for local cache
-
-### Install from PyPI
-
-```bash
-pip install aletheia-probe
-```
-
-### Install from Source
-
-```bash
-git clone https://github.com/sustainet-guardian/aletheia-probe.git
-cd aletheia-probe
-pip install -e ".[dev]"
-```
-
-### Verify Installation
-
-```bash
-aletheia-probe --version
-aletheia-probe --help
-```
-
-## Quick Start
-
-### Basic Assessment
-
-```bash
-# Assess a single journal by name
-aletheia-probe journal "Journal of Computer Science"
-
-# Include ISSN for better accuracy
-aletheia-probe journal "Nature (ISSN: 0028-0836)"
-
-# Assess all journals in a BibTeX file
-aletheia-probe bibtex references.bib
-```
-
-### Output Examples
-
-**Standard output:**
-```
-Journal: Journal of Computer Science
-Assessment: insufficient_data
-Confidence: 0.15
-Sources checked: DOAJ, Beall's List, Retraction Watch
-Reasoning: Journal not found in major indexes
-```
-
-**JSON output:**
-```bash
-aletheia-probe journal --format json "Nature"
-```
-
-```json
-{
-  "assessment": "legitimate",
-  "confidence": 0.95,
-  "overall_score": 0.92,
-  "backend_results": [
-    {
-      "backend_name": "DOAJ",
-      "status": "found",
-      "confidence": 0.90,
-      "assessment": "legitimate"
-    }
-  ],
-  "reasoning": [
-    "Found in DOAJ with verified publisher information",
-    "Strong publication history and editorial board"
-  ]
-}
-```
+For installation instructions and basic usage examples, see:
+- **[Quick Start Guide](quick-start.md)** - Complete installation and setup instructions for all platforms
+- **[System Requirements](quick-start.md#system-requirements)** - Platform-specific dependency installation
 
 ## Command Line Usage
 
@@ -942,107 +867,13 @@ For implementation details, see `src/aletheia_probe/article_retraction_checker.p
 
 ## Troubleshooting
 
-### Common Issues
+For detailed troubleshooting information, see the **[Troubleshooting Guide](troubleshooting.md)** which covers:
 
-#### BibTeX parsing errors
-
-**Causes**:
-- Invalid BibTeX syntax
-- Corrupted or incomplete BibTeX file
-- Unsupported character encoding
-
-**Solutions**:
-```bash
-# Check BibTeX file syntax
-bibtex-tidy --check references.bib
-
-# Try with a minimal test file first
-echo '@article{test, journal={Nature}, year={2023}}' > test.bib
-aletheia-probe bibtex test.bib
-
-# Check file encoding
-file references.bib
-```
-
-#### BibTeX returns "no journals found"
-
-**Causes**:
-- BibTeX entries missing journal fields
-- Only conference proceedings or book chapters (no journals)
-- Journal fields use non-standard names
-
-**Solutions**:
-- Ensure entries have `journal`, or `journaltitle`, fields
-- Check that entry types are appropriate (article, inproceedings, etc.)
-- Use `--verbose` to see which entries were processed
-
-#### "Journal not found" for known legitimate journal
-
-**Causes**:
-- Journal too new to be indexed
-- Spelling variations not recognized
-- ISSN not provided or incorrect
-
-**Solutions**:
-- Check journal's official website for correct name/ISSN
-- Try alternate name formats
-- Verify journal is actually indexed in major databases
-
-#### Low confidence scores for legitimate journals
-
-**Causes**:
-- Limited data availability
-- New journal with little history
-- Regional or specialized journal not well-covered
-
-**Solutions**:
-- Check journal's indexing status manually
-- Consider institutional policies
-- Use multiple assessment methods
-
-#### Timeout errors
-
-**Causes**:
-- Network connectivity issues
-- Backend service temporarily unavailable
-- Timeout settings too aggressive
-
-**Solutions**:
-```bash
-# Check connectivity
-curl -I https://doaj.org
-```
-
-#### Cache issues
-
-**Causes**:
-- Corrupted cache files
-- Outdated cached data
-- Permission issues
-
-**Solutions**:
-```bash
-# Clear cache
-aletheia-probe clear-cache
-
-# Update data
-aletheia-probe sync
-```
-
-### Getting Help
-
-1. **Check this documentation**: Especially troubleshooting sections
-2. **Search GitHub issues**: Look for similar problems
-3. **See Logfile**: in the directory `.aletheia-probe`
-4. **Create GitHub issue**: Include error messages and context
-5. **Community support**: Engage with user community
-
-### Error Messages
-
-**"Invalid ISSN format"**: Verify ISSN format (XXXX-XXXX)
-**"Configuration error"**: Check YAML syntax in config file
-**"Cache write error"**: Check disk space and permissions
-**"API rate limit exceeded"**: Wait or reduce request frequency
+- Installation and setup issues
+- Data sync problems (including Git dependency issues)
+- Assessment and cache issues
+- Log file analysis (`.aletheia-probe/aletheia-probe.log`)
+- Bug reporting guidelines
 
 ### Custom Backends
 
