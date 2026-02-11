@@ -872,7 +872,7 @@ For detailed troubleshooting information, see the **[Troubleshooting Guide](trou
 - Installation and setup issues
 - Data sync problems (including Git dependency issues)
 - Assessment and cache issues
-- Log file analysis (`.aletheia-probe/aletheia-probe.log`)
+- Log file analysis (`.aletheia-probe/aletheia-probe.log` in current directory)
 - Bug reporting guidelines
 
 ### Custom Backends

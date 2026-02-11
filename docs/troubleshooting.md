@@ -171,17 +171,17 @@ aletheia-probe "Journal (ISSN: 1234-5679)"  # Correct
 
 **Most important troubleshooting step**: Check the log file from your last command execution.
 
-All Aletheia-Probe files are stored under `.aletheia-probe/` in your home directory. The log file contains detailed information about what happened during the last command:
+Aletheia-Probe creates a `.aletheia-probe/` directory in the current working directory where you run the command. The log file contains detailed information about what happened during the last command:
 
 ```bash
-# View the most recent log file
-cat ~/.aletheia-probe/aletheia-probe.log
+# View the most recent log file (in current directory)
+cat .aletheia-probe/aletheia-probe.log
 
 # On Windows
-type %USERPROFILE%\.aletheia-probe\aletheia-probe.log
+type .aletheia-probe\aletheia-probe.log
 
 # View last 50 lines if file is large
-tail -50 ~/.aletheia-probe/aletheia-probe.log
+tail -50 .aletheia-probe/aletheia-probe.log
 ```
 
 **The log file shows:**
@@ -209,7 +209,7 @@ python --version
 uname -a  # Linux/macOS or systeminfo on Windows
 
 # Most recent log file (very important!)
-cat ~/.aletheia-probe/aletheia-probe.log
+cat .aletheia-probe/aletheia-probe.log
 
 # Reproduce issue with verbose output
 aletheia-probe --verbose "Problematic Journal Name"
@@ -218,7 +218,7 @@ aletheia-probe --verbose "Problematic Journal Name"
 aletheia-probe status
 ```
 
-**Attach the log file** (`.aletheia-probe/aletheia-probe.log`) to your GitHub issue - it contains crucial debugging information.
+**Attach the log file** (`.aletheia-probe/aletheia-probe.log` in your current directory) to your GitHub issue - it contains crucial debugging information.
 
 ### Where to Get Help
 
