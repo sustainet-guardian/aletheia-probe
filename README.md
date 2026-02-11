@@ -13,6 +13,14 @@ Aletheia-Probe is a command-line tool for evaluating the legitimacy of academic 
 
 **About the Name**: The name "Aletheia" (ἀλήθεια) comes from ancient Greek philosophy, where it represents the concept of truth and unconcealment. In Greek mythology, Aletheia was personified as the goddess or spirit (daimona) of truth and sincerity. This reflects the tool's core mission: to reveal the truth about academic journals and conferences, helping researchers distinguish legitimate venues from predatory ones.
 
+## System Requirements
+
+Aletheia-Probe requires external system dependencies beyond Python. Before installation, ensure your system has the required programs installed. Platform-specific installation instructions are available in the [Quick Start Guide](docs/quick-start.md#system-requirements).
+
+**Required System Dependencies:**
+- **Git** - Required for retraction data synchronization
+- **Python 3.10+** - Runtime environment
+
 ## TL;DR
 
 Aletheia-Probe helps answer two critical questions for researchers:
