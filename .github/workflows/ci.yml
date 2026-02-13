@@ -272,22 +272,19 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y unrar git curl
+        sudo apt-get install -y git
 
     - name: Install system dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        # Install unar (macOS equivalent of unrar)
-        brew install unar || echo "RAR tools installation failed"
-        # git and curl are pre-installed on macOS
+        # git is pre-installed on GitHub Actions macOS runners
+        git --version
 
     - name: Install system dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        # Install via chocolatey (available on GitHub Actions Windows runners)
-        choco install unrar -y || echo "unrar installation failed, trying 7zip"
-        choco install 7zip -y || echo "7zip installation failed"
         # git is pre-installed on GitHub Actions Windows runners
+        git --version
 
     - name: Setup Unicode encoding for Windows
       if: matrix.os == 'windows-latest'
@@ -408,20 +405,6 @@ jobs:
                 return False
 
         commands = ['python', 'git']
-        # Check for RAR tools on non-Windows platforms
-        if '${{ matrix.os }}' == 'macos-latest':
-            # Try both unar and unrar on macOS
-            for cmd in ['unar', 'unrar']:
-                try:
-                    subprocess.run([cmd, '--help'], capture_output=True, timeout=10)
-                    commands.append(cmd)
-                    print(f'[INFO] Using {cmd} for RAR support on macOS')
-                    break
-                except:
-                    continue
-        elif '${{ matrix.os }}' == 'ubuntu-latest':
-            commands.append('unrar')
-
         all_good = all(check_command(cmd) for cmd in commands)
         status = 'PASSED' if all_good else 'PARTIAL'
         print(f'Platform validation: {status}')

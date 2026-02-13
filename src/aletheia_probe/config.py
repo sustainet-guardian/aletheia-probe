@@ -73,9 +73,6 @@ class DataSourceUrlConfig(BaseModel):
         "https://dgrsdt.dz/storage/revus/",
         description="Base URL for Algerian Ministry data",
     )
-    algerian_ministry_rar_filename: str = Field(
-        "revues.rar", description="RAR filename for Algerian Ministry data"
-    )
     retraction_watch_repo_url: str = Field(
         "https://gitlab.com/crossref/retraction-watch-data.git",
         description="Git repository URL for Retraction Watch data",
