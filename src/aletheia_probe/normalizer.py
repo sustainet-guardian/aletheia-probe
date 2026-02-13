@@ -429,44 +429,6 @@ class InputNormalizer:
 
         return text.strip()
 
-    def _expand_abbreviations(self, text: str) -> str:
-        """Expand abbreviations using learned mappings from database and edge-case fallbacks."""
-        # Lazy load learned abbreviations from database
-        if not hasattr(self, "_learned_abbrevs_cache"):
-            try:
-                from .cache.acronym_cache import AcronymCache
-
-                cache = AcronymCache()
-                # Get learned abbreviations as dict: abbrev -> [(expanded, confidence), ...]
-                self._learned_abbrevs_cache = cache.get_learned_abbreviations()
-            except Exception:
-                self._learned_abbrevs_cache = {}
-
-        words = text.split()
-        expanded_words = []
-
-        for word in words:
-            # First check learned abbreviations from database (use highest confidence match)
-            word_lower = word.lower()
-            if word_lower in self._learned_abbrevs_cache:
-                expansions = self._learned_abbrevs_cache[word_lower]
-                if expansions:
-                    # Use the expansion with highest confidence
-                    best_expansion = expansions[0][0]  # Already sorted by confidence
-                    # Preserve original case if first letter was uppercase
-                    if word[0].isupper():
-                        best_expansion = best_expansion.capitalize()
-                    expanded_words.append(best_expansion)
-                    continue
-
-            # Fall back to edge-case abbreviations (non-learnable ones)
-            if word in self.abbreviations:
-                expanded_words.append(self.abbreviations[word])
-            else:
-                expanded_words.append(word)
-
-        return " ".join(expanded_words)
-
     def _generate_aliases(self, normalized_name: str) -> list[str]:
         """Generate common aliases for the journal/conference name."""
         aliases = []

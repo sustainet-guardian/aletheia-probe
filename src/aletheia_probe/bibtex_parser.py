@@ -679,28 +679,68 @@ class BibtexParser:
         # Accent mappings: LaTeX command -> (base_chars -> accented_char)
         accent_mappings = {
             "^": {  # Circumflex
-                "a": "â", "e": "ê", "i": "î", "o": "ô", "u": "û",
-                "A": "Â", "E": "Ê", "I": "Î", "O": "Ô", "U": "Û",
+                "a": "â",
+                "e": "ê",
+                "i": "î",
+                "o": "ô",
+                "u": "û",
+                "A": "Â",
+                "E": "Ê",
+                "I": "Î",
+                "O": "Ô",
+                "U": "Û",
             },
             "'": {  # Acute
-                "a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú",
-                "A": "Á", "E": "É", "I": "Í", "O": "Ó", "U": "Ú",
-                "c": "ć", "n": "ń", "s": "ś", "z": "ź",
+                "a": "á",
+                "e": "é",
+                "i": "í",
+                "o": "ó",
+                "u": "ú",
+                "A": "Á",
+                "E": "É",
+                "I": "Í",
+                "O": "Ó",
+                "U": "Ú",
+                "c": "ć",
+                "n": "ń",
+                "s": "ś",
+                "z": "ź",
             },
             "`": {  # Grave
-                "a": "à", "e": "è", "i": "ì", "o": "ò", "u": "ù",
-                "A": "À", "E": "È", "I": "Ì", "O": "Ò", "U": "Ù",
+                "a": "à",
+                "e": "è",
+                "i": "ì",
+                "o": "ò",
+                "u": "ù",
+                "A": "À",
+                "E": "È",
+                "I": "Ì",
+                "O": "Ò",
+                "U": "Ù",
             },
             "~": {  # Tilde
-                "a": "ã", "n": "ñ", "o": "õ",
-                "A": "Ã", "N": "Ñ", "O": "Õ",
+                "a": "ã",
+                "n": "ñ",
+                "o": "õ",
+                "A": "Ã",
+                "N": "Ñ",
+                "O": "Õ",
             },
             '"': {  # Umlaut/diaeresis
-                "a": "ä", "e": "ë", "i": "ï", "o": "ö", "u": "ü",
-                "A": "Ä", "E": "Ë", "I": "Ï", "O": "Ö", "U": "Ü",
+                "a": "ä",
+                "e": "ë",
+                "i": "ï",
+                "o": "ö",
+                "u": "ü",
+                "A": "Ä",
+                "E": "Ë",
+                "I": "Ï",
+                "O": "Ö",
+                "U": "Ü",
             },
             "c": {  # Cedilla
-                "c": "ç", "C": "Ç",
+                "c": "ç",
+                "C": "Ç",
             },
         }
 
@@ -711,9 +751,9 @@ class BibtexParser:
                 # \\^{e} or \\^e (and double backslash variants)
                 for pattern in [
                     rf"\\{re.escape(accent)}{{{base_char}}}",  # \^{e}
-                    rf"\\{re.escape(accent)}{base_char}",       # \^e
-                    rf"\\\\{re.escape(accent)}{{{base_char}}}", # \\^{e}
-                    rf"\\\\{re.escape(accent)}{base_char}",     # \\^e
+                    rf"\\{re.escape(accent)}{base_char}",  # \^e
+                    rf"\\\\{re.escape(accent)}{{{base_char}}}",  # \\^{e}
+                    rf"\\\\{re.escape(accent)}{base_char}",  # \\^e
                 ]:
                     value = re.sub(pattern, accented_char, value)
 
@@ -1220,273 +1260,3 @@ class BibtexParser:
             f"No venue type pattern matched for '{venue_name}' (entry type: {entry.type})"
         )
         return VenueType.UNKNOWN
-
-    @staticmethod
-    def extract_acronyms_from_entries(
-        entries: list[BibtexEntry],
-        acronym_cache: AcronymCache,
-        file_path: Path | None = None,
-    ) -> tuple[
-        list[tuple[str, str, str, str]],
-        list[tuple[str, str, str, str]],
-        list[tuple[str, str, list[tuple[str, int]]]],
-    ]:
-        """Extract acronym mappings from BibTeX entries.
-
-        Args:
-            entries: List of BibtexEntry objects to process
-            acronym_cache: AcronymCache instance for conflict checking
-            file_path: Optional file path for logging context
-
-        Returns:
-            Tuple of (new_mappings, existing_mappings, conflicts) where:
-            - new_mappings: List of (acronym, venue_name, normalized_name, entity_type)
-            - existing_mappings: List of (acronym, venue_name, normalized_name, entity_type)
-            - conflicts: List of (acronym, entity_type, [(venue_name, count), ...])
-        """
-        from .normalizer import input_normalizer
-
-        # Create log prefix with file path if available
-        log_prefix = f"{file_path}: " if file_path else ""
-
-        detail_logger.debug(
-            f"{log_prefix}Extracting acronyms from {len(entries)} BibTeX entries"
-        )
-
-        # Track mappings: (acronym, entity_type) -> list of (venue_name, normalized_name)
-        mappings: dict[tuple[str, str], list[tuple[str, str]]] = {}
-        # Track occurrence counts: (acronym, entity_type, normalized_name) -> count
-        occurrence_counts: dict[tuple[str, str, str], int] = {}
-
-        for entry in entries:
-            if not entry.journal_name:
-                continue
-
-            # Use normalizer to extract acronyms from venue name
-            extracted_acronyms = input_normalizer._extract_acronyms(entry.journal_name)
-            acronym_mappings = input_normalizer._extract_acronym_mappings_from_text(
-                entry.journal_name, extracted_acronyms
-            )
-
-            # Store each acronym mapping
-            for acronym, full_name in acronym_mappings.items():
-                # Normalize the venue name
-                normalized_name = acronym_cache._normalize_venue_name(full_name)
-                entity_type = entry.venue_type.value
-
-                key = (acronym, entity_type)
-                if key not in mappings:
-                    mappings[key] = []
-
-                # Check if this normalized name is equivalent to any existing one (avoid false positive conflicts)
-                from .normalizer import are_conference_names_equivalent
-
-                is_duplicate = False
-                for _, existing_normalized in mappings[key]:
-                    if are_conference_names_equivalent(
-                        normalized_name, existing_normalized
-                    ):
-                        is_duplicate = True
-                        break
-
-                if not is_duplicate:
-                    mappings[key].append((full_name, normalized_name))
-
-                # Track occurrence count (increment even if duplicate for accurate statistics)
-                count_key = (acronym, entity_type, normalized_name)
-                occurrence_counts[count_key] = occurrence_counts.get(count_key, 0) + 1
-
-        # Detect conflicts and build result lists using new variant system
-        from .abbreviation_learner import learn_abbreviations_from_pair
-        from .normalizer import are_variants_of_same_venue
-
-        new_mappings: list[tuple[str, str, str, str]] = []
-        existing_mappings: list[tuple[str, str, str, str]] = []
-        conflicts: list[tuple[str, str, list[tuple[str, int]]]] = []
-
-        # Load learned abbreviations once for all comparisons
-        learned_abbrevs = acronym_cache.get_learned_abbreviations()
-
-        for (acronym, entity_type), venue_list in mappings.items():
-            # Get existing variants from database (needed for both single and multiple venue cases)
-            existing_variants = acronym_cache.get_variants(acronym, entity_type)
-
-            # Skip if acronym is already marked as ambiguous - no need to re-log the conflict
-            if existing_variants and any(
-                v.get("is_ambiguous") for v in existing_variants
-            ):
-                detail_logger.debug(
-                    f"{log_prefix}Skipping already-ambiguous acronym: '{acronym}'"
-                )
-                continue
-
-            if len(venue_list) == 1:
-                # No conflict within file, check against database variants
-                full_name, normalized_name = venue_list[0]
-                count_key = (acronym, entity_type, normalized_name)
-                count = occurrence_counts.get(count_key, 1)
-
-                if not existing_variants:
-                    # New acronym - store it
-                    detail_logger.debug(
-                        f"{log_prefix}New acronym: '{acronym}' → '{full_name}' (normalized: '{normalized_name}')"
-                    )
-                    new_mappings.append(
-                        (acronym, full_name, normalized_name, entity_type)
-                    )
-                else:
-                    # Check if this variant is similar to any existing variants
-                    similar_found = False
-
-                    for existing_variant in existing_variants:
-                        existing_normalized = existing_variant["normalized_name"]
-
-                        # Check similarity using learned abbreviations
-                        if are_variants_of_same_venue(
-                            normalized_name, existing_normalized, learned_abbrevs
-                        ):
-                            # Similar variant found - learn abbreviations from this pair
-                            detail_logger.debug(
-                                f"{log_prefix}Found similar variant for '{acronym}': '{normalized_name}' ≈ '{existing_normalized}'"
-                            )
-
-                            # Learn abbreviations from this pair
-                            new_abbrevs = learn_abbreviations_from_pair(
-                                normalized_name, existing_normalized
-                            )
-                            for abbrev_form, expanded_form, confidence in new_abbrevs:
-                                acronym_cache.store_learned_abbreviation(
-                                    abbrev_form,
-                                    expanded_form,
-                                    confidence,
-                                    log_prefix=log_prefix,
-                                )
-
-                            # Mark as existing variant (will be updated in storage phase)
-                            similar_found = True
-                            existing_mappings.append(
-                                (acronym, full_name, normalized_name, entity_type)
-                            )
-                            break
-
-                    if not similar_found:
-                        # Not similar yet - try to learn abbreviations from each pair
-                        for existing_variant in existing_variants:
-                            existing_normalized = existing_variant["normalized_name"]
-                            new_abbrevs = learn_abbreviations_from_pair(
-                                normalized_name, existing_normalized
-                            )
-                            for abbrev_form, expanded_form, confidence in new_abbrevs:
-                                acronym_cache.store_learned_abbreviation(
-                                    abbrev_form,
-                                    expanded_form,
-                                    confidence,
-                                    log_prefix=log_prefix,
-                                )
-                                # Update local cache for immediate re-check
-                                if abbrev_form not in learned_abbrevs:
-                                    learned_abbrevs[abbrev_form] = []
-                                learned_abbrevs[abbrev_form].append(
-                                    (expanded_form, confidence)
-                                )
-
-                        # Re-check with updated abbreviations
-                        now_similar = False
-                        for existing_variant in existing_variants:
-                            existing_normalized = existing_variant["normalized_name"]
-                            if are_variants_of_same_venue(
-                                normalized_name, existing_normalized, learned_abbrevs
-                            ):
-                                now_similar = True
-                                detail_logger.debug(
-                                    f"{log_prefix}Resolved via learned abbreviations: '{acronym}': '{normalized_name}' ≈ '{existing_normalized}'"
-                                )
-                                existing_mappings.append(
-                                    (acronym, full_name, normalized_name, entity_type)
-                                )
-                                break
-
-                        if not now_similar:
-                            # Still truly different - this creates ambiguity
-                            if len(existing_variants) >= 1:
-                                detail_logger.debug(
-                                    f"{log_prefix}Ambiguity detected: '{acronym}' maps to multiple DIFFERENT venues"
-                                )
-                                # Create conflict with all truly different variants
-                                venue_with_counts = [(normalized_name, count)]
-                                for existing_variant in existing_variants:
-                                    venue_with_counts.append(
-                                        (
-                                            existing_variant["normalized_name"],
-                                            existing_variant["usage_count"],
-                                        )
-                                    )
-                                conflicts.append(
-                                    (acronym, entity_type, venue_with_counts)
-                                )
-                            else:
-                                # This shouldn't happen, but handle gracefully
-                                new_mappings.append(
-                                    (acronym, full_name, normalized_name, entity_type)
-                                )
-            else:
-                # Multiple venues for same acronym within file - try to resolve via abbreviations
-                # First, try to learn abbreviations from all pairs
-                for i, (_, norm1) in enumerate(venue_list):
-                    for _, norm2 in venue_list[i + 1 :]:
-                        new_abbrevs = learn_abbreviations_from_pair(norm1, norm2)
-                        for abbrev_form, expanded_form, confidence in new_abbrevs:
-                            acronym_cache.store_learned_abbreviation(
-                                abbrev_form,
-                                expanded_form,
-                                confidence,
-                                log_prefix=log_prefix,
-                            )
-                            # Update local cache for immediate re-check
-                            if abbrev_form not in learned_abbrevs:
-                                learned_abbrevs[abbrev_form] = []
-                            learned_abbrevs[abbrev_form].append(
-                                (expanded_form, confidence)
-                            )
-
-                # Re-check: group venues that are now equivalent
-                # Use first venue as reference, check if others match
-                reference_name = venue_list[0][1]
-                all_equivalent = True
-                for _, normalized in venue_list[1:]:
-                    if not are_variants_of_same_venue(
-                        reference_name, normalized, learned_abbrevs
-                    ):
-                        all_equivalent = False
-                        break
-
-                if all_equivalent:
-                    # All venues are now equivalent - treat as single mapping
-                    full_name, normalized_name = venue_list[0]
-                    detail_logger.debug(
-                        f"{log_prefix}Resolved conflict for '{acronym}': all {len(venue_list)} variants are equivalent"
-                    )
-                    new_mappings.append(
-                        (acronym, full_name, normalized_name, entity_type)
-                    )
-                else:
-                    # Still a conflict after learning abbreviations
-                    venue_with_counts = [
-                        (
-                            normalized,
-                            occurrence_counts.get(
-                                (acronym, entity_type, normalized), 1
-                            ),
-                        )
-                        for _, normalized in venue_list
-                    ]
-                    detail_logger.debug(
-                        f"{log_prefix}File conflict: '{acronym}' maps to multiple venues: {[v for v, _ in venue_with_counts]}"
-                    )
-                    conflicts.append((acronym, entity_type, venue_with_counts))
-
-        detail_logger.debug(
-            f"{log_prefix}Extracted {len(new_mappings)} new acronyms, {len(existing_mappings)} existing, found {len(conflicts)} conflicts"
-        )
-
-        return new_mappings, existing_mappings, conflicts
