@@ -394,6 +394,8 @@ def acronym_status() -> None:
         status_logger.info(f"Total acronyms: {count:,}")
 
 
+
+
 @acronym.command(name="import")
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option(
@@ -491,6 +493,7 @@ def clear(confirm: bool) -> None:
         status_logger.info("Acronym database is already empty.")
     else:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
+
 
 
 @main.group(name="db")
