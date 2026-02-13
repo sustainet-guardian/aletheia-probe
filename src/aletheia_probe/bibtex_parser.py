@@ -679,28 +679,68 @@ class BibtexParser:
         # Accent mappings: LaTeX command -> (base_chars -> accented_char)
         accent_mappings = {
             "^": {  # Circumflex
-                "a": "â", "e": "ê", "i": "î", "o": "ô", "u": "û",
-                "A": "Â", "E": "Ê", "I": "Î", "O": "Ô", "U": "Û",
+                "a": "â",
+                "e": "ê",
+                "i": "î",
+                "o": "ô",
+                "u": "û",
+                "A": "Â",
+                "E": "Ê",
+                "I": "Î",
+                "O": "Ô",
+                "U": "Û",
             },
             "'": {  # Acute
-                "a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú",
-                "A": "Á", "E": "É", "I": "Í", "O": "Ó", "U": "Ú",
-                "c": "ć", "n": "ń", "s": "ś", "z": "ź",
+                "a": "á",
+                "e": "é",
+                "i": "í",
+                "o": "ó",
+                "u": "ú",
+                "A": "Á",
+                "E": "É",
+                "I": "Í",
+                "O": "Ó",
+                "U": "Ú",
+                "c": "ć",
+                "n": "ń",
+                "s": "ś",
+                "z": "ź",
             },
             "`": {  # Grave
-                "a": "à", "e": "è", "i": "ì", "o": "ò", "u": "ù",
-                "A": "À", "E": "È", "I": "Ì", "O": "Ò", "U": "Ù",
+                "a": "à",
+                "e": "è",
+                "i": "ì",
+                "o": "ò",
+                "u": "ù",
+                "A": "À",
+                "E": "È",
+                "I": "Ì",
+                "O": "Ò",
+                "U": "Ù",
             },
             "~": {  # Tilde
-                "a": "ã", "n": "ñ", "o": "õ",
-                "A": "Ã", "N": "Ñ", "O": "Õ",
+                "a": "ã",
+                "n": "ñ",
+                "o": "õ",
+                "A": "Ã",
+                "N": "Ñ",
+                "O": "Õ",
             },
             '"': {  # Umlaut/diaeresis
-                "a": "ä", "e": "ë", "i": "ï", "o": "ö", "u": "ü",
-                "A": "Ä", "E": "Ë", "I": "Ï", "O": "Ö", "U": "Ü",
+                "a": "ä",
+                "e": "ë",
+                "i": "ï",
+                "o": "ö",
+                "u": "ü",
+                "A": "Ä",
+                "E": "Ë",
+                "I": "Ï",
+                "O": "Ö",
+                "U": "Ü",
             },
             "c": {  # Cedilla
-                "c": "ç", "C": "Ç",
+                "c": "ç",
+                "C": "Ç",
             },
         }
 
@@ -711,9 +751,9 @@ class BibtexParser:
                 # \\^{e} or \\^e (and double backslash variants)
                 for pattern in [
                     rf"\\{re.escape(accent)}{{{base_char}}}",  # \^{e}
-                    rf"\\{re.escape(accent)}{base_char}",       # \^e
-                    rf"\\\\{re.escape(accent)}{{{base_char}}}", # \\^{e}
-                    rf"\\\\{re.escape(accent)}{base_char}",     # \\^e
+                    rf"\\{re.escape(accent)}{base_char}",  # \^e
+                    rf"\\\\{re.escape(accent)}{{{base_char}}}",  # \\^{e}
+                    rf"\\\\{re.escape(accent)}{base_char}",  # \\^e
                 ]:
                     value = re.sub(pattern, accented_char, value)
 
