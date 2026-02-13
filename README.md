@@ -86,10 +86,11 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 - **Kscien Publishers** - Known predatory publishers
 - **Kscien Hijacked Journals** - Legitimate journals that have been hijacked by predatory actors
 - **Kscien Predatory Conferences** - Database of predatory conferences
+- **DBLP Venues** - Curated computer science journals and conference series from DBLP XML
 
 The tool analyzes publication patterns, citation metrics, and metadata quality to provide comprehensive coverage beyond traditional blacklist/whitelist approaches.
 
-**Note on Conference Assessment**: Conference checking is currently limited compared to journal assessment. The primary source for conference evaluation is the Kscien Predatory Conferences database. Most other data sources focus exclusively on journals, so conference assessments may have less comprehensive coverage and fewer cross-validation opportunities.
+**Note on Conference Assessment**: Conference checking now combines curated predatory conference signals (Kscien) with curated legitimacy signals from DBLP venue series. Coverage is stronger for computer science venues than for other domains.
 
 ## Quick Start
 
@@ -120,6 +121,7 @@ These provide authoritative yes/no decisions for journals they cover:
 | **Kscien Publishers** | Predatory publishers | 1,200+ entries | Known predatory publishers |
 | **Kscien Hijacked Journals** | Hijacked journals | ~200 entries | Legitimate journals compromised by predatory actors |
 | **Kscien Predatory Conferences** | Predatory conferences | ~450 entries | Identified predatory conference venues |
+| **DBLP Venues** | Legitimate venues (CS) | dump-derived | Curated DBLP journals and conference series from local XML cache |
 | **Retraction Watch** | Quality indicator | ~27,000 journals | Retraction rates and patterns for quality assessment |
 | **Institutional Lists** | Custom whitelist/blacklist | Organization-specific | Local policy enforcement |
 
