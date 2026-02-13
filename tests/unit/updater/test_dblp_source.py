@@ -2,12 +2,12 @@
 """Tests for DBLP conference source."""
 
 import gzip
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from defusedxml import ElementTree as DefusedET
 
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.sources.dblp import DblpVenueSource
@@ -183,7 +183,7 @@ async def test_fetch_data_redownloads_when_existing_dump_invalid(
             source,
             "_parse_dump_file",
             side_effect=[
-                ET.ParseError("invalid xml"),
+                DefusedET.ParseError("invalid xml"),
                 [{"journal_name": "Recovered", "normalized_name": "recovered"}],
             ],
         ) as parse_mock,

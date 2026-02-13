@@ -7,13 +7,14 @@ import html.entities
 import io
 import re
 import tempfile
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
@@ -149,7 +150,13 @@ class DblpVenueSource(DataSource):
             try:
                 status_logger.info(f"    {self.get_name()}: Parsing local XML dump...")
                 return await asyncio.to_thread(self._parse_dump_file)
-            except (ET.ParseError, OSError, EOFError, gzip.BadGzipFile) as e:
+            except (
+                DefusedET.ParseError,
+                DefusedXmlException,
+                OSError,
+                EOFError,
+                gzip.BadGzipFile,
+            ) as e:
                 status_logger.warning(
                     "    "
                     f"{self.get_name()}: Existing dump invalid ({e}); "
@@ -228,7 +235,9 @@ class DblpVenueSource(DataSource):
                     gz_file, encoding="utf-8", errors="ignore"
                 )
                 sanitized_reader = _NamedEntitySanitizingReader(text_stream)
-                for _event, elem in ET.iterparse(sanitized_reader, events=("end",)):
+                for _event, elem in DefusedET.iterparse(
+                    sanitized_reader, events=("end",)
+                ):
                     compressed_pos = raw_file.tell()
                     if compressed_pos >= next_byte_log:
                         percent = (
@@ -292,7 +301,7 @@ class DblpVenueSource(DataSource):
         series_map: dict[str, _ConferenceSeriesAggregate],
         key: str,
         tag: str,
-        elem: ET.Element,
+        elem: Any,
     ) -> None:
         """Accumulate one conference entry into aggregate map."""
         series_slug = self._extract_series_slug(key, CONFERENCE_KEY_PREFIX)
@@ -323,7 +332,7 @@ class DblpVenueSource(DataSource):
         self,
         journal_map: dict[str, _JournalSeriesAggregate],
         key: str,
-        elem: ET.Element,
+        elem: Any,
     ) -> None:
         """Accumulate one journal article entry into aggregate map."""
         series_slug = self._extract_series_slug(key, JOURNAL_KEY_PREFIX)
