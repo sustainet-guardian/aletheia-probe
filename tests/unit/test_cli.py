@@ -705,4 +705,3 @@ class TestConferenceAcronymCommands:
 
             assert result.exit_code == 0
             assert "already empty" in result.output.lower()
-

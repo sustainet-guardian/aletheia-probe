@@ -171,4 +171,3 @@ class TestAcronymMapping:
         # Both normalize to the same generic form (years stripped)
         result = temp_cache.get_full_name_for_acronym("TEST", "conference")
         assert result == "test conference"
-

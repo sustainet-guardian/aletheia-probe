@@ -19,8 +19,8 @@ from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
-from .logging_config import get_detail_logger, get_status_logger, setup_logging
-from .normalizer import input_normalizer, normalize_case
+from .logging_config import get_status_logger, setup_logging
+from .normalizer import input_normalizer
 from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
 
@@ -394,8 +394,6 @@ def acronym_status() -> None:
         status_logger.info(f"Total acronyms: {count:,}")
 
 
-
-
 @acronym.command(name="import")
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option(
@@ -493,7 +491,6 @@ def clear(confirm: bool) -> None:
         status_logger.info("Acronym database is already empty.")
     else:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
-
 
 
 @main.group(name="retraction-cache")

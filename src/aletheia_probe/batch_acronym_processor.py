@@ -450,12 +450,16 @@ def merge_file_results(
                     (acronym, venue_name, best_normalized, entity_type, total_count)
                 )
             else:
-                existing_count = max(
-                    v.get("usage_count", 0) for v in existing_variants
+                existing_count = max(v.get("usage_count", 0) for v in existing_variants)
+                merged.conflicts.append(
+                    (
+                        acronym,
+                        entity_type,
+                        [
+                            (best_normalized, total_count),
+                            (existing_name, existing_count),
+                        ],
+                    )
                 )
-                merged.conflicts.append((
-                    acronym, entity_type,
-                    [(best_normalized, total_count), (existing_name, existing_count)],
-                ))
 
     return merged
