@@ -194,8 +194,14 @@ class UgcCareClonedSource(UgcCareListSource):
 
             original_side = sides[0]
             cloned_side = sides[-1]
-            original_title = original_side["title"]
-            cloned_title = cloned_side["title"]
+            original_title_raw = original_side.get("title")
+            cloned_title_raw = cloned_side.get("title")
+            if not isinstance(original_title_raw, str) or not isinstance(
+                cloned_title_raw, str
+            ):
+                continue
+            original_title = original_title_raw
+            cloned_title = cloned_title_raw
 
             if include_left_side:
                 included_entry = self._build_entry(
