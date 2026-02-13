@@ -16,6 +16,11 @@ from . import (
     predatoryjournals,
     retraction_watch,
     scopus,
+    ugc_care_cloned,
+    ugc_care_cloned_group2,
+    ugc_care_delisted_group2,
+    ugc_care_included_from_clone_group1,
+    ugc_care_included_from_clone_group2,
 )
 
 
@@ -33,4 +38,9 @@ __all__ = [
     "predatoryjournals",
     "retraction_watch",
     "scopus",
+    "ugc_care_cloned",
+    "ugc_care_cloned_group2",
+    "ugc_care_delisted_group2",
+    "ugc_care_included_from_clone_group1",
+    "ugc_care_included_from_clone_group2",
 ]

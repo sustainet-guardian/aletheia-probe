@@ -204,6 +204,63 @@ backends:
 
 See `src/aletheia_probe/backends/predatoryjournals.py`
 
+### UGC-CARE Discontinued Lists Backends
+
+```yaml
+backends:
+  ugc_care_cloned:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - discontinued static list
+
+  ugc_care_cloned_group2:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - discontinued static list
+
+  ugc_care_delisted_group2:
+    enabled: true
+    weight: 0.9
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - discontinued static list
+
+  ugc_care_included_from_clone_group1:
+    enabled: true
+    weight: 1.0
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - discontinued static list
+
+  ugc_care_included_from_clone_group2:
+    enabled: true
+    weight: 1.0
+    timeout: 5
+    config:
+      cache_ttl_hours: 720  # 30 days - discontinued static list
+```
+
+**Configuration**:
+- `cache_ttl_hours`: How long cached UGC-CARE list data remains valid before requiring re-sync. Default is 720 hours (30 days), appropriate for discontinued/frozen sources.
+
+**Backend Descriptions**:
+- `ugc_care_cloned`: UGC-CARE Group I cloned journals list
+- `ugc_care_cloned_group2`: UGC-CARE Group II cloned journals list
+- `ugc_care_delisted_group2`: UGC-CARE Group II delisted journals list
+- `ugc_care_included_from_clone_group1`: UGC-CARE Group I included journals from clone correction page (left side)
+- `ugc_care_included_from_clone_group2`: UGC-CARE Group II included journals from clone correction page (left side)
+
+See implementations in:
+- `src/aletheia_probe/backends/ugc_care_cloned.py`
+- `src/aletheia_probe/backends/ugc_care_cloned_group2.py`
+- `src/aletheia_probe/backends/ugc_care_delisted_group2.py`
+- `src/aletheia_probe/backends/ugc_care_included_from_clone_group1.py`
+- `src/aletheia_probe/backends/ugc_care_included_from_clone_group2.py`
+
 ### Kscien Backends
 
 The Kscien suite provides curated lists of predatory journals, publishers, hijacked journals, and conferences. All Kscien backends share the same configuration pattern.

@@ -63,7 +63,7 @@ aletheia-probe journal --format json "Nature Reviews Drug Discovery"
 
 **Output**: Combines data from multiple authoritative sources and advanced pattern analysis to provide confidence-scored assessments of journal legitimacy.
 
-**Note**: The first sync downloads and processes data from multiple sources (DOAJ, Beall's List, etc.), which takes a few minutes. After that, queries typically complete in under 5 seconds.
+**Note**: The first sync downloads and processes data from multiple sources (DOAJ, Beall's List, UGC-CARE discontinued lists, etc.), which takes a few minutes. After that, queries typically complete in under 5 seconds.
 
 ## Data Sources
 
@@ -71,6 +71,10 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 
 - **DOAJ** - Directory of Open Access Journals
 - **Beall's List** - Historical predatory journal archives
+- **UGC-CARE Cloned (Group I)** - UGC-CARE discontinued cloned journal list
+- **UGC-CARE Cloned (Group II)** - UGC-CARE discontinued cloned journal list
+- **UGC-CARE Delisted (Group II)** - UGC-CARE discontinued delisted journal list
+- **UGC-CARE Included from Clone Page (Group I/II)** - Left-side included journals from public clone-correction pages
 - **Algerian Ministry** - Algerian Ministry of Higher Education predatory journals list
 - **OpenAlex** - Publication pattern analysis
 - **Crossref** - Metadata quality assessment
@@ -105,6 +109,11 @@ These provide authoritative yes/no decisions for journals they cover:
 | **DOAJ** | Legitimate OA journals | 22,000+ journals | Gold standard for open access legitimacy |
 | **Scopus** (optional) | Legitimate indexed journals | 30,000+ journals | Major subscription and OA journals |
 | **Beall's List** | Predatory journal archives | ~2,900 entries | Historically identified predatory publishers |
+| **UGC-CARE Cloned (Group I)** | Cloned journals | ~80 entries | Public UGC-CARE discontinued Group I clone list |
+| **UGC-CARE Cloned (Group II)** | Cloned journals | ~114 entries | Public UGC-CARE discontinued Group II clone list |
+| **UGC-CARE Delisted (Group II)** | Delisted journals | ~12 entries | Public UGC-CARE discontinued Group II delisted list |
+| **UGC-CARE Included from Clone Page (Group I)** | Included journals | ~80 entries | Left-side included journals from Group I clone-correction page |
+| **UGC-CARE Included from Clone Page (Group II)** | Included journals | ~114 entries | Left-side included journals from Group II clone-correction page |
 | **PredatoryJournals.org** | Predatory journals/publishers | 15,000+ entries | Curated lists from predatoryjournals.org |
 | **Algerian Ministry** | Predatory journal list | ~3,300 entries | Ministry of Higher Education predatory journals |
 | **Kscien Standalone Journals** | Predatory journals | 1,400+ entries | Individual predatory journals identified by Kscien |
@@ -134,6 +143,7 @@ Journal Query → [Curated Databases + Pattern Analyzers] → Combined Assessmen
                  ├─ DOAJ (legitimate OA)
                  ├─ Scopus (indexed journals)
                  ├─ Beall's List (predatory)
+                 ├─ UGC-CARE discontinued lists
                  ├─ PredatoryJournals.org
                  ├─ Kscien databases
                  ├─ Retraction Watch (quality)
@@ -145,6 +155,7 @@ Journal Query → [Curated Databases + Pattern Analyzers] → Combined Assessmen
 **Note**: Not all backends will find every journal. A journal may be:
 - Found in DOAJ → strong legitimate evidence
 - Found in Beall's → strong predatory evidence
+- Found in UGC-CARE cloned/delisted lists → strong predatory evidence
 - Not found in any curated database → rely on pattern analysis
 - Found in contradictory sources → cross-validation resolves conflicts
 
@@ -206,16 +217,16 @@ Reasoning: "Found in Scopus with excellent publication patterns and metadata qua
 
 #### **Scenario 2: Known Predatory Journal**
 ```
-Input: "International Journal of Advanced Computer Science and Applications"
+Input: "Journal Appearing in UGC-CARE Cloned Group II"
 │
 ├─ DOAJ: ✗ Not found
-├─ Predatory Lists: ✓ Found in Kscien database → "predatory"
+├─ Predatory Lists: ✓ Found in UGC-CARE Cloned (Group II) → "predatory"
 ├─ Retraction Watch: ✗ Not found
-├─ OpenAlex: ✓ Found → High volume (>800/year), low citations
-├─ Crossref: ✓ Found → Poor metadata quality
+├─ OpenAlex: ✓ Found → suspicious pattern indicators
+├─ Crossref: ✓ Found → weak metadata quality
 │
 Result: PREDATORY (confidence: 0.90)
-Reasoning: "Listed in Kscien predatory database, confirmed by publication patterns"
+Reasoning: "Listed in UGC-CARE cloned journal list, corroborated by pattern analysis"
 ```
 
 #### **Scenario 3: Unknown Journal (Pattern Analysis)**

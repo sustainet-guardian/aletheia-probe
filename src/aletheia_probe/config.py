@@ -99,6 +99,18 @@ class DataSourceUrlConfig(BaseModel):
         "https://www.predatoryjournals.org/the-list/publishers",
         description="Fallback URL for predatory publishers list",
     )
+    ugc_care_cloned_url: str = Field(
+        "https://ugccare.unipune.ac.in/Apps1/User/Web/CloneJournalsNew",
+        description="URL for UGC-CARE Group-I cloned journals page",
+    )
+    ugc_care_cloned_group2_url: str = Field(
+        "https://ugccare.unipune.ac.in/Apps1/User/Web/CloneJournalsGroupIINew",
+        description="URL for UGC-CARE Group-II cloned journals page",
+    )
+    ugc_care_delisted_group2_url: str = Field(
+        "https://ugccare.unipune.ac.in/Apps1/User/Web/ScopusDelisted",
+        description="URL for UGC-CARE Group-II delisted journals page",
+    )
 
 
 class DataSourceProcessingConfig(BaseModel):
