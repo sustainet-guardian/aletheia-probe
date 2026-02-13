@@ -338,55 +338,25 @@ class AcronymCache(CacheBase):
 
             return {"total_count": count}
 
-    def export_all_variants(self) -> list[dict[str, Any]]:
-        """Export all acronym variants from the database.
-
-        Returns:
-            List of dictionaries containing all variant fields.
-        """
-        detail_logger.debug("Exporting all acronym variants")
-
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT acronym, entity_type, variant_name, normalized_name,
-                       usage_count, is_canonical, is_ambiguous, source
-                FROM venue_acronym_variants
-                ORDER BY acronym, entity_type, usage_count DESC
-                """
-            )
-            return [dict(row) for row in cursor.fetchall()]
-
-    def export_all_abbreviations(self) -> list[dict[str, Any]]:
-        """Export all learned abbreviations from the database.
-
-        Returns:
-            List of dictionaries containing all abbreviation fields.
-        """
-        detail_logger.debug("Exporting all learned abbreviations")
-
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT abbreviated_form, expanded_form, confidence_score,
-                       occurrence_count, context
-                FROM learned_abbreviations
-                ORDER BY abbreviated_form, expanded_form
-                """
-            )
-            return [dict(row) for row in cursor.fetchall()]
-
     def import_variants(
-        self, variants: list[dict[str, Any]], merge: bool = True
+        self,
+        variants: list[dict[str, Any]],
+        merge: bool = True,
+        default_source: str = "import",
     ) -> int:
         """Import acronym variants into the database.
 
+        Handles the venue-acronyms-2025 consensus format in addition to the
+        standard export format:
+          - Skips entries where normalized_name is null or empty
+          - Falls back to "original_name" when "variant_name" is absent
+          - Uses confidence_score × 100 as usage_count when usage_count is absent
+          - Computes is_canonical and is_ambiguous from the batch after import
+
         Args:
-            variants: List of variant dictionaries (as exported by export_all_variants).
+            variants: List of variant dictionaries.
             merge: If True, merges with existing data (increments counts).
-                   If False, fails on conflict or requires clear first (currently only merge supported).
+            default_source: Source string used when not present in variant data.
 
         Returns:
             Number of variants imported/updated.
@@ -396,6 +366,11 @@ class AcronymCache(CacheBase):
 
         detail_logger.debug(f"Importing {len(variants)} acronym variants")
         count = 0
+        skipped_null = 0
+
+        # Track unique (acronym, entity_type) pairs seen — used for the
+        # post-import canonical + ambiguity pass (avoids redundant SQL per entry).
+        seen_keys: set[tuple[str, str]] = set()
 
         for variant in variants:
             # Validate required fields
@@ -405,12 +380,33 @@ class AcronymCache(CacheBase):
                 detail_logger.warning(f"Skipping invalid variant: {variant}")
                 continue
 
-            # Default values for missing fields
-            variant_name = variant.get("variant_name", variant["normalized_name"])
-            usage_count = variant.get("usage_count", 1)
-            source = variant.get("source", "import")
+            # Skip entries where the LLM produced no usable name
+            if not variant["normalized_name"]:
+                skipped_null += 1
+                detail_logger.debug(
+                    f"Skipping null normalized_name for {variant['acronym']!r}"
+                )
+                continue
 
-            # Use store_variant to handle merge logic
+            # variant_name: prefer explicit field, fall back to original_name
+            # (venue-acronyms-2025 uses "original_name"), then normalized_name
+            variant_name = (
+                variant.get("variant_name")
+                or variant.get("original_name")
+                or variant["normalized_name"]
+            )
+
+            # usage_count: use confidence_score × 100 as a proxy when absent
+            # so that update_canonical_variant picks the highest-confidence expansion
+            if "usage_count" in variant:
+                usage_count = variant["usage_count"]
+            elif "confidence_score" in variant:
+                usage_count = max(1, int(round(variant["confidence_score"] * 100)))
+            else:
+                usage_count = 1
+
+            source = variant.get("source") or default_source
+
             self.store_variant(
                 acronym=variant["acronym"],
                 entity_type=variant["entity_type"],
@@ -420,130 +416,82 @@ class AcronymCache(CacheBase):
                 source=source,
             )
 
-            # Restore is_ambiguous status if present
+            # Restore explicit is_ambiguous flag from source data if present
             if variant.get("is_ambiguous"):
                 self.mark_acronym_as_ambiguous(
                     variant["acronym"], variant["entity_type"]
                 )
 
-            # Update canonical status
-            self.update_canonical_variant(variant["acronym"], variant["entity_type"])
-
+            seen_keys.add((variant["acronym"], variant["entity_type"]))
             count += 1
 
-        return count
-
-    def import_abbreviations(
-        self, abbreviations: list[dict[str, Any]], merge: bool = True
-    ) -> int:
-        """Import learned abbreviations into the database.
-
-        Args:
-            abbreviations: List of abbreviation dictionaries.
-            merge: If True, merges with existing data.
-
-        Returns:
-            Number of abbreviations imported/updated.
-        """
-        if not abbreviations:
-            return 0
-
-        detail_logger.debug(f"Importing {len(abbreviations)} learned abbreviations")
-        count = 0
-
-        for abbrev in abbreviations:
-            # Validate required fields
-            if not all(k in abbrev for k in ["abbreviated_form", "expanded_form"]):
-                detail_logger.warning(f"Skipping invalid abbreviation: {abbrev}")
-                continue
-
-            # Default values for missing fields
-            confidence = abbrev.get("confidence_score", 0.1)
-            context = abbrev.get("context")
-
-            # Use store_learned_abbreviation to handle merge logic
-            self.store_learned_abbreviation(
-                abbrev=abbrev["abbreviated_form"],
-                expanded=abbrev["expanded_form"],
-                confidence=confidence,
-                context=context,
-                log_prefix="[import] ",
+        if skipped_null:
+            detail_logger.info(
+                f"Skipped {skipped_null} entries with null normalized_name"
             )
-            count += 1
+
+        # Post-import pass: update canonical and detect ambiguity for every
+        # affected (acronym, entity_type) pair in one sweep instead of per entry.
+        self._post_import_update(seen_keys)
 
         return count
 
-    def list_all_acronyms(
-        self, entity_type: str | None = None, limit: int | None = None, offset: int = 0
-    ) -> list[dict[str, str]]:
-        """List all acronym mappings in the database.
+    def _post_import_update(self, keys: set[tuple[str, str]]) -> None:
+        """Update canonical flags and detect ambiguity for a set of acronyms.
 
-        Args:
-            entity_type: Optional VenueType value to filter by (e.g., 'journal', 'conference').
-                        If None, returns all acronyms across all entity types.
-            limit: Maximum number of entries to return (None for all)
-            offset: Number of entries to skip
+        Called once after a batch import instead of per-entry, which avoids
+        O(n) redundant SQL round-trips for acronyms with many variants
+        (e.g. NeurIPS with 376 entries).
 
-        Returns:
-            List of dictionaries containing acronym details
-
-        Raises:
-            TypeError: If limit or offset are not integers
+        An acronym is marked ambiguous when it has two or more distinct
+        normalized_names whose word-level Jaccard similarity is below 0.3 —
+        meaning they genuinely describe different venues, not just surface
+        variants of the same name.
         """
-        # Validate types at runtime to prevent SQL injection
-        if limit is not None and not isinstance(limit, int):
-            raise TypeError(f"limit must be an integer, got {type(limit).__name__}")
-        if not isinstance(offset, int):
-            raise TypeError(f"offset must be an integer, got {type(offset).__name__}")
+        for acronym, entity_type in keys:
+            self.update_canonical_variant(acronym, entity_type)
+            self._detect_and_mark_ambiguous(acronym, entity_type)
 
-        detail_logger.debug(
-            f"Listing acronyms with filters: entity_type={entity_type}, limit={limit}, offset={offset}"
-        )
-
+    def _detect_and_mark_ambiguous(self, acronym: str, entity_type: str) -> None:
+        """Mark acronym as ambiguous if its variants describe genuinely different venues."""
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
-
-            params: list[str | int]
-            if entity_type:
-                query = """
-                    SELECT acronym, normalized_name, entity_type, usage_count
-                    FROM venue_acronym_variants
-                    WHERE entity_type = ?
-                    ORDER BY acronym ASC
+            cursor.execute(
                 """
-                params = [entity_type]
-                detail_logger.debug(
-                    f"Querying acronyms filtered by entity_type '{entity_type}'"
-                )
-            else:
-                query = """
-                    SELECT acronym, normalized_name, entity_type, usage_count
-                    FROM venue_acronym_variants
-                    ORDER BY acronym ASC
-                """
-                params = []
-                detail_logger.debug("Querying all acronyms across all entity types")
-
-            if limit is not None:
-                query += " LIMIT ? OFFSET ?"
-                params.extend([limit, offset])
-                detail_logger.debug(
-                    f"Applied pagination: LIMIT {limit} OFFSET {offset}"
-                )
-
-            cursor.execute(query, params)
+                SELECT normalized_name, usage_count
+                FROM venue_acronym_variants
+                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                ORDER BY usage_count DESC
+                """,
+                (acronym.strip(), entity_type),
+            )
             rows = cursor.fetchall()
-            detail_logger.debug(f"Retrieved {len(rows)} acronym entries from database")
 
-            return [
-                {
-                    "acronym": row["acronym"],
-                    "normalized_name": row["normalized_name"],
-                    "entity_type": row["entity_type"],
-                    "usage_count": row["usage_count"],
-                }
-                for row in rows
-            ]
+        if len(rows) < 2:
+            return
+
+        # Only consider names with meaningful usage (top-half by count)
+        counts = [r["usage_count"] for r in rows]
+        threshold = max(1, max(counts) // 4)
+        candidates = [
+            r["normalized_name"] for r in rows if r["usage_count"] >= threshold
+        ]
+
+        if len(candidates) < 2:
+            return
+
+        # Jaccard similarity on word sets
+        def jaccard(a: str, b: str) -> float:
+            sa, sb = set(a.lower().split()), set(b.lower().split())
+            if not sa or not sb:
+                return 0.0
+            return len(sa & sb) / len(sa | sb)
+
+        top = candidates[0]
+        for other in candidates[1:]:
+            if jaccard(top, other) < 0.3:
+                self.mark_acronym_as_ambiguous(acronym, entity_type)
+                return
 
     def clear_acronym_database(self, entity_type: str | None = None) -> int:
         """Clear entries from the acronym database.
@@ -600,35 +548,6 @@ class AcronymCache(CacheBase):
             )
             return count
 
-    def clear_learned_abbreviations(self) -> int:
-        """Clear all entries from the learned abbreviations database.
-
-        Returns:
-            Number of entries deleted
-        """
-        detail_logger.debug("Clearing entire learned abbreviations database")
-
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Get count before deletion
-            cursor.execute("SELECT COUNT(*) FROM learned_abbreviations")
-            result = cursor.fetchone()
-            count = result[0] if result else 0
-            detail_logger.debug(f"Found {count} abbreviations to delete")
-
-            # Delete all entries
-            cursor.execute("DELETE FROM learned_abbreviations")
-            detail_logger.debug(
-                "Deleted all entries from learned abbreviations database"
-            )
-
-            conn.commit()
-            detail_logger.debug(
-                f"Abbreviation clear operation completed, {count} entries deleted"
-            )
-            return count
-
     def mark_acronym_as_ambiguous(
         self, acronym: str, entity_type: str, venues: list[str] | None = None
     ) -> None:
@@ -664,174 +583,6 @@ class AcronymCache(CacheBase):
             )
             conn.commit()
             detail_logger.debug(f"Marked acronym '{acronym}' as ambiguous in database")
-
-    def check_acronym_conflict(
-        self, acronym: str, entity_type: str, normalized_name: str
-    ) -> tuple[bool, bool, str | None]:
-        """Check if storing this acronym would create a conflict.
-
-        Args:
-            acronym: The acronym to check
-            entity_type: VenueType value
-            normalized_name: The normalized venue name
-
-        Returns:
-            Tuple of (has_conflict, already_exists, existing_name)
-            - has_conflict: True if acronym exists with different non-equivalent normalized_name
-            - already_exists: True if acronym exists with same or equivalent normalized_name
-            - existing_name: The existing normalized_name if found, None otherwise
-        """
-        detail_logger.debug(
-            f"Checking for conflict: '{acronym}' (entity_type={entity_type}) -> '{normalized_name}'"
-        )
-
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT normalized_name FROM venue_acronym_variants
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                """,
-                (acronym.strip(), entity_type),
-            )
-
-            row = cursor.fetchone()
-            if row:
-                existing_name = str(row["normalized_name"])
-                if existing_name == normalized_name:
-                    detail_logger.debug("Acronym already mapped to same venue")
-                    return False, True, existing_name  # No conflict, already exists
-                elif are_conference_names_equivalent(existing_name, normalized_name):
-                    detail_logger.debug(
-                        f"Names are equivalent variants: '{existing_name}' ≈ '{normalized_name}'"
-                    )
-                    return False, True, existing_name  # No conflict, equivalent exists
-                else:
-                    detail_logger.debug(
-                        f"Conflict detected: existing '{existing_name}' != new '{normalized_name}'"
-                    )
-                    return True, False, existing_name  # Conflict detected
-            else:
-                detail_logger.debug("No existing mapping found")
-                return False, False, None  # New acronym
-
-    def list_ambiguous_acronyms(
-        self, entity_type: str | None = None
-    ) -> list[dict[str, str]]:
-        """List all acronyms marked as ambiguous.
-
-        Args:
-            entity_type: Optional VenueType value to filter by
-
-        Returns:
-            List of dictionaries containing ambiguous acronym details
-        """
-        detail_logger.debug(
-            f"Listing ambiguous acronyms (entity_type={entity_type or 'all'})"
-        )
-
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-
-            if entity_type:
-                query = """
-                    SELECT acronym, normalized_name, entity_type, usage_count
-                    FROM venue_acronym_variants
-                    WHERE is_ambiguous = TRUE AND entity_type = ?
-                    ORDER BY acronym ASC
-                """
-                cursor.execute(query, (entity_type,))
-            else:
-                query = """
-                    SELECT acronym, normalized_name, entity_type, usage_count
-                    FROM venue_acronym_variants
-                    WHERE is_ambiguous = TRUE
-                    ORDER BY acronym ASC
-                """
-                cursor.execute(query)
-
-            rows = cursor.fetchall()
-            detail_logger.debug(f"Found {len(rows)} ambiguous acronym entries")
-
-            return [
-                {
-                    "acronym": row["acronym"],
-                    "normalized_name": row["normalized_name"],
-                    "entity_type": row["entity_type"],
-                    "usage_count": row["usage_count"],
-                }
-                for row in rows
-            ]
-
-    def bulk_store_acronyms(
-        self,
-        mappings: list[tuple[str, str, str, str]],
-        source: str = "bibtex_extraction",
-    ) -> int:
-        """Efficiently store multiple acronym mappings using variant system.
-
-        This method is optimized for batch processing of BibTeX files. It stores
-        all mappings in a single database transaction using the variant system.
-
-        Args:
-            mappings: List of (acronym, full_name, normalized_name, entity_type) tuples
-            source: Source of the mappings (e.g., 'bibtex_extraction')
-
-        Returns:
-            Number of acronyms stored/updated
-        """
-        if not mappings:
-            detail_logger.debug("No mappings to store")
-            return 0
-
-        detail_logger.debug(f"Bulk storing {len(mappings)} acronym mappings")
-
-        stored_count = 0
-        for acronym, _full_name, normalized_name, entity_type in mappings:
-            acronym = acronym.strip()
-            normalized_name = normalized_name.strip()
-
-            # Store as variant (handles insert/update internally)
-            self.store_variant(
-                acronym=acronym,
-                entity_type=entity_type,
-                variant_name=normalized_name,
-                normalized_name=normalized_name,
-                usage_count=1,
-                source=source,
-            )
-            # Update canonical variant (highest usage count wins)
-            self.update_canonical_variant(acronym, entity_type)
-            stored_count += 1
-
-        detail_logger.debug(f"Successfully stored {stored_count} acronym mappings")
-        return stored_count
-
-    def increment_usage_count(self, acronym: str, entity_type: str) -> None:
-        """Increment the usage count for an acronym.
-
-        Args:
-            acronym: The acronym to increment
-            entity_type: VenueType value (e.g., 'journal', 'conference')
-        """
-        detail_logger.debug(
-            f"Incrementing usage count for '{acronym}' (entity_type={entity_type})"
-        )
-
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                UPDATE venue_acronym_variants
-                SET usage_count = usage_count + 1, last_seen_at = CURRENT_TIMESTAMP
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                """,
-                (acronym.strip(), entity_type),
-            )
-            conn.commit()
-            detail_logger.debug(
-                f"Incremented usage count for acronym '{acronym}' (entity_type={entity_type})"
-            )
 
     # ========== Variant Management Methods ==========
 
@@ -1009,139 +760,3 @@ class AcronymCache(CacheBase):
                 )
 
             conn.commit()
-
-    # ========== Learned Abbreviation Methods ==========
-
-    def get_learned_abbreviations(
-        self, min_confidence: float = 0.05
-    ) -> dict[str, list[tuple[str, float]]]:
-        """Get abbreviation mappings above confidence threshold.
-
-        Args:
-            min_confidence: Minimum confidence score to include
-
-        Returns:
-            dict mapping abbreviated form to list of (expanded_form, confidence) tuples
-            Example: {
-                "int.": [("international", 0.9), ("integer", 0.3)],
-                "conf.": [("conference", 0.95)]
-            }
-        """
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT abbreviated_form, expanded_form, confidence_score
-                FROM learned_abbreviations
-                WHERE confidence_score >= ?
-                ORDER BY abbreviated_form, confidence_score DESC
-                """,
-                (min_confidence,),
-            )
-
-            result: dict[str, list[tuple[str, float]]] = {}
-            for row in cursor.fetchall():
-                abbrev = row["abbreviated_form"]
-                expanded = row["expanded_form"]
-                confidence = row["confidence_score"]
-
-                if abbrev not in result:
-                    result[abbrev] = []
-                result[abbrev].append((expanded, confidence))
-
-            detail_logger.debug(
-                f"Loaded {len(result)} abbreviations with min_confidence >= {min_confidence}"
-            )
-            return result
-
-    def store_learned_abbreviation(
-        self,
-        abbrev: str,
-        expanded: str,
-        confidence: float,
-        context: str | None = None,
-        log_prefix: str = "",
-    ) -> None:
-        """Store or update a learned abbreviation mapping.
-
-        Args:
-            abbrev: Abbreviated form
-            expanded: Expanded form
-            confidence: Initial confidence score
-            context: Optional context (venue type, etc.)
-            log_prefix: Optional prefix for log messages (e.g., file path)
-        """
-        import math
-
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-
-            # Check if mapping already exists
-            cursor.execute(
-                """
-                SELECT occurrence_count FROM learned_abbreviations
-                WHERE abbreviated_form = ? AND expanded_form = ?
-                """,
-                (abbrev, expanded),
-            )
-            existing = cursor.fetchone()
-
-            if existing:
-                # Update existing mapping
-                new_count = existing["occurrence_count"] + 1
-                # Recalculate confidence using logarithmic formula
-                new_confidence = min(1.0, 0.1 + 0.3 * math.log10(new_count + 1))
-
-                cursor.execute(
-                    """
-                    UPDATE learned_abbreviations
-                    SET occurrence_count = ?,
-                        confidence_score = ?,
-                        last_seen_at = CURRENT_TIMESTAMP
-                    WHERE abbreviated_form = ? AND expanded_form = ?
-                    """,
-                    (new_count, new_confidence, abbrev, expanded),
-                )
-                status_logger.info(
-                    f"{log_prefix}updated abbrev '{abbrev}' → '{expanded}' "
-                    f"(confidence: {new_confidence:.2f}, count: {new_count})"
-                )
-            else:
-                # Insert new mapping
-                cursor.execute(
-                    """
-                    INSERT INTO learned_abbreviations
-                    (abbreviated_form, expanded_form, confidence_score,
-                     occurrence_count, context)
-                    VALUES (?, ?, ?, 1, ?)
-                    """,
-                    (abbrev, expanded, confidence, context),
-                )
-                status_logger.info(
-                    f"{log_prefix}learned abbrev '{abbrev}' → '{expanded}' "
-                    f"(confidence: {confidence:.2f}, count: 1)"
-                )
-
-            conn.commit()
-
-    def get_abbreviation_confidence(self, abbrev: str, expanded: str) -> float:
-        """Get confidence score for a specific mapping.
-
-        Args:
-            abbrev: Abbreviated form
-            expanded: Expanded form
-
-        Returns:
-            Confidence score (0.0-1.0), or 0.0 if mapping doesn't exist
-        """
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT confidence_score FROM learned_abbreviations
-                WHERE abbreviated_form = ? AND expanded_form = ?
-                """,
-                (abbrev, expanded),
-            )
-            row = cursor.fetchone()
-            return float(row["confidence_score"]) if row else 0.0

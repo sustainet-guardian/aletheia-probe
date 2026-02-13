@@ -19,8 +19,8 @@ from .cache_sync import cache_sync_manager
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
-from .logging_config import get_detail_logger, get_status_logger, setup_logging
-from .normalizer import input_normalizer, normalize_case
+from .logging_config import get_status_logger, setup_logging
+from .normalizer import input_normalizer
 from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
 
@@ -394,111 +394,6 @@ def acronym_status() -> None:
         status_logger.info(f"Total acronyms: {count:,}")
 
 
-@acronym.command()
-@handle_cli_errors
-def stats() -> None:
-    """Show statistics about the acronym database."""
-    status_logger = get_status_logger()
-
-    acronym_cache = AcronymCache()
-    stats = acronym_cache.get_acronym_stats()
-
-    total = stats.get("total_count", 0)
-
-    if total == 0:
-        status_logger.info("Database is empty (no acronyms stored)")
-        return
-
-    status_logger.info(f"Total acronyms: {total:,}")
-
-
-@acronym.command(name="abbreviation-stats")
-@handle_cli_errors
-def abbreviation_stats() -> None:
-    """Show statistics about the learned abbreviations database."""
-    status_logger = get_status_logger()
-
-    acronym_cache = AcronymCache()
-    abbreviations = acronym_cache.export_all_abbreviations()
-    total = len(abbreviations)
-
-    if total == 0:
-        status_logger.info("No abbreviations learned yet")
-    else:
-        status_logger.info(f"Total learned abbreviations: {total:,}")
-
-
-@acronym.command(name="list")
-@click.option("--limit", type=int, help="Maximum number of entries to display")
-@click.option("--offset", type=int, default=0, help="Number of entries to skip")
-@handle_cli_errors
-def list_acronyms(limit: int | None, offset: int) -> None:
-    """List all acronym mappings in the database.
-
-    Args:
-        limit: Maximum number of entries to display.
-        offset: Number of entries to skip.
-    """
-    status_logger = get_status_logger()
-
-    acronym_cache = AcronymCache()
-    acronyms = acronym_cache.list_all_acronyms(limit=limit, offset=offset)
-
-    if not acronyms:
-        status_logger.info("No acronyms found in the database.")
-        return
-
-    for entry in acronyms:
-        display_name = normalize_case(entry["normalized_name"])
-        count = entry.get("usage_count", 0)
-        status_logger.info(
-            f"{entry['acronym']} -> {display_name} [{entry['entity_type']}] (count: {count})"
-        )
-
-    total_count = acronym_cache.get_acronym_stats()["total_count"]
-    shown = len(acronyms)
-
-    if limit is not None or offset > 0:
-        status_logger.info(f"\nShowing {shown} of {total_count:,} total acronyms")
-
-
-@acronym.command()
-@click.argument("output_file", type=click.Path())
-@handle_cli_errors
-def export(output_file: str) -> None:
-    """Export the entire acronym and abbreviation database to a JSON file.
-
-    Args:
-        output_file: Path to the output JSON file.
-    """
-    status_logger = get_status_logger()
-    acronym_cache = AcronymCache()
-
-    variants = acronym_cache.export_all_variants()
-    abbreviations = acronym_cache.export_all_abbreviations()
-
-    dataset = {
-        "acronyms": variants,
-        "abbreviations": abbreviations,
-        "metadata": {
-            "version": "1.0",
-            "type": "aletheia-probe-venue-intelligence",
-        },
-    }
-
-    try:
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(dataset, f, indent=2, ensure_ascii=False)
-
-        status_logger.info(
-            f"Successfully exported {len(variants)} acronym variants and "
-            f"{len(abbreviations)} learned abbreviations to {output_file}"
-        )
-    except Exception as e:
-        status_logger.error(f"Failed to export dataset: {e}")
-        raise click.ClickException(str(e)) from e
-
-
 @acronym.command(name="import")
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option(
@@ -506,15 +401,26 @@ def export(output_file: str) -> None:
     default=True,
     help="Merge with existing data (default) or replace",
 )
+@click.option(
+    "--source",
+    default=None,
+    help="Override source label stored with each imported entry (default: 'import')",
+)
 @handle_cli_errors
-def import_acronyms(input_file: str, merge: bool) -> None:
-    """Import acronyms and abbreviations from a JSON file.
+def import_acronyms(input_file: str, merge: bool, source: str | None) -> None:
+    """Import acronyms from a JSON file.
 
-    Supports both unified dataset format and legacy list-only format.
+    Supports the venue-acronyms-2025 consensus format (plain list with
+    original_name and confidence_score), the unified dataset format
+    (dict with 'acronyms' key), and the legacy list-only format.
+
+    Entries with a null normalized_name are skipped automatically.
+    is_canonical and is_ambiguous are computed from the imported batch.
 
     Args:
         input_file: Path to the input JSON file.
         merge: Whether to merge with existing data.
+        source: Optional source label for imported entries.
     """
     status_logger = get_status_logger()
     acronym_cache = AcronymCache()
@@ -528,15 +434,13 @@ def import_acronyms(input_file: str, merge: bool) -> None:
 
         # Detect format
         if isinstance(data, list):
-            # Legacy format: list of variants
             variants = data
-            status_logger.info(f"Detected legacy format with {len(variants)} variants")
+            status_logger.info(f"Detected list format with {len(variants)} variants")
         elif isinstance(data, dict):
-            # Unified format
             variants = data.get("acronyms", [])
             abbreviations = data.get("abbreviations", [])
             status_logger.info(
-                f"Detected unified format with {len(variants)} variants and "
+                f"Detected dict format with {len(variants)} variants and "
                 f"{len(abbreviations)} abbreviations"
             )
         else:
@@ -548,15 +452,22 @@ def import_acronyms(input_file: str, merge: bool) -> None:
                 abort=True,
             ):
                 acronym_cache.clear_acronym_database()
-                acronym_cache.clear_learned_abbreviations()
 
-        variant_count = acronym_cache.import_variants(variants, merge=True)
-        abbrev_count = acronym_cache.import_abbreviations(abbreviations, merge=True)
+        # Determine default source: use --source flag, or detect from file content
+        default_source = source
+        if default_source is None:
+            # venue-acronyms-2025 consensus format has confidence_score but no source
+            first = variants[0] if variants else {}
+            if "confidence_score" in first and "source" not in first:
+                default_source = "venue-acronyms-2025"
+            else:
+                default_source = "import"
 
-        status_logger.info(
-            f"Successfully imported {variant_count} acronym variants and "
-            f"{abbrev_count} learned abbreviations"
+        variant_count = acronym_cache.import_variants(
+            variants, merge=True, default_source=default_source
         )
+
+        status_logger.info(f"Successfully imported {variant_count} acronym variants")
 
     except Exception as e:
         status_logger.error(f"Failed to import dataset: {e}")
@@ -565,25 +476,13 @@ def import_acronyms(input_file: str, merge: bool) -> None:
 
 @acronym.command()
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
-@click.option(
-    "--include-abbreviations", is_flag=True, help="Also clear learned abbreviations"
-)
 @handle_cli_errors
-def clear(confirm: bool, include_abbreviations: bool) -> None:
-    """Clear entries from the acronym database.
-
-    Args:
-        confirm: Whether to skip the confirmation prompt.
-        include_abbreviations: Whether to also clear learned abbreviations.
-    """
+def clear(confirm: bool) -> None:
+    """Clear all entries from the acronym database."""
     status_logger = get_status_logger()
 
-    msg = "This will delete all conference acronym mappings."
-    if include_abbreviations:
-        msg = "This will delete all acronym mappings AND learned abbreviations."
-
     if not confirm:
-        click.confirm(f"{msg} Continue?", abort=True)
+        click.confirm("This will delete all acronym mappings. Continue?", abort=True)
 
     acronym_cache = AcronymCache()
     count = acronym_cache.clear_acronym_database()
@@ -592,448 +491,6 @@ def clear(confirm: bool, include_abbreviations: bool) -> None:
         status_logger.info("Acronym database is already empty.")
     else:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
-
-    if include_abbreviations:
-        abbrev_count = acronym_cache.clear_learned_abbreviations()
-        if abbrev_count == 0:
-            status_logger.info("Learned abbreviations database is already empty.")
-        else:
-            status_logger.info(f"Cleared {abbrev_count:,} learned abbreviation(s).")
-
-
-@acronym.command()
-@click.argument("acronym")
-@click.argument("full_name")
-@click.option(
-    "--entity-type",
-    required=True,
-    help="Entity type: journal, conference, workshop, symposium, etc.",
-)
-@click.option(
-    "--source",
-    default="manual",
-    help="Source of the mapping (default: manual)",
-)
-@handle_cli_errors
-def add(acronym: str, full_name: str, entity_type: str, source: str) -> None:
-    """Manually add an acronym mapping to the database.
-
-    Args:
-        acronym: The venue acronym (e.g., ICML, JMLR).
-        full_name: The full venue name.
-        entity_type: Entity type: journal, conference, workshop, symposium, etc.
-        source: Source of the mapping (default: manual).
-    """
-    status_logger = get_status_logger()
-
-    acronym_cache = AcronymCache()
-    acronym_cache.store_acronym_mapping(acronym, full_name, entity_type, source)
-
-    status_logger.info(f"Added acronym mapping: {acronym} -> {full_name}")
-    status_logger.info(f"Entity type: {entity_type}")
-    status_logger.info(f"Source: {source}")
-
-
-@acronym.command(name="add-bibtex")
-@click.argument("bibtex_file", type=click.Path(exists=True), required=False)
-@click.option(
-    "--directory",
-    "-d",
-    type=click.Path(exists=True),
-    help="Process all .bib files in directory",
-)
-@click.option(
-    "--recursive", "-r", is_flag=True, help="Search subdirectories recursively"
-)
-@click.option(
-    "--workers", "-w", type=int, default=None, help="Number of parallel workers"
-)
-@click.option(
-    "--batch-size",
-    "-b",
-    type=int,
-    default=100,
-    help="Batch size for database operations",
-)
-@click.option("--dry-run", is_flag=True, help="Preview changes without storing")
-@handle_cli_errors
-def add_bibtex(
-    bibtex_file: str | None,
-    directory: str | None,
-    recursive: bool,
-    workers: int | None,
-    batch_size: int,
-    dry_run: bool,
-) -> None:
-    """Extract and add acronyms from BibTeX file(s).
-
-    Can process a single file or multiple files from a directory.
-
-    Examples:
-        # Single file
-        aletheia-probe acronym add-bibtex paper.bib
-
-        # All files in directory
-        aletheia-probe acronym add-bibtex -d /path/to/bibtex/files
-
-        # Recursive directory search
-        aletheia-probe acronym add-bibtex -d /path/to/bibtex -r
-
-        # With parallel processing
-        aletheia-probe acronym add-bibtex -d /path/to/bibtex -r -w 4
-
-    Args:
-        bibtex_file: Path to a single BibTeX file to process.
-        directory: Path to directory containing BibTeX files.
-        recursive: Search subdirectories recursively.
-        workers: Number of parallel workers for processing.
-        batch_size: Batch size for database operations.
-        dry_run: If True, show what would be added without storing.
-    """
-    from pathlib import Path
-
-    from .bibtex_parser import BibtexParser
-    from .models import (
-        AcronymCollectionResult,
-        AcronymConflict,
-        AcronymMapping,
-        VenueWithCount,
-    )
-
-    status_logger = get_status_logger()
-    detail_logger = get_detail_logger()
-
-    # Validate arguments
-    if not bibtex_file and not directory:
-        status_logger.error("Must provide either BIBTEX_FILE or --directory")
-        raise click.Abort()
-
-    if bibtex_file and directory:
-        status_logger.error("Cannot use both BIBTEX_FILE and --directory")
-        raise click.Abort()
-
-    # Multi-file processing mode
-    if directory or (bibtex_file and workers and workers > 1):
-        from .batch_acronym_processor import (
-            discover_bibtex_files,
-            merge_file_results,
-            process_files_parallel,
-        )
-
-        # Discover files
-        files = discover_bibtex_files(
-            single_file=bibtex_file,
-            directory=directory,
-            recursive=recursive,
-        )
-
-        if not files:
-            status_logger.warning("No BibTeX files found")
-            return
-
-        status_logger.info(f"Found {len(files)} BibTeX file(s) to process")
-
-        # Process files in parallel
-        def progress_callback(completed: int, total: int, file_path: Path) -> None:
-            status_logger.info(f"[{completed}/{total}] Processed {file_path.name}")
-
-        results = process_files_parallel(
-            files, max_workers=workers, progress_callback=progress_callback
-        )
-
-        # Merge results and check against database
-        acronym_cache = AcronymCache()
-        merged = merge_file_results(results, acronym_cache)
-
-        # Display errors
-        if merged.files_with_errors:
-            status_logger.warning(
-                f"\n{len(merged.files_with_errors)} file(s) had errors:"
-            )
-            for file_path, error in merged.files_with_errors:
-                status_logger.warning(f"  - {file_path.name}: {error}")
-
-        # Display summary
-        status_logger.info(f"\nProcessed {merged.files_processed} file(s)")
-        status_logger.info(f"Total entries: {merged.total_entries}")
-        status_logger.info(f"New acronyms: {len(merged.new_acronyms)}")
-        status_logger.info(f"Existing acronyms: {len(merged.existing_acronyms)}")
-        status_logger.info(f"Conflicts: {len(merged.conflicts)}")
-
-        # Show new acronyms (limited to first 50)
-        if merged.new_acronyms:
-            status_logger.info("\nNew acronyms to add:")
-            for (
-                acronym,
-                _venue_name,
-                normalized,
-                entity_type,
-                count,
-            ) in merged.new_acronyms[:50]:
-                status_logger.info(
-                    f"  - {acronym} → {normalized} ({entity_type}) [{count} occurrence(s)]"
-                )
-            if len(merged.new_acronyms) > 50:
-                status_logger.info(f"  ... and {len(merged.new_acronyms) - 50} more")
-
-        # Show conflicts
-        if merged.conflicts:
-            status_logger.warning("\nConflicts detected (will be marked as ambiguous):")
-            for acronym, entity_type, venue_counts in merged.conflicts:
-                status_logger.warning(f"  - {acronym} ({entity_type}):")
-                for venue, count in venue_counts:
-                    status_logger.warning(f"    - {venue} [{count} occurrence(s)]")
-
-        # If dry-run, stop here
-        if dry_run:
-            status_logger.info("\nDry-run mode: No changes made to database")
-            return
-
-        # Store new acronyms using bulk method (delegates to store_variant internally)
-        if merged.new_acronyms:
-            mappings = [
-                (acronym, venue_name, normalized, entity_type)
-                for acronym, venue_name, normalized, entity_type, _ in merged.new_acronyms
-            ]
-            stored_count = acronym_cache.bulk_store_acronyms(
-                mappings, source="bibtex_extraction"
-            )
-            status_logger.info(f"\nAdded {stored_count} new acronyms to database")
-
-        # Update usage counts for existing acronyms
-        if merged.existing_acronyms:
-            for (
-                acronym,
-                _venue_name,
-                normalized,
-                entity_type,
-                count,
-            ) in merged.existing_acronyms:
-                variants = acronym_cache.get_variants(acronym, entity_type)
-                for v in variants:
-                    if v["normalized_name"] == normalized:
-                        acronym_cache.increment_variant_count(v["id"], count)
-                        acronym_cache.update_canonical_variant(acronym, entity_type)
-                        break
-
-        # Store conflict variants and mark as ambiguous
-        if merged.conflicts:
-            ambiguous_count = 0
-            for acronym, entity_type, venue_counts in merged.conflicts:
-                for venue, count in venue_counts:
-                    acronym_cache.store_variant(
-                        acronym=acronym,
-                        entity_type=entity_type,
-                        variant_name=venue,
-                        normalized_name=venue,
-                        usage_count=count,
-                        source="bibtex_extraction",
-                    )
-                with acronym_cache.get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        UPDATE venue_acronym_variants
-                        SET is_ambiguous = TRUE
-                        WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                        """,
-                        (acronym, entity_type),
-                    )
-                    conn.commit()
-                ambiguous_count += 1
-            status_logger.warning(
-                f"Marked {ambiguous_count} acronyms as ambiguous (cannot be used for matching)"
-            )
-
-        return
-
-    # Single file processing mode
-    file_path = Path(bibtex_file)  # type: ignore[arg-type]
-
-    # Parse BibTeX file (suppress pybtex warnings)
-    import io
-
-    import pybtex.io  # type: ignore[import-untyped]
-
-    old_pybtex_stderr = pybtex.io.stderr
-    pybtex.io.stderr = io.StringIO()
-
-    parser = BibtexParser()
-    try:
-        entries, skipped_non_preprint, preprint_count = parser.parse_bibtex_file(
-            file_path, relax_parsing=True
-        )
-        detail_logger.debug(f"Parsed {len(entries)} entries from BibTeX file")
-    except Exception as e:
-        status_logger.error(f"Failed to parse BibTeX file: {e}")
-        raise click.Abort() from e
-    finally:
-        pybtex.io.stderr = old_pybtex_stderr
-
-    # Extract acronyms (3-tuple: new, existing, conflicts)
-    acronym_cache = AcronymCache()
-    new_mappings, existing_mappings, conflicts = (
-        BibtexParser.extract_acronyms_from_entries(entries, acronym_cache, file_path)
-    )
-
-    # Build result object
-    result = AcronymCollectionResult(
-        file_path=str(file_path),
-        total_processed=len(entries),
-        new_acronyms=[
-            AcronymMapping(
-                acronym=acronym,
-                venue_name=venue_name,
-                normalized_name=normalized_name,
-                entity_type=entity_type,
-            )
-            for acronym, venue_name, normalized_name, entity_type in new_mappings
-        ],
-        existing_acronyms=[
-            AcronymMapping(
-                acronym=acronym,
-                venue_name=venue_name,
-                normalized_name=normalized_name,
-                entity_type=entity_type,
-            )
-            for acronym, venue_name, normalized_name, entity_type in existing_mappings
-        ],
-        conflicts=[
-            AcronymConflict(
-                acronym=acronym,
-                entity_type=entity_type,
-                venues=[
-                    VenueWithCount(venue_name=venue, count=count)
-                    for venue, count in venue_counts
-                ],
-            )
-            for acronym, entity_type, venue_counts in conflicts
-        ],
-        skipped=len(entries)
-        - len(new_mappings)
-        - len(existing_mappings)
-        - len(conflicts),
-    )
-
-    # Skip empty reports
-    if not result.new_acronyms and not result.conflicts:
-        detail_logger.debug(
-            f"No acronyms found in {file_path} (processed {result.total_processed} entries)"
-        )
-        return
-
-    # Show new acronyms in concise format
-    if result.new_acronyms:
-        for mapping in result.new_acronyms:
-            status_logger.info(
-                f"{file_path}: added {mapping.acronym} → {mapping.normalized_name} ({mapping.entity_type})"
-            )
-
-    # Show conflicts in one-line format
-    if result.conflicts:
-        for conflict in result.conflicts:
-            sorted_venues = sorted(conflict.venues, key=lambda v: v.count, reverse=True)
-            venue_summary = ", ".join(
-                f"{v.venue_name}({v.count})" for v in sorted_venues[:3]
-            )
-            if len(sorted_venues) > 3:
-                venue_summary += f" +{len(sorted_venues) - 3} more"
-            status_logger.warning(
-                f"{file_path}: conflict {conflict.acronym} ({conflict.entity_type}): {venue_summary}"
-            )
-
-    # If dry-run, stop here
-    if dry_run:
-        status_logger.info("\nDry-run mode: No changes made to database")
-        return
-
-    # Store new acronyms as variants
-    stored_count = 0
-    for mapping in result.new_acronyms:
-        acronym_cache.store_variant(
-            acronym=mapping.acronym,
-            entity_type=mapping.entity_type,
-            variant_name=mapping.venue_name,
-            normalized_name=mapping.normalized_name,
-            usage_count=1,
-            source="bibtex_extraction",
-        )
-        acronym_cache.update_canonical_variant(mapping.acronym, mapping.entity_type)
-        stored_count += 1
-
-    # Update usage counts for existing acronyms
-    for mapping in result.existing_acronyms:
-        variants = acronym_cache.get_variants(mapping.acronym, mapping.entity_type)
-        for v in variants:
-            if v["normalized_name"] == mapping.normalized_name:
-                acronym_cache.increment_variant_count(v["id"], 1)
-                acronym_cache.update_canonical_variant(
-                    mapping.acronym, mapping.entity_type
-                )
-                break
-
-    # Store conflict variants and mark as ambiguous
-    ambiguous_count = 0
-    for conflict in result.conflicts:
-        for venue_with_count in conflict.venues:
-            acronym_cache.store_variant(
-                acronym=conflict.acronym,
-                entity_type=conflict.entity_type,
-                variant_name=venue_with_count.venue_name,
-                normalized_name=venue_with_count.venue_name,
-                usage_count=venue_with_count.count,
-                source="bibtex_extraction",
-            )
-
-        # Mark all variants as ambiguous
-        with acronym_cache.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                UPDATE venue_acronym_variants
-                SET is_ambiguous = TRUE
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                """,
-                (conflict.acronym, conflict.entity_type),
-            )
-            conn.commit()
-        ambiguous_count += 1
-
-
-@acronym.command(name="list-ambiguous")
-@click.option(
-    "--entity-type",
-    help="Filter by entity type: journal, conference, workshop, symposium, etc.",
-)
-@handle_cli_errors
-def list_ambiguous(entity_type: str | None) -> None:
-    """List all acronyms marked as ambiguous.
-
-    Args:
-        entity_type: Optional entity type filter.
-    """
-    status_logger = get_status_logger()
-
-    acronym_cache = AcronymCache()
-    ambiguous_acronyms = acronym_cache.list_ambiguous_acronyms(entity_type)
-
-    if not ambiguous_acronyms:
-        if entity_type:
-            status_logger.info(
-                f"No ambiguous acronyms found for entity_type '{entity_type}'"
-            )
-        else:
-            status_logger.info("No ambiguous acronyms found")
-        return
-
-    status_logger.info(f"Ambiguous acronyms ({len(ambiguous_acronyms)} total):")
-
-    for entry in ambiguous_acronyms:
-        display_name = normalize_case(entry["normalized_name"])
-        count = entry.get("usage_count", 0)
-        status_logger.info(
-            f"{entry['acronym']} -> {display_name} [{entry['entity_type']}] (count: {count})"
-        )
 
 
 @main.group(name="db")

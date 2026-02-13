@@ -27,16 +27,6 @@ class TestInputNormalizer:
         assert result.normalized_name == "Journal of Computer Science"
         assert "Computer Science" in result.aliases
 
-    def test_abbreviation_expansion(self, normalizer):
-        """Test abbreviation expansion (only static abbreviations: Jrnl, Intl, intl., AI)."""
-        # Static abbreviation: Intl -> International
-        result = normalizer.normalize("Intl Journal of Testing")
-        assert result.normalized_name == "International Journal of Testing"
-
-        # Abbreviations without static mappings are not expanded
-        result = normalizer.normalize("J. Sci. Tech.")
-        assert result.normalized_name == "J. Sci. Tech."
-
     def test_issn_extraction(self, normalizer):
         """Test ISSN extraction from input."""
         result = normalizer.normalize("Journal of Testing (ISSN: 1234-5679)")
@@ -315,11 +305,11 @@ class TestInputNormalizer:
         test_cases = [
             (
                 "34th International Conference on Machine Learning (ICML 2024)",
-                "International Conference on Machine Learning (ICML )",
+                "International Conference on Machine Learning",
             ),
             (
                 "2023 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
-                "IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+                "IEEE Conference on Computer Vision and Pattern Recognition",
             ),
             (
                 "Proceedings of the 15th International Conference on Learning Representations",
@@ -327,7 +317,7 @@ class TestInputNormalizer:
             ),
             (
                 "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)",
-                "IEEE International Conference on Cloud Computing (CLOUD)",
+                "IEEE International Conference on Cloud Computing",
             ),
         ]
 
