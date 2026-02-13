@@ -74,6 +74,7 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 - **UGC-CARE Cloned (Group I)** - UGC-CARE discontinued cloned journal list
 - **UGC-CARE Cloned (Group II)** - UGC-CARE discontinued cloned journal list
 - **UGC-CARE Delisted (Group II)** - UGC-CARE discontinued delisted journal list
+- **UGC-CARE Included from Clone Page (Group I/II)** - Left-side included journals from public clone-correction pages
 - **Algerian Ministry** - Algerian Ministry of Higher Education predatory journals list
 - **OpenAlex** - Publication pattern analysis
 - **Crossref** - Metadata quality assessment
@@ -111,6 +112,8 @@ These provide authoritative yes/no decisions for journals they cover:
 | **UGC-CARE Cloned (Group I)** | Cloned journals | ~80 entries | Public UGC-CARE discontinued Group I clone list |
 | **UGC-CARE Cloned (Group II)** | Cloned journals | ~114 entries | Public UGC-CARE discontinued Group II clone list |
 | **UGC-CARE Delisted (Group II)** | Delisted journals | ~12 entries | Public UGC-CARE discontinued Group II delisted list |
+| **UGC-CARE Included from Clone Page (Group I)** | Included journals | ~80 entries | Left-side included journals from Group I clone-correction page |
+| **UGC-CARE Included from Clone Page (Group II)** | Included journals | ~114 entries | Left-side included journals from Group II clone-correction page |
 | **PredatoryJournals.org** | Predatory journals/publishers | 15,000+ entries | Curated lists from predatoryjournals.org |
 | **Algerian Ministry** | Predatory journal list | ~3,300 entries | Ministry of Higher Education predatory journals |
 | **Kscien Standalone Journals** | Predatory journals | 1,400+ entries | Individual predatory journals identified by Kscien |

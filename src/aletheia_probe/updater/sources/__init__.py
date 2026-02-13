@@ -15,6 +15,8 @@ from .ugc_care import (
     UgcCareClonedGroup2Source,
     UgcCareClonedSource,
     UgcCareDelistedGroup2Source,
+    UgcCareIncludedFromCloneGroup1Source,
+    UgcCareIncludedFromCloneGroup2Source,
 )
 
 
@@ -32,4 +34,6 @@ __all__ = [
     "UgcCareClonedGroup2Source",
     "UgcCareClonedSource",
     "UgcCareDelistedGroup2Source",
+    "UgcCareIncludedFromCloneGroup1Source",
+    "UgcCareIncludedFromCloneGroup2Source",
 ]

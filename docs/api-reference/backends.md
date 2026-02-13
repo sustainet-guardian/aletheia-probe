@@ -106,6 +106,8 @@ YAML structure:
 | **ugc_care_cloned** | UGC-CARE Group I cloned journals | `src/aletheia_probe/backends/ugc_care_cloned.py` |
 | **ugc_care_cloned_group2** | UGC-CARE Group II cloned journals | `src/aletheia_probe/backends/ugc_care_cloned_group2.py` |
 | **ugc_care_delisted_group2** | UGC-CARE Group II delisted journals | `src/aletheia_probe/backends/ugc_care_delisted_group2.py` |
+| **ugc_care_included_from_clone_group1** | UGC-CARE Group I included journals from clone page | `src/aletheia_probe/backends/ugc_care_included_from_clone_group1.py` |
+| **ugc_care_included_from_clone_group2** | UGC-CARE Group II included journals from clone page | `src/aletheia_probe/backends/ugc_care_included_from_clone_group2.py` |
 | **predatoryjournals** | PredatoryJournals.com database | `src/aletheia_probe/backends/predatoryjournals.py` |
 | **algerian_ministry** | Algerian Ministry predatory list | `src/aletheia_probe/backends/algerian_ministry.py` |
 | **kscien_standalone_journals** | Kscien standalone journals | `src/aletheia_probe/backends/kscien_standalone_journals.py` |

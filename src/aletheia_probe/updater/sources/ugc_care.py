@@ -27,9 +27,12 @@ UPDATE_INTERVAL_DAYS = 30
 class UgcCareListSource(DataSource):
     """Base data source for scraping discontinued UGC-CARE list pages."""
 
-    def __init__(self, source_name: str, source_url: str) -> None:
+    def __init__(
+        self, source_name: str, source_url: str, list_type: AssessmentType
+    ) -> None:
         self._source_name = source_name
         self.source_url = source_url
+        self._list_type = list_type
         self.timeout = ClientTimeout(total=DEFAULT_TIMEOUT_SECONDS)
 
     def get_name(self) -> str:
@@ -38,7 +41,7 @@ class UgcCareListSource(DataSource):
 
     def get_list_type(self) -> AssessmentType:
         """Return list type used for discontinued UGC-CARE lists."""
-        return AssessmentType.PREDATORY
+        return self._list_type
 
     def should_update(self) -> bool:
         """Check if source should be refreshed from UGC-CARE pages."""
@@ -144,19 +147,26 @@ class UgcCareClonedSource(UgcCareListSource):
         super().__init__(
             source_name="ugc_care_cloned",
             source_url=config.data_source_urls.ugc_care_cloned_url,
+            list_type=AssessmentType.PREDATORY,
         )
 
     def _parse_entries(self, html_content: str) -> list[dict[str, Any]]:
         """Parse cloned-journal blocks and keep the cloned title per record."""
-        return self._parse_cloned_entries(
+        return self._parse_clone_pair_entries(
             html_content=html_content,
-            ugc_status="cloned_group_i",
+            included_status="included_group_i_from_clone_page",
+            cloned_status="cloned_group_i",
+            include_left_side=False,
         )
 
-    def _parse_cloned_entries(
-        self, html_content: str, ugc_status: str
+    def _parse_clone_pair_entries(
+        self,
+        html_content: str,
+        included_status: str,
+        cloned_status: str,
+        include_left_side: bool,
     ) -> list[dict[str, Any]]:
-        """Parse cloned-journal list entries from UGC cloned pages."""
+        """Parse UGC clone-pair records and emit left/right side entries."""
         text_with_lines = re.sub(r"<[^>]+>", "\n", html_content)
         text_with_lines = unescape(text_with_lines)
         text_with_lines = re.sub(r"\r", "\n", text_with_lines)
@@ -178,33 +188,40 @@ class UgcCareClonedSource(UgcCareListSource):
 
         entries: list[dict[str, Any]] = []
         for record in records:
-            titles = re.findall(
-                r"Title\s*-\s*(.+?)(?=\s+(?:URL|Publisher|ISSN|E-ISSN|Title\s*-|$))",
-                record,
-                re.IGNORECASE | re.DOTALL,
-            )
-            publishers = re.findall(
-                r"Publisher\s*:?\s*(.+?)(?=\s+(?:ISSN|E-ISSN|Title\s*-|$))",
-                record,
-                re.IGNORECASE | re.DOTALL,
-            )
-            issns = re.findall(r"\b\d{4}\s*-\s*[\dXx]{4}\b", record)
-
-            if not titles:
+            sides = self._extract_clone_record_sides(record)
+            if not sides:
                 continue
 
-            cloned_title = self._clean_text(titles[-1])
-            original_title = self._clean_text(titles[0]) if len(titles) > 1 else None
-            cloned_publisher = self._clean_text(publishers[-1]) if publishers else None
+            original_side = sides[0]
+            cloned_side = sides[-1]
+            original_title = original_side["title"]
+            cloned_title = cloned_side["title"]
 
-            entry = self._build_entry(
+            if include_left_side:
+                included_entry = self._build_entry(
+                    title=original_title,
+                    publisher=original_side.get("publisher"),
+                    issn=original_side.get("issn"),
+                    eissn=original_side.get("eissn"),
+                    metadata={
+                        "source_url": self.source_url,
+                        "ugc_status": included_status,
+                        "paired_cloned_title": (
+                            cloned_title if cloned_title != original_title else None
+                        ),
+                    },
+                )
+                if included_entry:
+                    entries.append(included_entry)
+
+            cloned_entry = self._build_entry(
                 title=cloned_title,
-                publisher=cloned_publisher,
-                issn=issns[0] if len(issns) >= 1 else None,
-                eissn=issns[1] if len(issns) >= 2 else None,
+                publisher=cloned_side.get("publisher"),
+                issn=cloned_side.get("issn"),
+                eissn=cloned_side.get("eissn"),
                 metadata={
                     "source_url": self.source_url,
-                    "ugc_status": ugc_status,
+                    "ugc_status": cloned_status,
                     "original_title": (
                         original_title
                         if original_title and original_title != cloned_title
@@ -212,10 +229,56 @@ class UgcCareClonedSource(UgcCareListSource):
                     ),
                 },
             )
-            if entry:
-                entries.append(entry)
+            if cloned_entry:
+                entries.append(cloned_entry)
 
         return entries
+
+    def _extract_clone_record_sides(self, record: str) -> list[dict[str, str | None]]:
+        """Extract ordered sides (included/cloned) from one clone-page record."""
+        title_matches = list(
+            re.finditer(
+                r"Title\s*-\s*(.+?)(?=\s+(?:URL|Publisher|ISSN|E-ISSN|Title\s*-|$))",
+                record,
+                re.IGNORECASE | re.DOTALL,
+            )
+        )
+        if not title_matches:
+            return []
+
+        sides: list[dict[str, str | None]] = []
+        for index, match in enumerate(title_matches):
+            title = self._clean_text(match.group(1))
+            start = match.end()
+            end = (
+                title_matches[index + 1].start()
+                if index + 1 < len(title_matches)
+                else len(record)
+            )
+            segment = record[start:end]
+
+            publisher_match = re.search(
+                r"Publisher\s*:?\s*(.+?)(?=\s+(?:ISSN|E-ISSN|$))",
+                segment,
+                re.IGNORECASE | re.DOTALL,
+            )
+            publisher = (
+                self._clean_text(publisher_match.group(1)) if publisher_match else None
+            )
+            segment_issns = re.findall(r"\b\d{4}\s*-\s*[\dXx]{4}\b", segment)
+            issn = segment_issns[0] if len(segment_issns) >= 1 else None
+            eissn = segment_issns[1] if len(segment_issns) >= 2 else None
+
+            sides.append(
+                {
+                    "title": title,
+                    "publisher": publisher,
+                    "issn": issn,
+                    "eissn": eissn,
+                }
+            )
+
+        return sides
 
 
 class UgcCareClonedGroup2Source(UgcCareClonedSource):
@@ -227,13 +290,16 @@ class UgcCareClonedGroup2Source(UgcCareClonedSource):
             self,
             source_name="ugc_care_cloned_group2",
             source_url=config.data_source_urls.ugc_care_cloned_group2_url,
+            list_type=AssessmentType.PREDATORY,
         )
 
     def _parse_entries(self, html_content: str) -> list[dict[str, Any]]:
         """Parse cloned-journal blocks for Group II source."""
-        return self._parse_cloned_entries(
+        return self._parse_clone_pair_entries(
             html_content=html_content,
-            ugc_status="cloned_group_ii",
+            included_status="included_group_ii_from_clone_page",
+            cloned_status="cloned_group_ii",
+            include_left_side=False,
         )
 
 
@@ -245,6 +311,7 @@ class UgcCareDelistedGroup2Source(UgcCareListSource):
         super().__init__(
             source_name="ugc_care_delisted_group2",
             source_url=config.data_source_urls.ugc_care_delisted_group2_url,
+            list_type=AssessmentType.PREDATORY,
         )
 
     def _parse_entries(self, html_content: str) -> list[dict[str, Any]]:
@@ -289,3 +356,45 @@ class UgcCareDelistedGroup2Source(UgcCareListSource):
                 entries.append(entry)
 
         return entries
+
+
+class UgcCareIncludedFromCloneGroup1Source(UgcCareClonedSource):
+    """Data source for included (left-side) journals from Group-I clone page."""
+
+    def __init__(self) -> None:
+        config = get_config_manager().load_config()
+        UgcCareListSource.__init__(
+            self,
+            source_name="ugc_care_included_from_clone_group1",
+            source_url=config.data_source_urls.ugc_care_cloned_url,
+            list_type=AssessmentType.LEGITIMATE,
+        )
+
+    def _parse_entries(self, html_content: str) -> list[dict[str, Any]]:
+        return self._parse_clone_pair_entries(
+            html_content=html_content,
+            included_status="included_group_i_from_clone_page",
+            cloned_status="cloned_group_i",
+            include_left_side=True,
+        )
+
+
+class UgcCareIncludedFromCloneGroup2Source(UgcCareClonedSource):
+    """Data source for included (left-side) journals from Group-II clone page."""
+
+    def __init__(self) -> None:
+        config = get_config_manager().load_config()
+        UgcCareListSource.__init__(
+            self,
+            source_name="ugc_care_included_from_clone_group2",
+            source_url=config.data_source_urls.ugc_care_cloned_group2_url,
+            list_type=AssessmentType.LEGITIMATE,
+        )
+
+    def _parse_entries(self, html_content: str) -> list[dict[str, Any]]:
+        return self._parse_clone_pair_entries(
+            html_content=html_content,
+            included_status="included_group_ii_from_clone_page",
+            cloned_status="cloned_group_ii",
+            include_left_side=True,
+        )
