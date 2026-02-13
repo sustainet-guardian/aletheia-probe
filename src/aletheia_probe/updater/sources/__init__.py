@@ -11,6 +11,11 @@ from .kscien_standalone_journals import KscienStandaloneJournalsSource
 from .predatoryjournals import PredatoryJournalsSource
 from .retraction_watch import RetractionWatchSource
 from .scopus import ScopusSource
+from .ugc_care import (
+    UgcCareClonedGroup2Source,
+    UgcCareClonedSource,
+    UgcCareDelistedGroup2Source,
+)
 
 
 __all__ = [
@@ -24,4 +29,7 @@ __all__ = [
     "PredatoryJournalsSource",
     "RetractionWatchSource",
     "ScopusSource",
+    "UgcCareClonedGroup2Source",
+    "UgcCareClonedSource",
+    "UgcCareDelistedGroup2Source",
 ]

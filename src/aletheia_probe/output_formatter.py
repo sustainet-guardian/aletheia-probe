@@ -195,6 +195,9 @@ class OutputFormatter:
             ("kscien_predatory_conferences", "Kscien Predatory Conferences"),
             ("kscien_standalone_journals", "Kscien Standalone Journals"),
             ("predatoryjournals", "PredatoryJournals.com"),
+            ("ugc_care_cloned", "UGC-CARE Cloned (Group I)"),
+            ("ugc_care_cloned_group2", "UGC-CARE Cloned (Group II)"),
+            ("ugc_care_delisted_group2", "UGC-CARE Delisted (Group II)"),
             ("doaj", "Directory of Open Access Journals (DOAJ)"),
             ("scopus", "Scopus"),
         ]

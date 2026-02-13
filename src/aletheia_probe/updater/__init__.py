@@ -30,6 +30,9 @@ from .sources import (
     PredatoryJournalsSource,
     RetractionWatchSource,
     ScopusSource,
+    UgcCareClonedGroup2Source,
+    UgcCareClonedSource,
+    UgcCareDelistedGroup2Source,
 )
 from .sync_utils import update_source_data
 from .utils import deduplicate_journals
@@ -50,6 +53,9 @@ __all__ = [
     "PredatoryJournalsSource",
     "RetractionWatchSource",
     "ScopusSource",
+    "UgcCareClonedGroup2Source",
+    "UgcCareClonedSource",
+    "UgcCareDelistedGroup2Source",
     # Utility functions
     "calculate_risk_level",
     "clean_html_tags",
