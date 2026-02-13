@@ -394,8 +394,6 @@ def acronym_status() -> None:
         status_logger.info(f"Total acronyms: {count:,}")
 
 
-
-
 @acronym.command(name="import")
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option(

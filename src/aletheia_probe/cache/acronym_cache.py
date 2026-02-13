@@ -339,7 +339,9 @@ class AcronymCache(CacheBase):
             return {"total_count": count}
 
     def import_variants(
-        self, variants: list[dict[str, Any]], merge: bool = True,
+        self,
+        variants: list[dict[str, Any]],
+        merge: bool = True,
         default_source: str = "import",
     ) -> int:
         """Import acronym variants into the database.
@@ -424,7 +426,9 @@ class AcronymCache(CacheBase):
             count += 1
 
         if skipped_null:
-            detail_logger.info(f"Skipped {skipped_null} entries with null normalized_name")
+            detail_logger.info(
+                f"Skipped {skipped_null} entries with null normalized_name"
+            )
 
         # Post-import pass: update canonical and detect ambiguity for every
         # affected (acronym, entity_type) pair in one sweep instead of per entry.
@@ -469,7 +473,9 @@ class AcronymCache(CacheBase):
         # Only consider names with meaningful usage (top-half by count)
         counts = [r["usage_count"] for r in rows]
         threshold = max(1, max(counts) // 4)
-        candidates = [r["normalized_name"] for r in rows if r["usage_count"] >= threshold]
+        candidates = [
+            r["normalized_name"] for r in rows if r["usage_count"] >= threshold
+        ]
 
         if len(candidates) < 2:
             return
@@ -754,4 +760,3 @@ class AcronymCache(CacheBase):
                 )
 
             conn.commit()
-
