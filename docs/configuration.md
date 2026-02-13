@@ -307,6 +307,25 @@ backends:
 
 See backend implementations in `src/aletheia_probe/backends/kscien_*.py`
 
+### DBLP Venues Backend
+
+```yaml
+backends:
+  dblp_venues:
+    enabled: true
+    weight: 0.8
+    timeout: 10
+    config: {}
+```
+
+**Behavior**:
+- Downloads and caches the complete DBLP XML dump (`dblp.xml.gz`) locally in `.aletheia-probe/dblp/`
+- Extracts venue series from DBLP `conf/*` and `journals/*` entries
+- Sync cadence is monthly by default due dump size (~1 GB compressed)
+
+**Related URL setting**:
+- `data_source_urls.dblp_xml_dump_url`: Defaults to `https://dblp.org/xml/dblp.xml.gz`
+
 ### Scopus Backend
 
 ```yaml

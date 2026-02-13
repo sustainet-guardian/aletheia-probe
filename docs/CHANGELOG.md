@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **DBLP Venues Backend**: Added `dblp_venues` cached backend with local XML dump synchronization
+  - Downloads and caches `dblp.xml.gz` locally under `.aletheia-probe/dblp/`
+  - Parses DBLP conference (`conf/*`) entries via streaming XML
+  - Adds curated DBLP conference series as legitimate conference evidence
+
 ## [0.8.0] - 2026-01-08
 
 ### Added

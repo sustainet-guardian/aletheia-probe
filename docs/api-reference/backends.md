@@ -120,6 +120,7 @@ YAML structure:
 | Backend | Purpose | Source |
 |---------|---------|--------|
 | **doaj** | Directory of Open Access Journals | `src/aletheia_probe/backends/doaj.py` |
+| **dblp_venues** | DBLP curated venue series (CS journals + conferences) | `src/aletheia_probe/backends/dblp_venues.py` |
 
 ### Quality Indicators
 

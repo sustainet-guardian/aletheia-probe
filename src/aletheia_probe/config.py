@@ -108,6 +108,10 @@ class DataSourceUrlConfig(BaseModel):
         "https://ugccare.unipune.ac.in/Apps1/User/Web/ScopusDelisted",
         description="URL for UGC-CARE Group-II delisted journals page",
     )
+    dblp_xml_dump_url: str = Field(
+        "https://dblp.org/xml/dblp.xml.gz",
+        description="URL for DBLP full XML dump",
+    )
 
 
 class DataSourceProcessingConfig(BaseModel):
