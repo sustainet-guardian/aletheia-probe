@@ -659,6 +659,67 @@ class BibtexParser:
         return value
 
     @staticmethod
+    def _convert_latex_accents(value: str) -> str:
+        """Convert LaTeX accent commands to Unicode characters.
+
+        LaTeX uses accent commands like \\^{e}, \\'{a}, etc. These should
+        be converted to their Unicode equivalents (ê, á, etc.).
+
+        Args:
+            value: Text with potential LaTeX accent commands
+
+        Returns:
+            Text with Unicode accent characters
+
+        Examples:
+            "intelig\\^{e}ncia" -> "inteligência"
+            "caf\\'e" -> "café"
+            "na\\"ive" -> "naïve"
+        """
+        # Accent mappings: LaTeX command -> (base_chars -> accented_char)
+        accent_mappings = {
+            "^": {  # Circumflex
+                "a": "â", "e": "ê", "i": "î", "o": "ô", "u": "û",
+                "A": "Â", "E": "Ê", "I": "Î", "O": "Ô", "U": "Û",
+            },
+            "'": {  # Acute
+                "a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú",
+                "A": "Á", "E": "É", "I": "Í", "O": "Ó", "U": "Ú",
+                "c": "ć", "n": "ń", "s": "ś", "z": "ź",
+            },
+            "`": {  # Grave
+                "a": "à", "e": "è", "i": "ì", "o": "ò", "u": "ù",
+                "A": "À", "E": "È", "I": "Ì", "O": "Ò", "U": "Ù",
+            },
+            "~": {  # Tilde
+                "a": "ã", "n": "ñ", "o": "õ",
+                "A": "Ã", "N": "Ñ", "O": "Õ",
+            },
+            '"': {  # Umlaut/diaeresis
+                "a": "ä", "e": "ë", "i": "ï", "o": "ö", "u": "ü",
+                "A": "Ä", "E": "Ë", "I": "Ï", "O": "Ö", "U": "Ü",
+            },
+            "c": {  # Cedilla
+                "c": "ç", "C": "Ç",
+            },
+        }
+
+        # Process each accent type
+        for accent, char_map in accent_mappings.items():
+            for base_char, accented_char in char_map.items():
+                # Handle both braced and non-braced forms
+                # \\^{e} or \\^e (and double backslash variants)
+                for pattern in [
+                    rf"\\{re.escape(accent)}{{{base_char}}}",  # \^{e}
+                    rf"\\{re.escape(accent)}{base_char}",       # \^e
+                    rf"\\\\{re.escape(accent)}{{{base_char}}}", # \\^{e}
+                    rf"\\\\{re.escape(accent)}{base_char}",     # \\^e
+                ]:
+                    value = re.sub(pattern, accented_char, value)
+
+        return value
+
+    @staticmethod
     def _clean_latex_escapes(value: str) -> str:
         """Clean LaTeX escape sequences from BibTeX field values.
 
@@ -698,10 +759,6 @@ class BibtexParser:
             (r"\\#", "#"),
             (r"\\\\_", "_"),
             (r"\\_", "_"),
-            (r"\\\\\^", "^"),
-            (r"\\\^", "^"),
-            (r"\\\\~", "~"),
-            (r"\\~", "~"),
             # LaTeX space commands
             (r"\\\\ ", " "),  # Double backslash + space (forced space)
             (r"\\ ", " "),  # Single backslash + space (forced space)
@@ -782,8 +839,12 @@ class BibtexParser:
             "Normal text" -> "Normal text"
             "\\pasp" -> "PASP" (or full name if in cache)
             "\\textcolor{blue}{IEEE Conference}" -> "IEEE Conference"
+            "intelig\\^{e}ncia" -> "inteligência"
         """
-        # First, strip LaTeX formatting commands (e.g., \textcolor{blue}{text} -> text)
+        # First, convert LaTeX accents to Unicode (must happen before escape cleaning)
+        value = BibtexParser._convert_latex_accents(value)
+
+        # Then, strip LaTeX formatting commands (e.g., \textcolor{blue}{text} -> text)
         # This must happen before brace removal to preserve the structure
         value = BibtexParser._strip_latex_formatting_commands(value)
 

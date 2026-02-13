@@ -244,7 +244,21 @@ class InputNormalizer:
 
         # Clean and normalize the text
         normalized = self._clean_text(raw_input)
-        normalized = self._expand_abbreviations(normalized)
+
+        # NOTE: Abbreviation expansion is disabled here.
+        # The learned abbreviation system often selects incorrect expansions due to lack of context
+        # (e.g., "proc." → "processing" instead of "proceedings" for academic venues).
+        # Abbreviation expansion is now handled by LLM post-processing which can use context
+        # to disambiguate correctly. The abbreviation learning infrastructure remains active
+        # to collect data that can be used by the LLM pipeline.
+        # normalized = self._expand_abbreviations(normalized)
+
+        # Strip trailing parenthetical acronyms BEFORE lowercasing
+        # This ensures the normalized name doesn't include the acronym itself
+        # e.g., "Conference on Artificial Intelligence (AAAI)" -> "Conference on Artificial Intelligence"
+        normalized = self._strip_parenthetical_acronym(normalized)
+
+        # Lowercase after stripping acronyms
         normalized = normalize_case(normalized)
 
         # Generate aliases
@@ -501,11 +515,35 @@ class InputNormalizer:
 
         return " ".join(abbreviated_words)
 
+    def _strip_parenthetical_acronym(self, text: str) -> str:
+        """Remove trailing parenthetical acronyms from venue names.
+
+        When venue names contain acronyms in parentheses (e.g., "Network Traffic
+        Measurement and Analysis Conference (TMA)"), the parenthetical part should
+        be stripped from the normalized name to avoid confusion and ensure the
+        acronym is properly separated from the full name.
+
+        Args:
+            text: Venue name that may end with (ACRONYM)
+
+        Returns:
+            Text with trailing parenthetical acronym removed
+
+        Examples:
+            "conference on artificial intelligence (AAAI)" -> "conference on artificial intelligence"
+            "network traffic measurement (TMA)" -> "network traffic measurement"
+            "ieee conference (no acronym here)" -> "ieee conference (no acronym here)"
+        """
+        # Match trailing parenthetical content that looks like an acronym
+        # Pattern: one or more uppercase words/abbreviations in parentheses at the end
+        pattern = r"\s*\([A-Z][A-Za-z0-9'\-\s]{0,30}\)\s*$"
+        return re.sub(pattern, "", text).strip()
+
     def _extract_conference_series(self, text: str) -> str | None:
         """Extract conference series name by removing years and ordinals.
 
         Examples:
-            "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)" -> "IEEE International Conference on Cloud Computing (CLOUD)"
+            "2018 IEEE 11th International Conference on Cloud Computing (CLOUD)" -> "IEEE International Conference on Cloud Computing"
             "Proceedings of Semantic Web Information Management on Semantic Web Information Management" -> "Semantic Web Information Management on Semantic Web Information Management"
 
         Args:
@@ -548,6 +586,9 @@ class InputNormalizer:
         series = re.sub(embedded_year_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(edition_pattern, "", series, flags=re.IGNORECASE)
         series = re.sub(proceedings_pattern, "", series, flags=re.IGNORECASE)
+
+        # Strip trailing parenthetical acronyms (e.g., "(TMA)", "(AAAI)")
+        series = self._strip_parenthetical_acronym(series)
 
         # Clean up extra whitespace
         series = re.sub(r"\s+", " ", series).strip()
