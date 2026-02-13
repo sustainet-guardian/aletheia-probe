@@ -118,7 +118,37 @@ CREATE TABLE retraction_statistics (
 );
 ```
 
-### 8. Assessment Cache Table
+### 8. Venue Acronyms Table
+
+**Purpose**: Pre-compiled venue name lookup table, imported from the venue-acronyms-2025 pipeline.
+One row per (acronym, entity_type) pair.  Stores the canonical fully-expanded lowercase name,
+LLM consensus confidence score, known ISSNs, and the full list of observed name variants
+(both expanded and abbreviated forms).
+
+```sql
+CREATE TABLE venue_acronyms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    acronym TEXT NOT NULL COLLATE NOCASE,
+    entity_type TEXT NOT NULL,          -- VenueType value: 'journal', 'conference', ...
+    canonical TEXT NOT NULL,            -- Fully-expanded lowercase authoritative name
+    confidence_score REAL DEFAULT 0.0,  -- LLM consensus confidence (0.0–1.0)
+    issn TEXT NOT NULL DEFAULT '[]',    -- JSON array of known ISSNs
+    variants TEXT NOT NULL DEFAULT '[]',-- JSON array of all observed name forms
+    source_file TEXT,                   -- Source acronyms-YYYY-MM.json filename
+    imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(acronym, entity_type)
+);
+CREATE INDEX idx_venue_acronyms_acronym   ON venue_acronyms(acronym);
+CREATE INDEX idx_venue_acronyms_canonical ON venue_acronyms(canonical);
+```
+
+**Lookup patterns**:
+- Acronym → canonical: `SELECT canonical WHERE acronym = ? AND entity_type = ?`
+- Variant → canonical (abbreviated forms): `SELECT canonical FROM venue_acronyms, json_each(variants) WHERE json_each.value = ? AND entity_type = ?`
+
+**Import source**: `aletheia-probe acronym import <acronyms-YYYY-MM.json>`
+
+### 9. Assessment Cache Table
 
 **Purpose**: Domain-specific caching for structured journal/conference assessment results
 

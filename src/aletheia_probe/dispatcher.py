@@ -256,10 +256,12 @@ class QueryDispatcher:
         enabled_backends: list[Backend],
         start_time: float,
     ) -> AssessmentResult:
-        """Try acronym expansion fallback if initial results are not confident.
+        """Try acronym/variant expansion fallback if initial results are not confident.
 
-        If initial query yields no confident results and input looks like an acronym
-        with a cached expansion, retry with the expanded name.
+        Two lookup paths are attempted in order:
+        1. Standalone acronym (e.g. "ICML") → direct ``get_full_name_for_acronym`` lookup.
+        2. Abbreviated variant form (e.g. "ieee trans. pattern anal. mach. intell.")
+           → ``get_canonical_for_variant`` search within the variants JSON array.
 
         Args:
             assessment_result: The initial assessment result
@@ -268,64 +270,72 @@ class QueryDispatcher:
             start_time: Start time for processing time calculation
 
         Returns:
-            Either the original assessment_result or improved result from acronym expansion
+            Either the original assessment_result or improved result from expansion
         """
         if self._should_try_acronym_fallback(assessment_result, query_input):
             normalizer = InputNormalizer()
             acronym_cache = AcronymCache()
 
-            # Check if input is acronym-like and has expansion
-            if normalizer._is_standalone_acronym(query_input.raw_input):
-                # Use original venue type for acronym lookup - matches storage approach
-                entity_type = query_input.venue_type.value
+            # Use original venue type for all acronym/variant lookups
+            entity_type = query_input.venue_type.value
+            expanded_name: str | None = None
 
+            # Path 1: standalone acronym (e.g. "ICML") → direct acronym lookup
+            if normalizer._is_standalone_acronym(query_input.raw_input):
                 expanded_name = acronym_cache.get_full_name_for_acronym(
                     query_input.raw_input, entity_type
                 )
 
-                if expanded_name:
-                    self.status_logger.info(
-                        f"No confident results for '{query_input.raw_input}'. "
-                        f"Retrying with expanded name: '{expanded_name}'"
-                    )
+            # Path 2: abbreviated form (e.g. "ieee trans. pattern anal. mach. intell.")
+            # → search within the variants JSON array
+            if not expanded_name:
+                expanded_name = acronym_cache.get_canonical_for_variant(
+                    query_input.raw_input, entity_type
+                )
 
-                    # Create new query input with expanded name
-                    # Create acronym lookup closure that uses the same entity_type
-                    def acronym_lookup_for_type(acr: str) -> str | None:
-                        return acronym_cache.get_full_name_for_acronym(acr, entity_type)
+            if expanded_name:
+                self.status_logger.info(
+                    f"No confident results for '{query_input.raw_input}'. "
+                    f"Retrying with expanded name: '{expanded_name}'"
+                )
 
-                    expanded_query = input_normalizer.normalize(
-                        expanded_name,
-                        acronym_lookup=acronym_lookup_for_type,
-                    )
+                # Create new query input with expanded name
+                # Create acronym lookup closure that uses the same entity_type
+                def acronym_lookup_for_type(acr: str) -> str | None:
+                    return acronym_cache.get_full_name_for_acronym(acr, entity_type)
 
-                    # Store any new acronym mappings discovered during expansion
-                    for (
+                expanded_query = input_normalizer.normalize(
+                    expanded_name,
+                    acronym_lookup=acronym_lookup_for_type,
+                )
+
+                # Store any new acronym mappings discovered during expansion
+                for (
+                    acronym,
+                    full_name,
+                ) in expanded_query.extracted_acronym_mappings.items():
+                    acronym_cache.store_acronym_mapping(
                         acronym,
                         full_name,
-                    ) in expanded_query.extracted_acronym_mappings.items():
-                        acronym_cache.store_acronym_mapping(
-                            acronym,
-                            full_name,
-                            entity_type,
-                            source="dispatcher_expansion",
-                        )
-
-                    # Re-query backends with expanded name
-                    retry_results = await self._query_backends(
-                        enabled_backends, expanded_query
+                        entity_type,
+                        source="dispatcher_expansion",
                     )
 
-                    # Calculate new assessment
-                    retry_assessment = self._calculate_assessment(
-                        expanded_query, retry_results, time.time() - start_time
-                    )
+                # Re-query backends with expanded name
+                retry_results = await self._query_backends(
+                    enabled_backends, expanded_query
+                )
 
-                    # If retry gave better results, use it and mark acronym expansion
-                    if retry_assessment.confidence > assessment_result.confidence:
-                        retry_assessment.acronym_expanded_from = query_input.raw_input
-                        retry_assessment.acronym_expansion_used = True
-                        return retry_assessment
+                # Calculate new assessment
+                retry_assessment = self._calculate_assessment(
+                    expanded_query, retry_results, time.time() - start_time
+                )
+
+                # If retry gave better results, use it and mark acronym expansion
+                if retry_assessment.confidence > assessment_result.confidence:
+                    retry_assessment.acronym_expanded_from = query_input.raw_input
+                    retry_assessment.acronym_expansion_used = True
+                    return retry_assessment
 
         return assessment_result
 
