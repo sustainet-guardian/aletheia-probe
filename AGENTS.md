@@ -49,7 +49,7 @@ Follow this process for ALL development work:
 
 5. **Run all tests**
    ```bash
-   bash scripts/run-quality-checks.sh
+   scripts/with-venv.sh bash scripts/run-quality-checks.sh
    ```
    - ALL checks MUST pass before proceeding
 
@@ -111,8 +111,13 @@ Also:
 Before ANY commit, run:
 
 ```bash
-bash scripts/run-quality-checks.sh
+scripts/with-venv.sh bash scripts/run-quality-checks.sh
 ```
+
+Virtual environment note:
+- In non-interactive agent shells, your active terminal venv may not be inherited in `PATH`.
+- Run Python tooling via `scripts/with-venv.sh` to ensure the project venv is activated first.
+- `scripts/with-venv.sh` requires `VIRTUAL_ENV` to be set; activate the environment first.
 
 **Requirements:**
 - ALL checks MUST pass
@@ -150,7 +155,7 @@ Include:
 
 ✅ **DO:**
 1. Read all `dev-notes/` documentation first
-2. Run `bash scripts/run-quality-checks.sh` before committing
+2. Run `scripts/with-venv.sh bash scripts/run-quality-checks.sh` before committing
 3. Follow CODING_STANDARDS.md (simplicity, f-strings, type hints, enums, imports at top, etc.)
 4. Follow LOGGING_USAGE.md (dual-logger system)
 5. Write tests for new functionality
