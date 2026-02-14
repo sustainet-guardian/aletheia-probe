@@ -516,14 +516,16 @@ def db_version() -> None:
 
     if current_version is None:
         status_logger.warning("⚠️  Legacy database detected (no version tracking)")
-        status_logger.info(f"Current code expects: version {SCHEMA_VERSION}")
-        status_logger.info("\nTo migrate to current version:")
-        status_logger.info("  aletheia-probe db migrate")
+        status_logger.info(f"Current code requires: schema version {SCHEMA_VERSION}")
+        status_logger.info("\nDelete the database and run sync again:")
+        status_logger.info(f"  rm {db_path}")
+        status_logger.info("  aletheia-probe sync")
     elif current_version < SCHEMA_VERSION:
         status_logger.warning(f"⚠️  Database schema version: {current_version}")
-        status_logger.info(f"Current code expects: version {SCHEMA_VERSION}")
-        status_logger.info("\nDatabase needs migration:")
-        status_logger.info("  aletheia-probe db migrate")
+        status_logger.info(f"Current code requires: version {SCHEMA_VERSION}")
+        status_logger.info("\nDelete the database and run sync again:")
+        status_logger.info(f"  rm {db_path}")
+        status_logger.info("  aletheia-probe sync")
     elif current_version > SCHEMA_VERSION:
         status_logger.error(f"❌ Database schema version: {current_version}")
         status_logger.error(f"Current code supports up to: version {SCHEMA_VERSION}")
