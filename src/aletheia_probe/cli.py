@@ -16,13 +16,6 @@ from . import __version__
 from .batch_assessor import BibtexBatchAssessor
 from .cache import AcronymCache, AssessmentCache, RetractionCache
 from .cache.schema import SchemaVersionError
-
-_startup_error: SchemaVersionError | None = None
-try:
-    from .cache_sync import cache_sync_manager
-except SchemaVersionError as _e:
-    _startup_error = _e
-    cache_sync_manager = None  # type: ignore[assignment]
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
@@ -30,6 +23,16 @@ from .logging_config import get_status_logger, setup_logging
 from .normalizer import input_normalizer
 from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
+
+
+# Import cache_sync last: instantiation at module level may raise SchemaVersionError
+# if the database schema is outdated. Caught here for a clean error message.
+_startup_error: SchemaVersionError | None = None
+try:
+    from .cache_sync import cache_sync_manager  # noqa: E402
+except SchemaVersionError as _e:
+    _startup_error = _e
+    cache_sync_manager = None  # type: ignore[assignment]
 
 
 F = TypeVar("F", bound=Callable[..., Any])
