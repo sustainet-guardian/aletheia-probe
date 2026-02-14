@@ -9,8 +9,8 @@ from .connection_utils import get_configured_connection
 
 
 # Schema version constants
-SCHEMA_VERSION = 2  # Current schema version
-MIN_COMPATIBLE_VERSION = 2  # Minimum version this code can work with
+SCHEMA_VERSION = 3  # Current schema version
+MIN_COMPATIBLE_VERSION = 3  # Minimum version this code can work with
 
 
 class SchemaVersionError(Exception):
@@ -101,19 +101,20 @@ def check_schema_compatibility(db_path: Path) -> bool:
     if current_version is None:
         # Legacy database without versioning
         raise SchemaVersionError(
-            f"Database schema version is unknown (legacy database detected).\n"
-            f"This database needs to be migrated to schema version {SCHEMA_VERSION}.\n\n"
-            f"To migrate: aletheia-probe db migrate\n"
-            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+            f"Database schema is from an old version of aletheia-probe (pre-1.0) "
+            f"and cannot be used with this version (requires schema {SCHEMA_VERSION}).\n\n"
+            f"Please delete the database and run sync again:\n"
+            f"  rm <db_path>\n"
+            f"  aletheia-probe sync"
         )
 
     if current_version < MIN_COMPATIBLE_VERSION:
         raise SchemaVersionError(
-            f"Database schema version ({current_version}) is too old.\n"
-            f"Minimum required version: {MIN_COMPATIBLE_VERSION}\n"
-            f"Current code version: {SCHEMA_VERSION}\n\n"
-            f"To migrate: aletheia-probe db migrate\n"
-            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+            f"Database schema version ({current_version}) is too old "
+            f"(requires {SCHEMA_VERSION}).\n\n"
+            f"Please delete the database and run sync again:\n"
+            f"  rm <db_path>\n"
+            f"  aletheia-probe sync"
         )
 
     if current_version > SCHEMA_VERSION:
@@ -128,16 +129,18 @@ def check_schema_compatibility(db_path: Path) -> bool:
     return True
 
 
-def init_database(db_path: Path, check_version: bool = False) -> None:
+def init_database(db_path: Path) -> None:
     """Initialize normalized database schema with version tracking.
+
+    For existing databases, the schema version must match SCHEMA_VERSION exactly.
+    Pre-1.0: no migration support — if the schema is outdated, delete the database
+    and run sync again.
 
     Args:
         db_path: Path to the SQLite database file
-        check_version: If True, check schema compatibility for existing databases.
-                      If False (default), skip version check during initialization.
 
     Raises:
-        SchemaVersionError: If check_version=True and existing database has incompatible schema version
+        SchemaVersionError: If existing database has an incompatible schema version
     """
     # Generate CHECK constraint strings from enums
     source_type_values = ", ".join(f"'{t.value}'" for t in AssessmentType)
@@ -154,19 +157,8 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
         is_new_db = cursor.fetchone() is None
 
         if not is_new_db:
-            # Existing database: drop obsolete legacy tables, then check compatibility
-            cursor.execute("DROP TABLE IF EXISTS learned_abbreviations")
-            # Detect old JSON-column schema (issn/variants as JSON) and drop it so
-            # CREATE IF NOT EXISTS below rebuilds cleanly. Data must be re-imported.
-            cursor.execute("PRAGMA table_info(venue_acronyms)")
-            old_cols = {row[1] for row in cursor.fetchall()}
-            if "issn" in old_cols or "variants" in old_cols:
-                cursor.execute("DROP TABLE IF EXISTS venue_acronym_issns")
-                cursor.execute("DROP TABLE IF EXISTS venue_acronym_variants")
-                cursor.execute("DROP TABLE IF EXISTS venue_acronyms")
-            conn.commit()
-            if check_version:
-                check_schema_compatibility(db_path)
+            # Existing database: version must match. No migration in pre-1.0.
+            check_schema_compatibility(db_path)
             return
 
         # New database - create with current schema
@@ -435,5 +427,5 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
         set_schema_version(
             db_path,
             SCHEMA_VERSION,
-            "Initial schema v2 with venue_acronym_variants and learned_abbreviations",
+            "Schema v3: acronym-level venue data with canonical, variants, and ISSN",
         )
