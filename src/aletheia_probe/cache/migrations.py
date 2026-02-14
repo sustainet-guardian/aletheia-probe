@@ -130,8 +130,11 @@ def migrate_database(db_path: Path, target_version: int | None = None) -> bool:
     current_version = get_schema_version(db_path)
 
     if current_version is None:
-        status_logger.info("Detected legacy database (no version)")
-        current_version = 1  # Treat legacy as version 1
+        status_logger.error(
+            "Database is from a pre-1.0 version and cannot be migrated. "
+            "Please delete the database and run sync again."
+        )
+        return False
     else:
         status_logger.info(f"Current database version: {current_version}")
 

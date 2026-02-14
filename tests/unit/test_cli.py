@@ -634,7 +634,12 @@ class TestConferenceAcronymCommands:
         """Test acronym status command with empty database."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_cache.get_acronym_stats.return_value = {"total_count": 0}
+            mock_cache.get_full_stats.return_value = {
+                "total_acronyms": 0,
+                "total_variants": 0,
+                "total_issns": 0,
+                "by_entity_type": [],
+            }
             mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["acronym", "status"])
@@ -646,7 +651,25 @@ class TestConferenceAcronymCommands:
         """Test acronym status command with data."""
         with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
             mock_cache = MagicMock()
-            mock_cache.get_acronym_stats.return_value = {"total_count": 2}
+            mock_cache.get_full_stats.return_value = {
+                "total_acronyms": 2,
+                "total_variants": 10,
+                "total_issns": 3,
+                "by_entity_type": [
+                    {
+                        "entity_type": "conference",
+                        "acronyms": 1,
+                        "variants": 7,
+                        "issns": 0,
+                    },
+                    {
+                        "entity_type": "journal",
+                        "acronyms": 1,
+                        "variants": 3,
+                        "issns": 3,
+                    },
+                ],
+            }
             mock_acronym_cache.return_value = mock_cache
 
             result = runner.invoke(main, ["acronym", "status"])

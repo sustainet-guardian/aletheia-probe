@@ -9,8 +9,8 @@ from .connection_utils import get_configured_connection
 
 
 # Schema version constants
-SCHEMA_VERSION = 2  # Current schema version
-MIN_COMPATIBLE_VERSION = 2  # Minimum version this code can work with
+SCHEMA_VERSION = 3  # Current schema version
+MIN_COMPATIBLE_VERSION = 3  # Minimum version this code can work with
 
 
 class SchemaVersionError(Exception):
@@ -101,19 +101,20 @@ def check_schema_compatibility(db_path: Path) -> bool:
     if current_version is None:
         # Legacy database without versioning
         raise SchemaVersionError(
-            f"Database schema version is unknown (legacy database detected).\n"
-            f"This database needs to be migrated to schema version {SCHEMA_VERSION}.\n\n"
-            f"To migrate: aletheia-probe db migrate\n"
-            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+            f"Database schema is from an old version of aletheia-probe (pre-1.0) "
+            f"and cannot be used with this version (requires schema {SCHEMA_VERSION}).\n\n"
+            f"Please delete the database and run sync again:\n"
+            f"  rm <db_path>\n"
+            f"  aletheia-probe sync"
         )
 
     if current_version < MIN_COMPATIBLE_VERSION:
         raise SchemaVersionError(
-            f"Database schema version ({current_version}) is too old.\n"
-            f"Minimum required version: {MIN_COMPATIBLE_VERSION}\n"
-            f"Current code version: {SCHEMA_VERSION}\n\n"
-            f"To migrate: aletheia-probe db migrate\n"
-            f"To start fresh: aletheia-probe db reset (WARNING: deletes all data)"
+            f"Database schema version ({current_version}) is too old "
+            f"(requires {SCHEMA_VERSION}).\n\n"
+            f"Please delete the database and run sync again:\n"
+            f"  rm <db_path>\n"
+            f"  aletheia-probe sync"
         )
 
     if current_version > SCHEMA_VERSION:
@@ -128,16 +129,18 @@ def check_schema_compatibility(db_path: Path) -> bool:
     return True
 
 
-def init_database(db_path: Path, check_version: bool = False) -> None:
+def init_database(db_path: Path) -> None:
     """Initialize normalized database schema with version tracking.
+
+    For existing databases, the schema version must match SCHEMA_VERSION exactly.
+    Pre-1.0: no migration support — if the schema is outdated, delete the database
+    and run sync again.
 
     Args:
         db_path: Path to the SQLite database file
-        check_version: If True, check schema compatibility for existing databases.
-                      If False (default), skip version check during initialization.
 
     Raises:
-        SchemaVersionError: If check_version=True and existing database has incompatible schema version
+        SchemaVersionError: If existing database has an incompatible schema version
     """
     # Generate CHECK constraint strings from enums
     source_type_values = ", ".join(f"'{t.value}'" for t in AssessmentType)
@@ -147,25 +150,23 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
     with get_configured_connection(db_path) as conn:
-        # Check if database already exists
         cursor = conn.cursor()
+
+        # Check if database already exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
         is_new_db = cursor.fetchone() is None
 
         if not is_new_db:
-            # Existing database - optionally check compatibility
-            if check_version:
-                check_schema_compatibility(db_path)
+            # Existing database: version must match. No migration in pre-1.0.
+            check_schema_compatibility(db_path)
             return
 
         # New database - create with current schema
-        # Migrate from old venue_acronyms table to new venue_acronym_variants schema
-        # Drop old table if it exists (clean replacement, no data migration per requirements)
+        # Drop old venue_acronyms table if it exists (clean replacement)
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
         )
         if cursor.fetchone():
-            # Old table exists, drop it to replace with new variant system
             cursor.execute("DROP TABLE venue_acronyms")
             conn.commit()
 
@@ -245,41 +246,52 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
                 UNIQUE(journal_id, source_id)
             );
 
-            -- Venue acronym variants (self-learning cache with multiple variants per acronym)
-            -- Stores ALL variants of acronym-to-name mappings for journals, conferences, and other venue types
-            CREATE TABLE IF NOT EXISTS venue_acronym_variants (
+            -- Venue acronyms: one row per (acronym, entity_type) pair.
+            -- Canonical name and confidence imported from venue-acronyms-2025 pipeline.
+            -- ISSNs and name variants are stored in dedicated child tables.
+            CREATE TABLE IF NOT EXISTS venue_acronyms (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 acronym TEXT NOT NULL COLLATE NOCASE,
                 entity_type TEXT NOT NULL,
-                variant_name TEXT NOT NULL,
-                normalized_name TEXT NOT NULL,
-                usage_count INTEGER DEFAULT 1,
-                is_canonical BOOLEAN DEFAULT FALSE,
-                is_ambiguous BOOLEAN DEFAULT FALSE,
-                source TEXT,
-                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(acronym, entity_type, normalized_name),
+                canonical TEXT NOT NULL,
+                confidence_score REAL DEFAULT 0.0,
+                source_file TEXT,
+                imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(acronym, entity_type),
                 CHECK (entity_type IN ({entity_type_values}))
             );
-            CREATE INDEX IF NOT EXISTS idx_variants_acronym ON venue_acronym_variants(acronym, entity_type);
-            CREATE INDEX IF NOT EXISTS idx_variants_canonical ON venue_acronym_variants(is_canonical) WHERE is_canonical = TRUE;
-            CREATE INDEX IF NOT EXISTS idx_variants_normalized ON venue_acronym_variants(normalized_name);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_acronym
+                ON venue_acronyms(acronym);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_canonical
+                ON venue_acronyms(canonical);
 
-            -- Learned abbreviations (self-learning abbreviation mappings)
-            -- Stores discovered abbreviation patterns from variant comparisons
-            CREATE TABLE IF NOT EXISTS learned_abbreviations (
+            -- Venue name variants: all observed forms (expanded and abbreviated).
+            -- One row per variant string, FK to venue_acronyms.
+            CREATE TABLE IF NOT EXISTS venue_acronym_variants (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                abbreviated_form TEXT NOT NULL,
-                expanded_form TEXT NOT NULL,
-                confidence_score REAL DEFAULT 0.1,
-                occurrence_count INTEGER DEFAULT 1,
-                context TEXT,
-                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(abbreviated_form, expanded_form)
+                venue_acronym_id INTEGER NOT NULL,
+                variant TEXT NOT NULL COLLATE NOCASE,
+                FOREIGN KEY (venue_acronym_id)
+                    REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+                UNIQUE(venue_acronym_id, variant)
             );
-            CREATE INDEX IF NOT EXISTS idx_abbrev_lookup ON learned_abbreviations(abbreviated_form);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_variants_variant
+                ON venue_acronym_variants(variant);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_variants_acronym_id
+                ON venue_acronym_variants(venue_acronym_id);
+
+            -- Venue ISSNs: known ISSN values for a venue.
+            -- One row per ISSN, FK to venue_acronyms.
+            CREATE TABLE IF NOT EXISTS venue_acronym_issns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                venue_acronym_id INTEGER NOT NULL,
+                issn TEXT NOT NULL,
+                FOREIGN KEY (venue_acronym_id)
+                    REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+                UNIQUE(venue_acronym_id, issn)
+            );
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_issns_issn
+                ON venue_acronym_issns(issn);
 
             -- Retraction statistics (purpose-built for RetractionWatch data)
             CREATE TABLE IF NOT EXISTS retraction_statistics (
@@ -415,5 +427,5 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
         set_schema_version(
             db_path,
             SCHEMA_VERSION,
-            "Initial schema v2 with venue_acronym_variants and learned_abbreviations",
+            "Schema v3: acronym-level venue data with canonical, variants, and ISSN",
         )

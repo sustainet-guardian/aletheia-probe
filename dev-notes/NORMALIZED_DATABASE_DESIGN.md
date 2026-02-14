@@ -118,7 +118,51 @@ CREATE TABLE retraction_statistics (
 );
 ```
 
-### 8. Assessment Cache Table
+### 8. Venue Acronyms Cluster (three tables)
+
+**Purpose**: Pre-compiled venue name lookup, imported from the venue-acronyms-2025 pipeline.
+Normalized into three tables so every value is directly queryable.
+
+```sql
+-- One row per (acronym, entity_type) pair
+CREATE TABLE venue_acronyms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    acronym TEXT NOT NULL COLLATE NOCASE,
+    entity_type TEXT NOT NULL,          -- VenueType: 'journal', 'conference', ...
+    canonical TEXT NOT NULL,            -- Fully-expanded lowercase authoritative name
+    confidence_score REAL DEFAULT 0.0,  -- LLM consensus confidence (0.0–1.0)
+    source_file TEXT,                   -- Source acronyms-YYYY-MM.json filename
+    imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(acronym, entity_type)
+);
+
+-- All observed name forms (expanded and abbreviated) — one row per variant
+CREATE TABLE venue_acronym_variants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue_acronym_id INTEGER NOT NULL,
+    variant TEXT NOT NULL COLLATE NOCASE,
+    FOREIGN KEY (venue_acronym_id) REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+    UNIQUE(venue_acronym_id, variant)
+);
+
+-- Known ISSNs — one row per ISSN
+CREATE TABLE venue_acronym_issns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue_acronym_id INTEGER NOT NULL,
+    issn TEXT NOT NULL,
+    FOREIGN KEY (venue_acronym_id) REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+    UNIQUE(venue_acronym_id, issn)
+);
+```
+
+**Lookup patterns**:
+- Acronym → canonical: `SELECT canonical FROM venue_acronyms WHERE acronym = ? AND entity_type = ?`
+- Variant → canonical: `SELECT va.canonical FROM venue_acronyms va JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id WHERE vav.variant = ? AND va.entity_type = ?`
+- ISSN → acronym entries: `SELECT va.* FROM venue_acronyms va JOIN venue_acronym_issns vai ON va.id = vai.venue_acronym_id WHERE vai.issn = ?`
+
+**Import source**: `aletheia-probe acronym import <acronyms-YYYY-MM.json>`
+
+### 9. Assessment Cache Table
 
 **Purpose**: Domain-specific caching for structured journal/conference assessment results
 

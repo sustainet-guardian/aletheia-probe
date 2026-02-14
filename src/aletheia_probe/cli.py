@@ -378,20 +378,34 @@ def acronym() -> None:
 @acronym.command(name="status")
 @handle_cli_errors
 def acronym_status() -> None:
-    """Show conference acronym database status."""
+    """Show venue acronym database status (counts by entity type)."""
     status_logger = get_status_logger()
 
     acronym_cache = AcronymCache()
-    stats = acronym_cache.get_acronym_stats()
-    count = stats.get("total_count", 0)
+    stats = acronym_cache.get_full_stats()
 
-    status_logger.info("Conference Acronym Database Status")
-    status_logger.info("=" * 40)
+    status_logger.info("Venue Acronym Database Status")
+    status_logger.info("=" * 44)
 
-    if count == 0:
-        status_logger.info("Database is empty (no acronyms stored)")
-    else:
-        status_logger.info(f"Total acronyms: {count:,}")
+    if stats["total_acronyms"] == 0:
+        status_logger.info("Database is empty — run 'acronym import' to load data")
+        return
+
+    status_logger.info(f"Acronyms : {stats['total_acronyms']:>8,}")
+    status_logger.info(f"Variants : {stats['total_variants']:>8,}")
+    status_logger.info(f"ISSNs    : {stats['total_issns']:>8,}")
+
+    if stats["by_entity_type"]:
+        status_logger.info("")
+        status_logger.info(
+            f"{'Entity type':<16}  {'Acronyms':>9}  {'Variants':>9}  {'ISSNs':>7}"
+        )
+        status_logger.info("-" * 44)
+        for row in stats["by_entity_type"]:
+            status_logger.info(
+                f"{row['entity_type']:<16}  {row['acronyms']:>9,}"
+                f"  {row['variants']:>9,}  {row['issns']:>7,}"
+            )
 
 
 @acronym.command(name="import")
@@ -408,19 +422,19 @@ def acronym_status() -> None:
 )
 @handle_cli_errors
 def import_acronyms(input_file: str, merge: bool, source: str | None) -> None:
-    """Import acronyms from a JSON file.
+    """Import acronyms from a venue-acronyms-2025 pipeline JSON file.
 
-    Supports the venue-acronyms-2025 consensus format (plain list with
-    original_name and confidence_score), the unified dataset format
-    (dict with 'acronyms' key), and the legacy list-only format.
+    Accepts the v2.0 pipeline output format: a JSON object with an ``acronyms``
+    key containing a list of entries, each with ``acronym``, ``entity_type``,
+    ``canonical``, ``confidence_score``, ``issn`` (list), and ``variants`` (list).
+    A plain JSON list of entries is also accepted for compatibility.
 
-    Entries with a null normalized_name are skipped automatically.
-    is_canonical and is_ambiguous are computed from the imported batch.
+    Entries missing ``acronym``, ``entity_type``, or ``canonical`` are skipped.
 
     Args:
-        input_file: Path to the input JSON file.
-        merge: Whether to merge with existing data.
-        source: Optional source label for imported entries.
+        input_file: Path to the pipeline output JSON file.
+        merge: Whether to merge with existing data (default) or replace.
+        source: Optional source label stored with each imported entry.
     """
     status_logger = get_status_logger()
     acronym_cache = AcronymCache()
@@ -429,22 +443,15 @@ def import_acronyms(input_file: str, merge: bool, source: str | None) -> None:
         with open(input_file, encoding="utf-8") as f:
             data = json.load(f)
 
-        variants = []
-        abbreviations = []
-
-        # Detect format
+        # Accept both list and dict (v2.0) formats
         if isinstance(data, list):
-            variants = data
-            status_logger.info(f"Detected list format with {len(variants)} variants")
+            entries = data
         elif isinstance(data, dict):
-            variants = data.get("acronyms", [])
-            abbreviations = data.get("abbreviations", [])
-            status_logger.info(
-                f"Detected dict format with {len(variants)} variants and "
-                f"{len(abbreviations)} abbreviations"
-            )
+            entries = data.get("acronyms", [])
         else:
             raise ValueError("Input file must contain a JSON list or object")
+
+        status_logger.info(f"Loaded {len(entries)} entries from {input_file}")
 
         if not merge:
             if click.confirm(
@@ -453,21 +460,10 @@ def import_acronyms(input_file: str, merge: bool, source: str | None) -> None:
             ):
                 acronym_cache.clear_acronym_database()
 
-        # Determine default source: use --source flag, or detect from file content
-        default_source = source
-        if default_source is None:
-            # venue-acronyms-2025 consensus format has confidence_score but no source
-            first = variants[0] if variants else {}
-            if "confidence_score" in first and "source" not in first:
-                default_source = "venue-acronyms-2025"
-            else:
-                default_source = "import"
+        source_file = Path(input_file).name
+        count = acronym_cache.import_acronyms(entries, source_file=source_file)
 
-        variant_count = acronym_cache.import_variants(
-            variants, merge=True, default_source=default_source
-        )
-
-        status_logger.info(f"Successfully imported {variant_count} acronym variants")
+        status_logger.info(f"Successfully imported {count} acronym entries")
 
     except Exception as e:
         status_logger.error(f"Failed to import dataset: {e}")

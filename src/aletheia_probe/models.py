@@ -321,49 +321,26 @@ class AcronymConflict(BaseModel):
     )
 
 
-class VariantRecord(BaseModel):
-    """Represents a single variant of an acronym-to-venue mapping."""
+class VenueAcronym(BaseModel):
+    """Canonical venue entry imported from the venue-acronyms-2025 pipeline."""
 
     id: int | None = Field(None, description="Database ID")
-    acronym: str = Field(..., description="The acronym (e.g., 'CVPR', 'ICML')")
+    acronym: str = Field(..., description="The acronym (e.g., 'ICML', 'JMLR')")
     entity_type: str = Field(
         ..., description="VenueType value (e.g., 'journal', 'conference')"
     )
-    variant_name: str = Field(..., description="Original variant form")
-    normalized_name: str = Field(..., description="Normalized form for comparison")
-    usage_count: int = Field(1, description="Number of occurrences")
-    is_canonical: bool = Field(False, description="Is this the preferred variant")
-    is_ambiguous: bool = Field(
-        False, description="Part of ambiguous acronym (multiple venues)"
-    )
-    source: str | None = Field(
-        None,
-        description="Source of mapping: bibtex_extraction, openalex_response, manual",
-    )
-    first_seen_at: datetime | None = Field(
-        None, description="First observation timestamp"
-    )
-    last_seen_at: datetime | None = Field(
-        None, description="Last observation timestamp"
-    )
-
-
-class LearnedAbbreviation(BaseModel):
-    """Represents a learned abbreviation mapping."""
-
-    abbreviated_form: str = Field(
-        ..., description="Abbreviated form (e.g., 'int.', 'conf.')"
-    )
-    expanded_form: str = Field(
-        ..., description="Expanded form (e.g., 'international', 'conference')"
-    )
+    canonical: str = Field(..., description="Canonical fully-expanded lowercase name")
     confidence_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Confidence score for this mapping (0.0-1.0)"
+        0.0, ge=0.0, le=1.0, description="LLM consensus confidence (0.0-1.0)"
     )
-    occurrence_count: int = Field(
-        ..., ge=1, description="Number of times this mapping was observed"
+    issn: list[str] = Field(default_factory=list, description="Known ISSNs")
+    variants: list[str] = Field(
+        default_factory=list, description="All observed name variants"
     )
-    context: str | None = Field(None, description="Optional context (venue type, etc.)")
+    source_file: str | None = Field(
+        None, description="Source acronyms-YYYY-MM.json filename"
+    )
+    imported_at: datetime | None = Field(None, description="Import timestamp")
 
 
 class AcronymCollectionResult(BaseModel):

@@ -67,8 +67,9 @@ class TestCacheSchema:
             "assessment_cache",
             "article_retractions",
             "openalex_cache",
+            "venue_acronyms",
             "venue_acronym_variants",
-            "learned_abbreviations",
+            "venue_acronym_issns",
             "custom_lists",
         }
 
@@ -94,8 +95,9 @@ class TestCacheSchema:
             "source_updates",
             "assessment_cache",
             "article_retractions",
+            "venue_acronyms",
             "venue_acronym_variants",
-            "learned_abbreviations",
+            "venue_acronym_issns",
             "custom_lists",
         ]
 
@@ -114,6 +116,8 @@ class TestCacheSchema:
             "source_assessments": ["journal_id", "source_id"],
             "retraction_statistics": ["journal_id"],
             "source_updates": ["source_id"],
+            "venue_acronym_variants": ["venue_acronym_id"],
+            "venue_acronym_issns": ["venue_acronym_id"],
         }
 
         with get_configured_connection(temp_db) as conn:
@@ -141,7 +145,9 @@ class TestCacheSchema:
                 "idx_source_assessments_journal_id",
                 "idx_assessment_cache_expires",
                 "idx_article_retractions_doi",
-                "idx_variants_acronym",
+                "idx_venue_acronyms_acronym",
+                "idx_venue_acronym_variants_variant",
+                "idx_venue_acronym_issns_issn",
                 "idx_custom_lists_list_name",
             }
 
@@ -230,7 +236,8 @@ class TestSchemaVersioning:
             with pytest.raises(SchemaVersionError) as exc_info:
                 check_schema_compatibility(db_path)
 
-            assert "unknown" in str(exc_info.value).lower()
+            assert "pre-1.0" in str(exc_info.value).lower()
+            assert "delete" in str(exc_info.value).lower()
 
         finally:
             db_path.unlink(missing_ok=True)
@@ -258,8 +265,8 @@ class TestSchemaVersioning:
 
         assert "newer" in str(exc_info.value).lower()
 
-    def test_init_database_checks_compatibility(self):
-        """Test that init_database checks compatibility when check_version=True."""
+    def test_init_database_rejects_old_schema(self):
+        """Test that init_database always rejects an outdated schema version."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = Path(f.name)
 
@@ -267,64 +274,37 @@ class TestSchemaVersioning:
             # Create initial database
             init_database(db_path)
 
-            # Set to an old version
+            # Downgrade to an old version
             set_schema_version(db_path, 1, "Old version")
 
-            # Try to init again with check_version=False (default) - should NOT raise
-            init_database(db_path, check_version=False)
+            # Any subsequent init must raise — no bypass, no migration
+            with pytest.raises(SchemaVersionError) as exc_info:
+                init_database(db_path)
 
-            # Try to init again with check_version=True - should raise SchemaVersionError
-            with pytest.raises(SchemaVersionError):
-                init_database(db_path, check_version=True)
+            assert "delete" in str(exc_info.value).lower()
 
         finally:
             db_path.unlink(missing_ok=True)
 
-    def test_migrate_database_from_legacy(self):
-        """Test migrating a legacy database to current version."""
+    def test_migrate_database_from_legacy_not_supported(self):
+        """Test that migrating a legacy database is not supported (pre-1.0)."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = Path(f.name)
 
         try:
-            # Create a legacy database with some tables
+            # Create a legacy database with no schema_version table
             with get_configured_connection(db_path) as conn:
                 conn.executescript(
                     """
-                    CREATE TABLE journals (
-                        id INTEGER PRIMARY KEY,
-                        name TEXT
-                    );
-                    CREATE TABLE venue_acronyms (
-                        id INTEGER PRIMARY KEY,
-                        acronym TEXT
-                    );
+                    CREATE TABLE journals (id INTEGER PRIMARY KEY, name TEXT);
+                    CREATE TABLE venue_acronyms (id INTEGER PRIMARY KEY, acronym TEXT);
                     """
                 )
                 conn.commit()
 
-            # Migrate to current version
+            # Migration from legacy is not supported — must delete and re-sync
             success = migrate_database(db_path, target_version=SCHEMA_VERSION)
-            assert success is True
-
-            # Verify version was updated
-            version = get_schema_version(db_path)
-            assert version == SCHEMA_VERSION
-
-            # Verify old table was dropped
-            with get_configured_connection(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
-                )
-                assert cursor.fetchone() is None
-
-            # Verify backup was created
-            backup_files = list(db_path.parent.glob(f"{db_path.stem}_backup_*.db"))
-            assert len(backup_files) > 0
-
-            # Cleanup backups
-            for backup in backup_files:
-                backup.unlink(missing_ok=True)
+            assert success is False
 
         finally:
             db_path.unlink(missing_ok=True)

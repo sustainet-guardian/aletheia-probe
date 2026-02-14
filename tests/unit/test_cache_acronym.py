@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Tests for the cache assessment module."""
+"""Tests for AcronymCache — venue_acronyms table and variant lookup."""
 
-import hashlib
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -171,3 +171,269 @@ class TestAcronymMapping:
         # Both normalize to the same generic form (years stripped)
         result = temp_cache.get_full_name_for_acronym("TEST", "conference")
         assert result == "test conference"
+
+
+@pytest.fixture
+def preloaded_cache(temp_cache):
+    """AcronymCache with pipeline-format entries (import_acronyms)."""
+    entries = [
+        {
+            "acronym": "ICML",
+            "entity_type": "conference",
+            "canonical": "international conference on machine learning",
+            "confidence_score": 0.95,
+            "issn": [],
+            "variants": [
+                "international conference on machine learning",
+                "proc. int. conf. mach. learn.",
+                "icml proceedings",
+            ],
+        },
+        {
+            "acronym": "TOSN",
+            "entity_type": "journal",
+            "canonical": "acm transactions on sensor networks",
+            "confidence_score": 0.89,
+            "issn": ["1550-4859", "1550-4867"],
+            "variants": [
+                "acm transactions on sensor networks",
+                "acm trans. sens. networks",
+                "transactions on sensor networks",
+            ],
+        },
+    ]
+    temp_cache.import_acronyms(entries)
+    return temp_cache
+
+
+class TestImportAcronyms:
+    """Tests for bulk import via import_acronyms()."""
+
+    def test_import_returns_count(self, temp_cache):
+        """import_acronyms returns number of rows inserted."""
+        entries = [
+            {
+                "acronym": "AAAI",
+                "entity_type": "conference",
+                "canonical": "aaai conference on artificial intelligence",
+                "confidence_score": 0.9,
+                "issn": [],
+                "variants": ["aaai conference on artificial intelligence"],
+            }
+        ]
+        assert temp_cache.import_acronyms(entries) == 1
+
+    def test_import_empty_list(self, temp_cache):
+        assert temp_cache.import_acronyms([]) == 0
+
+    def test_import_skips_incomplete_entries(self, temp_cache):
+        entries = [
+            {"acronym": "X", "entity_type": "conference"},  # missing canonical
+            {
+                "acronym": "AAAI",
+                "entity_type": "conference",
+                "canonical": "aaai conference on artificial intelligence",
+                "issn": [],
+                "variants": [],
+            },
+        ]
+        assert temp_cache.import_acronyms(entries) == 1
+
+    def test_import_upsert_replaces_canonical(self, temp_cache):
+        """Re-importing the same acronym replaces the existing row."""
+        temp_cache.import_acronyms(
+            [
+                {
+                    "acronym": "AAAI",
+                    "entity_type": "conference",
+                    "canonical": "old canonical name",
+                    "issn": [],
+                    "variants": [],
+                }
+            ]
+        )
+        temp_cache.import_acronyms(
+            [
+                {
+                    "acronym": "AAAI",
+                    "entity_type": "conference",
+                    "canonical": "aaai conference on artificial intelligence",
+                    "issn": [],
+                    "variants": [],
+                }
+            ]
+        )
+        assert (
+            temp_cache.get_full_name_for_acronym("AAAI", "conference")
+            == "aaai conference on artificial intelligence"
+        )
+        assert temp_cache.get_acronym_stats()["total_count"] == 1
+
+    def test_import_from_v2_json_file(self, temp_cache, tmp_path):
+        """import_from_file reads a v2.0 pipeline JSON file."""
+        data = {
+            "version": "2.0",
+            "acronyms": [
+                {
+                    "acronym": "CVPR",
+                    "entity_type": "conference",
+                    "canonical": "ieee conference on computer vision and pattern recognition",
+                    "confidence_score": 0.92,
+                    "issn": [],
+                    "variants": [
+                        "ieee conference on computer vision and pattern recognition",
+                        "cvpr proceedings",
+                    ],
+                }
+            ],
+        }
+        json_path = tmp_path / "acronyms-2025-01.json"
+        json_path.write_text(json.dumps(data), encoding="utf-8")
+
+        count = temp_cache.import_from_file(json_path)
+        assert count == 1
+        assert (
+            temp_cache.get_full_name_for_acronym("CVPR", "conference")
+            == "ieee conference on computer vision and pattern recognition"
+        )
+
+
+class TestGetCanonicalForVariant:
+    """Tests for variant-based reverse lookup (get_canonical_for_variant)."""
+
+    def test_abbreviated_variant_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_variant(
+            "acm trans. sens. networks", "journal"
+        )
+        assert result == "acm transactions on sensor networks"
+
+    def test_variant_case_insensitive(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_variant(
+            "ACM Trans. Sens. Networks", "journal"
+        )
+        assert result == "acm transactions on sensor networks"
+
+    def test_canonical_itself_is_a_variant(self, preloaded_cache):
+        """Canonical form should also be findable via get_canonical_for_variant."""
+        result = preloaded_cache.get_canonical_for_variant(
+            "acm transactions on sensor networks", "journal"
+        )
+        assert result == "acm transactions on sensor networks"
+
+    def test_conference_abbreviated_variant(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_variant(
+            "proc. int. conf. mach. learn.", "conference"
+        )
+        assert result == "international conference on machine learning"
+
+    def test_no_match_returns_none(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_variant(
+            "nonexistent abbreviated form", "conference"
+        )
+        assert result is None
+
+    def test_wrong_entity_type_returns_none(self, preloaded_cache):
+        # TOSN variants belong to 'journal'; querying as 'conference' should fail
+        result = preloaded_cache.get_canonical_for_variant(
+            "acm trans. sens. networks", "conference"
+        )
+        assert result is None
+
+    def test_leading_trailing_whitespace_stripped(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_variant(
+            "  acm trans. sens. networks  ", "journal"
+        )
+        assert result == "acm transactions on sensor networks"
+
+
+class TestGetCanonicalForIssn:
+    """Tests for ISSN-based reverse lookup (get_canonical_for_issn)."""
+
+    def test_issn_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("1550-4859")
+        assert result == "acm transactions on sensor networks"
+
+    def test_second_issn_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("1550-4867")
+        assert result == "acm transactions on sensor networks"
+
+    def test_issn_not_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("0000-0000")
+        assert result is None
+
+    def test_issn_whitespace_stripped(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("  1550-4859  ")
+        assert result == "acm transactions on sensor networks"
+
+    def test_get_issns(self, preloaded_cache):
+        issns = preloaded_cache.get_issns("TOSN", "journal")
+        assert "1550-4859" in issns
+        assert "1550-4867" in issns
+
+    def test_get_issns_conference_has_none(self, preloaded_cache):
+        assert preloaded_cache.get_issns("ICML", "conference") == []
+
+
+class TestGetVariants:
+    """Tests for get_variants()."""
+
+    def test_variants_returned(self, preloaded_cache):
+        variants = preloaded_cache.get_variants("TOSN", "journal")
+        assert "acm trans. sens. networks" in variants
+        assert "transactions on sensor networks" in variants
+
+    def test_variants_not_found(self, preloaded_cache):
+        assert preloaded_cache.get_variants("UNKNOWN", "journal") == []
+
+
+class TestStats:
+    """Tests for get_acronym_stats(), get_full_stats() and clear_acronym_database()."""
+
+    def test_stats_total(self, preloaded_cache):
+        assert preloaded_cache.get_acronym_stats()["total_count"] == 2
+
+    def test_stats_by_entity_type(self, preloaded_cache):
+        assert (
+            preloaded_cache.get_acronym_stats(entity_type="journal")["total_count"] == 1
+        )
+        assert (
+            preloaded_cache.get_acronym_stats(entity_type="conference")["total_count"]
+            == 1
+        )
+
+    def test_full_stats_totals(self, preloaded_cache):
+        s = preloaded_cache.get_full_stats()
+        assert s["total_acronyms"] == 2
+        # ICML has 3 variants, TOSN has 3 variants
+        assert s["total_variants"] == 6
+        # TOSN has 2 ISSNs, ICML has none
+        assert s["total_issns"] == 2
+
+    def test_full_stats_by_entity_type(self, preloaded_cache):
+        s = preloaded_cache.get_full_stats()
+        by_type = {row["entity_type"]: row for row in s["by_entity_type"]}
+
+        assert by_type["journal"]["acronyms"] == 1
+        assert by_type["journal"]["variants"] == 3
+        assert by_type["journal"]["issns"] == 2
+
+        assert by_type["conference"]["acronyms"] == 1
+        assert by_type["conference"]["variants"] == 3
+        assert by_type["conference"]["issns"] == 0
+
+    def test_full_stats_empty_db(self, temp_cache):
+        s = temp_cache.get_full_stats()
+        assert s["total_acronyms"] == 0
+        assert s["total_variants"] == 0
+        assert s["total_issns"] == 0
+        assert s["by_entity_type"] == []
+
+    def test_clear_all(self, preloaded_cache):
+        deleted = preloaded_cache.clear_acronym_database()
+        assert deleted == 2
+        assert preloaded_cache.get_acronym_stats()["total_count"] == 0
+
+    def test_clear_by_entity_type(self, preloaded_cache):
+        deleted = preloaded_cache.clear_acronym_database(entity_type="journal")
+        assert deleted == 1
+        assert preloaded_cache.get_acronym_stats()["total_count"] == 1
