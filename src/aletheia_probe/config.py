@@ -112,6 +112,22 @@ class DataSourceUrlConfig(BaseModel):
         "https://dblp.org/xml/dblp.xml.gz",
         description="URL for DBLP full XML dump",
     )
+    core_conference_rankings_url: str = Field(
+        "https://portal.core.edu.au/conf-ranks/",
+        description="URL for CORE/ICORE conference rankings portal",
+    )
+    core_journal_rankings_url: str = Field(
+        "https://portal.core.edu.au/jnl-ranks/",
+        description="URL for CORE journal rankings portal",
+    )
+    core_conference_default_source: str = Field(
+        "ICORE2026",
+        description="Default source filter for CORE conference rankings",
+    )
+    core_journal_default_source: str = Field(
+        "CORE2020",
+        description="Default source filter for CORE journal rankings",
+    )
 
 
 class DataSourceProcessingConfig(BaseModel):

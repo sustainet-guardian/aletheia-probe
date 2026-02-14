@@ -70,6 +70,7 @@ Each integration document should include:
 - **[DEPENDENCIES.md](../DEPENDENCIES.md)** - System and Python dependencies
 - **[CODING_STANDARDS.md](../CODING_STANDARDS.md)** - Code style and patterns
 - **[LOGGING_USAGE.md](../LOGGING_USAGE.md)** - Logging conventions
+- **[core.md](./core.md)** - CORE/ICORE conference and journal integration
 
 ## See Also
 

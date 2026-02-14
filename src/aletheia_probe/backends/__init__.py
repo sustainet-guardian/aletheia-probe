@@ -5,6 +5,8 @@
 from . import (
     algerian_ministry,
     bealls,
+    core_conferences,
+    core_journals,
     crossref_analyzer,
     custom_list,
     dblp_venues,
@@ -28,6 +30,8 @@ from . import (
 __all__ = [
     "algerian_ministry",
     "bealls",
+    "core_conferences",
+    "core_journals",
     "crossref_analyzer",
     "dblp_venues",
     "custom_list",
