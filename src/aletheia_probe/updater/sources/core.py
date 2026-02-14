@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: MIT
 """CORE/ICORE conference and journal ranking data sources."""
 
+import asyncio
 import math
 import re
 from datetime import datetime
 from html import unescape
 from typing import Any
-
-from aiohttp import ClientError, ClientSession, ClientTimeout
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
@@ -21,10 +23,12 @@ from ..utils import deduplicate_journals
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
 
-DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_TIMEOUT_SECONDS = 30
 DEFAULT_UPDATE_INTERVAL_DAYS = 30
 DEFAULT_PAGE_SIZE = 50
 DEFAULT_MAX_PAGES = 200
+DEFAULT_MAX_FETCH_RETRIES = 3
+DEFAULT_RETRY_BASE_DELAY_SECONDS = 1.0
 
 _VALID_LEGITIMATE_RANKS = {
     "A*",
@@ -48,7 +52,6 @@ class _CorePortalSourceBase(DataSource):
         self._source_name = source_name
         self.portal_url = portal_url
         self.source_filter = source_filter
-        self.timeout = ClientTimeout(total=DEFAULT_TIMEOUT_SECONDS)
 
     def get_name(self) -> str:
         """Return unique source name."""
@@ -78,34 +81,29 @@ class _CorePortalSourceBase(DataSource):
         all_entries: list[dict[str, Any]] = []
         total_results: int | None = None
 
-        try:
-            async with ClientSession(timeout=self.timeout) as session:
-                page = 1
-                while page <= DEFAULT_MAX_PAGES:
-                    html_content = await self._fetch_page(session, page)
-                    if not html_content:
-                        break
+        page = 1
+        while page <= DEFAULT_MAX_PAGES:
+            html_content = await self._fetch_page(page)
+            if not html_content:
+                break
 
-                    if total_results is None:
-                        total_results = self._extract_total_results(html_content)
+            if total_results is None:
+                total_results = self._extract_total_results(html_content)
 
-                    page_entries = self._parse_entries(html_content)
-                    if not page_entries:
-                        break
+            page_entries = self._parse_entries(html_content)
+            if not page_entries:
+                break
 
-                    all_entries.extend(page_entries)
+            all_entries.extend(page_entries)
 
-                    if total_results is None:
-                        page += 1
-                        continue
+            if total_results is None:
+                page += 1
+                continue
 
-                    total_pages = math.ceil(total_results / DEFAULT_PAGE_SIZE)
-                    if page >= total_pages:
-                        break
-                    page += 1
-        except (ClientError, TimeoutError) as e:
-            status_logger.error(f"    {self.get_name()}: Failed to fetch data - {e}")
-            return []
+            total_pages = math.ceil(total_results / DEFAULT_PAGE_SIZE)
+            if page >= total_pages:
+                break
+            page += 1
 
         deduplicated_entries = deduplicate_journals(all_entries)
         status_logger.info(
@@ -116,8 +114,8 @@ class _CorePortalSourceBase(DataSource):
         )
         return deduplicated_entries
 
-    async def _fetch_page(self, session: ClientSession, page: int) -> str:
-        """Fetch one portal results page."""
+    async def _fetch_page(self, page: int) -> str:
+        """Fetch one portal results page via urllib with retries."""
         params = {
             "search": "",
             "by": "all",
@@ -125,13 +123,35 @@ class _CorePortalSourceBase(DataSource):
             "sort": "atitle",
             "page": page,
         }
-        async with session.get(self.portal_url, params=params) as response:
-            if response.status != 200:
+        query = urlencode(params)
+        url = f"{self.portal_url}?{query}"
+        for attempt in range(1, DEFAULT_MAX_FETCH_RETRIES + 1):
+            try:
+                return await asyncio.to_thread(self._fetch_page_once, url)
+            except (URLError, TimeoutError, OSError) as e:
+                if attempt >= DEFAULT_MAX_FETCH_RETRIES:
+                    status_logger.warning(
+                        f"    {self.get_name()}: Page {page} request failed after "
+                        f"{DEFAULT_MAX_FETCH_RETRIES} attempts - "
+                        f"{type(e).__name__}: {e!r}"
+                    )
+                    return ""
+
                 status_logger.warning(
-                    f"    {self.get_name()}: HTTP {response.status} on page {page}"
+                    f"    {self.get_name()}: Page {page} attempt {attempt}/"
+                    f"{DEFAULT_MAX_FETCH_RETRIES} failed - {type(e).__name__}. Retrying..."
                 )
-                return ""
-            return await response.text()
+                await asyncio.sleep(DEFAULT_RETRY_BASE_DELAY_SECONDS * attempt)
+
+        return ""
+
+    def _fetch_page_once(self, url: str) -> str:
+        """Perform one blocking urllib fetch and return UTF-8 decoded body."""
+        with urlopen(url, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+            if response.status != 200:
+                raise URLError(f"HTTP {response.status}")
+            content = response.read()
+        return content.decode("utf-8", errors="ignore")
 
     @staticmethod
     def _extract_total_results(html_content: str) -> int | None:
