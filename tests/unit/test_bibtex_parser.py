@@ -1458,8 +1458,11 @@ class TestBibtexParser:
         macro_entry = [e for e in entries if e.key == "test_latex_macro"][0]
         # Journal name should not contain backslash
         assert "\\" not in macro_entry.journal_name
-        # Should be converted to uppercase acronym at minimum
-        assert macro_entry.journal_name == "PASP" or "PASP" in macro_entry.journal_name
+        # Macro should be expanded to the full journal name
+        assert (
+            macro_entry.journal_name
+            == "publications of the astronomical society of the pacific"
+        )
 
     def test_comprehensive_bibliography_parsing_cleanup(self, tmp_path):
         """Integration test for LaTeX macro expansion and escape cleaning."""
@@ -1503,12 +1506,12 @@ class TestBibtexParser:
         # Note: We no longer filter based on venue name patterns
         assert len(entries) == 3
 
-        # Check the LaTeX macro was expanded (to PASP or full name if in cache)
+        # Check the LaTeX macro was expanded to the full journal name
         latex_macro_entry = [e for e in entries if e.key == "latex_macro"][0]
         assert "\\" not in latex_macro_entry.journal_name
         assert (
-            latex_macro_entry.journal_name == "PASP"
-            or "PASP" in latex_macro_entry.journal_name
+            latex_macro_entry.journal_name
+            == "publications of the astronomical society of the pacific"
         )
 
         # Check the latex escapes were properly cleaned
