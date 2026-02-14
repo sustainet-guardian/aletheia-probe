@@ -178,7 +178,6 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
             cursor.execute("DROP TABLE venue_acronyms")
             conn.commit()
 
-
         conn.executescript(
             f"""
             -- Schema version tracking table

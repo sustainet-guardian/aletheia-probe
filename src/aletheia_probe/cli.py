@@ -489,7 +489,6 @@ def clear(confirm: bool) -> None:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
 
 
-
 @main.group(name="db")
 def db() -> None:
     """Manage database schema and versioning."""
