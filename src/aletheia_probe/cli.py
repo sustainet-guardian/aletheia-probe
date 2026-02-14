@@ -378,20 +378,34 @@ def acronym() -> None:
 @acronym.command(name="status")
 @handle_cli_errors
 def acronym_status() -> None:
-    """Show conference acronym database status."""
+    """Show venue acronym database status (counts by entity type)."""
     status_logger = get_status_logger()
 
     acronym_cache = AcronymCache()
-    stats = acronym_cache.get_acronym_stats()
-    count = stats.get("total_count", 0)
+    stats = acronym_cache.get_full_stats()
 
-    status_logger.info("Conference Acronym Database Status")
-    status_logger.info("=" * 40)
+    status_logger.info("Venue Acronym Database Status")
+    status_logger.info("=" * 44)
 
-    if count == 0:
-        status_logger.info("Database is empty (no acronyms stored)")
-    else:
-        status_logger.info(f"Total acronyms: {count:,}")
+    if stats["total_acronyms"] == 0:
+        status_logger.info("Database is empty — run 'acronym import' to load data")
+        return
+
+    status_logger.info(f"Acronyms : {stats['total_acronyms']:>8,}")
+    status_logger.info(f"Variants : {stats['total_variants']:>8,}")
+    status_logger.info(f"ISSNs    : {stats['total_issns']:>8,}")
+
+    if stats["by_entity_type"]:
+        status_logger.info("")
+        status_logger.info(
+            f"{'Entity type':<16}  {'Acronyms':>9}  {'Variants':>9}  {'ISSNs':>7}"
+        )
+        status_logger.info("-" * 44)
+        for row in stats["by_entity_type"]:
+            status_logger.info(
+                f"{row['entity_type']:<16}  {row['acronyms']:>9,}"
+                f"  {row['variants']:>9,}  {row['issns']:>7,}"
+            )
 
 
 @acronym.command(name="import")

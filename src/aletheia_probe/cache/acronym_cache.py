@@ -402,6 +402,60 @@ class AcronymCache(CacheBase):
             detail_logger.debug(f"Acronym count ({entity_type or 'all'}): {count}")
             return {"total_count": count}
 
+    def get_full_stats(self) -> dict[str, Any]:
+        """Return detailed statistics across all three venue acronym tables.
+
+        Returns:
+            Dict with keys:
+            - ``total_acronyms``: total rows in venue_acronyms
+            - ``total_variants``: total rows in venue_acronym_variants
+            - ``total_issns``: total rows in venue_acronym_issns
+            - ``by_entity_type``: list of dicts with entity_type, acronyms,
+              variants, issns counts per type
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT COUNT(*) AS c FROM venue_acronyms")
+            total_acronyms: int = cursor.fetchone()["c"]
+
+            cursor.execute("SELECT COUNT(*) AS c FROM venue_acronym_variants")
+            total_variants: int = cursor.fetchone()["c"]
+
+            cursor.execute("SELECT COUNT(*) AS c FROM venue_acronym_issns")
+            total_issns: int = cursor.fetchone()["c"]
+
+            cursor.execute(
+                """
+                SELECT
+                    va.entity_type,
+                    COUNT(DISTINCT va.id)          AS acronyms,
+                    COUNT(DISTINCT vav.id)         AS variants,
+                    COUNT(DISTINCT vai.id)         AS issns
+                FROM venue_acronyms va
+                LEFT JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id
+                LEFT JOIN venue_acronym_issns    vai ON va.id = vai.venue_acronym_id
+                GROUP BY va.entity_type
+                ORDER BY acronyms DESC
+                """
+            )
+            by_type = [
+                {
+                    "entity_type": row["entity_type"],
+                    "acronyms": row["acronyms"],
+                    "variants": row["variants"],
+                    "issns": row["issns"],
+                }
+                for row in cursor.fetchall()
+            ]
+
+        return {
+            "total_acronyms": total_acronyms,
+            "total_variants": total_variants,
+            "total_issns": total_issns,
+            "by_entity_type": by_type,
+        }
+
     def clear_acronym_database(self, entity_type: str | None = None) -> int:
         """Delete rows from the acronym table (cascades to variants and ISSNs).
 

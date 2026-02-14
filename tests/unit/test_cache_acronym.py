@@ -387,7 +387,7 @@ class TestGetVariants:
 
 
 class TestStats:
-    """Tests for get_acronym_stats() and clear_acronym_database()."""
+    """Tests for get_acronym_stats(), get_full_stats() and clear_acronym_database()."""
 
     def test_stats_total(self, preloaded_cache):
         assert preloaded_cache.get_acronym_stats()["total_count"] == 2
@@ -400,6 +400,33 @@ class TestStats:
             preloaded_cache.get_acronym_stats(entity_type="conference")["total_count"]
             == 1
         )
+
+    def test_full_stats_totals(self, preloaded_cache):
+        s = preloaded_cache.get_full_stats()
+        assert s["total_acronyms"] == 2
+        # ICML has 3 variants, TOSN has 3 variants
+        assert s["total_variants"] == 6
+        # TOSN has 2 ISSNs, ICML has none
+        assert s["total_issns"] == 2
+
+    def test_full_stats_by_entity_type(self, preloaded_cache):
+        s = preloaded_cache.get_full_stats()
+        by_type = {row["entity_type"]: row for row in s["by_entity_type"]}
+
+        assert by_type["journal"]["acronyms"] == 1
+        assert by_type["journal"]["variants"] == 3
+        assert by_type["journal"]["issns"] == 2
+
+        assert by_type["conference"]["acronyms"] == 1
+        assert by_type["conference"]["variants"] == 3
+        assert by_type["conference"]["issns"] == 0
+
+    def test_full_stats_empty_db(self, temp_cache):
+        s = temp_cache.get_full_stats()
+        assert s["total_acronyms"] == 0
+        assert s["total_variants"] == 0
+        assert s["total_issns"] == 0
+        assert s["by_entity_type"] == []
 
     def test_clear_all(self, preloaded_cache):
         deleted = preloaded_cache.clear_acronym_database()
