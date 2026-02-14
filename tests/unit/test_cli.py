@@ -221,13 +221,62 @@ class TestSyncCommand:
             coro.close()  # Close without running
             return {}
 
-        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run:
+        mock_registry = Mock()
+        mock_registry.get_backend_names.return_value = ["bealls", "dblp_venues", "doaj"]
+
+        with (
+            patch(
+                "aletheia_probe.backends.base.get_backend_registry",
+                return_value=mock_registry,
+            ),
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro) as mock_run,
+        ):
             result = runner.invoke(main, ["sync", "--force"])
 
             assert result.exit_code == 0
             # Verify force=True was passed to sync_cache_with_config
             mock_sync.assert_called_once_with(
-                force=True, backend_filter=None, show_progress=True
+                force=True,
+                backend_filter=["bealls", "doaj"],
+                show_progress=True,
+            )
+
+    def test_sync_command_include_large_datasets(self, runner, mock_cache_sync_manager):
+        """Test sync command with include-large-datasets flag."""
+        original_sync = mock_cache_sync_manager.sync_cache_with_config
+        mock_sync = Mock(side_effect=original_sync)
+        mock_cache_sync_manager.sync_cache_with_config = mock_sync
+
+        def run_coro(coro):
+            """Run coroutine and return empty dict."""
+            coro.close()
+            return {}
+
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro):
+            result = runner.invoke(main, ["sync", "--include-large-datasets"])
+
+            assert result.exit_code == 0
+            mock_sync.assert_called_once_with(
+                force=False, backend_filter=None, show_progress=True
+            )
+
+    def test_sync_command_explicit_backend_names(self, runner, mock_cache_sync_manager):
+        """Test sync command with explicit backend names."""
+        original_sync = mock_cache_sync_manager.sync_cache_with_config
+        mock_sync = Mock(side_effect=original_sync)
+        mock_cache_sync_manager.sync_cache_with_config = mock_sync
+
+        def run_coro(coro):
+            """Run coroutine and return empty dict."""
+            coro.close()
+            return {}
+
+        with patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro):
+            result = runner.invoke(main, ["sync", "dblp_venues"])
+
+            assert result.exit_code == 0
+            mock_sync.assert_called_once_with(
+                force=False, backend_filter=["dblp_venues"], show_progress=True
             )
 
     def test_sync_command_skipped(self, runner):

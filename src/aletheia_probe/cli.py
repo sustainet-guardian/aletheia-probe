@@ -25,6 +25,9 @@ from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
 
 
+LARGE_SYNC_BACKENDS: frozenset[str] = frozenset({"dblp_venues"})
+
+
 # Import cache_sync last: instantiation at module level may raise SchemaVersionError
 # if the database schema is outdated. Caught here for a clean error message.
 _startup_error: SchemaVersionError | None = None
@@ -225,31 +228,54 @@ def config() -> None:
 
 @main.command()
 @click.option("--force", is_flag=True, help="Force sync even if data appears fresh")
+@click.option(
+    "--include-large-datasets",
+    is_flag=True,
+    help=(
+        "Include large datasets in default sync. "
+        f"Currently: {', '.join(sorted(LARGE_SYNC_BACKENDS))}"
+    ),
+)
 @click.argument("backend_names", nargs=-1, required=False)
-def sync(force: bool, backend_names: tuple[str, ...]) -> None:
+def sync(
+    force: bool, include_large_datasets: bool, backend_names: tuple[str, ...]
+) -> None:
     """Manually sync cache with backend configuration.
 
     Optionally specify one or more backend names to sync only those backends.
     Examples:
       aletheia-probe sync              # Sync all backends
+      aletheia-probe sync --include-large-datasets  # Include large datasets
       aletheia-probe sync scopus       # Sync only scopus
       aletheia-probe sync bealls doaj  # Sync only bealls and doaj
 
     Args:
         force: Whether to force sync even if data appears fresh.
+        include_large_datasets: Whether to include large datasets in default sync.
         backend_names: Optional tuple of backend names to sync.
     """
     # Auto-register custom lists before sync
     from .cache.custom_list_manager import auto_register_custom_lists
 
     auto_register_custom_lists()
+    backend_filter: list[str] | None = None
+    if backend_names:
+        backend_filter = list(backend_names)
+    elif not include_large_datasets:
+        from .backends.base import get_backend_registry
+
+        backend_filter = [
+            backend_name
+            for backend_name in get_backend_registry().get_backend_names()
+            if backend_name not in LARGE_SYNC_BACKENDS
+        ]
 
     try:
         # The cache_sync_manager handles all output through the dual logger
         result = asyncio.run(
             cache_sync_manager.sync_cache_with_config(
                 force=force,
-                backend_filter=list(backend_names) if backend_names else None,
+                backend_filter=backend_filter,
                 show_progress=True,
             )
         )
