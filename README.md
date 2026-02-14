@@ -87,10 +87,12 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 - **Kscien Hijacked Journals** - Legitimate journals that have been hijacked by predatory actors
 - **Kscien Predatory Conferences** - Database of predatory conferences
 - **DBLP Venues** - Curated computer science journals and conference series from DBLP XML
+- **CORE Conferences (ICORE/CORE)** - Ranked conference venues from the CORE portal
+- **CORE Journals (legacy)** - Ranked journals from the CORE journal portal (latest list: CORE2020)
 
 The tool analyzes publication patterns, citation metrics, and metadata quality to provide comprehensive coverage beyond traditional blacklist/whitelist approaches.
 
-**Note on Conference Assessment**: Conference checking now combines curated predatory conference signals (Kscien) with curated legitimacy signals from DBLP venue series. Coverage is stronger for computer science venues than for other domains.
+**Note on Conference Assessment**: Conference checking now combines curated predatory conference signals (Kscien) with curated legitimacy signals from DBLP and CORE/ICORE ranked venues. Coverage is strongest for computer science venues.
 
 ## Quick Start
 
@@ -122,6 +124,8 @@ These provide authoritative yes/no decisions for journals they cover:
 | **Kscien Hijacked Journals** | Hijacked journals | ~200 entries | Legitimate journals compromised by predatory actors |
 | **Kscien Predatory Conferences** | Predatory conferences | ~450 entries | Identified predatory conference venues |
 | **DBLP Venues** | Legitimate venues (CS) | dump-derived | Curated DBLP journals and conference series from local XML cache |
+| **CORE Conferences** | Legitimate ranked conferences | ~825 entries (ICORE2026 ranked) | CORE/ICORE conference rankings portal |
+| **CORE Journals (legacy)** | Legitimate ranked journals | ~582 entries (CORE2020 ranked) | CORE journal rankings portal (discontinued, no post-2020 updates) |
 | **Retraction Watch** | Quality indicator | ~27,000 journals | Retraction rates and patterns for quality assessment |
 | **Institutional Lists** | Custom whitelist/blacklist | Organization-specific | Local policy enforcement |
 
@@ -148,6 +152,7 @@ Journal Query → [Curated Databases + Pattern Analyzers] → Combined Assessmen
                  ├─ UGC-CARE discontinued lists
                  ├─ PredatoryJournals.org
                  ├─ Kscien databases
+                 ├─ CORE Conferences / CORE Journals
                  ├─ Retraction Watch (quality)
                  ├─ OpenAlex Analyzer (patterns)
                  ├─ Crossref Analyzer (metadata)
