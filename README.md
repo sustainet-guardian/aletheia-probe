@@ -54,6 +54,12 @@ aletheia-probe status
 # Assess a single journal
 aletheia-probe journal "Journal of Computer Science"
 
+# Sync acronym dataset used for acronym-based venue expansion
+aletheia-probe acronym sync
+
+# Assess using a journal acronym after syncing the acronym dataset
+aletheia-probe journal <SOME ACRONYM>
+
 # Assess all journals in a BibTeX file (returns exit code 1 if predatory journals found)
 aletheia-probe bibtex references.bib
 

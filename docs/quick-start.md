@@ -182,7 +182,21 @@ aletheia-probe bibtex references.bib
 aletheia-probe bibtex references.bib --format json
 ```
 
-### 3. Check Cache Status
+### 3. Assess by Acronym
+
+If you want to query venues by acronym, first sync the acronym dataset, then run a normal journal query with the acronym text:
+
+```bash
+# Download and import the latest curated acronym dataset
+aletheia-probe acronym sync
+
+# Assess using an acronym (example placeholder)
+aletheia-probe journal <SOME ACRONYM>
+```
+
+This is useful when references contain short forms (for example, common venue abbreviations) instead of full names.
+
+### 4. Check Cache Status
 
 ```bash
 # Display current cache state and backend information
