@@ -2,14 +2,14 @@
 """CORE/ICORE conference and journal ranking data sources."""
 
 import asyncio
+import http.client
 import math
 import re
 from datetime import datetime
 from html import unescape
-from typing import Any, cast
+from typing import Any
 from urllib.error import URLError
-from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.parse import urlencode, urlparse
 
 from ...cache import DataSourceManager
 from ...config import get_config_manager
@@ -146,11 +146,34 @@ class _CorePortalSourceBase(DataSource):
         return ""
 
     def _fetch_page_once(self, url: str) -> str:
-        """Perform one blocking urllib fetch and return UTF-8 decoded body."""
-        with urlopen(url, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+        """Perform one blocking HTTPS fetch and return UTF-8 decoded body."""
+        parsed_url = urlparse(url)
+        base_host = urlparse(self.portal_url).hostname
+
+        if parsed_url.scheme.lower() != "https":
+            raise URLError("Only HTTPS scheme is allowed for CORE source")
+        if parsed_url.hostname is None:
+            raise URLError("CORE source URL missing hostname")
+        if base_host is None or parsed_url.hostname.lower() != base_host.lower():
+            raise URLError("CORE source URL host does not match configured portal")
+
+        request_path = parsed_url.path or "/"
+        if parsed_url.query:
+            request_path = f"{request_path}?{parsed_url.query}"
+
+        connection = http.client.HTTPSConnection(
+            host=parsed_url.hostname,
+            port=parsed_url.port,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+        try:
+            connection.request("GET", request_path)
+            response = connection.getresponse()
             if response.status != 200:
                 raise URLError(f"HTTP {response.status}")
-            content = cast(bytes, response.read())
+            content = response.read()
+        finally:
+            connection.close()
         return content.decode("utf-8", errors="ignore")
 
     @staticmethod
