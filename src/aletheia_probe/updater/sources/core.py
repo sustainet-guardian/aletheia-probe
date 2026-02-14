@@ -6,7 +6,7 @@ import math
 import re
 from datetime import datetime
 from html import unescape
-from typing import Any
+from typing import Any, cast
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -150,7 +150,7 @@ class _CorePortalSourceBase(DataSource):
         with urlopen(url, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
             if response.status != 200:
                 raise URLError(f"HTTP {response.status}")
-            content = response.read()
+            content = cast(bytes, response.read())
         return content.decode("utf-8", errors="ignore")
 
     @staticmethod

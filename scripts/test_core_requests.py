@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Quick connectivity check for CORE portal using urllib first, then requests."""
 
 from __future__ import annotations
