@@ -58,7 +58,7 @@ aletheia-probe journal "Journal of Computer Science"
 aletheia-probe acronym sync
 
 # Assess using a journal acronym after syncing the acronym dataset
-aletheia-probe journal <SOME ACRONYM>
+aletheia-probe journal "JMLR"
 
 # Assess all journals in a BibTeX file (returns exit code 1 if predatory journals found)
 aletheia-probe bibtex references.bib

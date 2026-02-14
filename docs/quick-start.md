@@ -185,13 +185,14 @@ aletheia-probe bibtex references.bib --format json
 ### 3. Assess by Acronym
 
 If you want to query venues by acronym, first sync the acronym dataset, then run a normal journal query with the acronym text:
+The dataset synced by this command is maintained in the [`venue-acronyms-2025`](https://github.com/sustainet-guardian/venue-acronyms-2025) repository.
 
 ```bash
 # Download and import the latest curated acronym dataset
 aletheia-probe acronym sync
 
-# Assess using an acronym (example placeholder)
-aletheia-probe journal <SOME ACRONYM>
+# Assess using a journal acronym example
+aletheia-probe journal "JMLR"
 ```
 
 This is useful when references contain short forms (for example, common venue abbreviations) instead of full names.
