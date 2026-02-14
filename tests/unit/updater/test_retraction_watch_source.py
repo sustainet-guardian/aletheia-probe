@@ -92,3 +92,65 @@ class TestRetractionWatchSource:
             with patch.object(source, "_clone_repository", return_value=repo_path):
                 result = await source.fetch_data()
                 assert result == []
+
+    @pytest.mark.parametrize(
+        ("retraction_nature", "expected"),
+        [
+            ("Retraction", True),
+            ("Partial Retraction", True),
+            ("Withdrawal", True),
+            ("Correction", False),
+            ("Erratum", False),
+            ("Corrigendum", False),
+            ("Expression of concern", False),
+            ("Reinstatement", False),
+            ("", True),
+        ],
+    )
+    def test_is_retracted_nature(self, source, retraction_nature, expected):
+        """Test RetractionNature classification for article-level retraction flag."""
+        assert source._is_retracted_nature(retraction_nature) is expected
+
+    def test_collect_article_retractions_marks_correction_not_retracted(self, source):
+        """Test correction records are cached as non-retracted article updates."""
+        source.article_retractions = []
+
+        source._collect_article_retractions(
+            [
+                {
+                    "doi": "10.1234/test-correction",
+                    "retraction_date_str": "01/15/2025 00:00",
+                    "retraction_nature": "Correction",
+                    "reason": "Error in figure",
+                    "retraction_doi": "10.1234/correction-notice",
+                }
+            ]
+        )
+
+        assert len(source.article_retractions) == 1
+        article = source.article_retractions[0]
+        assert article["doi"] == "10.1234/test-correction"
+        assert article["is_retracted"] is False
+        assert article["retraction_type"] == "Correction"
+
+    def test_collect_article_retractions_marks_retraction_as_retracted(self, source):
+        """Test retraction records remain cached as retracted articles."""
+        source.article_retractions = []
+
+        source._collect_article_retractions(
+            [
+                {
+                    "doi": "10.1234/test-retraction",
+                    "retraction_date_str": "01/15/2025 00:00",
+                    "retraction_nature": "Retraction",
+                    "reason": "Misconduct",
+                    "retraction_doi": "10.1234/retraction-notice",
+                }
+            ]
+        )
+
+        assert len(source.article_retractions) == 1
+        article = source.article_retractions[0]
+        assert article["doi"] == "10.1234/test-retraction"
+        assert article["is_retracted"] is True
+        assert article["retraction_type"] == "Retraction"
