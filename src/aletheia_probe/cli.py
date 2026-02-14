@@ -8,13 +8,12 @@ import re
 import sys
 import traceback
 from collections.abc import Callable
-from contextlib import closing
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, TypeVar
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.parse import urlparse
 
+import aiohttp
 import click
 
 from . import __version__
@@ -35,6 +34,15 @@ from .utils.dead_code import code_is_used
 LARGE_SYNC_BACKENDS: frozenset[str] = frozenset({"dblp_venues"})
 ISSN_RESOLUTION_TIMEOUT_SECONDS: int = 8
 ISSN_MIN_TOKEN_OVERLAP: float = 0.5
+GITHUB_HTTP_TIMEOUT_SECONDS: int = 120
+GITHUB_ALLOWED_HOSTS: set[str] = {
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+CROSSREF_ALLOWED_HOSTS: set[str] = {"api.crossref.org"}
 
 
 # Import cache_sync last: instantiation at module level may raise SchemaVersionError
@@ -50,17 +58,70 @@ except SchemaVersionError as _e:
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def _resolve_issn_title(issn: str) -> str | None:
+def _is_allowed_host(host: str, allowed_hosts: set[str]) -> bool:
+    """Check whether a host is in the allowlist (exact or subdomain)."""
+    normalized = host.lower().strip()
+    if not normalized:
+        return False
+    return any(
+        normalized == allowed or normalized.endswith(f".{allowed}")
+        for allowed in allowed_hosts
+    )
+
+
+def _validate_https_url(url: str, allowed_hosts: set[str]) -> None:
+    """Validate URL scheme/host against strict HTTPS allowlist."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        raise ValueError(f"Only https URLs are allowed: {url}")
+    if not _is_allowed_host(host, allowed_hosts):
+        raise ValueError(f"Host not allowed: {host}")
+
+
+async def _fetch_https_text(
+    url: str, timeout_seconds: int, allowed_hosts: set[str]
+) -> str:
+    """Fetch text over HTTPS with host allowlist + redirect host verification."""
+    _validate_https_url(url, allowed_hosts)
+
+    timeout = aiohttp.ClientTimeout(total=timeout_seconds)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url, allow_redirects=True) as response:
+            response.raise_for_status()
+            final_host = (response.url.host or "").lower()
+            if not _is_allowed_host(final_host, allowed_hosts):
+                raise ValueError(f"Redirected to disallowed host: {final_host}")
+            return await response.text()
+
+
+async def _fetch_https_json(
+    url: str, timeout_seconds: int, allowed_hosts: set[str]
+) -> dict[str, Any] | list[Any]:
+    """Fetch JSON over HTTPS with strict URL/host checks."""
+    text = await _fetch_https_text(url, timeout_seconds, allowed_hosts)
+    data = json.loads(text)
+    if not isinstance(data, (dict, list)):
+        raise ValueError("Expected JSON object or list")
+    return data
+
+
+async def _resolve_issn_title(issn: str) -> str | None:
     """Resolve ISSN to title via Crossref journals endpoint."""
     try:
-        url = f"https://api.crossref.org/journals/{issn}"
-        with closing(urlopen(url, timeout=ISSN_RESOLUTION_TIMEOUT_SECONDS)) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+        payload = await _fetch_https_json(
+            f"https://api.crossref.org/journals/{issn}",
+            ISSN_RESOLUTION_TIMEOUT_SECONDS,
+            CROSSREF_ALLOWED_HOSTS,
+        )
+        if not isinstance(payload, dict):
+            return None
         message = payload.get("message", {})
-        title = message.get("title")
-        if isinstance(title, str) and title.strip():
-            return title.strip()
-    except (URLError, HTTPError, json.JSONDecodeError, ValueError, OSError):
+        if isinstance(message, dict):
+            title = message.get("title")
+            if isinstance(title, str) and title.strip():
+                return title.strip()
+    except (aiohttp.ClientError, json.JSONDecodeError, ValueError, OSError):
         return None
     return None
 
@@ -622,15 +683,17 @@ def _get_latest_acronym_dataset_url(repo: str) -> tuple[str, str]:
 
     Raises:
         ValueError: If repo format is invalid or dataset asset is missing.
-        URLError: If network access fails.
-        HTTPError: If GitHub API request fails.
     """
     if "/" not in repo:
         raise ValueError("Repository must be in 'owner/name' format")
 
     api_url = f"https://api.github.com/repos/{repo}/releases/latest"
-    with closing(urlopen(api_url, timeout=30)) as response:
-        release_data = json.loads(response.read().decode("utf-8"))
+    payload = asyncio.run(
+        _fetch_https_json(api_url, GITHUB_HTTP_TIMEOUT_SECONDS, GITHUB_ALLOWED_HOSTS)
+    )
+    if not isinstance(payload, dict):
+        raise ValueError("Unexpected GitHub releases response format")
+    release_data = payload
 
     assets = release_data.get("assets", [])
     for asset in assets:
@@ -668,11 +731,16 @@ def sync_acronyms(repo: str, merge: bool, source: str | None) -> None:
         dataset_url, asset_name = _get_latest_acronym_dataset_url(repo)
         status_logger.info(f"Downloading dataset from {dataset_url}")
 
-        with closing(urlopen(dataset_url, timeout=120)) as response:
-            payload = response.read().decode("utf-8")
+        payload_data = asyncio.run(
+            _fetch_https_json(
+                dataset_url,
+                GITHUB_HTTP_TIMEOUT_SECONDS,
+                GITHUB_ALLOWED_HOSTS,
+            )
+        )
 
         with NamedTemporaryFile("w", suffix=".json", encoding="utf-8") as tmp_file:
-            tmp_file.write(payload)
+            tmp_file.write(json.dumps(payload_data))
             tmp_file.flush()
 
             with open(tmp_file.name, encoding="utf-8") as f:
@@ -695,7 +763,7 @@ def sync_acronyms(repo: str, merge: bool, source: str | None) -> None:
         count = acronym_cache.import_acronyms(entries, source_file=source_file)
         status_logger.info(f"Successfully imported {count} acronym entries")
 
-    except (URLError, HTTPError) as e:
+    except aiohttp.ClientError as e:
         status_logger.error(f"Failed to download dataset: {e}")
         raise click.ClickException(str(e)) from e
     except Exception as e:
@@ -1131,7 +1199,7 @@ async def _async_assess_publication(
         candidate_names_seen: set[str] = {publication_name.strip().lower()}
         issn_validation_notes: list[str] = []
 
-        def add_issn_candidates(
+        async def add_issn_candidates(
             acronym: str, source_label: str, expected_name: str
         ) -> None:
             """Add ISSN-based candidates for an acronym entry."""
@@ -1143,7 +1211,7 @@ async def _async_assess_publication(
             for issn in issns:
                 if issn.lower() in candidate_names_seen:
                     continue
-                resolved_title = _resolve_issn_title(issn)
+                resolved_title = await _resolve_issn_title(issn)
                 if not resolved_title:
                     note = f"Skipped ISSN {issn}: unable to resolve title from Crossref"
                     issn_validation_notes.append(note)
@@ -1192,7 +1260,7 @@ async def _async_assess_publication(
                     expanded_query.acronym_expanded_from = raw_input
                     candidates.append(("acronym->full", expanded_query))
                     candidate_names_seen.add(expanded.lower())
-                    add_issn_candidates(raw_input, "acronym", expanded)
+                    await add_issn_candidates(raw_input, "acronym", expanded)
 
             # (3) Abbreviation/variant -> acronym and canonical
             for variant in variant_inputs:
@@ -1225,7 +1293,7 @@ async def _async_assess_publication(
                     candidates.append(("variant->acronym", acronym_query))
                     candidate_names_seen.add(acronym.lower())
 
-                add_issn_candidates(acronym, "variant", canonical)
+                await add_issn_candidates(acronym, "variant", canonical)
 
             # (4) ISSN -> acronym and canonical (if ISSN present in input)
             issn = identifiers.get("issn")

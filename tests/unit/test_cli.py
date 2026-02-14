@@ -872,7 +872,7 @@ class TestAsyncMain:
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch(
                 "aletheia_probe.cli._resolve_issn_title",
-                return_value="Lecture Notes in Computer Science",
+                new=AsyncMock(return_value="Lecture Notes in Computer Science"),
             ),
             patch("builtins.print"),
         ):
@@ -1096,28 +1096,16 @@ class TestConferenceAcronymCommands:
             ]
         }
 
-        class _FakeResponse:
-            def __init__(self, payload: dict[str, object]):
-                self._payload = payload
-
-            def read(self) -> bytes:
-                return json.dumps(self._payload).encode("utf-8")
-
-            def close(self) -> None:
-                return None
-
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
-            patch("aletheia_probe.cli.urlopen") as mock_urlopen,
+            patch(
+                "aletheia_probe.cli._fetch_https_json",
+                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
+            ) as mock_fetch_json,
         ):
             mock_cache = MagicMock()
             mock_cache.import_acronyms.return_value = 1
             mock_acronym_cache.return_value = mock_cache
-
-            mock_urlopen.side_effect = [
-                _FakeResponse(release_payload),
-                _FakeResponse(dataset_payload),
-            ]
 
             result = runner.invoke(main, ["acronym", "sync"])
 
@@ -1148,28 +1136,16 @@ class TestConferenceAcronymCommands:
             ]
         }
 
-        class _FakeResponse:
-            def __init__(self, payload: dict[str, object]):
-                self._payload = payload
-
-            def read(self) -> bytes:
-                return json.dumps(self._payload).encode("utf-8")
-
-            def close(self) -> None:
-                return None
-
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
-            patch("aletheia_probe.cli.urlopen") as mock_urlopen,
+            patch(
+                "aletheia_probe.cli._fetch_https_json",
+                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
+            ) as mock_fetch_json,
         ):
             mock_cache = MagicMock()
             mock_cache.import_acronyms.return_value = 1
             mock_acronym_cache.return_value = mock_cache
-
-            mock_urlopen.side_effect = [
-                _FakeResponse(release_payload),
-                _FakeResponse(dataset_payload),
-            ]
 
             result = runner.invoke(
                 main, ["acronym", "sync", "--source", "github-release-v1"]
