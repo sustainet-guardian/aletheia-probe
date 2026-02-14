@@ -27,6 +27,14 @@ UPDATE_FREQUENCY_DAYS = 7
 ARTICLE_BATCH_SIZE = 1000
 PROGRESS_LOG_INTERVAL = 5000
 CACHE_EXPIRY_HOURS = 24 * 365
+NON_RETRACTION_NATURE_KEYWORDS = (
+    "correction",
+    "erratum",
+    "corrigendum",
+    "expression of concern",
+    "reinstatement",
+)
+RETRACTION_NATURE_KEYWORDS = ("retract", "withdraw")
 
 
 class RetractionWatchSource(DataSource):
@@ -549,11 +557,12 @@ class RetractionWatchSource(DataSource):
             retraction_nature = article.get("retraction_nature", "")
             reason = article.get("reason", "")
             retraction_doi = article.get("retraction_doi", "")
+            is_retracted = self._is_retracted_nature(retraction_nature)
 
             self.article_retractions.append(
                 {
                     "doi": doi.lower().strip(),
-                    "is_retracted": True,
+                    "is_retracted": is_retracted,
                     "retraction_type": retraction_nature or "Retraction",
                     "retraction_date": retraction_date_formatted,
                     "retraction_doi": retraction_doi if retraction_doi else None,
@@ -562,3 +571,15 @@ class RetractionWatchSource(DataSource):
                     "expires_at": expires_at.isoformat(),
                 }
             )
+
+    def _is_retracted_nature(self, retraction_nature: str) -> bool:
+        """Determine whether a RetractionNature value indicates true retraction."""
+        normalized = retraction_nature.lower().strip()
+        if not normalized:
+            # Keep historical behavior for blank types to avoid dropping valid retractions.
+            return True
+
+        if any(keyword in normalized for keyword in NON_RETRACTION_NATURE_KEYWORDS):
+            return False
+
+        return any(keyword in normalized for keyword in RETRACTION_NATURE_KEYWORDS)
