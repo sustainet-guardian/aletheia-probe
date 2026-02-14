@@ -346,6 +346,34 @@ class TestGetCanonicalForVariant:
         assert result == "acm transactions on sensor networks"
 
 
+class TestGetCanonicalForIssn:
+    """Tests for ISSN-based reverse lookup (get_canonical_for_issn)."""
+
+    def test_issn_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("1550-4859")
+        assert result == "acm transactions on sensor networks"
+
+    def test_second_issn_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("1550-4867")
+        assert result == "acm transactions on sensor networks"
+
+    def test_issn_not_found(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("0000-0000")
+        assert result is None
+
+    def test_issn_whitespace_stripped(self, preloaded_cache):
+        result = preloaded_cache.get_canonical_for_issn("  1550-4859  ")
+        assert result == "acm transactions on sensor networks"
+
+    def test_get_issns(self, preloaded_cache):
+        issns = preloaded_cache.get_issns("TOSN", "journal")
+        assert "1550-4859" in issns
+        assert "1550-4867" in issns
+
+    def test_get_issns_conference_has_none(self, preloaded_cache):
+        assert preloaded_cache.get_issns("ICML", "conference") == []
+
+
 class TestGetVariants:
     """Tests for get_variants()."""
 

@@ -256,12 +256,13 @@ class QueryDispatcher:
         enabled_backends: list[Backend],
         start_time: float,
     ) -> AssessmentResult:
-        """Try acronym/variant expansion fallback if initial results are not confident.
+        """Try acronym/variant/ISSN expansion fallback if initial results are not confident.
 
-        Two lookup paths are attempted in order:
-        1. Standalone acronym (e.g. "ICML") → direct ``get_full_name_for_acronym`` lookup.
+        Three lookup paths are attempted in order:
+        1. Standalone acronym (e.g. "ICML") → ``get_full_name_for_acronym``.
         2. Abbreviated variant form (e.g. "ieee trans. pattern anal. mach. intell.")
-           → ``get_canonical_for_variant`` search within the variants JSON array.
+           → ``get_canonical_for_variant`` (JOIN against venue_acronym_variants).
+        3. ISSN present in query identifiers → ``get_canonical_for_issn``.
 
         Args:
             assessment_result: The initial assessment result
@@ -286,12 +287,17 @@ class QueryDispatcher:
                     query_input.raw_input, entity_type
                 )
 
-            # Path 2: abbreviated form (e.g. "ieee trans. pattern anal. mach. intell.")
-            # → search within the variants JSON array
+            # Path 2: abbreviated variant form → JOIN against venue_acronym_variants
             if not expanded_name:
                 expanded_name = acronym_cache.get_canonical_for_variant(
                     query_input.raw_input, entity_type
                 )
+
+            # Path 3: ISSN present in query → JOIN against venue_acronym_issns
+            if not expanded_name:
+                issn = query_input.identifiers.get("issn")
+                if issn:
+                    expanded_name = acronym_cache.get_canonical_for_issn(issn)
 
             if expanded_name:
                 self.status_logger.info(

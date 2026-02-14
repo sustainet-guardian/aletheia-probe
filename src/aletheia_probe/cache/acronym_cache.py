@@ -120,6 +120,41 @@ class AcronymCache(CacheBase):
             )
             return [str(row["variant"]) for row in cursor.fetchall()]
 
+    def get_canonical_for_issn(self, issn: str) -> str | None:
+        """Return the canonical name for a venue identified by ISSN.
+
+        Searches the ``venue_acronym_issns`` table.  No entity_type filter is
+        applied because ISSNs are globally unique across venue types.
+
+        Args:
+            issn: ISSN string (e.g. '1550-4859')
+
+        Returns:
+            Canonical name string, or None if not found.
+        """
+        detail_logger.debug(f"Looking up ISSN '{issn}'")
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT va.canonical, va.acronym
+                FROM venue_acronyms va
+                JOIN venue_acronym_issns vai ON va.id = vai.venue_acronym_id
+                WHERE vai.issn = ?
+                LIMIT 1
+                """,
+                (issn.strip(),),
+            )
+            row = cursor.fetchone()
+            if row:
+                detail_logger.debug(
+                    f"Found canonical for ISSN '{issn}' "
+                    f"(acronym: '{row['acronym']}') -> '{row['canonical']}'"
+                )
+                return str(row["canonical"])
+            detail_logger.debug(f"No entry found for ISSN '{issn}'")
+            return None
+
     def get_issns(self, acronym: str, entity_type: str) -> list[str]:
         """Return all known ISSNs for an acronym.
 
