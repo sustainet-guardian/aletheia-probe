@@ -29,7 +29,12 @@ class AcronymCache(CacheBase):
 
     # ------------------------------------------------------------------ lookup
 
-    def get_full_name_for_acronym(self, acronym: str, entity_type: str) -> str | None:
+    def get_full_name_for_acronym(
+        self,
+        acronym: str,
+        entity_type: str,
+        min_confidence: float = 0.0,
+    ) -> str | None:
         """Return the canonical name for an acronym, or None if not found.
 
         Args:
@@ -44,8 +49,9 @@ class AcronymCache(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT canonical FROM venue_acronyms "
-                "WHERE acronym = ? COLLATE NOCASE AND entity_type = ?",
-                (acronym.strip(), entity_type),
+                "WHERE acronym = ? COLLATE NOCASE AND entity_type = ? "
+                "AND confidence_score >= ?",
+                (acronym.strip(), entity_type, min_confidence),
             )
             row = cursor.fetchone()
             if row:
@@ -56,7 +62,60 @@ class AcronymCache(CacheBase):
             detail_logger.debug(f"No entry found for '{acronym}' ({entity_type})")
             return None
 
-    def get_canonical_for_variant(self, variant: str, entity_type: str) -> str | None:
+    def get_variant_match(
+        self,
+        variant: str,
+        entity_type: str,
+        min_confidence: float = 0.0,
+    ) -> dict[str, str | float] | None:
+        """Return canonical+acronym match data for a variant lookup.
+
+        Args:
+            variant: An abbreviated or alternative venue name.
+            entity_type: VenueType value (e.g., 'journal', 'conference').
+
+        Returns:
+            Dict with keys ``canonical`` and ``acronym``, or None if no match.
+        """
+        detail_logger.debug(f"Looking up variant '{variant}' ({entity_type})")
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT va.canonical, va.acronym, va.confidence_score
+                FROM venue_acronyms va
+                JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id
+                WHERE vav.variant = ? COLLATE NOCASE
+                  AND va.entity_type = ?
+                  AND va.confidence_score >= ?
+                LIMIT 1
+                """,
+                (variant.strip(), entity_type, min_confidence),
+            )
+            row = cursor.fetchone()
+            if row:
+                canonical = str(row["canonical"])
+                acronym = str(row["acronym"])
+                detail_logger.debug(
+                    f"Found canonical for variant '{variant}' "
+                    f"(acronym: '{acronym}') -> '{canonical}'"
+                )
+                return {
+                    "canonical": canonical,
+                    "acronym": acronym,
+                    "confidence_score": float(row["confidence_score"]),
+                }
+            detail_logger.debug(
+                f"No variant match found for '{variant}' ({entity_type})"
+            )
+            return None
+
+    def get_canonical_for_variant(
+        self,
+        variant: str,
+        entity_type: str,
+        min_confidence: float = 0.0,
+    ) -> str | None:
         """Return the canonical name for a venue variant (abbreviated) form.
 
         Looks up the variant in the ``venue_acronym_variants`` table and returns
@@ -70,31 +129,12 @@ class AcronymCache(CacheBase):
         Returns:
             Canonical name string, or None if no matching variant found.
         """
-        detail_logger.debug(f"Looking up variant '{variant}' ({entity_type})")
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT va.canonical, va.acronym
-                FROM venue_acronyms va
-                JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id
-                WHERE vav.variant = ? COLLATE NOCASE
-                  AND va.entity_type = ?
-                LIMIT 1
-                """,
-                (variant.strip(), entity_type),
-            )
-            row = cursor.fetchone()
-            if row:
-                detail_logger.debug(
-                    f"Found canonical for variant '{variant}' "
-                    f"(acronym: '{row['acronym']}') -> '{row['canonical']}'"
-                )
-                return str(row["canonical"])
-            detail_logger.debug(
-                f"No variant match found for '{variant}' ({entity_type})"
-            )
-            return None
+        match = self.get_variant_match(
+            variant, entity_type, min_confidence=min_confidence
+        )
+        if match:
+            return str(match["canonical"])
+        return None
 
     def get_variants(self, acronym: str, entity_type: str) -> list[str]:
         """Return all known name variants for an acronym.
@@ -120,7 +160,54 @@ class AcronymCache(CacheBase):
             )
             return [str(row["variant"]) for row in cursor.fetchall()]
 
-    def get_canonical_for_issn(self, issn: str) -> str | None:
+    def get_issn_match(
+        self,
+        issn: str,
+        min_confidence: float = 0.0,
+    ) -> dict[str, str | float] | None:
+        """Return canonical+acronym match data for an ISSN lookup.
+
+        Args:
+            issn: ISSN string (e.g. '1550-4859').
+
+        Returns:
+            Dict with keys ``canonical`` and ``acronym``, or None if no match.
+        """
+        detail_logger.debug(f"Looking up ISSN '{issn}'")
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT va.canonical, va.acronym, va.confidence_score
+                FROM venue_acronyms va
+                JOIN venue_acronym_issns vai ON va.id = vai.venue_acronym_id
+                WHERE vai.issn = ?
+                  AND va.confidence_score >= ?
+                LIMIT 1
+                """,
+                (issn.strip(), min_confidence),
+            )
+            row = cursor.fetchone()
+            if row:
+                canonical = str(row["canonical"])
+                acronym = str(row["acronym"])
+                detail_logger.debug(
+                    f"Found canonical for ISSN '{issn}' "
+                    f"(acronym: '{acronym}') -> '{canonical}'"
+                )
+                return {
+                    "canonical": canonical,
+                    "acronym": acronym,
+                    "confidence_score": float(row["confidence_score"]),
+                }
+            detail_logger.debug(f"No entry found for ISSN '{issn}'")
+            return None
+
+    def get_canonical_for_issn(
+        self,
+        issn: str,
+        min_confidence: float = 0.0,
+    ) -> str | None:
         """Return the canonical name for a venue identified by ISSN.
 
         Searches the ``venue_acronym_issns`` table.  No entity_type filter is
@@ -132,30 +219,17 @@ class AcronymCache(CacheBase):
         Returns:
             Canonical name string, or None if not found.
         """
-        detail_logger.debug(f"Looking up ISSN '{issn}'")
-        with self.get_connection_with_row_factory() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT va.canonical, va.acronym
-                FROM venue_acronyms va
-                JOIN venue_acronym_issns vai ON va.id = vai.venue_acronym_id
-                WHERE vai.issn = ?
-                LIMIT 1
-                """,
-                (issn.strip(),),
-            )
-            row = cursor.fetchone()
-            if row:
-                detail_logger.debug(
-                    f"Found canonical for ISSN '{issn}' "
-                    f"(acronym: '{row['acronym']}') -> '{row['canonical']}'"
-                )
-                return str(row["canonical"])
-            detail_logger.debug(f"No entry found for ISSN '{issn}'")
-            return None
+        match = self.get_issn_match(issn, min_confidence=min_confidence)
+        if match:
+            return str(match["canonical"])
+        return None
 
-    def get_issns(self, acronym: str, entity_type: str) -> list[str]:
+    def get_issns(
+        self,
+        acronym: str,
+        entity_type: str,
+        min_confidence: float = 0.0,
+    ) -> list[str]:
         """Return all known ISSNs for an acronym.
 
         Args:
@@ -172,10 +246,12 @@ class AcronymCache(CacheBase):
                 SELECT vai.issn
                 FROM venue_acronym_issns vai
                 JOIN venue_acronyms va ON va.id = vai.venue_acronym_id
-                WHERE va.acronym = ? COLLATE NOCASE AND va.entity_type = ?
+                WHERE va.acronym = ? COLLATE NOCASE
+                  AND va.entity_type = ?
+                  AND va.confidence_score >= ?
                 ORDER BY vai.id
                 """,
-                (acronym.strip(), entity_type),
+                (acronym.strip(), entity_type, min_confidence),
             )
             return [str(row["issn"]) for row in cursor.fetchall()]
 

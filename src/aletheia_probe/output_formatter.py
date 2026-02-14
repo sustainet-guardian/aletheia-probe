@@ -53,6 +53,10 @@ class OutputFormatter:
             for reason in result.reasoning:
                 lines.append(f"  • {reason}")
 
+        # Candidate workflow summary (if multiple candidates were evaluated)
+        if result.candidate_assessments and len(result.candidate_assessments) > 1:
+            lines.append(self._format_candidate_assessments(result))
+
         # Recommendation
         lines.append(self._format_recommendation(result))
 
@@ -271,6 +275,22 @@ class OutputFormatter:
             if backend_result.error_message:
                 lines.append(f"    → Error: {backend_result.error_message}")
 
+        return "\n".join(lines)
+
+    def _format_candidate_assessments(self, result: AssessmentResult) -> str:
+        """Format acronym workflow candidate attempts and selected result."""
+        lines = [
+            "",
+            "Tried Candidates:",
+        ]
+        for candidate in result.candidate_assessments:
+            marker = "✓" if candidate.selected else " "
+            lines.append(f"  [{marker}] {candidate.label}: {candidate.query}")
+            lines.append(
+                f"      -> {candidate.assessment.upper()} "
+                f"(confidence: {candidate.confidence:.2f}, "
+                f"score: {candidate.overall_score:.2f})"
+            )
         return "\n".join(lines)
 
     def _format_recommendation(self, result: AssessmentResult) -> str:

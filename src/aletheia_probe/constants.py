@@ -17,6 +17,9 @@ CONFIDENCE_THRESHOLD_HIGH: float = 0.98
 CONFIDENCE_THRESHOLD_MEDIUM: float = 0.85
 CONFIDENCE_THRESHOLD_LOW: float = 0.3
 
+# Acronym expansion confidence threshold (venue-acronyms dataset)
+DEFAULT_ACRONYM_CONFIDENCE_MIN: float = 0.8
+
 # Agreement bonuses
 AGREEMENT_BONUS_AMOUNT: float = 0.05
 
