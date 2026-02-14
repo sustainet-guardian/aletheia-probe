@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: MIT
 """Venue acronym cache — consumer of pre-compiled venue-acronyms-2025 data.
 
-The venue_acronyms table holds one row per (acronym, entity_type) pair with the
-pre-computed canonical name, confidence score, ISSN list, and full variants list
-imported from the venue-acronyms-2025 pipeline output (acronyms-YYYY-MM.json).
+Three normalized tables back this module:
+
+* ``venue_acronyms``         — one row per (acronym, entity_type) pair.
+* ``venue_acronym_variants`` — one row per observed name form (FK → venue_acronyms).
+* ``venue_acronym_issns``    — one row per known ISSN (FK → venue_acronyms).
 
 Canonical names and variant lists are produced upstream by the LLM consensus
 pipeline; this module only stores and retrieves them.
 """
 
-import json
 import re
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,7 @@ status_logger = get_status_logger()
 
 
 class AcronymCache(CacheBase):
-    """Read/write access to the venue_acronyms table."""
+    """Read/write access to the venue_acronyms cluster of tables."""
 
     # ------------------------------------------------------------------ lookup
 
@@ -42,10 +43,8 @@ class AcronymCache(CacheBase):
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT canonical FROM venue_acronyms
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
-                """,
+                "SELECT canonical FROM venue_acronyms "
+                "WHERE acronym = ? COLLATE NOCASE AND entity_type = ?",
                 (acronym.strip(), entity_type),
             )
             row = cursor.fetchone()
@@ -60,10 +59,9 @@ class AcronymCache(CacheBase):
     def get_canonical_for_variant(self, variant: str, entity_type: str) -> str | None:
         """Return the canonical name for a venue variant (abbreviated) form.
 
-        Searches the variants JSON array for an exact case-insensitive match and
-        returns the canonical name of the containing entry.  This enables lookup of
-        abbreviated forms such as "ieee trans. pattern anal. mach. intell." that are
-        stored as variants rather than as the primary acronym key.
+        Looks up the variant in the ``venue_acronym_variants`` table and returns
+        the canonical name of the parent acronym entry.  Enables lookup of
+        abbreviated forms such as "ieee trans. pattern anal. mach. intell.".
 
         Args:
             variant: An abbreviated or alternative venue name to look up
@@ -78,8 +76,9 @@ class AcronymCache(CacheBase):
             cursor.execute(
                 """
                 SELECT va.canonical, va.acronym
-                FROM venue_acronyms va, json_each(va.variants)
-                WHERE json_each.value = ? COLLATE NOCASE
+                FROM venue_acronyms va
+                JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id
+                WHERE vav.variant = ? COLLATE NOCASE
                   AND va.entity_type = ?
                 LIMIT 1
                 """,
@@ -105,21 +104,45 @@ class AcronymCache(CacheBase):
             entity_type: VenueType value
 
         Returns:
-            List of variant strings, empty list if not found.
+            List of variant strings in insertion order, empty list if not found.
         """
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT variants FROM venue_acronyms
-                WHERE acronym = ? COLLATE NOCASE AND entity_type = ?
+                SELECT vav.variant
+                FROM venue_acronym_variants vav
+                JOIN venue_acronyms va ON va.id = vav.venue_acronym_id
+                WHERE va.acronym = ? COLLATE NOCASE AND va.entity_type = ?
+                ORDER BY vav.id
                 """,
                 (acronym.strip(), entity_type),
             )
-            row = cursor.fetchone()
-            if row:
-                return list(json.loads(row["variants"]))
-            return []
+            return [str(row["variant"]) for row in cursor.fetchall()]
+
+    def get_issns(self, acronym: str, entity_type: str) -> list[str]:
+        """Return all known ISSNs for an acronym.
+
+        Args:
+            acronym: The acronym to look up
+            entity_type: VenueType value
+
+        Returns:
+            List of ISSN strings, empty list if not found.
+        """
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT vai.issn
+                FROM venue_acronym_issns vai
+                JOIN venue_acronyms va ON va.id = vai.venue_acronym_id
+                WHERE va.acronym = ? COLLATE NOCASE AND va.entity_type = ?
+                ORDER BY vai.id
+                """,
+                (acronym.strip(), entity_type),
+            )
+            return [str(row["issn"]) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------ import
 
@@ -131,16 +154,17 @@ class AcronymCache(CacheBase):
         """Bulk-import acronym entries from venue-acronyms-2025 pipeline output.
 
         Each entry must have at minimum: acronym, entity_type, canonical.
-        Optional: confidence_score, issn (list), variants (list).
+        Optional: confidence_score, issn (list of strings), variants (list of strings).
 
-        Existing rows for the same (acronym, entity_type) are replaced.
+        Existing rows for the same (acronym, entity_type) are replaced: the parent
+        row is upserted and the child variants/ISSNs are fully replaced.
 
         Args:
             entries: List of acronym dicts from the pipeline JSON.
             source_file: Filename of the source JSON (for provenance).
 
         Returns:
-            Number of rows inserted or replaced.
+            Number of parent rows inserted or replaced.
         """
         if not entries:
             return 0
@@ -161,33 +185,60 @@ class AcronymCache(CacheBase):
                     continue
 
                 confidence = float(entry.get("confidence_score", 0.0))
-                issn = json.dumps(entry.get("issn") or [])
-                variants = json.dumps(entry.get("variants") or [])
+                issns: list[str] = list(entry.get("issn") or [])
+                variants: list[str] = list(entry.get("variants") or [])
 
+                # Upsert parent row
                 cursor.execute(
                     """
                     INSERT INTO venue_acronyms
-                        (acronym, entity_type, canonical, confidence_score,
-                         issn, variants, source_file)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (acronym, entity_type, canonical, confidence_score, source_file)
+                    VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT(acronym, entity_type) DO UPDATE SET
                         canonical        = excluded.canonical,
                         confidence_score = excluded.confidence_score,
-                        issn             = excluded.issn,
-                        variants         = excluded.variants,
                         source_file      = excluded.source_file,
                         imported_at      = CURRENT_TIMESTAMP
                     """,
-                    (
-                        acronym,
-                        entity_type,
-                        canonical,
-                        confidence,
-                        issn,
-                        variants,
-                        source_file,
-                    ),
+                    (acronym, entity_type, canonical, confidence, source_file),
                 )
+
+                # Resolve the row id (works for both INSERT and UPDATE paths)
+                cursor.execute(
+                    "SELECT id FROM venue_acronyms "
+                    "WHERE acronym = ? AND entity_type = ?",
+                    (acronym, entity_type),
+                )
+                venue_id: int = cursor.fetchone()["id"]
+
+                # Replace variants
+                cursor.execute(
+                    "DELETE FROM venue_acronym_variants WHERE venue_acronym_id = ?",
+                    (venue_id,),
+                )
+                for v in variants:
+                    v = str(v).strip()
+                    if v:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO venue_acronym_variants "
+                            "(venue_acronym_id, variant) VALUES (?, ?)",
+                            (venue_id, v),
+                        )
+
+                # Replace ISSNs
+                cursor.execute(
+                    "DELETE FROM venue_acronym_issns WHERE venue_acronym_id = ?",
+                    (venue_id,),
+                )
+                for issn in issns:
+                    issn = str(issn).strip()
+                    if issn:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO venue_acronym_issns "
+                            "(venue_acronym_id, issn) VALUES (?, ?)",
+                            (venue_id, issn),
+                        )
+
                 count += 1
 
             conn.commit()
@@ -206,6 +257,8 @@ class AcronymCache(CacheBase):
         Returns:
             Number of rows inserted or replaced.
         """
+        import json
+
         with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         entries = data.get("acronyms", [])
@@ -237,7 +290,8 @@ class AcronymCache(CacheBase):
         """Store a single acronym→canonical mapping discovered at runtime.
 
         Normalizes the name (strips years/ordinals). Warns when a non-equivalent
-        conflicting name overwrites an existing entry.
+        conflicting name overwrites an existing entry.  No variants or ISSNs are
+        stored — those come from the pre-compiled pipeline import.
 
         Used by dispatcher and OpenAlex backend when a new mapping is observed
         during assessment.
@@ -278,9 +332,8 @@ class AcronymCache(CacheBase):
             cursor.execute(
                 """
                 INSERT INTO venue_acronyms
-                    (acronym, entity_type, canonical, confidence_score,
-                     issn, variants, source_file)
-                VALUES (?, ?, ?, 0.0, '[]', '[]', ?)
+                    (acronym, entity_type, canonical, confidence_score, source_file)
+                VALUES (?, ?, ?, 0.0, ?)
                 ON CONFLICT(acronym, entity_type) DO UPDATE SET
                     canonical   = excluded.canonical,
                     source_file = excluded.source_file,
@@ -315,13 +368,13 @@ class AcronymCache(CacheBase):
             return {"total_count": count}
 
     def clear_acronym_database(self, entity_type: str | None = None) -> int:
-        """Delete rows from the acronym table.
+        """Delete rows from the acronym table (cascades to variants and ISSNs).
 
         Args:
             entity_type: Optional filter; if None, deletes everything.
 
         Returns:
-            Number of rows deleted.
+            Number of parent rows deleted.
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()

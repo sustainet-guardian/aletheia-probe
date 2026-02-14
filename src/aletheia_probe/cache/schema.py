@@ -147,27 +147,37 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
     name_type_values = ", ".join(f"'{t.value}'" for t in NameType)
 
     with get_configured_connection(db_path) as conn:
-        # Check if database already exists
         cursor = conn.cursor()
+
+        # Check if database already exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
         is_new_db = cursor.fetchone() is None
 
         if not is_new_db:
-            # Existing database - optionally check compatibility
+            # Existing database: drop obsolete legacy tables, then check compatibility
+            cursor.execute("DROP TABLE IF EXISTS learned_abbreviations")
+            # Detect old JSON-column schema (issn/variants as JSON) and drop it so
+            # CREATE IF NOT EXISTS below rebuilds cleanly. Data must be re-imported.
+            cursor.execute("PRAGMA table_info(venue_acronyms)")
+            old_cols = {row[1] for row in cursor.fetchall()}
+            if "issn" in old_cols or "variants" in old_cols:
+                cursor.execute("DROP TABLE IF EXISTS venue_acronym_issns")
+                cursor.execute("DROP TABLE IF EXISTS venue_acronym_variants")
+                cursor.execute("DROP TABLE IF EXISTS venue_acronyms")
+            conn.commit()
             if check_version:
                 check_schema_compatibility(db_path)
             return
 
         # New database - create with current schema
-        # Migrate from old venue_acronyms table to new venue_acronym_variants schema
-        # Drop old table if it exists (clean replacement, no data migration per requirements)
+        # Drop old venue_acronyms table if it exists (clean replacement)
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='venue_acronyms'"
         )
         if cursor.fetchone():
-            # Old table exists, drop it to replace with new variant system
             cursor.execute("DROP TABLE venue_acronyms")
             conn.commit()
+
 
         conn.executescript(
             f"""
@@ -245,41 +255,52 @@ def init_database(db_path: Path, check_version: bool = False) -> None:
                 UNIQUE(journal_id, source_id)
             );
 
-            -- Venue acronym variants (self-learning cache with multiple variants per acronym)
-            -- Stores ALL variants of acronym-to-name mappings for journals, conferences, and other venue types
-            CREATE TABLE IF NOT EXISTS venue_acronym_variants (
+            -- Venue acronyms: one row per (acronym, entity_type) pair.
+            -- Canonical name and confidence imported from venue-acronyms-2025 pipeline.
+            -- ISSNs and name variants are stored in dedicated child tables.
+            CREATE TABLE IF NOT EXISTS venue_acronyms (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 acronym TEXT NOT NULL COLLATE NOCASE,
                 entity_type TEXT NOT NULL,
-                variant_name TEXT NOT NULL,
-                normalized_name TEXT NOT NULL,
-                usage_count INTEGER DEFAULT 1,
-                is_canonical BOOLEAN DEFAULT FALSE,
-                is_ambiguous BOOLEAN DEFAULT FALSE,
-                source TEXT,
-                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(acronym, entity_type, normalized_name),
+                canonical TEXT NOT NULL,
+                confidence_score REAL DEFAULT 0.0,
+                source_file TEXT,
+                imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(acronym, entity_type),
                 CHECK (entity_type IN ({entity_type_values}))
             );
-            CREATE INDEX IF NOT EXISTS idx_variants_acronym ON venue_acronym_variants(acronym, entity_type);
-            CREATE INDEX IF NOT EXISTS idx_variants_canonical ON venue_acronym_variants(is_canonical) WHERE is_canonical = TRUE;
-            CREATE INDEX IF NOT EXISTS idx_variants_normalized ON venue_acronym_variants(normalized_name);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_acronym
+                ON venue_acronyms(acronym);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronyms_canonical
+                ON venue_acronyms(canonical);
 
-            -- Learned abbreviations (self-learning abbreviation mappings)
-            -- Stores discovered abbreviation patterns from variant comparisons
-            CREATE TABLE IF NOT EXISTS learned_abbreviations (
+            -- Venue name variants: all observed forms (expanded and abbreviated).
+            -- One row per variant string, FK to venue_acronyms.
+            CREATE TABLE IF NOT EXISTS venue_acronym_variants (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                abbreviated_form TEXT NOT NULL,
-                expanded_form TEXT NOT NULL,
-                confidence_score REAL DEFAULT 0.1,
-                occurrence_count INTEGER DEFAULT 1,
-                context TEXT,
-                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(abbreviated_form, expanded_form)
+                venue_acronym_id INTEGER NOT NULL,
+                variant TEXT NOT NULL COLLATE NOCASE,
+                FOREIGN KEY (venue_acronym_id)
+                    REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+                UNIQUE(venue_acronym_id, variant)
             );
-            CREATE INDEX IF NOT EXISTS idx_abbrev_lookup ON learned_abbreviations(abbreviated_form);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_variants_variant
+                ON venue_acronym_variants(variant);
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_variants_acronym_id
+                ON venue_acronym_variants(venue_acronym_id);
+
+            -- Venue ISSNs: known ISSN values for a venue.
+            -- One row per ISSN, FK to venue_acronyms.
+            CREATE TABLE IF NOT EXISTS venue_acronym_issns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                venue_acronym_id INTEGER NOT NULL,
+                issn TEXT NOT NULL,
+                FOREIGN KEY (venue_acronym_id)
+                    REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+                UNIQUE(venue_acronym_id, issn)
+            );
+            CREATE INDEX IF NOT EXISTS idx_venue_acronym_issns_issn
+                ON venue_acronym_issns(issn);
 
             -- Retraction statistics (purpose-built for RetractionWatch data)
             CREATE TABLE IF NOT EXISTS retraction_statistics (

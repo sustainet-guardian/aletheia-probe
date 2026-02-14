@@ -118,33 +118,47 @@ CREATE TABLE retraction_statistics (
 );
 ```
 
-### 8. Venue Acronyms Table
+### 8. Venue Acronyms Cluster (three tables)
 
-**Purpose**: Pre-compiled venue name lookup table, imported from the venue-acronyms-2025 pipeline.
-One row per (acronym, entity_type) pair.  Stores the canonical fully-expanded lowercase name,
-LLM consensus confidence score, known ISSNs, and the full list of observed name variants
-(both expanded and abbreviated forms).
+**Purpose**: Pre-compiled venue name lookup, imported from the venue-acronyms-2025 pipeline.
+Normalized into three tables so every value is directly queryable.
 
 ```sql
+-- One row per (acronym, entity_type) pair
 CREATE TABLE venue_acronyms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     acronym TEXT NOT NULL COLLATE NOCASE,
-    entity_type TEXT NOT NULL,          -- VenueType value: 'journal', 'conference', ...
+    entity_type TEXT NOT NULL,          -- VenueType: 'journal', 'conference', ...
     canonical TEXT NOT NULL,            -- Fully-expanded lowercase authoritative name
     confidence_score REAL DEFAULT 0.0,  -- LLM consensus confidence (0.0–1.0)
-    issn TEXT NOT NULL DEFAULT '[]',    -- JSON array of known ISSNs
-    variants TEXT NOT NULL DEFAULT '[]',-- JSON array of all observed name forms
     source_file TEXT,                   -- Source acronyms-YYYY-MM.json filename
     imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(acronym, entity_type)
 );
-CREATE INDEX idx_venue_acronyms_acronym   ON venue_acronyms(acronym);
-CREATE INDEX idx_venue_acronyms_canonical ON venue_acronyms(canonical);
+
+-- All observed name forms (expanded and abbreviated) — one row per variant
+CREATE TABLE venue_acronym_variants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue_acronym_id INTEGER NOT NULL,
+    variant TEXT NOT NULL COLLATE NOCASE,
+    FOREIGN KEY (venue_acronym_id) REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+    UNIQUE(venue_acronym_id, variant)
+);
+
+-- Known ISSNs — one row per ISSN
+CREATE TABLE venue_acronym_issns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue_acronym_id INTEGER NOT NULL,
+    issn TEXT NOT NULL,
+    FOREIGN KEY (venue_acronym_id) REFERENCES venue_acronyms(id) ON DELETE CASCADE,
+    UNIQUE(venue_acronym_id, issn)
+);
 ```
 
 **Lookup patterns**:
-- Acronym → canonical: `SELECT canonical WHERE acronym = ? AND entity_type = ?`
-- Variant → canonical (abbreviated forms): `SELECT canonical FROM venue_acronyms, json_each(variants) WHERE json_each.value = ? AND entity_type = ?`
+- Acronym → canonical: `SELECT canonical FROM venue_acronyms WHERE acronym = ? AND entity_type = ?`
+- Variant → canonical: `SELECT va.canonical FROM venue_acronyms va JOIN venue_acronym_variants vav ON va.id = vav.venue_acronym_id WHERE vav.variant = ? AND va.entity_type = ?`
+- ISSN → acronym entries: `SELECT va.* FROM venue_acronyms va JOIN venue_acronym_issns vai ON va.id = vai.venue_acronym_id WHERE vai.issn = ?`
 
 **Import source**: `aletheia-probe acronym import <acronyms-YYYY-MM.json>`
 

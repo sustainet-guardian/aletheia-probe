@@ -67,8 +67,9 @@ class TestCacheSchema:
             "assessment_cache",
             "article_retractions",
             "openalex_cache",
+            "venue_acronyms",
             "venue_acronym_variants",
-            "learned_abbreviations",
+            "venue_acronym_issns",
             "custom_lists",
         }
 
@@ -94,8 +95,9 @@ class TestCacheSchema:
             "source_updates",
             "assessment_cache",
             "article_retractions",
+            "venue_acronyms",
             "venue_acronym_variants",
-            "learned_abbreviations",
+            "venue_acronym_issns",
             "custom_lists",
         ]
 
@@ -114,6 +116,8 @@ class TestCacheSchema:
             "source_assessments": ["journal_id", "source_id"],
             "retraction_statistics": ["journal_id"],
             "source_updates": ["source_id"],
+            "venue_acronym_variants": ["venue_acronym_id"],
+            "venue_acronym_issns": ["venue_acronym_id"],
         }
 
         with get_configured_connection(temp_db) as conn:
@@ -141,7 +145,9 @@ class TestCacheSchema:
                 "idx_source_assessments_journal_id",
                 "idx_assessment_cache_expires",
                 "idx_article_retractions_doi",
-                "idx_variants_acronym",
+                "idx_venue_acronyms_acronym",
+                "idx_venue_acronym_variants_variant",
+                "idx_venue_acronym_issns_issn",
                 "idx_custom_lists_list_name",
             }
 
