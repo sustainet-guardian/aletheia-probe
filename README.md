@@ -276,6 +276,7 @@ To enhance coverage with Scopus data:
   - [Backend API](docs/api-reference/backends.md) - Creating custom backends
   - [Data Models](docs/api-reference/models.md) - Core data structures
   - [Extending Guide](docs/api-reference/extending-guide.md) - Extension patterns
+- [Backend Integration Docs](dev-notes/integration/README.md) - Source-specific backend documentation
 - [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
 - [Coding Standards](dev-notes/CODING_STANDARDS.md) - Code quality requirements
 
