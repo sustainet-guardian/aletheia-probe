@@ -13,6 +13,7 @@ from .constants import (
     AGREEMENT_BONUS_AMOUNT,
     CONFIDENCE_THRESHOLD_HIGH,
     CONFIDENCE_THRESHOLD_LOW,
+    DEFAULT_ACRONYM_CONFIDENCE_MIN,
 )
 from .cross_validation import get_cross_validation_registry
 from .enums import AssessmentType, EvidenceType
@@ -284,20 +285,27 @@ class QueryDispatcher:
             # Path 1: standalone acronym (e.g. "ICML") → direct acronym lookup
             if normalizer._is_standalone_acronym(query_input.raw_input):
                 expanded_name = acronym_cache.get_full_name_for_acronym(
-                    query_input.raw_input, entity_type
+                    query_input.raw_input,
+                    entity_type,
+                    min_confidence=DEFAULT_ACRONYM_CONFIDENCE_MIN,
                 )
 
             # Path 2: abbreviated variant form → JOIN against venue_acronym_variants
             if not expanded_name:
                 expanded_name = acronym_cache.get_canonical_for_variant(
-                    query_input.raw_input, entity_type
+                    query_input.raw_input,
+                    entity_type,
+                    min_confidence=DEFAULT_ACRONYM_CONFIDENCE_MIN,
                 )
 
             # Path 3: ISSN present in query → JOIN against venue_acronym_issns
             if not expanded_name:
                 issn = query_input.identifiers.get("issn")
                 if issn:
-                    expanded_name = acronym_cache.get_canonical_for_issn(issn)
+                    expanded_name = acronym_cache.get_canonical_for_issn(
+                        issn,
+                        min_confidence=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+                    )
 
             if expanded_name:
                 self.status_logger.info(
@@ -308,7 +316,11 @@ class QueryDispatcher:
                 # Create new query input with expanded name
                 # Create acronym lookup closure that uses the same entity_type
                 def acronym_lookup_for_type(acr: str) -> str | None:
-                    return acronym_cache.get_full_name_for_acronym(acr, entity_type)
+                    return acronym_cache.get_full_name_for_acronym(
+                        acr,
+                        entity_type,
+                        min_confidence=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+                    )
 
                 expanded_query = input_normalizer.normalize(
                     expanded_name,

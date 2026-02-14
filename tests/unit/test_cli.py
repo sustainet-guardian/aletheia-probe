@@ -17,6 +17,8 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
+    QueryInput,
+    VenueType,
 )
 
 
@@ -121,7 +123,12 @@ class TestAssessCommand:
             assert result.exit_code == 0
             # Check that the async function was called with correct args
             mock_async_assess.assert_called_once_with(
-                "Test Journal", "journal", True, "text"
+                "Test Journal",
+                "journal",
+                True,
+                "text",
+                use_acronyms=True,
+                confidence_min=0.8,
             )
 
     def test_assess_with_json_format(self, runner):
@@ -145,7 +152,65 @@ class TestAssessCommand:
 
             assert result.exit_code == 0
             mock_async_assess.assert_called_once_with(
-                "Test Journal", "journal", False, "json"
+                "Test Journal",
+                "journal",
+                False,
+                "json",
+                use_acronyms=True,
+                confidence_min=0.8,
+            )
+
+    def test_assess_with_no_acronyms_flag(self, runner):
+        """Test journal command with --no-acronyms flag."""
+        real_asyncio_run = asyncio.run
+
+        def run_coro(coro):
+            return real_asyncio_run(coro)
+
+        with (
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro),
+            patch("aletheia_probe.cli._async_assess_publication") as mock_async_assess,
+        ):
+            mock_async_assess.return_value = None
+
+            result = runner.invoke(main, ["journal", "Test Journal", "--no-acronyms"])
+
+            assert result.exit_code == 0
+            mock_async_assess.assert_called_once_with(
+                "Test Journal",
+                "journal",
+                False,
+                "text",
+                use_acronyms=False,
+                confidence_min=0.8,
+            )
+
+    def test_assess_with_confidence_min(self, runner):
+        """Test journal command with --confidence-min override."""
+        real_asyncio_run = asyncio.run
+
+        def run_coro(coro):
+            return real_asyncio_run(coro)
+
+        with (
+            patch("aletheia_probe.cli.asyncio.run", side_effect=run_coro),
+            patch("aletheia_probe.cli._async_assess_publication") as mock_async_assess,
+        ):
+            mock_async_assess.return_value = None
+
+            result = runner.invoke(
+                main,
+                ["journal", "Test Journal", "--confidence-min", "0.9"],
+            )
+
+            assert result.exit_code == 0
+            mock_async_assess.assert_called_once_with(
+                "Test Journal",
+                "journal",
+                False,
+                "text",
+                use_acronyms=True,
+                confidence_min=0.9,
             )
 
     def test_assess_invalid_format(self, runner):
@@ -675,6 +740,196 @@ class TestAsyncMain:
 
             mock_exit.assert_called_with(1)
 
+    @pytest.mark.asyncio
+    async def test_async_main_conference_uses_conference_acronym_lookup(
+        self, mock_assessment_result
+    ):
+        """Conference command should normalize with conference-scoped acronym lookup."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch("builtins.print"),
+        ):
+            mock_query_input = Mock(
+                raw_input="AGENTS",
+                normalized_name="agents",
+                identifiers={},
+                extracted_acronym_mappings={},
+                venue_type=VenueType.UNKNOWN,
+            )
+            mock_normalizer.normalize.return_value = mock_query_input
+            mock_dispatcher.assess_journal = AsyncMock(
+                return_value=mock_assessment_result
+            )
+
+            mock_cache = MagicMock()
+            mock_cache.get_full_name_for_acronym.return_value = (
+                "proceedings of the international conference on autonomous agents"
+            )
+            mock_acronym_cache.return_value = mock_cache
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "AGENTS", "conference", verbose=False, output_format="text"
+            )
+
+            normalize_kwargs = mock_normalizer.normalize.call_args.kwargs
+            lookup = normalize_kwargs["acronym_lookup"]
+            lookup("AGENTS")
+            mock_cache.get_full_name_for_acronym.assert_called_with(
+                "AGENTS", "conference", min_confidence=0.8
+            )
+            assert mock_query_input.venue_type == VenueType.CONFERENCE
+
+    @pytest.mark.asyncio
+    async def test_async_main_selects_best_acronym_candidate(self):
+        """Choose strongest result among acronym workflow candidates."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch("builtins.print") as mock_print,
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers={},
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.return_value = False
+
+            mock_cache = MagicMock()
+            mock_cache.get_variant_match.return_value = {
+                "canonical": (
+                    "proceedings of the international conference on autonomous agents"
+                ),
+                "acronym": "AGENTS",
+            }
+            mock_cache.get_issns.return_value = []
+            mock_cache.get_full_name_for_acronym.return_value = None
+            mock_cache.get_issn_match.return_value = None
+            mock_acronym_cache.return_value = mock_cache
+
+            unknown_result = AssessmentResult(
+                input_query="q1",
+                assessment=AssessmentType.UNKNOWN,
+                confidence=0.2,
+                overall_score=0.0,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            legit_result = AssessmentResult(
+                input_query="q2",
+                assessment=AssessmentType.LEGITIMATE,
+                confidence=0.85,
+                overall_score=0.8,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+
+            async def assess_side_effect(query_input: QueryInput) -> AssessmentResult:
+                if query_input.raw_input == "AGENTS":
+                    return legit_result
+                return unknown_result
+
+            mock_dispatcher.assess_journal = AsyncMock(side_effect=assess_side_effect)
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "proceedings of the international conference on autonomous agents",
+                "conference",
+                verbose=False,
+                output_format="text",
+            )
+
+            output_text = " ".join(call[0][0] for call in mock_print.call_args_list)
+            assert "Assessment: LEGITIMATE" in output_text
+            assert "Acronym workflow: tried" in output_text
+            assert "Tried Candidates:" in output_text
+            assert "[✓] variant->acronym: AGENTS" in output_text
+
+    @pytest.mark.asyncio
+    async def test_async_main_skips_issn_candidate_on_title_mismatch(self):
+        """Skip ISSN candidate when resolved title does not match expected venue."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli._resolve_issn_title",
+                new=AsyncMock(return_value="Lecture Notes in Computer Science"),
+            ),
+            patch("builtins.print"),
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers={},
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.return_value = False
+
+            mock_cache = MagicMock()
+            mock_cache.get_variant_match.return_value = {
+                "canonical": (
+                    "proceedings of the international conference on "
+                    "artificial intelligence in education"
+                ),
+                "acronym": "AIED",
+            }
+            mock_cache.get_issns.return_value = ["0302-9743"]
+            mock_cache.get_full_name_for_acronym.return_value = None
+            mock_cache.get_issn_match.return_value = None
+            mock_acronym_cache.return_value = mock_cache
+
+            unknown_result = AssessmentResult(
+                input_query="q",
+                assessment=AssessmentType.UNKNOWN,
+                confidence=0.2,
+                overall_score=0.0,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            mock_dispatcher.assess_journal = AsyncMock(return_value=unknown_result)
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "AIED",
+                "conference",
+                verbose=False,
+                output_format="text",
+                confidence_min=0.5,
+            )
+
+            # input + variant/full; variant/acronym is duplicate of input and ISSN is skipped
+            assert mock_dispatcher.assess_journal.await_count == 2
+
 
 class TestConferenceAcronymCommands:
     """Tests for acronym command group."""
@@ -777,3 +1032,128 @@ class TestConferenceAcronymCommands:
 
             assert result.exit_code == 0
             assert "already empty" in result.output.lower()
+
+    def test_acronym_import_uses_source_override(self, runner):
+        """Test acronym import stores explicit --source label."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "acronyms": [
+                        {
+                            "acronym": "ICML",
+                            "entity_type": "conference",
+                            "canonical": "international conference on machine learning",
+                        }
+                    ]
+                },
+                f,
+            )
+            temp_file = f.name
+
+        try:
+            with patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache:
+                mock_cache = MagicMock()
+                mock_cache.import_acronyms.return_value = 1
+                mock_acronym_cache.return_value = mock_cache
+
+                result = runner.invoke(
+                    main,
+                    [
+                        "acronym",
+                        "import",
+                        temp_file,
+                        "--source",
+                        "manual-curation",
+                    ],
+                )
+
+                assert result.exit_code == 0
+                mock_cache.import_acronyms.assert_called_once()
+                assert (
+                    mock_cache.import_acronyms.call_args.kwargs["source_file"]
+                    == "manual-curation"
+                )
+        finally:
+            Path(temp_file).unlink(missing_ok=True)
+
+    def test_acronym_sync_downloads_and_imports(self, runner):
+        """Test acronym sync downloads latest release dataset and imports it."""
+        release_payload = {
+            "assets": [
+                {
+                    "name": "venue-acronyms-2025-curated.json",
+                    "browser_download_url": "https://example.org/dataset.json",
+                }
+            ]
+        }
+        dataset_payload = {
+            "acronyms": [
+                {
+                    "acronym": "AAAI",
+                    "entity_type": "conference",
+                    "canonical": "aaai conference on artificial intelligence",
+                }
+            ]
+        }
+
+        with (
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli._fetch_https_json",
+                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
+            ) as mock_fetch_json,
+        ):
+            mock_cache = MagicMock()
+            mock_cache.import_acronyms.return_value = 1
+            mock_acronym_cache.return_value = mock_cache
+
+            result = runner.invoke(main, ["acronym", "sync"])
+
+            assert result.exit_code == 0
+            mock_cache.import_acronyms.assert_called_once()
+            assert (
+                mock_cache.import_acronyms.call_args.kwargs["source_file"]
+                == "venue-acronyms-2025-curated.json"
+            )
+
+    def test_acronym_sync_uses_source_override(self, runner):
+        """Test acronym sync stores explicit --source label."""
+        release_payload = {
+            "assets": [
+                {
+                    "name": "venue-acronyms-2025-curated.json",
+                    "browser_download_url": "https://example.org/dataset.json",
+                }
+            ]
+        }
+        dataset_payload = {
+            "acronyms": [
+                {
+                    "acronym": "ICLR",
+                    "entity_type": "conference",
+                    "canonical": "international conference on learning representations",
+                }
+            ]
+        }
+
+        with (
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli._fetch_https_json",
+                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
+            ) as mock_fetch_json,
+        ):
+            mock_cache = MagicMock()
+            mock_cache.import_acronyms.return_value = 1
+            mock_acronym_cache.return_value = mock_cache
+
+            result = runner.invoke(
+                main, ["acronym", "sync", "--source", "github-release-v1"]
+            )
+
+            assert result.exit_code == 0
+            mock_cache.import_acronyms.assert_called_once()
+            assert (
+                mock_cache.import_acronyms.call_args.kwargs["source_file"]
+                == "github-release-v1"
+            )

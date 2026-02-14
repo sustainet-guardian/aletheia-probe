@@ -167,6 +167,23 @@ class AssessmentResult(BaseModel):
     venue_type: VenueType = Field(
         VenueType.UNKNOWN, description="Detected venue type (journal, conference, etc.)"
     )
+    candidate_assessments: list["CandidateAssessment"] = Field(
+        default_factory=list,
+        description="Candidate query forms tried during acronym workflow",
+    )
+
+
+class CandidateAssessment(BaseModel):
+    """Summary of one candidate query attempt in acronym workflow."""
+
+    label: str = Field(
+        ..., description="Candidate label (e.g., input, variant->acronym)"
+    )
+    query: str = Field(..., description="Candidate query text")
+    assessment: AssessmentType = Field(..., description="Assessment for this candidate")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
+    overall_score: float = Field(..., description="Overall score for this candidate")
+    selected: bool = Field(False, description="Whether this candidate was selected")
 
 
 class ConfigBackend(BaseModel):

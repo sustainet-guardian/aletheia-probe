@@ -4,12 +4,16 @@
 import asyncio
 import functools
 import json
+import re
 import sys
 import traceback
 from collections.abc import Callable
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, TypeVar
+from urllib.parse import urlparse
 
+import aiohttp
 import click
 
 from . import __version__
@@ -17,15 +21,28 @@ from .batch_assessor import BibtexBatchAssessor
 from .cache import AcronymCache, AssessmentCache, RetractionCache
 from .cache.schema import SchemaVersionError
 from .config import get_config_manager
+from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
-from .normalizer import input_normalizer
+from .models import AssessmentResult, CandidateAssessment, QueryInput, VenueType
+from .normalizer import are_conference_names_equivalent, input_normalizer
 from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
 
 
 LARGE_SYNC_BACKENDS: frozenset[str] = frozenset({"dblp_venues"})
+ISSN_RESOLUTION_TIMEOUT_SECONDS: int = 8
+ISSN_MIN_TOKEN_OVERLAP: float = 0.5
+GITHUB_HTTP_TIMEOUT_SECONDS: int = 120
+GITHUB_ALLOWED_HOSTS: set[str] = {
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+CROSSREF_ALLOWED_HOSTS: set[str] = {"api.crossref.org"}
 
 
 # Import cache_sync last: instantiation at module level may raise SchemaVersionError
@@ -39,6 +56,94 @@ except SchemaVersionError as _e:
 
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+def _is_allowed_host(host: str, allowed_hosts: set[str]) -> bool:
+    """Check whether a host is in the allowlist (exact or subdomain)."""
+    normalized = host.lower().strip()
+    if not normalized:
+        return False
+    return any(
+        normalized == allowed or normalized.endswith(f".{allowed}")
+        for allowed in allowed_hosts
+    )
+
+
+def _validate_https_url(url: str, allowed_hosts: set[str]) -> None:
+    """Validate URL scheme/host against strict HTTPS allowlist."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        raise ValueError(f"Only https URLs are allowed: {url}")
+    if not _is_allowed_host(host, allowed_hosts):
+        raise ValueError(f"Host not allowed: {host}")
+
+
+async def _fetch_https_text(
+    url: str, timeout_seconds: int, allowed_hosts: set[str]
+) -> str:
+    """Fetch text over HTTPS with host allowlist + redirect host verification."""
+    _validate_https_url(url, allowed_hosts)
+
+    timeout = aiohttp.ClientTimeout(total=timeout_seconds)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url, allow_redirects=True) as response:
+            response.raise_for_status()
+            final_host = (response.url.host or "").lower()
+            if not _is_allowed_host(final_host, allowed_hosts):
+                raise ValueError(f"Redirected to disallowed host: {final_host}")
+            return await response.text()
+
+
+async def _fetch_https_json(
+    url: str, timeout_seconds: int, allowed_hosts: set[str]
+) -> dict[str, Any] | list[Any]:
+    """Fetch JSON over HTTPS with strict URL/host checks."""
+    text = await _fetch_https_text(url, timeout_seconds, allowed_hosts)
+    data = json.loads(text)
+    if not isinstance(data, (dict, list)):
+        raise ValueError("Expected JSON object or list")
+    return data
+
+
+async def _resolve_issn_title(issn: str) -> str | None:
+    """Resolve ISSN to title via Crossref journals endpoint."""
+    try:
+        payload = await _fetch_https_json(
+            f"https://api.crossref.org/journals/{issn}",
+            ISSN_RESOLUTION_TIMEOUT_SECONDS,
+            CROSSREF_ALLOWED_HOSTS,
+        )
+        if not isinstance(payload, dict):
+            return None
+        message = payload.get("message", {})
+        if isinstance(message, dict):
+            title = message.get("title")
+            if isinstance(title, str) and title.strip():
+                return title.strip()
+    except (aiohttp.ClientError, json.JSONDecodeError, ValueError, OSError):
+        return None
+    return None
+
+
+def _token_overlap(left: str, right: str) -> float:
+    """Compute token overlap ratio using the shorter token set as denominator."""
+    left_tokens = set(re.findall(r"[a-z0-9]+", left.lower()))
+    right_tokens = set(re.findall(r"[a-z0-9]+", right.lower()))
+    if not left_tokens or not right_tokens:
+        return 0.0
+    overlap = left_tokens.intersection(right_tokens)
+    return len(overlap) / min(len(left_tokens), len(right_tokens))
+
+
+def _issn_title_matches_expected(
+    resolved_title: str, expected_name: str, venue_type: VenueType
+) -> bool:
+    """Check whether resolved ISSN title is consistent with expected venue name."""
+    if venue_type == VenueType.CONFERENCE:
+        if are_conference_names_equivalent(resolved_title, expected_name):
+            return True
+    return _token_overlap(resolved_title, expected_name) >= ISSN_MIN_TOKEN_OVERLAP
 
 
 @code_is_used  # This is called in error scenarios
@@ -176,28 +281,17 @@ def main(ctx: click.Context, config: Path | None) -> None:
 @click.argument("journal_name")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option(
-    "--format",
-    "output_format",
-    default="text",
-    type=click.Choice(["text", "json"]),
-    help="Output format",
+    "--no-acronyms",
+    is_flag=True,
+    help="Disable acronym/abbreviation/ISSN expansion candidates",
 )
-def journal(journal_name: str, verbose: bool, output_format: str) -> None:
-    """Assess whether a journal is predatory or legitimate.
-
-    Args:
-        journal_name: The name of the journal to assess.
-        verbose: Whether to enable verbose output.
-        output_format: The format of the output (text or json).
-    """
-    asyncio.run(
-        _async_assess_publication(journal_name, "journal", verbose, output_format)
-    )
-
-
-@main.command()
-@click.argument("conference_name")
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option(
+    "--confidence-min",
+    default=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Minimum acronym dataset confidence for expansion candidates",
+)
 @click.option(
     "--format",
     "output_format",
@@ -205,16 +299,81 @@ def journal(journal_name: str, verbose: bool, output_format: str) -> None:
     type=click.Choice(["text", "json"]),
     help="Output format",
 )
-def conference(conference_name: str, verbose: bool, output_format: str) -> None:
+def journal(
+    journal_name: str,
+    verbose: bool,
+    no_acronyms: bool,
+    confidence_min: float,
+    output_format: str,
+) -> None:
+    """Assess whether a journal is predatory or legitimate.
+
+    Args:
+        journal_name: The name of the journal to assess.
+        verbose: Whether to enable verbose output.
+        no_acronyms: Disable acronym/abbreviation/ISSN expansions.
+        confidence_min: Minimum confidence score for acronym expansions.
+        output_format: The format of the output (text or json).
+    """
+    asyncio.run(
+        _async_assess_publication(
+            journal_name,
+            "journal",
+            verbose,
+            output_format,
+            use_acronyms=not no_acronyms,
+            confidence_min=confidence_min,
+        )
+    )
+
+
+@main.command()
+@click.argument("conference_name")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option(
+    "--no-acronyms",
+    is_flag=True,
+    help="Disable acronym/abbreviation/ISSN expansion candidates",
+)
+@click.option(
+    "--confidence-min",
+    default=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Minimum acronym dataset confidence for expansion candidates",
+)
+@click.option(
+    "--format",
+    "output_format",
+    default="text",
+    type=click.Choice(["text", "json"]),
+    help="Output format",
+)
+def conference(
+    conference_name: str,
+    verbose: bool,
+    no_acronyms: bool,
+    confidence_min: float,
+    output_format: str,
+) -> None:
     """Assess whether a conference is predatory or legitimate.
 
     Args:
         conference_name: The name of the conference to assess.
         verbose: Whether to enable verbose output.
+        no_acronyms: Disable acronym/abbreviation/ISSN expansions.
+        confidence_min: Minimum confidence score for acronym expansions.
         output_format: The format of the output (text or json).
     """
     asyncio.run(
-        _async_assess_publication(conference_name, "conference", verbose, output_format)
+        _async_assess_publication(
+            conference_name,
+            "conference",
+            verbose,
+            output_format,
+            use_acronyms=not no_acronyms,
+            confidence_min=confidence_min,
+        )
     )
 
 
@@ -429,7 +588,9 @@ def acronym_status() -> None:
     status_logger.info("=" * 44)
 
     if stats["total_acronyms"] == 0:
-        status_logger.info("Database is empty — run 'acronym import' to load data")
+        status_logger.info(
+            "Database is empty — run 'acronym import' or 'acronym sync' to load data"
+        )
         return
 
     status_logger.info(f"Acronyms : {stats['total_acronyms']:>8,}")
@@ -501,13 +662,112 @@ def import_acronyms(input_file: str, merge: bool, source: str | None) -> None:
             ):
                 acronym_cache.clear_acronym_database()
 
-        source_file = Path(input_file).name
+        source_file = source or Path(input_file).name
         count = acronym_cache.import_acronyms(entries, source_file=source_file)
 
         status_logger.info(f"Successfully imported {count} acronym entries")
 
     except Exception as e:
         status_logger.error(f"Failed to import dataset: {e}")
+        raise click.ClickException(str(e)) from e
+
+
+def _get_latest_acronym_dataset_url(repo: str) -> tuple[str, str]:
+    """Get dataset download URL and source label from latest GitHub release.
+
+    Args:
+        repo: GitHub repository in owner/name format.
+
+    Returns:
+        Tuple of (download_url, source_label).
+
+    Raises:
+        ValueError: If repo format is invalid or dataset asset is missing.
+    """
+    if "/" not in repo:
+        raise ValueError("Repository must be in 'owner/name' format")
+
+    api_url = f"https://api.github.com/repos/{repo}/releases/latest"
+    payload = asyncio.run(
+        _fetch_https_json(api_url, GITHUB_HTTP_TIMEOUT_SECONDS, GITHUB_ALLOWED_HOSTS)
+    )
+    if not isinstance(payload, dict):
+        raise ValueError("Unexpected GitHub releases response format")
+    release_data = payload
+
+    assets = release_data.get("assets", [])
+    for asset in assets:
+        name = str(asset.get("name", ""))
+        if name.endswith(".json") and "venue-acronyms-2025-curated" in name:
+            return str(asset["browser_download_url"]), name
+
+    raise ValueError("Latest release does not contain venue-acronyms JSON asset")
+
+
+@acronym.command(name="sync")
+@click.option(
+    "--repo",
+    default="sustainet-guardian/venue-acronyms-2025",
+    show_default=True,
+    help="GitHub repository in owner/name format",
+)
+@click.option(
+    "--merge/--no-merge",
+    default=True,
+    help="Merge with existing data (default) or replace",
+)
+@click.option(
+    "--source",
+    default=None,
+    help="Override source label stored with each imported entry",
+)
+@handle_cli_errors
+def sync_acronyms(repo: str, merge: bool, source: str | None) -> None:
+    """Download latest venue-acronyms dataset from GitHub and import it."""
+    status_logger = get_status_logger()
+    acronym_cache = AcronymCache()
+
+    try:
+        dataset_url, asset_name = _get_latest_acronym_dataset_url(repo)
+        status_logger.info(f"Downloading dataset from {dataset_url}")
+
+        payload_data = asyncio.run(
+            _fetch_https_json(
+                dataset_url,
+                GITHUB_HTTP_TIMEOUT_SECONDS,
+                GITHUB_ALLOWED_HOSTS,
+            )
+        )
+
+        with NamedTemporaryFile("w", suffix=".json", encoding="utf-8") as tmp_file:
+            tmp_file.write(json.dumps(payload_data))
+            tmp_file.flush()
+
+            with open(tmp_file.name, encoding="utf-8") as f:
+                data = json.load(f)
+
+        entries = data.get("acronyms", []) if isinstance(data, dict) else data
+        if not isinstance(entries, list):
+            raise ValueError("Downloaded dataset has invalid format")
+
+        status_logger.info(f"Loaded {len(entries)} entries from latest release")
+
+        if not merge:
+            if click.confirm(
+                "This will clear existing data before importing. Continue?",
+                abort=True,
+            ):
+                acronym_cache.clear_acronym_database()
+
+        source_file = source or asset_name
+        count = acronym_cache.import_acronyms(entries, source_file=source_file)
+        status_logger.info(f"Successfully imported {count} acronym entries")
+
+    except aiohttp.ClientError as e:
+        status_logger.error(f"Failed to download dataset: {e}")
+        raise click.ClickException(str(e)) from e
+    except Exception as e:
+        status_logger.error(f"Failed to sync acronym dataset: {e}")
         raise click.ClickException(str(e)) from e
 
 
@@ -885,7 +1145,12 @@ async def _async_bibtex_main(
 
 
 async def _async_assess_publication(
-    publication_name: str, publication_type: str, verbose: bool, output_format: str
+    publication_name: str,
+    publication_type: str,
+    verbose: bool,
+    output_format: str,
+    use_acronyms: bool = True,
+    confidence_min: float = DEFAULT_ACRONYM_CONFIDENCE_MIN,
 ) -> None:
     """Async function for assessing publications with type specification.
 
@@ -894,28 +1159,237 @@ async def _async_assess_publication(
         publication_type: The type of publication (journal or conference).
         verbose: Whether to enable verbose output.
         output_format: The format of the output (text or json).
+        use_acronyms: Whether to use acronym/variant/ISSN expansion candidates.
+        confidence_min: Minimum acronym dataset confidence score for expansions.
     """
     status_logger = get_status_logger()
     acronym_cache = AcronymCache()
 
     try:
-        # Normalize the input (without acronym lookup for now)
-        query_input = input_normalizer.normalize(publication_name)
+        requested_venue_type = (
+            VenueType.CONFERENCE
+            if publication_type == "conference"
+            else VenueType.JOURNAL
+        )
 
-        # Store any extracted acronym mappings in cache with detected venue type
-        for acronym, full_name in query_input.extracted_acronym_mappings.items():
-            acronym_cache.store_acronym_mapping(
-                acronym, full_name, query_input.venue_type.value, source="user_input"
+        def acronym_lookup_for_type(acronym: str) -> str | None:
+            if not use_acronyms:
+                return None
+            return acronym_cache.get_full_name_for_acronym(
+                acronym,
+                requested_venue_type.value,
+                min_confidence=confidence_min,
             )
+
+        # Candidate 1: user-provided input exactly as entered
+        base_query = input_normalizer.normalize(publication_name)
+        base_query.venue_type = requested_venue_type
+
+        normalized_name = (
+            base_query.normalized_name
+            if isinstance(base_query.normalized_name, str)
+            else None
+        )
+        aliases = base_query.aliases if isinstance(base_query.aliases, list) else []
+        identifiers = (
+            base_query.identifiers if isinstance(base_query.identifiers, dict) else {}
+        )
+
+        candidates: list[tuple[str, QueryInput]] = [("input", base_query)]
+        candidate_names_seen: set[str] = {publication_name.strip().lower()}
+        issn_validation_notes: list[str] = []
+
+        async def add_issn_candidates(
+            acronym: str, source_label: str, expected_name: str
+        ) -> None:
+            """Add ISSN-based candidates for an acronym entry."""
+            issns = acronym_cache.get_issns(
+                acronym,
+                requested_venue_type.value,
+                min_confidence=confidence_min,
+            )
+            for issn in issns:
+                if issn.lower() in candidate_names_seen:
+                    continue
+                resolved_title = await _resolve_issn_title(issn)
+                if not resolved_title:
+                    note = f"Skipped ISSN {issn}: unable to resolve title from Crossref"
+                    issn_validation_notes.append(note)
+                    continue
+                if not _issn_title_matches_expected(
+                    resolved_title, expected_name, requested_venue_type
+                ):
+                    note = (
+                        f"Skipped ISSN {issn}: resolves to '{resolved_title}', "
+                        f"does not match '{expected_name}'"
+                    )
+                    issn_validation_notes.append(note)
+                    continue
+
+                issn_validation_notes.append(
+                    f"Accepted ISSN {issn}: resolves to '{resolved_title}'"
+                )
+                issn_query = input_normalizer.normalize(
+                    issn, acronym_lookup=acronym_lookup_for_type
+                )
+                issn_query.venue_type = requested_venue_type
+                issn_query.acronym_expanded_from = raw_input
+                candidates.append((f"{source_label}->issn", issn_query))
+                candidate_names_seen.add(issn.lower())
+
+        # Candidates 2-N: acronym/variant/ISSN expansions (optional)
+        if use_acronyms:
+            raw_input = publication_name.strip()
+            variant_inputs = [raw_input]
+            if normalized_name:
+                variant_inputs.append(normalized_name)
+            variant_inputs.extend(aliases[:10])  # keep bounded
+
+            # (2) Standalone acronym -> canonical full name
+            if input_normalizer._is_standalone_acronym(raw_input) is True:
+                expanded = acronym_cache.get_full_name_for_acronym(
+                    raw_input,
+                    requested_venue_type.value,
+                    min_confidence=confidence_min,
+                )
+                if expanded and expanded.lower() not in candidate_names_seen:
+                    expanded_query = input_normalizer.normalize(
+                        expanded, acronym_lookup=acronym_lookup_for_type
+                    )
+                    expanded_query.venue_type = requested_venue_type
+                    expanded_query.acronym_expanded_from = raw_input
+                    candidates.append(("acronym->full", expanded_query))
+                    candidate_names_seen.add(expanded.lower())
+                    await add_issn_candidates(raw_input, "acronym", expanded)
+
+            # (3) Abbreviation/variant -> acronym and canonical
+            for variant in variant_inputs:
+                match = acronym_cache.get_variant_match(
+                    variant,
+                    requested_venue_type.value,
+                    min_confidence=confidence_min,
+                )
+                if not match:
+                    continue
+
+                canonical = str(match["canonical"])
+                acronym = str(match["acronym"])
+
+                if canonical.lower() not in candidate_names_seen:
+                    canonical_query = input_normalizer.normalize(
+                        canonical, acronym_lookup=acronym_lookup_for_type
+                    )
+                    canonical_query.venue_type = requested_venue_type
+                    canonical_query.acronym_expanded_from = raw_input
+                    candidates.append(("variant->full", canonical_query))
+                    candidate_names_seen.add(canonical.lower())
+
+                if acronym.lower() not in candidate_names_seen:
+                    acronym_query = input_normalizer.normalize(
+                        acronym, acronym_lookup=acronym_lookup_for_type
+                    )
+                    acronym_query.venue_type = requested_venue_type
+                    acronym_query.acronym_expanded_from = raw_input
+                    candidates.append(("variant->acronym", acronym_query))
+                    candidate_names_seen.add(acronym.lower())
+
+                await add_issn_candidates(acronym, "variant", canonical)
+
+            # (4) ISSN -> acronym and canonical (if ISSN present in input)
+            issn = identifiers.get("issn")
+            if issn:
+                issn_match = acronym_cache.get_issn_match(
+                    issn, min_confidence=confidence_min
+                )
+                if issn_match:
+                    canonical = str(issn_match["canonical"])
+                    acronym = str(issn_match["acronym"])
+
+                    if canonical.lower() not in candidate_names_seen:
+                        canonical_query = input_normalizer.normalize(
+                            canonical, acronym_lookup=acronym_lookup_for_type
+                        )
+                        canonical_query.venue_type = requested_venue_type
+                        canonical_query.acronym_expanded_from = raw_input
+                        candidates.append(("issn->full", canonical_query))
+                        candidate_names_seen.add(canonical.lower())
+
+                    if acronym.lower() not in candidate_names_seen:
+                        acronym_query = input_normalizer.normalize(
+                            acronym, acronym_lookup=acronym_lookup_for_type
+                        )
+                        acronym_query.venue_type = requested_venue_type
+                        acronym_query.acronym_expanded_from = raw_input
+                        candidates.append(("issn->acronym", acronym_query))
+                        candidate_names_seen.add(acronym.lower())
+
+        # Persist learned mappings from all candidate queries
+        for _, query_input in candidates:
+            for acronym, full_name in query_input.extracted_acronym_mappings.items():
+                acronym_cache.store_acronym_mapping(
+                    acronym,
+                    full_name,
+                    query_input.venue_type.value,
+                    source="user_input",
+                )
 
         if verbose:
             status_logger.info(f"Publication type: {publication_type}")
-            status_logger.info(f"Normalized input: {query_input.normalized_name}")
-            if query_input.identifiers:
-                status_logger.info(f"Identifiers: {query_input.identifiers}")
+            status_logger.info(f"Normalized input: {normalized_name}")
+            if identifiers:
+                status_logger.info(f"Identifiers: {identifiers}")
 
-        # Assess the publication - currently all types use the same backend pipeline
-        result = await query_dispatcher.assess_journal(query_input)
+        if use_acronyms and len(candidates) > 1:
+            status_logger.info(
+                f"Acronym workflow enabled (confidence_min={confidence_min:.2f}): "
+                f"trying {len(candidates)} candidates"
+            )
+            for label, candidate in candidates:
+                status_logger.info(f"  - {label}: {candidate.raw_input}")
+
+        # Assess all candidates and keep the strongest outcome
+        assessed_candidates: list[tuple[str, AssessmentResult, str]] = []
+        for label, query_input in candidates:
+            candidate_result = await query_dispatcher.assess_journal(query_input)
+            assessed_candidates.append((label, candidate_result, query_input.raw_input))
+
+        # Choose best by confidence (tie-breaker: higher overall score)
+        best_label, result, best_query_text = max(
+            assessed_candidates,
+            key=lambda item: (item[1].confidence, item[1].overall_score),
+        )
+        result.candidate_assessments = [
+            CandidateAssessment(
+                label=label,
+                query=query_text,
+                assessment=candidate_result.assessment,
+                confidence=candidate_result.confidence,
+                overall_score=candidate_result.overall_score,
+                selected=(label == best_label and query_text == best_query_text),
+            )
+            for label, candidate_result, query_text in assessed_candidates
+        ]
+        # Always display the original user query in output header
+        result.input_query = publication_name.strip()
+
+        if use_acronyms and len(assessed_candidates) > 1:
+            result.reasoning.insert(
+                0,
+                f"Acronym workflow: tried {len(assessed_candidates)} candidate forms; "
+                f"selected '{best_query_text}' ({best_label})",
+            )
+        if issn_validation_notes:
+            result.reasoning.extend(
+                [f"ISSN validation: {n}" for n in issn_validation_notes]
+            )
+
+        if best_label != "input":
+            result.acronym_expansion_used = True
+            if not result.acronym_expanded_from:
+                if input_normalizer._is_standalone_acronym(best_query_text) is True:
+                    result.acronym_expanded_from = best_query_text
+                else:
+                    result.acronym_expanded_from = publication_name.strip()
 
         # Output results
         if output_format == "json":

@@ -17,6 +17,7 @@ from pybtex.database import (  # type: ignore
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
 from .cache import AcronymCache
+from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .logging_config import get_detail_logger, get_status_logger
 from .models import BibtexEntry, VenueType
 
@@ -844,10 +845,16 @@ class BibtexParser:
 
             # Try to look up the acronym in the cache (for journals)
             acronym_cache = AcronymCache()
-            full_name = acronym_cache.get_full_name_for_acronym(acronym, "journal")
+            full_name = acronym_cache.get_full_name_for_acronym(
+                acronym,
+                "journal",
+                min_confidence=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+            )
 
             if full_name:
-                return full_name
+                # Preserve original macro acronym while appending resolved title.
+                # Keeps provenance explicit and aligns with tests expecting macro token.
+                return f"{acronym} ({full_name})"
             else:
                 # If not in cache, just return the uppercase acronym
                 # This is better than keeping the backslash
