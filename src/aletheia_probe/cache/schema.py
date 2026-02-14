@@ -104,7 +104,7 @@ def check_schema_compatibility(db_path: Path) -> bool:
             f"Database schema is from an old version of aletheia-probe (pre-1.0) "
             f"and cannot be used with this version (requires schema {SCHEMA_VERSION}).\n\n"
             f"Please delete the database and run sync again:\n"
-            f"  rm <db_path>\n"
+            f"  rm {db_path}\n"
             f"  aletheia-probe sync"
         )
 
@@ -113,7 +113,7 @@ def check_schema_compatibility(db_path: Path) -> bool:
             f"Database schema version ({current_version}) is too old "
             f"(requires {SCHEMA_VERSION}).\n\n"
             f"Please delete the database and run sync again:\n"
-            f"  rm <db_path>\n"
+            f"  rm {db_path}\n"
             f"  aletheia-probe sync"
         )
 

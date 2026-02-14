@@ -15,7 +15,14 @@ import click
 from . import __version__
 from .batch_assessor import BibtexBatchAssessor
 from .cache import AcronymCache, AssessmentCache, RetractionCache
-from .cache_sync import cache_sync_manager
+from .cache.schema import SchemaVersionError
+
+_startup_error: SchemaVersionError | None = None
+try:
+    from .cache_sync import cache_sync_manager
+except SchemaVersionError as _e:
+    _startup_error = _e
+    cache_sync_manager = None  # type: ignore[assignment]
 from .config import get_config_manager
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
@@ -147,6 +154,11 @@ def main(ctx: click.Context, config: Path | None) -> None:
     # Initialize logging on first command invocation
     detail_logger, status_logger = setup_logging()
     detail_logger.debug("CLI initialized")
+
+    # Fail cleanly if the database schema was incompatible at startup
+    if _startup_error is not None:
+        status_logger.error(str(_startup_error))
+        sys.exit(1)
 
     # Initialize config manager with custom path if provided
     if config:
