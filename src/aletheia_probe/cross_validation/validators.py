@@ -27,6 +27,16 @@ RECENT_ACTIVITY_YEARS_THRESHOLD = 2
 INACTIVE_ACTIVITY_YEARS_THRESHOLD = 3
 
 
+def _format_assessment_label(assessment: Any | None) -> str:
+    """Format backend assessment for human-readable reasoning output."""
+    if assessment is None:
+        return "None"
+    value = getattr(assessment, "value", None)
+    if isinstance(value, str):
+        return value.upper()
+    return str(assessment)
+
+
 class OpenAlexCrossRefValidator:
     """Validator for OpenAlex and CrossRef backend pair.
 
@@ -300,7 +310,11 @@ class OpenAlexCrossRefValidator:
             agreement_bonus = AGREEMENT_BONUS
             assessment_agreement = True
             confidence_adjustment = agreement_bonus
-        elif openalex_assessment != crossref_assessment:
+        elif (
+            openalex_assessment is not None
+            and crossref_assessment is not None
+            and openalex_assessment != crossref_assessment
+        ):
             # Disagreement - apply penalty
             if (
                 openalex_confidence
@@ -368,23 +382,38 @@ class OpenAlexCrossRefValidator:
     ) -> list[str]:
         """Generate combined reasoning for the cross-validation result."""
         reasoning = []
+        openalex_label = (
+            openalex_assessment.value.upper()
+            if hasattr(openalex_assessment, "value")
+            else str(openalex_assessment)
+        )
+        crossref_label = (
+            crossref_assessment.value.upper()
+            if hasattr(crossref_assessment, "value")
+            else str(crossref_assessment)
+        )
 
         if assessment_agreement:
             reasoning.append(
-                f"Both OpenAlex and CrossRef analysis agree: {openalex_assessment or crossref_assessment}"
+                f"Both OpenAlex and CrossRef analysis agree: {openalex_label or crossref_label}"
             )
             reasoning.append(
                 f"Cross-validation confidence bonus: +{agreement_bonus:.0%}"
             )
-        elif openalex_assessment != crossref_assessment:
+        elif (
+            openalex_assessment is not None
+            and crossref_assessment is not None
+            and openalex_assessment != crossref_assessment
+        ):
             reasoning.append(
-                f"Backend disagreement: OpenAlex='{openalex_assessment}', CrossRef='{crossref_assessment}'"
+                f"Backend disagreement: OpenAlex='{openalex_label}', CrossRef='{crossref_label}'"
             )
             reasoning.append("Confidence reduced due to disagreement")
 
         if consistency_checks:
-            reasoning.append("Consistency checks:")
-            reasoning.extend([f"  {check}" for check in consistency_checks])
+            reasoning.extend(
+                [f"Consistency check: {check}" for check in consistency_checks]
+            )
 
         # Add summaries from individual backends
         if openalex_result.data.get("analysis", {}).get("reasoning"):
@@ -404,3 +433,254 @@ class OpenAlexCrossRefValidator:
 
 # Ensure OpenAlexCrossRefValidator implements the protocol
 assert isinstance(OpenAlexCrossRefValidator(), CrossValidationCapable)
+
+
+def _collect_backend_flags(
+    backend_label: str, result: BackendResult
+) -> dict[str, list[str]]:
+    """Collect prefixed red/green flags from a backend analysis payload."""
+    analysis = result.data.get("analysis", {})
+    red_flags = analysis.get("red_flags", [])
+    green_flags = analysis.get("green_flags", [])
+
+    return {
+        "red_flags": [f"{backend_label}: {flag}" for flag in red_flags],
+        "green_flags": [f"{backend_label}: {flag}" for flag in green_flags],
+    }
+
+
+def _combine_pair_assessments(
+    result_a: BackendResult,
+    result_b: BackendResult,
+) -> tuple[bool, float]:
+    """Calculate agreement and confidence adjustment for two backend results."""
+    assessment_a = result_a.assessment
+    assessment_b = result_b.assessment
+
+    if assessment_a == assessment_b and assessment_a is not None:
+        return True, AGREEMENT_BONUS
+
+    if (
+        assessment_a is not None
+        and assessment_b is not None
+        and assessment_a != assessment_b
+    ):
+        confidence_a = result_a.confidence
+        confidence_b = result_b.confidence
+
+        if confidence_a > confidence_b * CONFIDENCE_DISCREPANCY_THRESHOLD:
+            return False, DISAGREEMENT_PENALTY - 1.0
+        if confidence_b > confidence_a * CONFIDENCE_DISCREPANCY_THRESHOLD:
+            return False, DISAGREEMENT_PENALTY - 1.0
+        return False, CONFIDENCE_THRESHOLD_LOW - max(confidence_a, confidence_b)
+
+    return False, 0.0
+
+
+class OpenAlexOpenCitationsValidator:
+    """Validator for OpenAlex and OpenCitations backend pair."""
+
+    def __init__(self) -> None:
+        """Initialize validator."""
+        self.detail_logger = get_detail_logger()
+
+    @property
+    def supported_backend_pair(self) -> tuple[str, str]:
+        """Get supported backend pair."""
+        return ("openalex_analyzer", "opencitations_analyzer")
+
+    def validate(
+        self, result1: BackendResult, result2: BackendResult
+    ) -> dict[str, Any]:
+        """Cross-validate OpenAlex and OpenCitations results."""
+        if result1.backend_name == "openalex_analyzer":
+            openalex_result, opencitations_result = result1, result2
+        else:
+            openalex_result, opencitations_result = result2, result1
+
+        openalex_found = openalex_result.status == BackendStatus.FOUND
+        opencitations_found = opencitations_result.status == BackendStatus.FOUND
+
+        combined_flags: dict[str, list[str]] = {"red_flags": [], "green_flags": []}
+        combined_flags["red_flags"].extend(
+            _collect_backend_flags("OpenAlex", openalex_result)["red_flags"]
+        )
+        combined_flags["green_flags"].extend(
+            _collect_backend_flags("OpenAlex", openalex_result)["green_flags"]
+        )
+        combined_flags["red_flags"].extend(
+            _collect_backend_flags("OpenCitations", opencitations_result)["red_flags"]
+        )
+        combined_flags["green_flags"].extend(
+            _collect_backend_flags("OpenCitations", opencitations_result)["green_flags"]
+        )
+
+        if not openalex_found or not opencitations_found:
+            return {
+                "confidence_adjustment": 0.0,
+                "consistency_checks": [],
+                "combined_flags": combined_flags,
+                "reasoning": [
+                    "Cross-validation skipped: OpenAlex/OpenCitations data not available from both backends"
+                ],
+                "agreement": False,
+            }
+
+        openalex_data = openalex_result.data.get("openalex_data", {})
+        opencitations_data = opencitations_result.data.get("opencitations_data", {})
+
+        checks: list[str] = []
+        openalex_citations = openalex_data.get("cited_by_count", 0)
+        opencitations_citations = opencitations_data.get("citation_count", 0)
+        if openalex_citations > 0 and opencitations_citations > 0:
+            ratio = min(openalex_citations, opencitations_citations) / max(
+                openalex_citations, opencitations_citations
+            )
+            if ratio >= PUB_VOLUME_CONSISTENCY_THRESHOLD_LOW:
+                checks.append(
+                    "✓ Citation footprint broadly consistent between OpenAlex and OpenCitations"
+                )
+            else:
+                checks.append(
+                    "⚠️ Citation footprint differs substantially between OpenAlex and OpenCitations"
+                )
+
+        agreement, confidence_adjustment = _combine_pair_assessments(
+            openalex_result, opencitations_result
+        )
+        openalex_label = _format_assessment_label(openalex_result.assessment)
+        opencitations_label = _format_assessment_label(opencitations_result.assessment)
+
+        reasoning = []
+        if agreement:
+            reasoning.append(
+                f"Both OpenAlex and OpenCitations analysis agree: {openalex_label}"
+            )
+        elif (
+            openalex_result.assessment is not None
+            and opencitations_result.assessment is not None
+            and openalex_result.assessment != opencitations_result.assessment
+        ):
+            reasoning.append(
+                "Backend disagreement: "
+                f"OpenAlex='{openalex_label}', OpenCitations='{opencitations_label}'"
+            )
+            reasoning.append("Confidence reduced due to disagreement")
+
+        if checks:
+            reasoning.extend([f"Consistency check: {check}" for check in checks])
+
+        return {
+            "confidence_adjustment": confidence_adjustment,
+            "consistency_checks": checks,
+            "combined_flags": combined_flags,
+            "reasoning": reasoning,
+            "agreement": agreement,
+        }
+
+
+class CrossRefOpenCitationsValidator:
+    """Validator for CrossRef and OpenCitations backend pair."""
+
+    def __init__(self) -> None:
+        """Initialize validator."""
+        self.detail_logger = get_detail_logger()
+
+    @property
+    def supported_backend_pair(self) -> tuple[str, str]:
+        """Get supported backend pair."""
+        return ("crossref_analyzer", "opencitations_analyzer")
+
+    def validate(
+        self, result1: BackendResult, result2: BackendResult
+    ) -> dict[str, Any]:
+        """Cross-validate CrossRef and OpenCitations results."""
+        if result1.backend_name == "crossref_analyzer":
+            crossref_result, opencitations_result = result1, result2
+        else:
+            crossref_result, opencitations_result = result2, result1
+
+        crossref_found = crossref_result.status == BackendStatus.FOUND
+        opencitations_found = opencitations_result.status == BackendStatus.FOUND
+
+        combined_flags: dict[str, list[str]] = {"red_flags": [], "green_flags": []}
+        combined_flags["red_flags"].extend(
+            _collect_backend_flags("CrossRef", crossref_result)["red_flags"]
+        )
+        combined_flags["green_flags"].extend(
+            _collect_backend_flags("CrossRef", crossref_result)["green_flags"]
+        )
+        combined_flags["red_flags"].extend(
+            _collect_backend_flags("OpenCitations", opencitations_result)["red_flags"]
+        )
+        combined_flags["green_flags"].extend(
+            _collect_backend_flags("OpenCitations", opencitations_result)["green_flags"]
+        )
+
+        if not crossref_found or not opencitations_found:
+            return {
+                "confidence_adjustment": 0.0,
+                "consistency_checks": [],
+                "combined_flags": combined_flags,
+                "reasoning": [
+                    "Cross-validation skipped: CrossRef/OpenCitations data not available from both backends"
+                ],
+                "agreement": False,
+            }
+
+        crossref_data = crossref_result.data.get("crossref_data", {})
+        opencitations_data = opencitations_result.data.get("opencitations_data", {})
+
+        checks: list[str] = []
+        crossref_total_dois = crossref_data.get("counts", {}).get("total-dois", 0)
+        opencitations_references = opencitations_data.get("reference_count", 0)
+        if crossref_total_dois > 0 and opencitations_references > 0:
+            ratio = min(crossref_total_dois, opencitations_references) / max(
+                crossref_total_dois, opencitations_references
+            )
+            if ratio >= PUB_VOLUME_CONSISTENCY_THRESHOLD_LOW:
+                checks.append(
+                    "✓ CrossRef DOI volume and OpenCitations reference footprint are broadly consistent"
+                )
+            else:
+                checks.append(
+                    "⚠️ CrossRef DOI volume and OpenCitations reference footprint differ substantially"
+                )
+
+        agreement, confidence_adjustment = _combine_pair_assessments(
+            crossref_result, opencitations_result
+        )
+        crossref_label = _format_assessment_label(crossref_result.assessment)
+        opencitations_label = _format_assessment_label(opencitations_result.assessment)
+
+        reasoning = []
+        if agreement:
+            reasoning.append(
+                f"Both CrossRef and OpenCitations analysis agree: {crossref_label}"
+            )
+        elif (
+            crossref_result.assessment is not None
+            and opencitations_result.assessment is not None
+            and crossref_result.assessment != opencitations_result.assessment
+        ):
+            reasoning.append(
+                "Backend disagreement: "
+                f"CrossRef='{crossref_label}', OpenCitations='{opencitations_label}'"
+            )
+            reasoning.append("Confidence reduced due to disagreement")
+
+        if checks:
+            reasoning.extend([f"Consistency check: {check}" for check in checks])
+
+        return {
+            "confidence_adjustment": confidence_adjustment,
+            "consistency_checks": checks,
+            "combined_flags": combined_flags,
+            "reasoning": reasoning,
+            "agreement": agreement,
+        }
+
+
+# Ensure validators implement protocol
+assert isinstance(OpenAlexOpenCitationsValidator(), CrossValidationCapable)
+assert isinstance(CrossRefOpenCitationsValidator(), CrossValidationCapable)

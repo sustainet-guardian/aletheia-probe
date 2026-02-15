@@ -6,9 +6,11 @@ from unittest.mock import Mock
 import pytest
 
 from aletheia_probe.cross_validation import (
+    CrossRefOpenCitationsValidator,
     CrossValidationCapable,
     CrossValidationRegistry,
     OpenAlexCrossRefValidator,
+    OpenAlexOpenCitationsValidator,
     get_cross_validation_registry,
 )
 from aletheia_probe.enums import AssessmentType
@@ -30,6 +32,16 @@ class TestCrossValidationRegistry:
         # Check that it's order-independent
         validator2 = registry.create_validator("crossref_analyzer", "openalex_analyzer")
         assert isinstance(validator2, OpenAlexCrossRefValidator)
+
+        validator3 = registry.create_validator(
+            "openalex_analyzer", "opencitations_analyzer"
+        )
+        assert isinstance(validator3, OpenAlexOpenCitationsValidator)
+
+        validator4 = registry.create_validator(
+            "crossref_analyzer", "opencitations_analyzer"
+        )
+        assert isinstance(validator4, CrossRefOpenCitationsValidator)
 
     def test_protocol_methods_are_called(self):
         """Test that protocol methods are actually called during cross-validation."""
@@ -98,6 +110,14 @@ class TestCrossValidationRegistry:
         pairs = registry.get_registered_pairs()
         assert ("crossref_analyzer", "openalex_analyzer") in pairs or (
             "openalex_analyzer",
+            "crossref_analyzer",
+        ) in pairs
+        assert ("openalex_analyzer", "opencitations_analyzer") in pairs or (
+            "opencitations_analyzer",
+            "openalex_analyzer",
+        ) in pairs
+        assert ("crossref_analyzer", "opencitations_analyzer") in pairs or (
+            "opencitations_analyzer",
             "crossref_analyzer",
         ) in pairs
 
@@ -317,6 +337,137 @@ class TestOpenAlexCrossRefValidator:
         assert result["agreement"] is False
         assert result["confidence_adjustment"] < 0  # Single source penalty
         assert "Only found in OpenAlex" in str(result["consistency_checks"])
+
+    def test_validator_none_assessment_no_disagreement_penalty(self):
+        """None assessment from one side should not be treated as disagreement."""
+        validator = OpenAlexCrossRefValidator()
+
+        openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="openalex_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.8,
+            assessment=AssessmentType.LEGITIMATE,
+            data={
+                "openalex_data": {"publisher": "Academic Press"},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.openalex.org"],
+            error_message=None,
+            response_time=1.0,
+            cached=False,
+        )
+
+        crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="crossref_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.4,
+            assessment=None,
+            data={
+                "crossref_data": {"publisher": "Academic Press"},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.crossref.org"],
+            error_message=None,
+            response_time=1.2,
+            cached=False,
+        )
+
+        result = validator.validate(openalex_result, crossref_result)
+
+        assert result["confidence_adjustment"] == 0.0
+        assert "Backend disagreement" not in str(result["reasoning"])
+
+
+class TestOpenAlexOpenCitationsValidator:
+    """Tests for the OpenAlexOpenCitationsValidator class."""
+
+    def test_validator_agreement_scenario(self):
+        """Test agreement handling between OpenAlex and OpenCitations."""
+        validator = OpenAlexOpenCitationsValidator()
+
+        openalex_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="openalex_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.8,
+            assessment=AssessmentType.LEGITIMATE,
+            data={
+                "openalex_data": {"cited_by_count": 10000},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.openalex.org"],
+            error_message=None,
+            response_time=1.0,
+            cached=False,
+        )
+
+        opencitations_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="opencitations_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.7,
+            assessment=AssessmentType.LEGITIMATE,
+            data={
+                "opencitations_data": {"citation_count": 9000},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.opencitations.net/index/v2"],
+            error_message=None,
+            response_time=1.0,
+            cached=False,
+        )
+
+        result = validator.validate(openalex_result, opencitations_result)
+
+        assert result["agreement"] is True
+        assert result["confidence_adjustment"] > 0
+
+
+class TestCrossRefOpenCitationsValidator:
+    """Tests for the CrossRefOpenCitationsValidator class."""
+
+    def test_validator_disagreement_scenario(self):
+        """Test disagreement handling between CrossRef and OpenCitations."""
+        validator = CrossRefOpenCitationsValidator()
+
+        crossref_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="crossref_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.8,
+            assessment=AssessmentType.LEGITIMATE,
+            data={
+                "crossref_data": {"counts": {"total-dois": 1000}},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.crossref.org"],
+            error_message=None,
+            response_time=1.0,
+            cached=False,
+        )
+
+        opencitations_result = BackendResult(
+            fallback_chain=QueryFallbackChain([]),
+            backend_name="opencitations_analyzer",
+            status=BackendStatus.FOUND,
+            confidence=0.6,
+            assessment=AssessmentType.PREDATORY,
+            data={
+                "opencitations_data": {"reference_count": 10000},
+                "analysis": {"red_flags": [], "green_flags": [], "reasoning": []},
+            },
+            sources=["https://api.opencitations.net/index/v2"],
+            error_message=None,
+            response_time=1.0,
+            cached=False,
+        )
+
+        result = validator.validate(crossref_result, opencitations_result)
+
+        assert result["agreement"] is False
+        assert result["confidence_adjustment"] < 0
 
     def test_validator_no_results_scenario(self):
         """Test validator with no backends having results."""

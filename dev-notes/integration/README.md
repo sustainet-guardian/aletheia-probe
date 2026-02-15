@@ -71,6 +71,7 @@ Each integration document should include:
 - **[CODING_STANDARDS.md](../CODING_STANDARDS.md)** - Code style and patterns
 - **[LOGGING_USAGE.md](../LOGGING_USAGE.md)** - Logging conventions
 - **[core.md](./core.md)** - CORE/ICORE conference and journal integration
+- **[opencitations.md](./opencitations.md)** - OpenCitations citation-graph integration
 
 ## See Also
 

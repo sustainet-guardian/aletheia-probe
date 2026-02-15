@@ -7,7 +7,11 @@ from typing import Any
 
 from ..models import BackendResult
 from .protocols import CrossValidationCapable
-from .validators import OpenAlexCrossRefValidator
+from .validators import (
+    CrossRefOpenCitationsValidator,
+    OpenAlexCrossRefValidator,
+    OpenAlexOpenCitationsValidator,
+)
 
 
 class CrossValidationRegistry:
@@ -34,6 +38,18 @@ class CrossValidationRegistry:
             "openalex_analyzer",
             "crossref_analyzer",
             lambda: OpenAlexCrossRefValidator(),
+            default_config={},
+        )
+        self.register_factory(
+            "openalex_analyzer",
+            "opencitations_analyzer",
+            lambda: OpenAlexOpenCitationsValidator(),
+            default_config={},
+        )
+        self.register_factory(
+            "crossref_analyzer",
+            "opencitations_analyzer",
+            lambda: CrossRefOpenCitationsValidator(),
             default_config={},
         )
 
