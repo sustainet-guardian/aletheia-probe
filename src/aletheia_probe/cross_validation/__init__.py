@@ -3,7 +3,11 @@
 
 from .protocols import CrossValidationCapable
 from .registry import CrossValidationRegistry, get_cross_validation_registry
-from .validators import OpenAlexCrossRefValidator
+from .validators import (
+    CrossRefOpenCitationsValidator,
+    OpenAlexCrossRefValidator,
+    OpenAlexOpenCitationsValidator,
+)
 
 
 __all__ = [
@@ -11,4 +15,6 @@ __all__ = [
     "CrossValidationRegistry",
     "get_cross_validation_registry",
     "OpenAlexCrossRefValidator",
+    "OpenAlexOpenCitationsValidator",
+    "CrossRefOpenCitationsValidator",
 ]
