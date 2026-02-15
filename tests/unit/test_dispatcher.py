@@ -46,6 +46,7 @@ def dispatcher():
             "aletheia_probe.dispatcher.get_config_manager"
         ) as mock_get_config_manager,
         patch("aletheia_probe.dispatcher.get_detail_logger"),
+        patch("aletheia_probe.dispatcher.JournalCache") as mock_journal_cache_cls,
     ):
         # Configure the mock to return proper backend config
         mock_backend_config = Mock()
@@ -56,6 +57,12 @@ def dispatcher():
         mock_config_manager = Mock()
         mock_config_manager.get_backend_config.return_value = mock_backend_config
         mock_get_config_manager.return_value = mock_config_manager
+        mock_journal_cache = Mock()
+        mock_journal_cache.get_journal_identifiers_by_normalized_name.return_value = (
+            None
+        )
+        mock_journal_cache.upsert_journal_identifiers = Mock()
+        mock_journal_cache_cls.return_value = mock_journal_cache
         return QueryDispatcher()
 
 
@@ -612,3 +619,99 @@ class TestQueryDispatcher:
         assert adjusted_a.confidence == pytest.approx(0.5)
         assert "cross_validations" not in adjusted_a.data
         mock_validate_pair.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_enrich_query_identifiers_uses_cache_first(self, dispatcher):
+        """Use cached ISSN/eISSN mapping when available."""
+        query_input = QueryInput(
+            raw_input="Nature",
+            normalized_name="nature",
+            identifiers={},
+            aliases=[],
+        )
+        dispatcher.journal_cache.get_journal_identifiers_by_normalized_name.return_value = {
+            "issn": "0028-0836",
+            "eissn": "1476-4687",
+        }
+
+        enriched = await dispatcher._enrich_query_identifiers(query_input)
+
+        assert enriched.identifiers["issn"] == "0028-0836"
+        assert enriched.identifiers["eissn"] == "1476-4687"
+
+    @pytest.mark.asyncio
+    async def test_enrich_query_identifiers_resolves_and_persists(self, dispatcher):
+        """Resolve identifiers via OpenAlex when cache misses and persist them."""
+        query_input = QueryInput(
+            raw_input="Nature",
+            normalized_name="nature",
+            identifiers={},
+            aliases=[],
+        )
+        dispatcher.journal_cache.get_journal_identifiers_by_normalized_name.return_value = None
+        with patch.object(
+            dispatcher,
+            "_resolve_identifiers_from_openalex",
+            new=AsyncMock(
+                return_value={
+                    "issn": "0028-0836",
+                    "eissn": "1476-4687",
+                    "display_name": "Nature",
+                    "publisher": "Springer Nature",
+                }
+            ),
+        ):
+            enriched = await dispatcher._enrich_query_identifiers(query_input)
+
+        assert enriched.identifiers["issn"] == "0028-0836"
+        assert enriched.identifiers["eissn"] == "1476-4687"
+        dispatcher.journal_cache.upsert_journal_identifiers.assert_called_once()
+
+    def test_select_exact_identifier_source_ambiguous(self, dispatcher):
+        """Return None when exact name has conflicting ISSN footprints."""
+        candidates = [
+            {
+                "display_name": "Nature",
+                "issn_l": "0028-0836",
+                "issn": ["0028-0836", "1476-4687"],
+                "works_count": 10,
+            },
+            {
+                "display_name": "Nature",
+                "issn_l": "1234-5679",
+                "issn": ["1234-5679", "8765-4326"],
+                "works_count": 100,
+            },
+        ]
+
+        selected = dispatcher._select_exact_identifier_source("nature", candidates)
+
+        assert selected is None
+
+    def test_select_exact_identifier_source_prefers_highest_works(self, dispatcher):
+        """Choose highest works_count when exact-name ISSN footprint is unique."""
+        candidates = [
+            {
+                "display_name": "Nature",
+                "issn_l": "0028-0836",
+                "issn": ["0028-0836", "1476-4687"],
+                "works_count": 50,
+            },
+            {
+                "display_name": "Nature",
+                "issn_l": "0028-0836",
+                "issn": ["0028-0836", "1476-4687"],
+                "works_count": 200,
+            },
+            {
+                "display_name": "Nature Reviews Immunology",
+                "issn_l": "1474-1733",
+                "issn": ["1474-1733", "1474-1741"],
+                "works_count": 500,
+            },
+        ]
+
+        selected = dispatcher._select_exact_identifier_source("nature", candidates)
+
+        assert selected is not None
+        assert selected["works_count"] == 200

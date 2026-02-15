@@ -264,6 +264,41 @@ class TestCacheJournalAdditional:
 
         assert total_count == 30  # 3 sources * 10 entries each
 
+    def test_get_journal_identifiers_by_normalized_name(self, temp_cache):
+        """Test exact normalized-name lookup for ISSN/eISSN."""
+        dsm = DataSourceManager(temp_cache.db_path)
+        dsm.register_data_source("test_source", "Test Source", "legitimate")
+
+        entry = JournalEntryData(
+            source_name="test_source",
+            assessment=AssessmentType.LEGITIMATE,
+            journal_name="Nature",
+            normalized_name="nature",
+            issn="0028-0836",
+            eissn="1476-4687",
+        )
+        add_test_journal_entry(temp_cache.db_path, entry)
+
+        identifiers = temp_cache.get_journal_identifiers_by_normalized_name("nature")
+        assert identifiers is not None
+        assert identifiers["issn"] == "0028-0836"
+        assert identifiers["eissn"] == "1476-4687"
+
+    def test_upsert_journal_identifiers(self, temp_cache):
+        """Test upserting resolved identifiers for future lookups."""
+        temp_cache.upsert_journal_identifiers(
+            normalized_name="nature",
+            display_name="Nature",
+            issn="0028-0836",
+            eissn="1476-4687",
+            publisher="Springer Nature",
+        )
+
+        identifiers = temp_cache.get_journal_identifiers_by_normalized_name("nature")
+        assert identifiers is not None
+        assert identifiers["issn"] == "0028-0836"
+        assert identifiers["eissn"] == "1476-4687"
+
 
 class TestCacheManagerWithJournalEntryData:
     """Test CacheManager functionality using JournalEntryData dataclass."""
