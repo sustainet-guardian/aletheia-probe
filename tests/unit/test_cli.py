@@ -232,7 +232,7 @@ class TestLookupCommand:
 
             assert result.exit_code == 0
             mock_run_lookup.assert_called_once_with(
-                "Nature", VenueType.JOURNAL, "text", 0.8
+                "Nature", VenueType.JOURNAL, "text", 0.8, online=True
             )
 
     def test_lookup_conference_json_invokes_runner(self, runner):
@@ -245,7 +245,17 @@ class TestLookupCommand:
 
             assert result.exit_code == 0
             mock_run_lookup.assert_called_once_with(
-                "ICML", VenueType.CONFERENCE, "json", 0.8
+                "ICML", VenueType.CONFERENCE, "json", 0.8, online=True
+            )
+
+    def test_lookup_journal_no_online_invokes_runner(self, runner):
+        """Allow disabling online enrichment while keeping local lookup."""
+        with patch("aletheia_probe.cli._run_lookup_cli") as mock_run_lookup:
+            result = runner.invoke(main, ["lookup", "journal", "Nature", "--no-online"])
+
+            assert result.exit_code == 0
+            mock_run_lookup.assert_called_once_with(
+                "Nature", VenueType.JOURNAL, "text", 0.8, online=False
             )
 
     def test_lookup_journal_json_output(self, runner):
@@ -275,7 +285,8 @@ class TestLookupCommand:
             mock_service_class.return_value = mock_service
 
             result = runner.invoke(
-                main, ["lookup", "journal", "Nature", "--format", "json"]
+                main,
+                ["lookup", "journal", "Nature", "--format", "json", "--no-online"],
             )
 
             assert result.exit_code == 0
@@ -313,7 +324,7 @@ class TestLookupCommand:
             mock_service.lookup.return_value = lookup_result
             mock_service_class.return_value = mock_service
 
-            result = runner.invoke(main, ["lookup", "journal", "Nature"])
+            result = runner.invoke(main, ["lookup", "journal", "Nature", "--no-online"])
 
             assert result.exit_code == 0
             assert "Lookup: Nature" in result.output
@@ -321,6 +332,239 @@ class TestLookupCommand:
             assert "Primary Normalized Name: nature" in result.output
             assert "ISSN Checksum Valid: yes" in result.output
             assert "journal_cache_exact: nature" in result.output
+
+    def test_lookup_online_openalex_type_mismatch_is_conflict(self):
+        """Journal lookup should flag OpenAlex conference source as conflict."""
+        from aletheia_probe.cli import _apply_openalex_source
+
+        result = LookupResult(
+            raw_input="2327-0985",
+            venue_type=VenueType.JOURNAL,
+            normalized_name=None,
+            normalized_names=["iapr asian conference on pattern recognition"],
+            aliases=[],
+            identifiers={"issn": "2327-0985"},
+            issn_valid=True,
+            issns=["2327-0985"],
+            eissns=[],
+            candidates=[],
+        )
+
+        source = {
+            "display_name": "Asian Conference on Pattern Recognition",
+            "type": "conference",
+            "issn_l": "2327-0985",
+            "issn": ["2327-0985"],
+        }
+
+        _apply_openalex_source(
+            result=result,
+            source=source,
+            names={"iapr asian conference on pattern recognition"},
+            issns={"2327-0985"},
+            validation_identifier="2327-0985",
+            source_label="openalex_issn_lookup",
+            expected_name=None,
+            allow_enrichment=True,
+        )
+
+        assert result.validations
+        latest = result.validations[-1]
+        assert latest.source == "openalex"
+        assert latest.status == "conflict"
+        assert latest.details is not None
+        assert "Venue-type mismatch" in latest.details
+
+    def test_lookup_online_openalex_generic_title_is_unverified(self):
+        """Generic OpenAlex titles like 'Proceedings' should not be treated as matches."""
+        from aletheia_probe.cli import _apply_openalex_source
+
+        result = LookupResult(
+            raw_input="1550-445X",
+            venue_type=VenueType.CONFERENCE,
+            normalized_name=None,
+            normalized_names=[],
+            aliases=[],
+            identifiers={"issn": "1550-445X"},
+            issn_valid=True,
+            issns=["1550-445X"],
+            eissns=[],
+            candidates=[],
+        )
+
+        source = {
+            "display_name": "Proceedings",
+            "type": "journal",
+            "issn_l": "1550-445X",
+            "issn": ["1550-445X", "2332-5658"],
+        }
+
+        _apply_openalex_source(
+            result=result,
+            source=source,
+            names={
+                "ieee international conference on advanced information networking and applications"
+            },
+            issns={"1550-445X"},
+            validation_identifier="1550-445X",
+            source_label="openalex_issn_lookup",
+            expected_name=None,
+            allow_enrichment=True,
+        )
+
+        latest = result.validations[-1]
+        assert latest.status == "unverified"
+        assert latest.similarity is None
+        assert latest.details is not None
+        assert "generic title" in latest.details
+        assert all(c.normalized_name != "proceedings" for c in result.candidates)
+
+    def test_compare_resolved_name_single_token_is_not_auto_agree(self):
+        """Single-token known names should not agree with longer titles by token inclusion."""
+        from aletheia_probe.cli import _compare_resolved_name
+
+        status, similarity, matched_name = _compare_resolved_name(
+            "capitalism nature socialism",
+            {"nature"},
+            VenueType.JOURNAL,
+        )
+
+        assert status == "conflict"
+        assert similarity == 0.0
+        assert matched_name == "nature"
+
+    def test_compare_resolved_name_exact_single_token_can_agree(self):
+        """Exact single-token name matches should still agree."""
+        from aletheia_probe.cli import _compare_resolved_name
+
+        status, similarity, matched_name = _compare_resolved_name(
+            "nature",
+            {"nature"},
+            VenueType.JOURNAL,
+        )
+
+        assert status == "agree"
+        assert similarity == 1.0
+        assert matched_name == "nature"
+
+    def test_openalex_name_lookup_requires_exact_title(self):
+        """OpenAlex name lookup must not enrich when title differs from queried title."""
+        from aletheia_probe.cli import _apply_openalex_source
+
+        result = LookupResult(
+            raw_input="Nature",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            identifiers={},
+            issn_valid=False,
+            issns=[],
+            eissns=[],
+            candidates=[],
+        )
+
+        source = {
+            "display_name": "Capitalism Nature Socialism",
+            "type": "journal",
+            "issn_l": "1045-5752",
+            "issn": ["1045-5752", "1548-3290"],
+        }
+
+        _apply_openalex_source(
+            result=result,
+            source=source,
+            names={"nature"},
+            issns=set(),
+            validation_identifier="nature",
+            source_label="openalex_name_lookup",
+            expected_name="nature",
+            allow_enrichment=True,
+        )
+
+        latest = result.validations[-1]
+        assert latest.status == "unverified"
+        assert latest.similarity == 0.0
+        assert latest.input_name == "nature"
+        assert latest.resolved_name == "capitalism nature socialism"
+        assert result.issns == []
+        assert result.eissns == []
+        assert all(c.source != "openalex_name_lookup" for c in result.candidates)
+
+    def test_lookup_mixed_name_identifier_mismatch_fails(self, runner):
+        """Lookup should fail for explicit name+identifier disagreement."""
+        lookup_result = LookupResult(
+            raw_input="Nature 1550-445X",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            identifiers={"issn": "1550-445X"},
+            issn_valid=True,
+            issns=["1550-445X"],
+            eissns=[],
+            candidates=[
+                LookupCandidate(
+                    source="journal_cache_exact",
+                    normalized_name="nature",
+                    confidence=0.9,
+                    issn="0028-0836",
+                    eissn="1476-4687",
+                )
+            ],
+        )
+
+        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+            mock_service = Mock()
+            mock_service.lookup.return_value = lookup_result
+            mock_service_class.return_value = mock_service
+
+            result = runner.invoke(
+                main,
+                ["lookup", "journal", "Nature 1550-445X", "--no-online"],
+            )
+
+            assert result.exit_code == 1
+            assert "Input mismatch" in result.output
+
+    def test_openalex_name_lookup_with_identifiers_does_not_merge_ids(self):
+        """When input has identifiers, name lookup should validate only, not merge."""
+        from aletheia_probe.cli import _apply_openalex_source
+
+        result = LookupResult(
+            raw_input="Nature 1550-445X",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            identifiers={"issn": "1550-445X"},
+            issn_valid=True,
+            issns=["1550-445X"],
+            eissns=[],
+            candidates=[],
+        )
+
+        source = {
+            "display_name": "Nature",
+            "type": "journal",
+            "issn_l": "0028-0836",
+            "issn": ["0028-0836", "1476-4687"],
+        }
+
+        _apply_openalex_source(
+            result=result,
+            source=source,
+            names={"nature"},
+            issns={"1550-445X"},
+            validation_identifier="nature",
+            source_label="openalex_name_lookup",
+            expected_name="nature",
+            allow_enrichment=False,
+        )
+
+        assert result.issns == ["1550-445X"]
+        assert result.eissns == []
+        assert all(c.source != "openalex_name_lookup" for c in result.candidates)
 
 
 class TestConfigCommand:

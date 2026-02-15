@@ -23,6 +23,19 @@ class LookupCandidate:
 
 
 @dataclass
+class LookupValidation:
+    """Validation result for a name/identifier pair against an external source."""
+
+    source: str
+    identifier: str
+    status: str
+    input_name: str | None = None
+    resolved_name: str | None = None
+    similarity: float | None = None
+    details: str | None = None
+
+
+@dataclass
 class LookupResult:
     """Structured lookup result for one venue input."""
 
@@ -36,6 +49,8 @@ class LookupResult:
     issns: list[str] = field(default_factory=list)
     eissns: list[str] = field(default_factory=list)
     candidates: list[LookupCandidate] = field(default_factory=list)
+    validations: list[LookupValidation] = field(default_factory=list)
+    consistency_errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-serializable representation."""
@@ -43,6 +58,7 @@ class LookupResult:
             **asdict(self),
             "venue_type": self.venue_type.value,
             "candidates": [asdict(candidate) for candidate in self.candidates],
+            "validations": [asdict(validation) for validation in self.validations],
         }
 
 
@@ -75,10 +91,6 @@ class VenueLookupService:
             aliases=list(base_query.aliases),
             identifiers=dict(base_query.identifiers),
         )
-        is_standalone_acronym = input_normalizer._is_standalone_acronym(
-            base_query.raw_input.strip()
-        )
-
         candidate_keys: set[tuple[str, str, str | None, str | None]] = set()
         normalized_names: set[str] = set()
         issns: set[str] = set()
@@ -124,7 +136,6 @@ class VenueLookupService:
             normalized_names=normalized_names,
             issns=issns,
             eissns=eissns,
-            skip_partial_search=is_standalone_acronym,
         )
         acronym_normalized_names = self._add_acronym_candidates(
             base_query,
@@ -146,7 +157,6 @@ class VenueLookupService:
                 normalized_names=normalized_names,
                 issns=issns,
                 eissns=eissns,
-                skip_partial_search=False,
             )
 
         result.normalized_names = sorted(normalized_names)
@@ -201,7 +211,6 @@ class VenueLookupService:
         normalized_names: set[str],
         issns: set[str],
         eissns: set[str],
-        skip_partial_search: bool,
     ) -> None:
         """Add candidates from the journal cache."""
         normalized_name = normalized_name.strip().lower()
@@ -226,34 +235,6 @@ class VenueLookupService:
                 confidence=0.9,
                 issn=issn,
                 eissn=eissn,
-            )
-
-        if skip_partial_search:
-            return
-
-        rows = self.journal_cache.search_journals(normalized_name=normalized_name)
-        for row in rows[:5]:
-            display_name = str(row.get("display_name") or "").strip()
-            candidate_name = self._normalize_name_for_lookup(display_name)
-            if not candidate_name:
-                continue
-
-            normalized_names.add(candidate_name)
-            row_issn = str(row.get("issn") or "").strip() or None
-            row_eissn = str(row.get("eissn") or "").strip() or None
-            if row_issn:
-                issns.add(row_issn)
-            if row_eissn:
-                eissns.add(row_eissn)
-
-            self._add_candidate(
-                result=result,
-                candidate_keys=candidate_keys,
-                source="journal_cache_search",
-                normalized_name=candidate_name,
-                confidence=0.9,
-                issn=row_issn,
-                eissn=row_eissn,
             )
 
     def _add_acronym_candidates(
@@ -291,7 +272,6 @@ class VenueLookupService:
                         confidence=confidence_min,
                         acronym=raw_input,
                     )
-
         variant_inputs = [raw_input]
         if base_query.normalized_name:
             variant_inputs.append(base_query.normalized_name)
