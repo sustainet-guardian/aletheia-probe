@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .backends.base import Backend, get_backend_registry
-from .cache import AcronymCache
+from .cache import AcronymCache, JournalCache
 from .config import get_config_manager
 from .constants import (
     AGREEMENT_BONUS_AMOUNT,
@@ -21,7 +21,9 @@ from .fallback_chain import QueryFallbackChain
 from .logging_config import get_detail_logger, get_status_logger
 from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
 from .normalizer import InputNormalizer, input_normalizer
+from .openalex import OpenAlexClient
 from .quality_assessment import QualityAssessmentProcessor
+from .validation import validate_issn
 
 
 @dataclass
@@ -81,6 +83,7 @@ class QueryDispatcher:
         self.status_logger = get_status_logger()
         self.cross_validation_registry = get_cross_validation_registry()
         self.quality_processor = QualityAssessmentProcessor()
+        self.journal_cache = JournalCache()
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -92,6 +95,7 @@ class QueryDispatcher:
             AssessmentResult with aggregated assessment from all backends
         """
         start_time = time.time()
+        query_input = await self._enrich_query_identifiers(query_input)
 
         # Get enabled backends from registry
         enabled_backends = self._get_enabled_backends()
@@ -133,6 +137,186 @@ class QueryDispatcher:
         return await self._try_acronym_fallback(
             assessment_result, query_input, enabled_backends, start_time
         )
+
+    async def _enrich_query_identifiers(self, query_input: QueryInput) -> QueryInput:
+        """Enrich query identifiers with reliable ISSN/eISSN from cache/API."""
+        if query_input.identifiers.get("issn") or query_input.identifiers.get("eissn"):
+            return query_input
+
+        normalized_name = (query_input.normalized_name or "").strip().lower()
+        if not normalized_name:
+            return query_input
+
+        cache_ids = self.journal_cache.get_journal_identifiers_by_normalized_name(
+            normalized_name
+        )
+        if cache_ids:
+            self.detail_logger.debug(
+                f"Using cached identifiers for '{normalized_name}': {cache_ids}"
+            )
+            return query_input.model_copy(
+                update={"identifiers": {**query_input.identifiers, **cache_ids}}
+            )
+
+        resolved = await self._resolve_identifiers_from_openalex(query_input)
+        if not resolved:
+            return query_input
+
+        identifiers_update: dict[str, str] = {}
+        if resolved.get("issn"):
+            identifiers_update["issn"] = str(resolved["issn"])
+        if resolved.get("eissn"):
+            identifiers_update["eissn"] = str(resolved["eissn"])
+
+        if not identifiers_update:
+            return query_input
+
+        self.journal_cache.upsert_journal_identifiers(
+            normalized_name=normalized_name,
+            display_name=resolved.get("display_name") or query_input.raw_input,
+            issn=identifiers_update.get("issn"),
+            eissn=identifiers_update.get("eissn"),
+            publisher=resolved.get("publisher"),
+        )
+        self.status_logger.info(
+            f"Resolved ISSN via OpenAlex for '{query_input.raw_input}': {identifiers_update}"
+        )
+        return query_input.model_copy(
+            update={
+                "identifiers": {
+                    **query_input.identifiers,
+                    **identifiers_update,
+                }
+            }
+        )
+
+    async def _resolve_identifiers_from_openalex(
+        self, query_input: QueryInput
+    ) -> dict[str, str] | None:
+        """Resolve ISSN/eISSN by venue name from OpenAlex."""
+        normalized_name = (query_input.normalized_name or "").strip().lower()
+        if not normalized_name:
+            return None
+
+        try:
+            async with OpenAlexClient() as client:
+                candidates = await client.get_sources_by_name(normalized_name)
+                source = self._select_exact_identifier_source(
+                    normalized_name, candidates
+                )
+                if not source:
+                    source = await client.get_source_by_name(normalized_name)
+        except Exception as e:
+            self.detail_logger.warning(
+                f"OpenAlex identifier resolution failed for '{normalized_name}': {e}"
+            )
+            return None
+
+        if not isinstance(source, dict):
+            return None
+
+        display_name = str(source.get("display_name") or "").strip()
+        if not self._is_reliable_name_match(normalized_name, display_name):
+            return None
+
+        resolved = self._extract_reliable_issn_pair(source)
+        if not resolved:
+            return None
+
+        result: dict[str, str] = {}
+        if resolved[0]:
+            result["issn"] = resolved[0]
+        if resolved[1]:
+            result["eissn"] = resolved[1]
+        if display_name:
+            result["display_name"] = display_name
+        publisher = source.get("host_organization_name")
+        if publisher:
+            result["publisher"] = str(publisher)
+        return result
+
+    def _select_exact_identifier_source(
+        self, normalized_name: str, candidates: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        """Choose a unique exact-name OpenAlex candidate with reliable ISSN metadata."""
+        exact_matches: list[dict[str, Any]] = []
+        exact_match_pairs: set[tuple[str | None, str | None]] = set()
+
+        for candidate in candidates:
+            display_name = str(candidate.get("display_name") or "").strip()
+            if not display_name:
+                continue
+
+            normalized_display = (
+                input_normalizer.normalize(display_name).normalized_name or ""
+            )
+            if normalized_display != normalized_name:
+                continue
+
+            issn_pair = self._extract_reliable_issn_pair(candidate)
+            if not issn_pair:
+                continue
+
+            exact_matches.append(candidate)
+            exact_match_pairs.add(issn_pair)
+
+        if not exact_matches:
+            return None
+
+        if len(exact_match_pairs) != 1:
+            return None
+
+        return max(exact_matches, key=lambda source: int(source.get("works_count", 0)))
+
+    def _is_reliable_name_match(self, query_name: str, display_name: str) -> bool:
+        """Check if OpenAlex display name reliably matches the query name."""
+        if not display_name:
+            return False
+        normalized_display = input_normalizer.normalize(display_name).normalized_name
+        if not normalized_display:
+            return False
+        if normalized_display == query_name:
+            return True
+        return normalized_display in query_name or query_name in normalized_display
+
+    def _extract_reliable_issn_pair(
+        self, source: dict[str, Any]
+    ) -> tuple[str | None, str | None] | None:
+        """Extract a reliable ISSN/eISSN pair from OpenAlex source payload."""
+        issn_l_raw = source.get("issn_l")
+        issn_l = str(issn_l_raw).strip() if issn_l_raw else None
+        if issn_l and not validate_issn(issn_l):
+            issn_l = None
+
+        issn_values = source.get("issn", [])
+        candidates = []
+        if isinstance(issn_values, list):
+            for value in issn_values:
+                candidate = str(value).strip()
+                if validate_issn(candidate):
+                    candidates.append(candidate)
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            if candidate not in seen:
+                deduped.append(candidate)
+                seen.add(candidate)
+        candidates = deduped
+
+        if issn_l and issn_l not in seen:
+            candidates.insert(0, issn_l)
+
+        if not candidates:
+            return None
+
+        if len(candidates) == 1:
+            return candidates[0], None
+        if issn_l:
+            eissn = next((c for c in candidates if c != issn_l), None)
+            return issn_l, eissn
+
+        return None
 
     def _apply_cross_validation(
         self, backend_results: list[BackendResult], reasoning: list[str]

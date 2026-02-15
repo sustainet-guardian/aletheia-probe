@@ -251,3 +251,98 @@ class JournalCache(CacheBase):
 
             detail_logger.debug(f"Search returned {len(results)} result(s)")
             return results
+
+    def get_journal_identifiers_by_normalized_name(
+        self, normalized_name: str
+    ) -> dict[str, str] | None:
+        """Get ISSN/eISSN for an exact normalized journal name.
+
+        Args:
+            normalized_name: Exact normalized venue name
+
+        Returns:
+            Dict with optional ``issn`` and ``eissn`` keys, or None if no match.
+        """
+        target = normalized_name.strip().lower()
+        if not target:
+            return None
+
+        with self.get_connection_with_row_factory() as conn:
+            cursor = conn.execute(
+                """
+                SELECT issn, eissn
+                FROM journals
+                WHERE LOWER(normalized_name) = ?
+                LIMIT 1
+                """,
+                (target,),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            identifiers: dict[str, str] = {}
+            if row["issn"]:
+                identifiers["issn"] = str(row["issn"])
+            if row["eissn"]:
+                identifiers["eissn"] = str(row["eissn"])
+            return identifiers if identifiers else None
+
+    def upsert_journal_identifiers(
+        self,
+        normalized_name: str,
+        display_name: str,
+        issn: str | None = None,
+        eissn: str | None = None,
+        publisher: str | None = None,
+    ) -> None:
+        """Insert or update journal ISSN/eISSN metadata for future lookups.
+
+        Args:
+            normalized_name: Exact normalized venue name
+            display_name: Human-readable venue title
+            issn: Print ISSN, if available
+            eissn: Electronic ISSN, if available
+            publisher: Publisher/org name, if available
+        """
+        normalized = normalized_name.strip().lower()
+        if not normalized:
+            return
+
+        display = display_name.strip() or normalized_name.strip()
+        if not display:
+            return
+
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO journals (
+                    normalized_name, display_name, issn, eissn, publisher, updated_at
+                ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(normalized_name) DO UPDATE SET
+                    display_name = COALESCE(NULLIF(excluded.display_name, ''), journals.display_name),
+                    issn = COALESCE(NULLIF(excluded.issn, ''), journals.issn),
+                    eissn = COALESCE(NULLIF(excluded.eissn, ''), journals.eissn),
+                    publisher = COALESCE(NULLIF(excluded.publisher, ''), journals.publisher),
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (normalized, display, issn, eissn, publisher),
+            )
+
+            # Preserve exact display name as an alias for future matching.
+            journal_id_cursor = conn.execute(
+                "SELECT id FROM journals WHERE normalized_name = ?",
+                (normalized,),
+            )
+            journal_row = journal_id_cursor.fetchone()
+            if journal_row:
+                journal_id = int(journal_row[0])
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO journal_names
+                    (journal_id, name, name_type, source_name)
+                    VALUES (?, ?, 'alias', 'identifier_enrichment_openalex')
+                    """,
+                    (journal_id, display),
+                )

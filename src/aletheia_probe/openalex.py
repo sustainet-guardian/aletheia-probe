@@ -201,6 +201,54 @@ class OpenAlexClient:
         max_retries=3,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
+    async def get_sources_by_name(
+        self, journal_name: str, per_page: int = 25
+    ) -> list[dict[str, Any]]:
+        """Get candidate source records by name search.
+
+        Args:
+            journal_name: Journal or conference name to search for
+            per_page: Max number of candidate results to request
+
+        Returns:
+            List of source records (possibly empty)
+        """
+        async with self.semaphore:
+            capped_per_page = max(1, min(per_page, 50))
+            url = (
+                f"{self.BASE_URL}/sources?search={journal_name}"
+                f"&per-page={capped_per_page}"
+            )
+
+            if not self.session:
+                self.session = aiohttp.ClientSession(
+                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                )
+
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = data.get("results", [])
+                    if isinstance(results, list):
+                        return [dict(result) for result in results]
+                    return []
+                elif response.status == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    retry_seconds = int(retry_after) if retry_after else None
+                    raise RateLimitError(
+                        message="OpenAlex rate limit hit",
+                        retry_after=retry_seconds,
+                        backend_name="openalex",
+                    )
+                else:
+                    raise aiohttp.ClientError(
+                        f"OpenAlex API returned status {response.status} for name '{journal_name}'"
+                    )
+
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
     async def get_source_by_name(
         self, journal_name: str, is_series_lookup: bool = False
     ) -> dict[str, Any] | None:
