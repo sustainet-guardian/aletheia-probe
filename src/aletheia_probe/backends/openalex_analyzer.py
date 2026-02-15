@@ -824,14 +824,16 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
     ) -> list[str]:
         """Generate human-readable reasoning for the assessment."""
         reasoning = []
+        normalized_green_flags = [flag.strip() for flag in green_flags if flag.strip()]
+        normalized_red_flags = [flag.strip() for flag in red_flags if flag.strip()]
 
-        if green_flags:
+        if normalized_green_flags:
             reasoning.append("Positive indicators:")
-            reasoning.extend([f"  • {flag}" for flag in green_flags])
+            reasoning.extend([f"  • {flag}" for flag in normalized_green_flags])
 
-        if red_flags:
+        if normalized_red_flags:
             reasoning.append("Warning signs:")
-            reasoning.extend([f"  • {flag}" for flag in red_flags])
+            reasoning.extend([f"  • {flag}" for flag in normalized_red_flags])
 
         # Add summary statistics
         reasoning.append(
@@ -841,7 +843,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             f"Citation metrics: {metrics['citation_ratio']:.2f} citations per paper on average"
         )
 
-        if not green_flags and not red_flags:
+        if not normalized_green_flags and not normalized_red_flags:
             reasoning.append("Mixed or insufficient signals for clear assessment")
 
         return reasoning

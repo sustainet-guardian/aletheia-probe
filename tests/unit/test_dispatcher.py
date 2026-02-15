@@ -18,6 +18,26 @@ from aletheia_probe.models import (
 )
 
 
+def _make_backend_result(
+    backend_name: str,
+    confidence: float,
+    status: BackendStatus = BackendStatus.FOUND,
+    assessment: AssessmentType | None = AssessmentType.LEGITIMATE,
+) -> BackendResult:
+    """Create a minimal BackendResult for dispatcher cross-validation tests."""
+    return BackendResult(
+        fallback_chain=QueryFallbackChain([]),
+        backend_name=backend_name,
+        status=status,
+        confidence=confidence,
+        assessment=assessment,
+        data={},
+        sources=[backend_name],
+        response_time=0.1,
+        evidence_type=EvidenceType.HEURISTIC.value,
+    )
+
+
 @pytest.fixture
 def dispatcher():
     """Create a QueryDispatcher instance for testing."""
@@ -487,3 +507,108 @@ class TestQueryDispatcher:
             # Verify that get_backend was called (not create_backend)
             mock_registry.get_backend.assert_called_once_with("doaj")
             mock_registry.create_backend.assert_not_called()
+
+    def test_apply_cross_validation_aggregates_multiple_pairs(self, dispatcher):
+        """Test that cross-validation aggregates adjustments from all matching pairs."""
+        backend_results = [
+            _make_backend_result("backend_a", confidence=0.5),
+            _make_backend_result("backend_b", confidence=0.6),
+            _make_backend_result("backend_c", confidence=0.7),
+        ]
+        reasoning: list[str] = []
+
+        with (
+            patch.object(
+                dispatcher.cross_validation_registry,
+                "get_registered_pairs",
+                return_value=[("backend_a", "backend_b"), ("backend_a", "backend_c")],
+            ),
+            patch.object(
+                dispatcher.cross_validation_registry, "validate_pair"
+            ) as mock_validate_pair,
+        ):
+            mock_validate_pair.side_effect = [
+                {"confidence_adjustment": 0.10, "reasoning": ["AB agreement"]},
+                {"confidence_adjustment": 0.08, "reasoning": ["AC agreement"]},
+                None,
+                None,
+            ]
+
+            adjusted_results = dispatcher._apply_cross_validation(
+                backend_results, reasoning
+            )
+
+        adjusted_a = next(r for r in adjusted_results if r.backend_name == "backend_a")
+        assert adjusted_a.confidence == pytest.approx(0.68)
+        assert "cross_validations" in adjusted_a.data
+        assert len(adjusted_a.data["cross_validations"]) == 2
+        assert "AB agreement" in " ".join(reasoning)
+        assert "AC agreement" in " ".join(reasoning)
+
+    def test_apply_cross_validation_caps_total_adjustment(self, dispatcher):
+        """Test that aggregated cross-validation adjustment is capped."""
+        backend_results = [
+            _make_backend_result("backend_a", confidence=0.5),
+            _make_backend_result("backend_b", confidence=0.6),
+            _make_backend_result("backend_c", confidence=0.7),
+        ]
+        reasoning: list[str] = []
+
+        with (
+            patch.object(
+                dispatcher.cross_validation_registry,
+                "get_registered_pairs",
+                return_value=[("backend_a", "backend_b"), ("backend_a", "backend_c")],
+            ),
+            patch.object(
+                dispatcher.cross_validation_registry, "validate_pair"
+            ) as mock_validate_pair,
+        ):
+            mock_validate_pair.side_effect = [
+                {"confidence_adjustment": 0.20, "reasoning": ["AB agreement"]},
+                {"confidence_adjustment": 0.20, "reasoning": ["AC agreement"]},
+                None,
+                None,
+            ]
+
+            adjusted_results = dispatcher._apply_cross_validation(
+                backend_results, reasoning
+            )
+
+        adjusted_a = next(r for r in adjusted_results if r.backend_name == "backend_a")
+        # Capped at +0.25 total adjustment for a single backend.
+        assert adjusted_a.confidence == pytest.approx(0.75)
+
+    def test_apply_cross_validation_skips_pairs_without_found_match(self, dispatcher):
+        """Test cross-validation is not applied when paired backend is not FOUND."""
+        backend_results = [
+            _make_backend_result(
+                "backend_a", confidence=0.5, status=BackendStatus.FOUND
+            ),
+            _make_backend_result(
+                "backend_b",
+                confidence=0.0,
+                status=BackendStatus.NOT_FOUND,
+                assessment=None,
+            ),
+        ]
+        reasoning: list[str] = []
+
+        with (
+            patch.object(
+                dispatcher.cross_validation_registry,
+                "get_registered_pairs",
+                return_value=[("backend_a", "backend_b")],
+            ),
+            patch.object(
+                dispatcher.cross_validation_registry, "validate_pair"
+            ) as mock_validate_pair,
+        ):
+            adjusted_results = dispatcher._apply_cross_validation(
+                backend_results, reasoning
+            )
+
+        adjusted_a = next(r for r in adjusted_results if r.backend_name == "backend_a")
+        assert adjusted_a.confidence == pytest.approx(0.5)
+        assert "cross_validations" not in adjusted_a.data
+        mock_validate_pair.assert_not_called()

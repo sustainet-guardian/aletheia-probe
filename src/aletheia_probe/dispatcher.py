@@ -163,6 +163,7 @@ class QueryDispatcher:
 
         cross_validation_applied = False
         adjusted_results = []
+        max_total_adjustment = 0.25
 
         for result in backend_results:
             if result.status != BackendStatus.FOUND:
@@ -171,8 +172,8 @@ class QueryDispatcher:
                 continue
 
             # Check if this result can be cross-validated with any other result
-            confidence_adjustment = 0.0
-            cross_validation_data = None
+            pair_adjustments: list[float] = []
+            cross_validation_data_list: list[dict[str, Any]] = []
             backend_name = result.backend_name
 
             for backend1, backend2 in registered_pairs:
@@ -183,21 +184,31 @@ class QueryDispatcher:
                 else:
                     continue
 
+                # Cross-validation requires actual findings from both backends.
+                if other_result.status != BackendStatus.FOUND:
+                    continue
+
                 # Apply cross-validation for this pair
                 validation_result = self.cross_validation_registry.validate_pair(
                     backend_name, result, other_result.backend_name, other_result
                 )
 
                 if validation_result:
-                    confidence_adjustment = validation_result.get(
-                        "confidence_adjustment", 0.0
+                    adjustment = float(
+                        validation_result.get("confidence_adjustment", 0.0)
                     )
-                    cross_validation_data = validation_result
+                    pair_adjustments.append(adjustment)
+                    cross_validation_data_list.append(
+                        {
+                            **validation_result,
+                            "paired_backend": other_result.backend_name,
+                        }
+                    )
                     cross_validation_applied = True
 
                     self.detail_logger.debug(
                         f"Cross-validation applied between {backend_name} and {other_result.backend_name}: "
-                        f"adjustment={confidence_adjustment:+.3f}"
+                        f"adjustment={adjustment:+.3f}"
                     )
 
                     # Add cross-validation reasoning
@@ -211,13 +222,26 @@ class QueryDispatcher:
                                 for reason in validation_result["reasoning"][:3]
                             ]
                         )
-
-                    break  # Apply only first matching cross-validation
+            confidence_adjustment = max(
+                -max_total_adjustment,
+                min(max_total_adjustment, sum(pair_adjustments)),
+            )
 
             # Create adjusted result
             new_confidence = max(
                 0.0, min(1.0, result.confidence + confidence_adjustment)
             )
+
+            data_with_cross_validation = {**result.data}
+            if cross_validation_data_list:
+                data_with_cross_validation["cross_validations"] = (
+                    cross_validation_data_list
+                )
+                if len(cross_validation_data_list) == 1:
+                    # Backward compatibility with existing consumers/tests.
+                    data_with_cross_validation["cross_validation"] = (
+                        cross_validation_data_list[0]
+                    )
 
             # Create new result with adjusted confidence and cross-validation data
             adjusted_result = BackendResult(
@@ -225,14 +249,7 @@ class QueryDispatcher:
                 status=result.status,
                 confidence=new_confidence,
                 assessment=result.assessment,
-                data={
-                    **result.data,
-                    **(
-                        {"cross_validation": cross_validation_data}
-                        if cross_validation_data
-                        else {}
-                    ),
-                },
+                data=data_with_cross_validation,
                 sources=result.sources,
                 error_message=result.error_message,
                 response_time=result.response_time,
