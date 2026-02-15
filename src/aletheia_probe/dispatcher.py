@@ -248,7 +248,9 @@ class QueryDispatcher:
                 continue
 
             normalized_display = (
-                input_normalizer.normalize(display_name).normalized_name or ""
+                (input_normalizer.normalize(display_name).normalized_name or "")
+                .strip()
+                .lower()
             )
             if normalized_display != normalized_name:
                 continue
@@ -272,7 +274,11 @@ class QueryDispatcher:
         """Check if OpenAlex display name reliably matches the query name."""
         if not display_name:
             return False
-        normalized_display = input_normalizer.normalize(display_name).normalized_name
+        normalized_display = (
+            (input_normalizer.normalize(display_name).normalized_name or "")
+            .strip()
+            .lower()
+        )
         if not normalized_display:
             return False
         if normalized_display == query_name:
