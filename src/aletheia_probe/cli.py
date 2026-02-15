@@ -25,6 +25,7 @@ from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .dispatcher import query_dispatcher
 from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
+from .lookup import LookupResult, VenueLookupService
 from .models import AssessmentResult, CandidateAssessment, QueryInput, VenueType
 from .normalizer import are_conference_names_equivalent, input_normalizer
 from .output_formatter import output_formatter
@@ -375,6 +376,130 @@ def conference(
             confidence_min=confidence_min,
         )
     )
+
+
+@main.group(name="lookup")
+def lookup() -> None:
+    """Look up normalized venue candidates and known identifiers."""
+    pass
+
+
+@lookup.command(name="journal")
+@click.argument("journal_name")
+@click.option(
+    "--confidence-min",
+    default=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Minimum acronym dataset confidence for variant candidates",
+)
+@click.option(
+    "--format",
+    "output_format",
+    default="text",
+    type=click.Choice(["text", "json"]),
+    help="Output format",
+)
+@handle_cli_errors
+def lookup_journal(
+    journal_name: str,
+    confidence_min: float,
+    output_format: str,
+) -> None:
+    """Look up normalized forms and identifiers for a journal input."""
+    _run_lookup_cli(journal_name, VenueType.JOURNAL, output_format, confidence_min)
+
+
+@lookup.command(name="conference")
+@click.argument("conference_name")
+@click.option(
+    "--confidence-min",
+    default=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Minimum acronym dataset confidence for variant candidates",
+)
+@click.option(
+    "--format",
+    "output_format",
+    default="text",
+    type=click.Choice(["text", "json"]),
+    help="Output format",
+)
+@handle_cli_errors
+def lookup_conference(
+    conference_name: str,
+    confidence_min: float,
+    output_format: str,
+) -> None:
+    """Look up normalized forms and identifiers for a conference input."""
+    _run_lookup_cli(
+        conference_name, VenueType.CONFERENCE, output_format, confidence_min
+    )
+
+
+def _run_lookup_cli(
+    publication_name: str,
+    venue_type: VenueType,
+    output_format: str,
+    confidence_min: float,
+) -> None:
+    """Run lookup and print results in the requested format."""
+    service = VenueLookupService()
+    result = service.lookup(
+        publication_name, venue_type=venue_type, confidence_min=confidence_min
+    )
+
+    if output_format == "json":
+        print(json.dumps(result.to_dict(), indent=2))
+        return
+
+    print(_format_lookup_result_text(result))
+
+
+def _format_lookup_result_text(result: LookupResult) -> str:
+    """Format lookup results for human-readable CLI output."""
+    lines = [
+        f"Lookup: {result.raw_input}",
+        f"Venue Type: {result.venue_type.value}",
+        f"Primary Normalized Name: {result.normalized_name or '-'}",
+        f"ISSN Checksum Valid: {'yes' if result.issn_valid else 'no'}",
+        "",
+        "Normalized Names:",
+    ]
+
+    if result.normalized_names:
+        for name in result.normalized_names:
+            lines.append(f"- {name}")
+    else:
+        lines.append("- (none)")
+
+    lines.extend(["", "Identifiers:"])
+    lines.append(f"- input identifiers: {result.identifiers or {}}")
+    lines.append(f"- issns: {result.issns or []}")
+    lines.append(f"- eissns: {result.eissns or []}")
+
+    lines.extend(["", "Candidates:"])
+    if not result.candidates:
+        lines.append("- (none)")
+        return "\n".join(lines)
+
+    for candidate in result.candidates:
+        candidate_line = f"- {candidate.source}: {candidate.normalized_name}"
+        details: list[str] = []
+        if candidate.acronym:
+            details.append(f"acronym={candidate.acronym}")
+        if candidate.confidence is not None:
+            details.append(f"confidence={candidate.confidence:.2f}")
+        if candidate.issn:
+            details.append(f"issn={candidate.issn}")
+        if candidate.eissn:
+            details.append(f"eissn={candidate.eissn}")
+        if details:
+            candidate_line += f" ({', '.join(details)})"
+        lines.append(candidate_line)
+
+    return "\n".join(lines)
 
 
 @main.command()
