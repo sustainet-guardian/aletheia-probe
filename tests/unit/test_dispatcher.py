@@ -678,8 +678,8 @@ class TestQueryDispatcher:
             },
             {
                 "display_name": "Nature",
-                "issn_l": "1234-5678",
-                "issn": ["1234-5678", "8765-4321"],
+                "issn_l": "1234-5679",
+                "issn": ["1234-5679", "8765-4326"],
                 "works_count": 100,
             },
         ]
