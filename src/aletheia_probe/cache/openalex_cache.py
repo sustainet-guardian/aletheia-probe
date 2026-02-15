@@ -247,3 +247,27 @@ class OpenAlexCache(CacheBase):
             )
 
             return removed_count
+
+    def clear_openalex_cache(self) -> int:
+        """Clear all OpenAlex cache entries.
+
+        Returns:
+            Number of entries removed
+        """
+        detail_logger.debug("Starting to clear all OpenAlex cache entries")
+
+        with self.get_connection() as conn:
+            cursor = conn.execute("DELETE FROM openalex_cache")
+            conn.commit()
+            removed_count: int = cursor.rowcount
+            detail_logger.debug(
+                f"OpenAlex cache cleared: {removed_count} entries removed"
+            )
+            return removed_count
+
+    def get_openalex_cache_count(self) -> int:
+        """Get count of OpenAlex cache entries."""
+        with self.get_connection() as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM openalex_cache")
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0

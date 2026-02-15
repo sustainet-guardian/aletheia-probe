@@ -18,7 +18,7 @@ import click
 
 from . import __version__
 from .batch_assessor import BibtexBatchAssessor
-from .cache import AcronymCache, AssessmentCache, RetractionCache
+from .cache import AcronymCache, AssessmentCache, OpenAlexCache, RetractionCache
 from .cache.schema import SchemaVersionError
 from .config import get_config_manager
 from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
@@ -459,10 +459,10 @@ def sync(
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
 @handle_cli_errors
 def clear_cache(confirm: bool) -> None:
-    """Clear the assessment cache.
+    """Clear volatile assessment-related caches.
 
-    This removes all cached assessment results, forcing fresh queries
-    to all backends on next assessment.
+    This removes cached assessment results and cached OpenAlex analyzer data,
+    forcing fresh API-backed analysis on next assessment.
 
     Args:
         confirm: Whether to skip the confirmation prompt.
@@ -471,22 +471,27 @@ def clear_cache(confirm: bool) -> None:
 
     if not confirm:
         click.confirm(
-            "This will clear all cached assessment results. Continue?", abort=True
+            "This will clear assessment and OpenAlex caches. Continue?", abort=True
         )
 
     assessment_cache = AssessmentCache()
+    openalex_cache = OpenAlexCache()
 
     # Get count before clearing
-    count = assessment_cache.get_assessment_cache_count()
+    assessment_count = assessment_cache.get_assessment_cache_count()
+    openalex_count = openalex_cache.get_openalex_cache_count()
 
-    if count == 0:
-        status_logger.info("Cache is already empty.")
+    if assessment_count == 0 and openalex_count == 0:
+        status_logger.info("Caches are already empty.")
         return
 
-    # Clear assessment cache
-    assessment_cache.clear_assessment_cache()
+    cleared_assessment = assessment_cache.clear_assessment_cache()
+    cleared_openalex = openalex_cache.clear_openalex_cache()
 
-    status_logger.info(f"Cleared {count} cached assessment(s).")
+    status_logger.info(
+        f"Cleared {cleared_assessment} assessment cache entries and "
+        f"{cleared_openalex} OpenAlex cache entries."
+    )
 
 
 @main.command()

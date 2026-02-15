@@ -107,6 +107,26 @@ class TestOpenAlexCache:
         result = temp_cache.get_openalex_data(issn="9999-9999")
         assert result is None
 
+    def test_clear_openalex_cache(self, temp_cache, sample_openalex_data):
+        """Test clearing all OpenAlex cache entries."""
+        temp_cache.set_openalex_data(
+            issn="0028-0836",
+            journal_name="nature",
+            openalex_data=sample_openalex_data,
+            ttl_hours=720,
+        )
+        temp_cache.set_openalex_data(
+            issn="1234-5678",
+            journal_name="another-journal",
+            openalex_data={**sample_openalex_data, "openalex_id": "S123"},
+            ttl_hours=720,
+        )
+
+        assert temp_cache.get_openalex_cache_count() == 2
+        cleared_count = temp_cache.clear_openalex_cache()
+        assert cleared_count == 2
+        assert temp_cache.get_openalex_cache_count() == 0
+
     def test_set_without_issn_or_name_raises_error(
         self, temp_cache, sample_openalex_data
     ):
