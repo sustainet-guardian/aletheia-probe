@@ -9,10 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **DBLP Venues Backend**: Added `dblp_venues` cached backend with local XML dump synchronization
-  - Downloads and caches `dblp.xml.gz` locally under `.aletheia-probe/dblp/`
-  - Parses DBLP conference (`conf/*`) entries via streaming XML
-  - Adds curated DBLP conference series as legitimate conference evidence
+- No unreleased changes yet.
+
+## [0.9.0] - 2026-02-15
+
+### Added
+
+- **Conference data source expansion**:
+  - Added `dblp_venues` cached backend with local DBLP XML dump synchronization (#1021)
+  - Added CORE conference and journal backends (#1026)
+  - Added UGC-CARE discontinued list backends (#1019)
+- **Acronym intelligence workflow enhancements**:
+  - Added reproducible acronym collection from BibTeX files (#1002)
+  - Added acronym variant system with self-learning abbreviations (#1009)
+  - Added acronym export/import commands and acronym-level venue lookup support (#1010, #1025)
+  - Added support to sync learned acronyms and usage docs (#1011, #1032)
+- **Cache robustness**:
+  - Added database schema versioning system (#1013)
+
+### Changed
+
+- **Sync behavior**:
+  - Excluded DBLP from default sync to avoid unexpected heavy downloads in standard runs (#1030)
+- **Tooling and maintenance**:
+  - Removed automatic dead code detection workflow (#999)
+  - Removed unused RAR tooling from CI (#1020)
+- **Documentation updates**:
+  - Expanded README usage and media-mentions documentation (#1022, #1032)
+
+### Fixed
+
+- **Assessment and backend correctness**:
+  - Fixed Kscien pagination detection and enum handling bug (#1012)
+  - Improved retraction nature classification for article-level flags (#1028)
+  - Hardened acronym expansion confidence behavior and result transparency (#1031)
+- **User-facing reliability**:
+  - Cleaned schema mismatch error output to avoid traceback-heavy CLI messages (#1029)
+  - Updated database version guidance to steer users to delete+sync remediation (#1027)
 
 ## [0.8.0] - 2026-01-08
 
