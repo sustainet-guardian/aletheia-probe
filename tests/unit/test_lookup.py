@@ -74,8 +74,8 @@ class TestVenueLookupService:
         assert "international conference on machine learning" in result.normalized_names
         assert any(c.source == "acronym_exact" for c in result.candidates)
 
-    def test_lookup_skips_broad_cache_search_for_standalone_acronym(self):
-        """Avoid broad LIKE-based cache matching for standalone acronym inputs."""
+    def test_lookup_standalone_acronym_uses_exact_resolved_name_only(self):
+        """Resolve acronym via canonical title without broad cache search."""
         acronym_cache = Mock()
         journal_cache = Mock()
 
@@ -86,10 +86,6 @@ class TestVenueLookupService:
                 else None
             )
         )
-        journal_cache.search_journals.return_value = [
-            {"display_name": "acs applied materials and interfaces"}
-        ]
-
         acronym_cache.get_full_name_for_acronym.return_value = (
             "advances in complex systems"
         )
@@ -103,11 +99,7 @@ class TestVenueLookupService:
         )
         result = service.lookup("ACS", VenueType.JOURNAL)
 
-        searched_names = [
-            call.kwargs["normalized_name"]
-            for call in journal_cache.search_journals.call_args_list
-        ]
-        assert "acs" not in searched_names
+        journal_cache.search_journals.assert_not_called()
         assert "advances in complex systems" in result.normalized_names
         assert "0219-5259" in result.issns
         assert "1793-6802" in result.eissns
@@ -150,3 +142,73 @@ class TestVenueLookupService:
         assert any(
             c.source == "journal_cache_identifier_reverse" for c in result.candidates
         )
+
+    def test_lookup_with_name_and_identifier_uses_identifier_reverse_only(self):
+        """Mixed name+identifier input should resolve names from identifier reverse lookup."""
+        acronym_cache = Mock()
+        journal_cache = Mock()
+
+        journal_cache.get_journal_identifiers_by_normalized_name.return_value = None
+        journal_cache.search_journals.side_effect = (
+            lambda normalized_name=None, issn=None: (
+                [
+                    {
+                        "display_name": "Nature",
+                        "issn": "0028-0836",
+                        "eissn": "1476-4687",
+                    }
+                ]
+                if issn == "1550-445X"
+                else []
+            )
+        )
+
+        acronym_cache.get_full_name_for_acronym.return_value = None
+        acronym_cache.get_variant_match.return_value = None
+        acronym_cache.get_issns.return_value = []
+        acronym_cache.get_issn_match.return_value = None
+
+        service = VenueLookupService(
+            acronym_cache=acronym_cache,
+            journal_cache=journal_cache,
+        )
+        service.lookup("Nature 1550-445X", VenueType.JOURNAL)
+
+        assert len(journal_cache.search_journals.call_args_list) == 1
+        reverse_lookup_call = journal_cache.search_journals.call_args_list[0]
+        assert reverse_lookup_call.kwargs.get("issn") == "1550-445X"
+        assert reverse_lookup_call.kwargs.get("normalized_name") is None
+
+    def test_lookup_with_name_only_does_not_use_partial_cache_search(self):
+        """Use exact title lookup only for name-based input."""
+        acronym_cache = Mock()
+        journal_cache = Mock()
+
+        journal_cache.get_journal_identifiers_by_normalized_name.return_value = {
+            "issn": "0028-0836",
+            "eissn": "1476-4687",
+        }
+        journal_cache.search_journals.return_value = [
+            {
+                "display_name": "capitalism, nature, socialism",
+                "issn": "1045-5752",
+                "eissn": "1548-3290",
+            }
+        ]
+
+        acronym_cache.get_full_name_for_acronym.return_value = None
+        acronym_cache.get_variant_match.return_value = None
+        acronym_cache.get_issns.return_value = []
+        acronym_cache.get_issn_match.return_value = None
+
+        service = VenueLookupService(
+            acronym_cache=acronym_cache,
+            journal_cache=journal_cache,
+        )
+        result = service.lookup("Nature", VenueType.JOURNAL)
+
+        assert "nature" in result.normalized_names
+        assert "0028-0836" in result.issns
+        assert "1476-4687" in result.eissns
+        assert all(c.source != "journal_cache_search" for c in result.candidates)
+        journal_cache.search_journals.assert_not_called()
