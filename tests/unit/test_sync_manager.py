@@ -610,6 +610,7 @@ class TestCacheSyncManager:
             mock_cache_manager.get_source_statistics.return_value = {
                 "cached_source": {"total": 100}
             }
+            mock_cache_manager.has_source_data.return_value = True
 
             status = sync_manager.get_sync_status()
 

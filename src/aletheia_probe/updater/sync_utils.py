@@ -66,6 +66,30 @@ async def update_source_data(
         journals = await source.fetch_data()
 
         if not journals:
+            allow_empty_data_success = bool(
+                getattr(source, "allow_empty_data_success", False)
+            )
+            if allow_empty_data_success:
+                detail_logger.info(
+                    f"Source {source_name} completed with no journal rows (side-effect import source)"
+                )
+                status_logger.info(
+                    f"    {source_name}: Import completed (no journal rows)"
+                )
+                data_source_manager.log_update(
+                    source_name,
+                    UpdateType.FULL.value,
+                    UpdateStatus.SUCCESS.value,
+                    records_added=0,
+                    records_updated=0,
+                    records_removed=0,
+                )
+                return {
+                    "status": "success",
+                    "records_updated": 0,
+                    "processing_time": (datetime.now() - start_time).total_seconds(),
+                }
+
             detail_logger.warning(f"No data received from source {source_name}")
             status_logger.warning(f"    {source_name}: No data received")
             data_source_manager.log_update(

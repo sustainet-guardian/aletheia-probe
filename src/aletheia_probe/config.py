@@ -128,6 +128,14 @@ class DataSourceUrlConfig(BaseModel):
         "CORE2020",
         description="Default source filter for CORE journal rankings",
     )
+    ror_snapshot_concept_doi_url: str = Field(
+        "https://zenodo.org/doi/10.5281/zenodo.6347574",
+        description="Concept DOI URL for latest ROR snapshot release metadata",
+    )
+    ror_snapshot_archive_url: str = Field(
+        "https://zenodo.org/api/records/18419061/files/v2.2-2026-01-29-ror-data.zip/content",
+        description="Direct URL to a downloadable ROR snapshot archive",
+    )
 
 
 class DataSourceProcessingConfig(BaseModel):

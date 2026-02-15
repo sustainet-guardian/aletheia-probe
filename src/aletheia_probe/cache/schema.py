@@ -9,8 +9,8 @@ from .connection_utils import get_configured_connection
 
 
 # Schema version constants
-SCHEMA_VERSION = 3  # Current schema version
-MIN_COMPATIBLE_VERSION = 3  # Minimum version this code can work with
+SCHEMA_VERSION = 5  # Current schema version
+MIN_COMPATIBLE_VERSION = 5  # Minimum version this code can work with
 
 
 class SchemaVersionError(Exception):
@@ -399,6 +399,118 @@ def init_database(db_path: Path) -> None:
                 CHECK (list_type IN ({source_type_values}))
             );
 
+            -- ROR snapshot metadata for local identity registry imports
+            CREATE TABLE IF NOT EXISTS ror_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_version TEXT NOT NULL,
+                schema_version TEXT NOT NULL,
+                release_date TEXT NOT NULL,
+                source_url TEXT NOT NULL,
+                sha256 TEXT,
+                record_count INTEGER NOT NULL,
+                imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN NOT NULL DEFAULT FALSE
+            );
+
+            -- Core ROR organization records
+            CREATE TABLE IF NOT EXISTS ror_organizations (
+                ror_id TEXT PRIMARY KEY,
+                snapshot_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                established INTEGER,
+                country_code TEXT,
+                city TEXT,
+                lat REAL,
+                lng REAL,
+                org_types_json TEXT NOT NULL,
+                FOREIGN KEY (snapshot_id) REFERENCES ror_snapshots(id)
+            );
+
+            -- All names/aliases/acronyms for each organization
+            CREATE TABLE IF NOT EXISTS ror_names (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_id TEXT NOT NULL,
+                value TEXT NOT NULL,
+                value_normalized TEXT NOT NULL,
+                lang TEXT,
+                name_types_json TEXT NOT NULL,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id) ON DELETE CASCADE
+            );
+
+            -- Organization domains for fast domain-based lookups
+            CREATE TABLE IF NOT EXISTS ror_domains (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_id TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                domain_normalized TEXT NOT NULL,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id) ON DELETE CASCADE,
+                UNIQUE(ror_id, domain_normalized)
+            );
+
+            -- Organization links (website, wikipedia, etc.)
+            CREATE TABLE IF NOT EXISTS ror_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_id TEXT NOT NULL,
+                link_type TEXT NOT NULL,
+                url TEXT NOT NULL,
+                host_normalized TEXT,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id) ON DELETE CASCADE
+            );
+
+            -- External identifiers (wikidata, isni, fundref, ...)
+            CREATE TABLE IF NOT EXISTS ror_external_ids (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_id TEXT NOT NULL,
+                id_type TEXT NOT NULL,
+                preferred_value TEXT,
+                all_values_json TEXT NOT NULL,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id) ON DELETE CASCADE
+            );
+
+            -- Parent/child/related relationships between organizations
+            CREATE TABLE IF NOT EXISTS ror_relationships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ror_id TEXT NOT NULL,
+                related_ror_id TEXT NOT NULL,
+                relation_type TEXT NOT NULL,
+                related_label TEXT,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id) ON DELETE CASCADE
+            );
+
+            -- Journal-to-ROR link evidence (references journals.id)
+            CREATE TABLE IF NOT EXISTS journal_ror_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                journal_id INTEGER NOT NULL,
+                ror_id TEXT NOT NULL,
+                match_status TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                matching_method TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                snapshot_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id),
+                FOREIGN KEY (snapshot_id) REFERENCES ror_snapshots(id),
+                UNIQUE(journal_id, ror_id, snapshot_id)
+            );
+
+            -- Conference-to-ROR link evidence (references journals.id for now)
+            CREATE TABLE IF NOT EXISTS conference_ror_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conference_id INTEGER NOT NULL,
+                ror_id TEXT NOT NULL,
+                match_status TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                matching_method TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                snapshot_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (conference_id) REFERENCES journals(id) ON DELETE CASCADE,
+                FOREIGN KEY (ror_id) REFERENCES ror_organizations(ror_id),
+                FOREIGN KEY (snapshot_id) REFERENCES ror_snapshots(id),
+                UNIQUE(conference_id, ror_id, snapshot_id)
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_journals_display_name ON journals(display_name);
             CREATE INDEX IF NOT EXISTS idx_journals_normalized_name_lower ON journals(LOWER(normalized_name));
@@ -420,6 +532,20 @@ def init_database(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_openalex_cache_expires ON openalex_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_custom_lists_list_name ON custom_lists(list_name);
             CREATE INDEX IF NOT EXISTS idx_custom_lists_enabled ON custom_lists(enabled);
+            CREATE INDEX IF NOT EXISTS idx_ror_snapshots_active ON ror_snapshots(is_active);
+            CREATE INDEX IF NOT EXISTS idx_ror_org_snapshot ON ror_organizations(snapshot_id);
+            CREATE INDEX IF NOT EXISTS idx_ror_names_normalized ON ror_names(value_normalized);
+            CREATE INDEX IF NOT EXISTS idx_ror_names_ror_id ON ror_names(ror_id);
+            CREATE INDEX IF NOT EXISTS idx_ror_domains_normalized ON ror_domains(domain_normalized);
+            CREATE INDEX IF NOT EXISTS idx_ror_domains_ror_id ON ror_domains(ror_id);
+            CREATE INDEX IF NOT EXISTS idx_ror_links_host ON ror_links(host_normalized);
+            CREATE INDEX IF NOT EXISTS idx_ror_external_ids_type ON ror_external_ids(id_type);
+            CREATE INDEX IF NOT EXISTS idx_ror_relationships_ror_id ON ror_relationships(ror_id);
+            CREATE INDEX IF NOT EXISTS idx_ror_relationships_related ON ror_relationships(related_ror_id);
+            CREATE INDEX IF NOT EXISTS idx_journal_ror_links_journal ON journal_ror_links(journal_id);
+            CREATE INDEX IF NOT EXISTS idx_journal_ror_links_confidence ON journal_ror_links(confidence);
+            CREATE INDEX IF NOT EXISTS idx_conference_ror_links_conference ON conference_ror_links(conference_id);
+            CREATE INDEX IF NOT EXISTS idx_conference_ror_links_confidence ON conference_ror_links(confidence);
         """
         )
 
@@ -427,5 +553,5 @@ def init_database(db_path: Path) -> None:
         set_schema_version(
             db_path,
             SCHEMA_VERSION,
-            "Schema v3: acronym-level venue data with canonical, variants, and ISSN",
+            "Schema v5: removes ror_organizations.raw_json from ROR cache schema",
         )

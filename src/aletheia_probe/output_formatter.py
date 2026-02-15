@@ -212,6 +212,7 @@ class OutputFormatter:
             ("ugc_care_delisted_group2", "UGC-CARE Delisted (Group II)"),
             ("doaj", "Directory of Open Access Journals (DOAJ)"),
             ("scopus", "Scopus"),
+            ("ror_snapshot", "Research Organization Registry (ROR)"),
         ]
 
         for backend_name, display_name in key_backends:

@@ -130,6 +130,32 @@ class TestUpdateSourceData:
             assert result["error"] == "No data received"
 
     @pytest.mark.asyncio
+    async def test_update_source_no_data_allowed_for_side_effect_source(self):
+        """Test source update success when empty data is explicitly allowed."""
+
+        class EmptyAllowedDataSource(MockDataSource):
+            allow_empty_data_success = True
+
+            async def fetch_data(self):
+                return []
+
+        source = EmptyAllowedDataSource("empty_allowed_source")
+        mock_db_writer = AsyncMock()
+
+        with patch(
+            "aletheia_probe.updater.sync_utils.DataSourceManager"
+        ) as mock_manager_class:
+            mock_manager = Mock()
+            mock_manager.log_update = Mock()
+            mock_manager.register_data_source = Mock()
+            mock_manager_class.return_value = mock_manager
+
+            result = await update_source_data(source, mock_db_writer)
+
+            assert result["status"] == "success"
+            assert result["records_updated"] == 0
+
+    @pytest.mark.asyncio
     async def test_update_source_skip_when_not_needed(self):
         """Test source update skips when should_update returns False."""
 

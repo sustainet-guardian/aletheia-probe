@@ -277,3 +277,56 @@ class TestQualityAssessmentProcessor:
 
         assert result == {"risk_level": "none", "total_retractions": 0}
         assert len(reasoning) == 0  # No message for zero retractions
+
+    def test_extract_quality_data_prefers_retraction_fields(
+        self, processor: QualityAssessmentProcessor
+    ) -> None:
+        """Prefer quality indicator entries with retraction/risk fields."""
+        reasoning: list[str] = []
+        backend_results = [
+            BackendResult(
+                fallback_chain=QueryFallbackChain([]),
+                backend_name="ror_snapshot",
+                status=BackendStatus.FOUND,
+                confidence=0.8,
+                assessment=None,
+                data={
+                    "match_method": "name",
+                    "primary_match": {
+                        "ror_id": "https://ror.org/0117jxy09",
+                        "display_name": "Springer Nature (Germany)",
+                    },
+                },
+                sources=["ror_snapshot"],
+                error_message=None,
+                response_time=0.1,
+                cached=False,
+                execution_time_ms=100.0,
+                evidence_type=EvidenceType.QUALITY_INDICATOR.value,
+            ),
+            BackendResult(
+                fallback_chain=QueryFallbackChain([]),
+                backend_name="retraction_watch",
+                status=BackendStatus.FOUND,
+                confidence=0.9,
+                assessment=None,
+                data={
+                    "risk_level": "high",
+                    "total_retractions": 12,
+                    "recent_retractions": 4,
+                    "has_publication_data": False,
+                },
+                sources=["retraction_watch"],
+                error_message=None,
+                response_time=0.1,
+                cached=False,
+                execution_time_ms=100.0,
+                evidence_type=EvidenceType.QUALITY_INDICATOR.value,
+            ),
+        ]
+
+        result = processor.extract_quality_data(backend_results, reasoning)
+
+        assert result == {"risk_level": "high", "total_retractions": 12}
+        assert len(reasoning) == 1
+        assert "HIGH retraction risk" in reasoning[0]

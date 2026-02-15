@@ -287,7 +287,12 @@ class TestSyncCommand:
             return {}
 
         mock_registry = Mock()
-        mock_registry.get_backend_names.return_value = ["bealls", "dblp_venues", "doaj"]
+        mock_registry.get_backend_names.return_value = [
+            "bealls",
+            "dblp_venues",
+            "doaj",
+            "ror_snapshot",
+        ]
 
         with (
             patch(

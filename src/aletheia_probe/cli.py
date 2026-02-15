@@ -31,7 +31,7 @@ from .output_formatter import output_formatter
 from .utils.dead_code import code_is_used
 
 
-LARGE_SYNC_BACKENDS: frozenset[str] = frozenset({"dblp_venues"})
+LARGE_SYNC_BACKENDS: frozenset[str] = frozenset({"dblp_venues", "ror_snapshot"})
 ISSN_RESOLUTION_TIMEOUT_SECONDS: int = 8
 ISSN_MIN_TOKEN_OVERLAP: float = 0.5
 GITHUB_HTTP_TIMEOUT_SECONDS: int = 120

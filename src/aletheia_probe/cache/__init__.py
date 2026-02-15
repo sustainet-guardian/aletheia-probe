@@ -16,6 +16,7 @@ from .data_source_manager import DataSourceManager
 from .journal_cache import JournalCache
 from .openalex_cache import OpenAlexCache
 from .retraction_cache import RetractionCache
+from .ror_cache import RorCache
 
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "AssessmentCache",
     "OpenAlexCache",
     "DataSourceManager",
+    "RorCache",
 ]

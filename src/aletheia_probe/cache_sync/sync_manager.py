@@ -13,7 +13,13 @@ from ..backends.base import (
     get_backend_registry,
 )
 from ..backends.protocols import DataSyncCapable
-from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, RetractionCache
+from ..cache import (
+    AssessmentCache,
+    DataSourceManager,
+    OpenAlexCache,
+    RetractionCache,
+    RorCache,
+)
 from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
@@ -704,8 +710,6 @@ class CacheSyncManager:
         config_manager = get_config_manager()
         enabled_backend_names = config_manager.get_enabled_backends()
         data_source_manager = DataSourceManager()
-        available_sources = data_source_manager.get_available_sources()
-
         for backend_name in all_backend_names:
             try:
                 backend = backend_registry.get_backend(backend_name)
@@ -725,7 +729,6 @@ class CacheSyncManager:
                 if isinstance(backend, DataSyncCapable):
                     source_name = backend.source_name
                     backend_status["source_name"] = source_name
-                    backend_status["has_data"] = source_name in available_sources
                     backend_status["last_updated"] = (
                         data_source_manager.get_source_last_updated(source_name)
                     )
@@ -738,6 +741,17 @@ class CacheSyncManager:
                         )
                     else:
                         backend_status["entry_count"] = 0
+
+                    backend_status["has_data"] = bool(
+                        data_source_manager.has_source_data(source_name)
+                    )
+
+                    # ROR snapshot source stores data in dedicated tables
+                    if source_name == "ror_snapshot":
+                        ror_cache = RorCache()
+                        ror_count = ror_cache.get_active_snapshot_record_count()
+                        backend_status["entry_count"] = ror_count
+                        backend_status["has_data"] = ror_count > 0
 
                 status["backends"][backend_name] = backend_status
 

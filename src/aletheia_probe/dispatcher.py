@@ -579,6 +579,7 @@ class QueryDispatcher:
         quality_info = self.quality_processor.extract_quality_data(
             backend_results, reasoning
         )
+        self._append_ror_reasoning(backend_results, reasoning)
 
         # Handle case with no successful results
         if not successful_results:
@@ -1013,6 +1014,39 @@ class QueryDispatcher:
             acronym_expanded_from=query_input.acronym_expanded_from,
             acronym_expansion_used=bool(query_input.acronym_expanded_from),
         )
+
+    def _append_ror_reasoning(
+        self, backend_results: list[BackendResult], reasoning: list[str]
+    ) -> None:
+        """Append user-facing reasoning for ROR identity matches."""
+        ror_result = next(
+            (
+                result
+                for result in backend_results
+                if result.backend_name == "ror_snapshot"
+                and result.status == BackendStatus.FOUND
+            ),
+            None,
+        )
+        if ror_result is None:
+            return
+
+        primary_match = (
+            ror_result.data.get("primary_match")
+            if isinstance(ror_result.data, dict)
+            else None
+        )
+        if not isinstance(primary_match, dict):
+            reasoning.append("ROR: organization match found")
+            return
+
+        display_name = str(primary_match.get("display_name") or "unknown organization")
+        ror_id = str(primary_match.get("ror_id") or "").strip()
+        match_method = str(ror_result.data.get("match_method") or "name")
+        if ror_id:
+            reasoning.append(f"ROR ({match_method}): {display_name} [{ror_id}]")
+        else:
+            reasoning.append(f"ROR ({match_method}): {display_name}")
 
 
 # Global dispatcher instance

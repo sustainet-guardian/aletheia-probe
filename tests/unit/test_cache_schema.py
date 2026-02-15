@@ -71,6 +71,15 @@ class TestCacheSchema:
             "venue_acronym_variants",
             "venue_acronym_issns",
             "custom_lists",
+            "ror_snapshots",
+            "ror_organizations",
+            "ror_names",
+            "ror_domains",
+            "ror_links",
+            "ror_external_ids",
+            "ror_relationships",
+            "journal_ror_links",
+            "conference_ror_links",
         }
 
         with get_configured_connection(temp_db) as conn:
@@ -99,6 +108,15 @@ class TestCacheSchema:
             "venue_acronym_variants",
             "venue_acronym_issns",
             "custom_lists",
+            "ror_snapshots",
+            "ror_organizations",
+            "ror_names",
+            "ror_domains",
+            "ror_links",
+            "ror_external_ids",
+            "ror_relationships",
+            "journal_ror_links",
+            "conference_ror_links",
         ]
 
         with get_configured_connection(temp_db) as conn:
@@ -107,6 +125,14 @@ class TestCacheSchema:
                 cursor.execute(f"PRAGMA table_info({table})")
                 columns = cursor.fetchall()
                 assert len(columns) > 0, f"Table {table} has no columns"
+
+    def test_ror_organizations_does_not_store_raw_json(self, temp_db):
+        """Test that ror_organizations no longer includes raw_json payload column."""
+        with get_configured_connection(temp_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(ror_organizations)")
+            columns = {row[1] for row in cursor.fetchall()}
+            assert "raw_json" not in columns
 
     def test_foreign_keys_created(self, temp_db):
         """Test that foreign key relationships are created."""
@@ -118,6 +144,14 @@ class TestCacheSchema:
             "source_updates": ["source_id"],
             "venue_acronym_variants": ["venue_acronym_id"],
             "venue_acronym_issns": ["venue_acronym_id"],
+            "ror_organizations": ["snapshot_id"],
+            "ror_names": ["ror_id"],
+            "ror_domains": ["ror_id"],
+            "ror_links": ["ror_id"],
+            "ror_external_ids": ["ror_id"],
+            "ror_relationships": ["ror_id"],
+            "journal_ror_links": ["journal_id", "ror_id", "snapshot_id"],
+            "conference_ror_links": ["conference_id", "ror_id", "snapshot_id"],
         }
 
         with get_configured_connection(temp_db) as conn:
@@ -149,6 +183,10 @@ class TestCacheSchema:
                 "idx_venue_acronym_variants_variant",
                 "idx_venue_acronym_issns_issn",
                 "idx_custom_lists_list_name",
+                "idx_ror_names_normalized",
+                "idx_ror_domains_normalized",
+                "idx_journal_ror_links_journal",
+                "idx_conference_ror_links_conference",
             }
 
             assert expected_indexes.issubset(indexes)

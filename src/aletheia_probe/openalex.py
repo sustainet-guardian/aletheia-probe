@@ -273,6 +273,53 @@ class OpenAlexClient:
         max_retries=3,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
+    async def get_institution_by_id(self, institution_id: str) -> dict[str, Any] | None:
+        """Get institution record by OpenAlex institution ID/URL.
+
+        Args:
+            institution_id: OpenAlex institution identifier (URL or ``I...`` ID).
+
+        Returns:
+            Institution payload dictionary, or None if not found.
+        """
+        async with self.semaphore:
+            normalized_id = institution_id.strip()
+            if not normalized_id:
+                return None
+            if normalized_id.startswith("https://openalex.org/"):
+                normalized_id = normalized_id.rsplit("/", 1)[-1]
+            if not normalized_id.startswith("I"):
+                return None
+
+            url = f"{self.BASE_URL}/institutions/{normalized_id}"
+
+            if not self.session:
+                self.session = aiohttp.ClientSession(
+                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                )
+
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    payload = await response.json()
+                    return dict(payload) if isinstance(payload, dict) else None
+                if response.status == 404:
+                    return None
+                if response.status == 429:
+                    retry_after = response.headers.get("Retry-After")
+                    retry_seconds = int(retry_after) if retry_after else None
+                    raise RateLimitError(
+                        message="OpenAlex rate limit hit",
+                        retry_after=retry_seconds,
+                        backend_name="openalex",
+                    )
+                raise aiohttp.ClientError(
+                    f"OpenAlex API returned status {response.status} for institution {normalized_id}"
+                )
+
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
     async def get_works_count_by_year(
         self,
         source_id: str,

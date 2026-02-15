@@ -215,6 +215,43 @@ class TestQueryDispatcher:
             assert "retraction" in reasoning_text.lower()
             assert "HIGH" in reasoning_text or "high" in reasoning_text
 
+    @pytest.mark.asyncio
+    async def test_assess_journal_with_ror_evidence_reasoning(
+        self, dispatcher, sample_query_input
+    ):
+        """Include ROR evidence summary in reasoning when available."""
+        ror_backend = Mock()
+        ror_backend.get_name.return_value = "ror_snapshot"
+        ror_backend.get_evidence_type.return_value = EvidenceType.QUALITY_INDICATOR
+        ror_backend.query_with_timeout = AsyncMock(
+            return_value=BackendResult(
+                fallback_chain=QueryFallbackChain([]),
+                backend_name="ror_snapshot",
+                status=BackendStatus.FOUND,
+                confidence=0.85,
+                assessment=AssessmentType.QUALITY_INDICATOR,
+                data={
+                    "match_method": "authoritative_link",
+                    "primary_match": {
+                        "ror_id": "https://ror.org/0117jxy09",
+                        "display_name": "Springer Nature (Germany)",
+                    },
+                },
+                sources=["ror_snapshot"],
+                response_time=0.1,
+                evidence_type=EvidenceType.QUALITY_INDICATOR.value,
+            )
+        )
+
+        with patch.object(
+            dispatcher, "_get_enabled_backends", return_value=[ror_backend]
+        ):
+            result = await dispatcher.assess_journal(sample_query_input)
+
+        reasoning_text = " ".join(result.reasoning)
+        assert "ROR (authoritative_link): Springer Nature (Germany)" in reasoning_text
+        assert "https://ror.org/0117jxy09" in reasoning_text
+
     def test_get_enabled_backends(self, dispatcher):
         """Test getting enabled backends."""
         with (

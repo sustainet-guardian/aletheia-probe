@@ -34,15 +34,22 @@ class QualityAssessmentProcessor:
         Returns:
             Dictionary with quality data including risk_level and total_retractions
         """
-        # Find quality indicator backends (generic, not name-specific)
+        # Find quality indicator backends (generic, not name-specific).
+        # Prefer entries that contain retraction/risk fields.
+        quality_candidates = [
+            r
+            for r in backend_results
+            if r.evidence_type == EvidenceType.QUALITY_INDICATOR.value
+            and r.status == BackendStatus.FOUND
+            and r.data
+        ]
         quality_result = next(
             (
-                r
-                for r in backend_results
-                if r.evidence_type == EvidenceType.QUALITY_INDICATOR.value
-                and r.status == BackendStatus.FOUND
+                result
+                for result in quality_candidates
+                if "risk_level" in result.data or "total_retractions" in result.data
             ),
-            None,
+            quality_candidates[0] if quality_candidates else None,
         )
 
         if not quality_result or not quality_result.data:
