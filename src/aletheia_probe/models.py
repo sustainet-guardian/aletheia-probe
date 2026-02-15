@@ -49,6 +49,101 @@ class BackendStatus(str, Enum):
     TIMEOUT = "timeout"
 
 
+class NormalizationStatus(str, Enum):
+    """Status of normalization consistency checks."""
+
+    OK = "ok"
+    CONFLICT = "conflict"
+    INSUFFICIENT = "insufficient"
+    ERROR = "error"
+
+
+class NormalizationCandidate(BaseModel):
+    """One normalized candidate item with optional identifiers."""
+
+    source: str = Field(..., description="Origin of this normalization candidate")
+    normalized_name: str = Field(..., description="Normalized venue name candidate")
+    confidence: float | None = Field(
+        None, description="Optional confidence score for candidate ranking"
+    )
+    acronym: str | None = Field(
+        None, description="Acronym if candidate came from acronym expansion"
+    )
+    issn: str | None = Field(None, description="Candidate ISSN")
+    eissn: str | None = Field(None, description="Candidate eISSN")
+
+
+class NormalizationValidation(BaseModel):
+    """Validation item from external/internal checks during normalization."""
+
+    source: str = Field(..., description="Validation source name")
+    identifier: str = Field(..., description="Validated identifier or name token")
+    status: str = Field(..., description="Validation outcome status")
+    input_name: str | None = Field(
+        None, description="Input normalized name used for comparison"
+    )
+    resolved_name: str | None = Field(
+        None, description="Resolved normalized name from the source"
+    )
+    similarity: float | None = Field(
+        None, description="Similarity score between input and resolved name"
+    )
+    details: str | None = Field(None, description="Additional validation details")
+
+
+class NormalizationResult(BaseModel):
+    """Normalization contract passed to backends before assessment."""
+
+    raw_input: str = Field(..., description="Original query input string")
+    venue_type: VenueType = Field(..., description="Requested/detected venue type")
+    normalized_name: str | None = Field(
+        None, description="Primary normalized venue name"
+    )
+    normalized_names: list[str] = Field(
+        default_factory=list, description="All normalized name candidates"
+    )
+    aliases: list[str] = Field(
+        default_factory=list, description="Extracted aliases from normalization"
+    )
+    acronym_expanded_from: str | None = Field(
+        None, description="Original acronym if expansion was applied"
+    )
+    input_identifiers: dict[str, str] = Field(
+        default_factory=dict, description="Identifiers extracted directly from input"
+    )
+    identifiers: dict[str, str] = Field(
+        default_factory=dict, description="Identifiers chosen for backend querying"
+    )
+    issns: list[str] = Field(
+        default_factory=list, description="All resolved ISSN values"
+    )
+    eissns: list[str] = Field(
+        default_factory=list, description="All resolved eISSN values"
+    )
+    candidates: list[NormalizationCandidate] = Field(
+        default_factory=list, description="Candidate evidence collected during lookup"
+    )
+    validations: list[NormalizationValidation] = Field(
+        default_factory=list, description="Validation results for name/identifier pairs"
+    )
+    consistency_errors: list[str] = Field(
+        default_factory=list,
+        description="Consistency errors detected while normalizing input",
+    )
+    status: NormalizationStatus = Field(
+        NormalizationStatus.INSUFFICIENT,
+        description="Overall normalization status used for backend gating",
+    )
+    failure_reason: str | None = Field(
+        None,
+        description="Human-readable failure reason when status is not ok",
+    )
+
+    def is_ok(self) -> bool:
+        """Return True when normalization is consistent and backend-safe."""
+        return self.status == NormalizationStatus.OK
+
+
 class QueryInput(BaseModel):
     """Input query data for journal assessment."""
 
@@ -67,6 +162,10 @@ class QueryInput(BaseModel):
     extracted_acronym_mappings: dict[str, str] = Field(
         default_factory=dict,
         description="Acronym to full name mappings extracted during normalization",
+    )
+    normalization_result: NormalizationResult | None = Field(
+        None,
+        description="Structured normalization payload passed to backends",
     )
 
 

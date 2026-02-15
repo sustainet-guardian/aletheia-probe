@@ -16,6 +16,10 @@ from aletheia_probe.models import (
     BibtexEntry,
     ConfigBackend,
     JournalMetadata,
+    NormalizationCandidate,
+    NormalizationResult,
+    NormalizationStatus,
+    NormalizationValidation,
     QueryInput,
     VenueType,
 )
@@ -44,6 +48,85 @@ class TestQueryInput:
         assert query.normalized_name == "Journal of Test Science"
         assert query.identifiers["issn"] == "1234-5679"
         assert "Test Science Journal" in query.aliases
+
+    def test_query_input_with_normalization_result(self):
+        """Test attaching normalization payload to QueryInput."""
+        normalization_result = NormalizationResult(
+            raw_input="Nature 0028-0836",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            identifiers={"issn": "0028-0836"},
+            input_identifiers={"issn": "0028-0836"},
+            status=NormalizationStatus.OK,
+        )
+        query = QueryInput(
+            raw_input="Nature 0028-0836",
+            normalized_name="nature",
+            identifiers={"issn": "0028-0836"},
+            normalization_result=normalization_result,
+        )
+        assert query.normalization_result is not None
+        assert query.normalization_result.status == NormalizationStatus.OK
+
+
+class TestNormalizationResult:
+    """Tests for normalization contract models."""
+
+    def test_create_normalization_result(self):
+        """Create normalization result with candidate and validation evidence."""
+        result = NormalizationResult(
+            raw_input="Nature",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            acronym_expanded_from=None,
+            input_identifiers={},
+            identifiers={"issn": "0028-0836"},
+            issns=["0028-0836"],
+            eissns=["1476-4687"],
+            candidates=[
+                NormalizationCandidate(
+                    source="journal_cache_exact",
+                    normalized_name="nature",
+                    confidence=0.9,
+                    issn="0028-0836",
+                    eissn="1476-4687",
+                )
+            ],
+            validations=[
+                NormalizationValidation(
+                    source="openalex",
+                    identifier="0028-0836",
+                    status="agree",
+                    input_name="nature",
+                    resolved_name="nature",
+                    similarity=1.0,
+                )
+            ],
+            consistency_errors=[],
+            status=NormalizationStatus.OK,
+        )
+        assert result.is_ok() is True
+        assert result.normalized_name == "nature"
+        assert result.identifiers["issn"] == "0028-0836"
+
+    def test_create_conflicting_normalization_result(self):
+        """Conflict status marks normalization as not backend-safe."""
+        result = NormalizationResult(
+            raw_input="Nature 1550-445X",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            input_identifiers={"issn": "1550-445X"},
+            identifiers={"issn": "1550-445X"},
+            consistency_errors=["identifier mismatch"],
+            status=NormalizationStatus.CONFLICT,
+            failure_reason="identifier mismatch",
+        )
+        assert result.is_ok() is False
+        assert result.failure_reason == "identifier mismatch"
 
 
 class TestBackendResult:
