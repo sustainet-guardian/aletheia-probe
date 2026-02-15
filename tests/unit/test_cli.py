@@ -13,6 +13,7 @@ from click.testing import CliRunner
 from aletheia_probe.cli import main
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.fallback_chain import QueryFallbackChain
+from aletheia_probe.lookup import LookupCandidate, LookupResult
 from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
@@ -219,6 +220,107 @@ class TestAssessCommand:
 
         assert result.exit_code != 0
         assert "invalid" in result.output.lower()
+
+
+class TestLookupCommand:
+    """Test cases for the lookup command group."""
+
+    def test_lookup_journal_invokes_runner(self, runner):
+        """Run lookup journal command with defaults."""
+        with patch("aletheia_probe.cli._run_lookup_cli") as mock_run_lookup:
+            result = runner.invoke(main, ["lookup", "journal", "Nature"])
+
+            assert result.exit_code == 0
+            mock_run_lookup.assert_called_once_with(
+                "Nature", VenueType.JOURNAL, "text", 0.8
+            )
+
+    def test_lookup_conference_json_invokes_runner(self, runner):
+        """Run lookup conference command with JSON output."""
+        with patch("aletheia_probe.cli._run_lookup_cli") as mock_run_lookup:
+            result = runner.invoke(
+                main,
+                ["lookup", "conference", "ICML", "--format", "json"],
+            )
+
+            assert result.exit_code == 0
+            mock_run_lookup.assert_called_once_with(
+                "ICML", VenueType.CONFERENCE, "json", 0.8
+            )
+
+    def test_lookup_journal_json_output(self, runner):
+        """Print structured JSON output for lookup results."""
+        lookup_result = LookupResult(
+            raw_input="Nature",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            identifiers={"issn": "0028-0836"},
+            issn_valid=True,
+            issns=["0028-0836"],
+            eissns=["1476-4687"],
+            candidates=[
+                LookupCandidate(
+                    source="input",
+                    normalized_name="nature",
+                    confidence=None,
+                )
+            ],
+        )
+
+        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+            mock_service = Mock()
+            mock_service.lookup.return_value = lookup_result
+            mock_service_class.return_value = mock_service
+
+            result = runner.invoke(
+                main, ["lookup", "journal", "Nature", "--format", "json"]
+            )
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload["raw_input"] == "Nature"
+            assert payload["venue_type"] == "journal"
+            assert payload["issn_valid"] is True
+            assert payload["issns"] == ["0028-0836"]
+
+    def test_lookup_journal_text_output(self, runner):
+        """Print readable text output for lookup results."""
+        lookup_result = LookupResult(
+            raw_input="Nature",
+            venue_type=VenueType.JOURNAL,
+            normalized_name="nature",
+            normalized_names=["nature"],
+            aliases=[],
+            identifiers={"issn": "0028-0836"},
+            issn_valid=True,
+            issns=["0028-0836"],
+            eissns=["1476-4687"],
+            candidates=[
+                LookupCandidate(
+                    source="journal_cache_exact",
+                    normalized_name="nature",
+                    confidence=0.9,
+                    issn="0028-0836",
+                    eissn="1476-4687",
+                )
+            ],
+        )
+
+        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+            mock_service = Mock()
+            mock_service.lookup.return_value = lookup_result
+            mock_service_class.return_value = mock_service
+
+            result = runner.invoke(main, ["lookup", "journal", "Nature"])
+
+            assert result.exit_code == 0
+            assert "Lookup: Nature" in result.output
+            assert "Venue Type: journal" in result.output
+            assert "Primary Normalized Name: nature" in result.output
+            assert "ISSN Checksum Valid: yes" in result.output
+            assert "journal_cache_exact: nature" in result.output
 
 
 class TestConfigCommand:
