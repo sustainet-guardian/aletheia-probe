@@ -13,12 +13,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from ..config import get_config_manager
 from ..logging_config import get_detail_logger, get_status_logger
 from ..utils.dead_code import code_is_used
 from .connection_utils import (
     get_configured_connection,
     get_connection_with_row_factory,
 )
+from .schema import init_database
 
 
 detail_logger = get_detail_logger()
@@ -52,10 +54,6 @@ class CacheBase:
             RuntimeError: If config structure is invalid or database initialization fails.
         """
         if db_path is None:
-            # Local import to avoid circular dependency (config -> backends -> cache)
-            from ..config import get_config_manager
-            from .schema import init_database
-
             try:
                 db_path_str = get_config_manager().load_config().cache.db_path
                 db_path = Path(db_path_str)

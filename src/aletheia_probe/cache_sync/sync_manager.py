@@ -17,6 +17,7 @@ from ..cache import AssessmentCache, DataSourceManager, OpenAlexCache, Retractio
 from ..config import get_config_manager
 from ..enums import UpdateStatus, UpdateType
 from ..logging_config import get_detail_logger, get_status_logger
+from ..updater import sync_utils as updater_sync_utils
 from .cache_cleanup_registry import CacheCleanupRegistry
 from .db_writer import AsyncDBWriter
 
@@ -638,10 +639,7 @@ class CacheSyncManager:
                 f"Fetching data for backend {backend_name} source {source_name} (force={force})"
             )
 
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sync_utils import update_source_data
-
-            result = await update_source_data(
+            result = await updater_sync_utils.update_source_data(
                 data_source, db_writer=db_writer, force=force
             )
 
@@ -752,3 +750,6 @@ class CacheSyncManager:
                 status["backends"][backend_name] = {"error": str(e)}
 
         return status
+
+
+cache_sync_manager = CacheSyncManager()

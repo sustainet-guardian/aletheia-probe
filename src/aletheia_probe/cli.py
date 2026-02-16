@@ -44,7 +44,7 @@ try:
     from .cache_sync import cache_sync_manager  # noqa: E402
 except SchemaVersionError as _e:
     _startup_error = _e
-    cache_sync_manager = None  # type: ignore[assignment]
+    cache_sync_manager = None
 
 
 def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> None:

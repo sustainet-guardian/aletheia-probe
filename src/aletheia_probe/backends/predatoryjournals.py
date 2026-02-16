@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Predatory Journals database backend for journal assessment."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.predatoryjournals import PredatoryJournalsSource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.predatoryjournals import PredatoryJournalsSource
 
 
 # Monthly cache for community-maintained lists (30 days)
@@ -54,9 +49,6 @@ class PredatoryJournalsBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the PredatoryJournalsSource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.predatoryjournals import PredatoryJournalsSource
-
             self._data_source = PredatoryJournalsSource()
         return self._data_source
 

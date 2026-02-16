@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Algerian Ministry backend for predatory journal verification."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.algerian import AlgerianMinistrySource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.algerian import AlgerianMinistrySource
 
 
 class AlgerianMinistryBackend(CachedBackend):
@@ -46,9 +41,6 @@ class AlgerianMinistryBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the AlgerianMinistrySource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.algerian import AlgerianMinistrySource
-
             self._data_source = AlgerianMinistrySource()
         return self._data_source
 

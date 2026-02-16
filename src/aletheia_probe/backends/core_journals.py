@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """CORE journal rankings backend for legitimate journal verification."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.core import CoreJournalSource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.core import CoreJournalSource
 
 
 class CoreJournalsBackend(CachedBackend):
@@ -31,9 +26,6 @@ class CoreJournalsBackend(CachedBackend):
 
     def get_data_source(self) -> "DataSource | None":
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.core import CoreJournalSource
-
             self._data_source = CoreJournalSource()
         return self._data_source
 

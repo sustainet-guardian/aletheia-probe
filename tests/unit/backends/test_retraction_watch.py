@@ -25,7 +25,7 @@ class TestRetractionWatchBackend:
     @pytest.fixture
     def backend(self, isolated_test_cache: str) -> RetractionWatchBackend:
         """Create a RetractionWatchBackend instance with isolated test cache."""
-        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+        with patch("aletheia_probe.cache.base.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
                 isolated_test_cache
             )
@@ -357,7 +357,7 @@ class TestRetractionWatchBackendDataSyncCapable:
     @pytest.fixture
     def backend(self, isolated_test_cache: str) -> RetractionWatchBackend:
         """Create a RetractionWatchBackend instance with isolated test cache."""
-        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+        with patch("aletheia_probe.cache.base.get_config_manager") as mock_config:
             mock_config.return_value.load_config.return_value.cache.db_path = str(
                 isolated_test_cache
             )

@@ -35,7 +35,7 @@ def test_dblp_venues_backend_get_data_source():
     """Test source creation and caching behavior."""
     backend = DblpVenuesBackend()
 
-    with patch("aletheia_probe.updater.sources.dblp.DblpVenueSource") as mock_source:
+    with patch("aletheia_probe.backends.dblp_venues.DblpVenueSource") as mock_source:
         data_source = backend.get_data_source()
         assert data_source == mock_source.return_value
         mock_source.assert_called_once_with()

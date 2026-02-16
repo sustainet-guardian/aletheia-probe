@@ -2,7 +2,7 @@
 """Retraction Watch backend for journal quality assessment based on retraction data."""
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import aiohttp
 
@@ -17,15 +17,12 @@ from ..logging_config import get_detail_logger, get_status_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..openalex import get_publication_stats
 from ..risk_calculator import calculate_retraction_risk_level
+from ..updater.core import DataSource
+from ..updater.sources.retraction_watch import RetractionWatchSource
 from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
 from .protocols import DataSyncCapable
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.retraction_watch import RetractionWatchSource
 
 
 detail_logger = get_detail_logger()
@@ -89,9 +86,6 @@ class RetractionWatchBackend(
     def get_data_source(self) -> "DataSource | None":
         """Get the RetractionWatchSource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.retraction_watch import RetractionWatchSource
-
             self._data_source = RetractionWatchSource()
         return self._data_source
 

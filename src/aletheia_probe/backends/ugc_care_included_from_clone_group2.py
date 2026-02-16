@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """UGC-CARE included (Group II clone-page left side) backend."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.ugc_care import UgcCareIncludedFromCloneGroup2Source
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.ugc_care import UgcCareIncludedFromCloneGroup2Source
 
 
 class UgcCareIncludedFromCloneGroup2Backend(CachedBackend):
@@ -31,9 +26,6 @@ class UgcCareIncludedFromCloneGroup2Backend(CachedBackend):
 
     def get_data_source(self) -> "DataSource | None":
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.ugc_care import UgcCareIncludedFromCloneGroup2Source
-
             self._data_source = UgcCareIncludedFromCloneGroup2Source()
         return self._data_source
 
