@@ -8,7 +8,12 @@ import pytest
 import aletheia_probe.backends  # noqa: F401 - ensure backend registration side effects
 from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.backends.opencitations_analyzer import OpenCitationsAnalyzerBackend
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 @pytest.fixture
@@ -41,6 +46,16 @@ async def test_query_success_by_issn(backend: OpenCitationsAnalyzerBackend) -> N
         raw_input="Nature",
         normalized_name="nature",
         identifiers={"issn": "0028-0836"},
+        normalized_venue=NormalizedVenueInput(
+            original_text="Nature",
+            name="nature",
+            acronym=None,
+            issn="0028-0836",
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={"issn": "0028-0836"},
+        ),
     )
 
     metrics = {
@@ -74,6 +89,16 @@ async def test_query_not_found_without_issn(
         raw_input="Unknown Venue",
         normalized_name="unknown venue",
         identifiers={},
+        normalized_venue=NormalizedVenueInput(
+            original_text="Unknown Venue",
+            name="unknown venue",
+            acronym=None,
+            issn=None,
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={},
+        ),
     )
 
     with patch.object(

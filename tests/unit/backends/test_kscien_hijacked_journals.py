@@ -9,7 +9,12 @@ from aletheia_probe.backends.kscien_hijacked_journals import (
     KscienHijackedJournalsBackend,
 )
 from aletheia_probe.enums import AssessmentType, EvidenceType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 def test_kscien_hijacked_journals_backend_initialization():
@@ -44,6 +49,16 @@ async def test_kscien_hijacked_journals_backend_query_found():
         raw_input="Hijacked Journal",
         normalized_name="hijacked journal",
         identifiers={"issn": "1234-5678"},
+        normalized_venue=NormalizedVenueInput(
+            original_text="Hijacked Journal",
+            name="hijacked journal",
+            acronym=None,
+            issn="1234-5678",
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={"issn": "1234-5678"},
+        ),
     )
 
     mock_journal = {
@@ -72,6 +87,16 @@ async def test_kscien_hijacked_journals_backend_query_not_found():
         raw_input="Unknown Journal",
         normalized_name="unknown journal",
         identifiers={"issn": "9999-9999"},
+        normalized_venue=NormalizedVenueInput(
+            original_text="Unknown Journal",
+            name="unknown journal",
+            acronym=None,
+            issn="9999-9999",
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={"issn": "9999-9999"},
+        ),
     )
 
     with patch.object(backend.journal_cache, "search_journals", return_value=[]):

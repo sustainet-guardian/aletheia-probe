@@ -24,7 +24,7 @@ from .models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -105,12 +105,10 @@ class QueryDispatcher:
         """
         start_time = time.time()
         (
-            normalization_result,
+            normalized_venue,
             normalization_failure,
         ) = await self._normalize_for_dispatch(query_input)
-        query_input = self._attach_normalization_to_query(
-            query_input, normalization_result
-        )
+        query_input = self._attach_normalization_to_query(query_input, normalized_venue)
         if normalization_failure:
             return self._build_normalization_blocked_result(
                 query_input, normalization_failure, start_time
@@ -161,7 +159,7 @@ class QueryDispatcher:
 
     async def _normalize_for_dispatch(
         self, query_input: QueryInput
-    ) -> tuple[NormalizationResult, str | None]:
+    ) -> tuple[NormalizedVenueInput, str | None]:
         """Build minimal normalization payload and evaluate gating failures."""
         requested_venue_type = (
             query_input.venue_type
@@ -210,7 +208,7 @@ class QueryDispatcher:
         if consistency_errors:
             failure_reason = "; ".join(sorted(set(consistency_errors)))
 
-        normalization_result = NormalizationResult(
+        normalized_venue = NormalizedVenueInput(
             original_text=lookup_result.raw_input,
             venue_type=requested_venue_type,
             name=primary_name,
@@ -220,23 +218,23 @@ class QueryDispatcher:
             aliases=lookup_result.aliases,
             input_identifiers=dict(query_input.identifiers),
         )
-        return normalization_result, failure_reason
+        return normalized_venue, failure_reason
 
     def _attach_normalization_to_query(
-        self, query_input: QueryInput, normalization_result: NormalizationResult
+        self, query_input: QueryInput, normalized_venue: NormalizedVenueInput
     ) -> QueryInput:
         """Attach normalization payload and selected fields to query input."""
-        normalized_name = normalization_result.name or query_input.normalized_name
+        normalized_name = normalized_venue.name or query_input.normalized_name
         merged_identifiers = dict(query_input.identifiers)
-        if normalization_result.issn:
-            merged_identifiers.setdefault("issn", normalization_result.issn)
-        if normalization_result.eissn:
-            merged_identifiers.setdefault("eissn", normalization_result.eissn)
+        if normalized_venue.issn:
+            merged_identifiers.setdefault("issn", normalized_venue.issn)
+        if normalized_venue.eissn:
+            merged_identifiers.setdefault("eissn", normalized_venue.eissn)
         return query_input.model_copy(
             update={
                 "normalized_name": normalized_name,
                 "identifiers": merged_identifiers,
-                "normalization_result": normalization_result,
+                "normalized_venue": normalized_venue,
             }
         )
 

@@ -13,7 +13,9 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
+    NormalizedVenueInput,
     QueryInput,
+    VenueType,
 )
 
 
@@ -37,6 +39,16 @@ class TestRetractionWatchBackend:
             normalized_name="nature",
             identifiers={"issn": "0028-0836"},
             aliases=["Nature Magazine"],
+            normalized_venue=NormalizedVenueInput(
+                original_text="Nature",
+                name="nature",
+                acronym=None,
+                issn="0028-0836",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=["Nature Magazine"],
+                input_identifiers={"issn": "0028-0836"},
+            ),
         )
 
     @pytest.fixture

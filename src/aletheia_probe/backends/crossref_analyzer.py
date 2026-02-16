@@ -271,8 +271,9 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         )
 
         # Determine which ISSN was used for the source URL
-        issn = query_input.identifiers.get("issn")
-        eissn = query_input.identifiers.get("eissn")
+        normalization = query_input.normalized_venue
+        issn = normalization.issn if normalization else None
+        eissn = normalization.eissn if normalization else None
 
         return BackendResult(
             backend_name=self.get_name(),
@@ -314,8 +315,12 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         self.detail_logger.info(
             f"Crossref: Journal not found for {query_input.raw_input}"
         )
-        issn = query_input.identifiers.get("issn")
-        eissn = query_input.identifiers.get("eissn")
+        normalization = query_input.normalized_venue
+        issn = normalization.issn if normalization else None
+        eissn = normalization.eissn if normalization else None
+        searched_for = (
+            normalization.original_text if normalization else query_input.raw_input
+        )
 
         return BackendResult(
             backend_name=self.get_name(),
@@ -323,7 +328,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             confidence=0.0,
             assessment=None,
             data={
-                "searched_for": query_input.raw_input,
+                "searched_for": searched_for,
                 "issn": issn,
                 "eissn": eissn,
             },

@@ -172,17 +172,17 @@ class CachedBackend(Backend, FallbackStrategyMixin):
         self, query_input: QueryInput, match: dict[str, Any]
     ) -> float:
         """Calculate confidence based on match quality - exact matches only."""
+        normalization = query_input.normalized_venue
+        normalized_name = normalization.name if normalization else None
+        issn = normalization.issn if normalization else None
 
         # High confidence for exact ISSN match
-        if (
-            query_input.identifiers.get("issn")
-            and match.get("issn") == query_input.identifiers["issn"]
-        ):
+        if issn and match.get("issn") == issn:
             return calculate_base_confidence(MatchQuality.EXACT_ISSN)
 
         # High confidence for exact name match (case insensitive)
-        if query_input.normalized_name:
-            query_name = query_input.normalized_name.lower().strip()
+        if normalized_name:
+            query_name = normalized_name.lower().strip()
             match_name = match.get("normalized_name", "").lower().strip()
             original_name = match.get("journal_name", "").lower().strip()
 
@@ -535,10 +535,13 @@ class ApiBackendWithCache(Backend):
             MD5 hash string used as cache key
         """
         # Use normalized name and identifiers to create a consistent key
+        normalization = query_input.normalized_venue
+        normalized_name = normalization.name if normalization else ""
+        issn = normalization.issn if normalization else ""
         key_parts = [
             self.get_name(),
-            query_input.normalized_name or "",
-            query_input.identifiers.get("issn", ""),
+            normalized_name or "",
+            issn or "",
             query_input.identifiers.get("doi", ""),
         ]
         key_string = "|".join(key_parts)

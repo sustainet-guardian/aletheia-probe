@@ -125,32 +125,37 @@ class RetractionWatchBackend(
         Returns:
             List of matching journal records from the database
         """
+        normalization = query_input.normalized_venue
+        issn = normalization.issn if normalization else None
+        normalized_name = normalization.name if normalization else None
+        aliases = normalization.aliases if normalization else []
+
         detail_logger.debug("RetractionWatch._search_retraction_data called")
 
         # Search by ISSN first (though we don't have ISSN in retraction data)
         detail_logger.debug("RetractionWatch._search_retraction_data try issn search")
         results = []
-        if query_input.identifiers.get("issn"):
+        if issn:
             results = self.journal_cache.search_journals(
-                issn=query_input.identifiers["issn"],
+                issn=issn,
                 source_name=self.source_name,
             )
             chain.log_attempt(
                 FallbackStrategy.ISSN,
                 success=len(results) > 0,
-                query_value=query_input.identifiers["issn"],
+                query_value=issn,
             )
 
         # If no ISSN match, try exact normalized name match
         detail_logger.debug(
             "RetractionWatch._search_retraction_data try normalized name"
         )
-        if not results and query_input.normalized_name:
-            results = self._search_exact_match(query_input.normalized_name)
+        if not results and normalized_name:
+            results = self._search_exact_match(normalized_name)
             chain.log_attempt(
                 FallbackStrategy.EXACT_NAME,
                 success=len(results) > 0,
-                query_value=query_input.normalized_name,
+                query_value=normalized_name,
             )
 
         # Try aliases for exact matches only
@@ -158,7 +163,7 @@ class RetractionWatchBackend(
             "RetractionWatch._search_retraction_data try search exact match"
         )
         if not results:
-            for alias in query_input.aliases:
+            for alias in aliases:
                 results = self._search_exact_match(alias)
                 chain.log_attempt(
                     FallbackStrategy.EXACT_ALIASES,
@@ -254,10 +259,11 @@ class RetractionWatchBackend(
 
         # Fetch OpenAlex publication data on-demand
         openalex_data = None
-        if query_input.normalized_name:
-            openalex_data = await self._get_openalex_data_cached(
-                query_input.normalized_name, query_input.identifiers.get("issn")
-            )
+        normalization = query_input.normalized_venue
+        normalized_name = normalization.name if normalization else None
+        issn = normalization.issn if normalization else None
+        if normalized_name:
+            openalex_data = await self._get_openalex_data_cached(normalized_name, issn)
 
         # Recalculate risk level with publication data if available
         total_publications = (
@@ -444,7 +450,10 @@ class RetractionWatchBackend(
         Returns:
             Journal record if found, None if no match
         """
-        for alias in query_input.aliases:
+        aliases = (
+            query_input.normalized_venue.aliases if query_input.normalized_venue else []
+        )
+        for alias in aliases:
             result = await self._search_by_name(alias, exact=True)
             if result is not None:
                 return result
@@ -515,17 +524,17 @@ class RetractionWatchBackend(
         self, query_input: QueryInput, match: dict[str, Any]
     ) -> float:
         """Calculate confidence based on match quality - exact matches only."""
+        normalization = query_input.normalized_venue
+        issn = normalization.issn if normalization else None
+        normalized_name = normalization.name if normalization else None
 
         # High confidence for exact ISSN match
-        if (
-            query_input.identifiers.get("issn")
-            and match.get("issn") == query_input.identifiers["issn"]
-        ):
+        if issn and match.get("issn") == issn:
             return calculate_base_confidence(MatchQuality.EXACT_ISSN)
 
         # High confidence for exact name match (case insensitive)
-        if query_input.normalized_name:
-            query_name = query_input.normalized_name.lower().strip()
+        if normalized_name:
+            query_name = normalized_name.lower().strip()
             match_name = match.get("normalized_name", "").lower().strip()
             original_name = match.get("journal_name", "").lower().strip()
 

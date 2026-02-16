@@ -11,7 +11,13 @@ import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.cache.connection_utils import get_configured_connection
 from aletheia_probe.data_models import JournalEntryData
 from aletheia_probe.enums import AssessmentType, NameType
-from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendResult,
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -49,6 +55,16 @@ def sample_query_input():
         normalized_name="Journal of Advanced Computer Science",
         identifiers={"issn": "1234-5679"},
         aliases=["Advanced Computer Science"],
+        normalized_venue=NormalizedVenueInput(
+            original_text="Journal of Advanced Computer Science",
+            name="Journal of Advanced Computer Science",
+            acronym=None,
+            issn="1234-5679",
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=["Advanced Computer Science"],
+            input_identifiers={"issn": "1234-5679"},
+        ),
     )
 
 

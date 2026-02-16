@@ -7,7 +7,12 @@ import pytest
 
 from aletheia_probe.backends.predatoryjournals import PredatoryJournalsBackend
 from aletheia_probe.enums import AssessmentType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 class TestPredatoryJournalsBackend:
@@ -33,6 +38,16 @@ class TestPredatoryJournalsBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={"issn": "1234-5678"},
+            normalized_venue=NormalizedVenueInput(
+                original_text="Predatory Journal",
+                name="predatory journal",
+                acronym=None,
+                issn="1234-5678",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "1234-5678"},
+            ),
         )
 
         mock_results = [
@@ -67,7 +82,18 @@ class TestPredatoryJournalsBackend:
         """Test querying a journal that doesn't exist in cache."""
         backend = PredatoryJournalsBackend()
         query_input = QueryInput(
-            raw_input="Good Journal", normalized_name="good journal"
+            raw_input="Good Journal",
+            normalized_name="good journal",
+            normalized_venue=NormalizedVenueInput(
+                original_text="Good Journal",
+                name="good journal",
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
+            ),
         )
 
         with (

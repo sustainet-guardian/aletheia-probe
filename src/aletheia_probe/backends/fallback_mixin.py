@@ -28,6 +28,41 @@ class FallbackStrategyMixin:
     - _search_by_similarity(name: str) -> Any | None
     """
 
+    def _normalized_name(self, query_input: QueryInput) -> str | None:
+        """Return normalized name from normalization payload."""
+        normalization = query_input.normalized_venue
+        if normalization and normalization.name:
+            return normalization.name
+        return None
+
+    def _issn(self, query_input: QueryInput) -> str | None:
+        """Return ISSN from normalization payload."""
+        normalization = query_input.normalized_venue
+        if normalization and normalization.issn:
+            return normalization.issn
+        return None
+
+    def _eissn(self, query_input: QueryInput) -> str | None:
+        """Return eISSN from normalization payload."""
+        normalization = query_input.normalized_venue
+        if normalization and normalization.eissn:
+            return normalization.eissn
+        return None
+
+    def _original_text(self, query_input: QueryInput) -> str:
+        """Return original input text from normalization payload."""
+        normalization = query_input.normalized_venue
+        if normalization and normalization.original_text:
+            return normalization.original_text
+        return query_input.raw_input
+
+    def _aliases(self, query_input: QueryInput) -> list[str]:
+        """Return aliases from normalization payload."""
+        normalization = query_input.normalized_venue
+        if normalization:
+            return normalization.aliases
+        return []
+
     async def handle_issn_strategy(self, query_input: QueryInput) -> Any | None:
         """Default ISSN strategy implementation.
 
@@ -39,7 +74,7 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no ISSN or no match
         """
-        issn = query_input.identifiers.get("issn")
+        issn = self._issn(query_input)
         if issn:
             return await self._search_by_issn(issn)
         return None
@@ -55,7 +90,7 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no eISSN or no match
         """
-        eissn = query_input.identifiers.get("eissn")
+        eissn = self._eissn(query_input)
         if eissn:
             return await self._search_by_issn(eissn)
         return None
@@ -73,8 +108,9 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no normalized name or no match
         """
-        if query_input.normalized_name:
-            return await self._search_by_name(query_input.normalized_name, exact=True)
+        normalized_name = self._normalized_name(query_input)
+        if normalized_name:
+            return await self._search_by_name(normalized_name, exact=True)
         return None
 
     async def handle_exact_name_strategy(self, query_input: QueryInput) -> Any | None:
@@ -101,8 +137,9 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no normalized name or no match
         """
-        if query_input.normalized_name:
-            return await self._search_by_name(query_input.normalized_name, exact=False)
+        normalized_name = self._normalized_name(query_input)
+        if normalized_name:
+            return await self._search_by_name(normalized_name, exact=False)
         return None
 
     @code_is_used  # Called dynamically by FallbackStrategyExecutor
@@ -117,7 +154,7 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no raw input or no match
         """
-        return await self._search_by_name(query_input.raw_input, exact=True)
+        return await self._search_by_name(self._original_text(query_input), exact=True)
 
     async def handle_aliases_strategy(self, query_input: QueryInput) -> Any | None:
         """Default aliases strategy implementation.
@@ -130,7 +167,7 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no aliases or no match
         """
-        for alias in query_input.aliases:
+        for alias in self._aliases(query_input):
             result = await self._search_by_name(alias, exact=True)
             if result is not None:
                 return result
@@ -182,14 +219,13 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no normalized name or no match
         """
-        if query_input.normalized_name:
+        normalized_name = self._normalized_name(query_input)
+        if normalized_name:
             if hasattr(self, "_search_by_substring"):
-                return await self._search_by_substring(query_input.normalized_name)
+                return await self._search_by_substring(normalized_name)
             else:
                 # Fallback to fuzzy search if no substring method
-                return await self._search_by_name(
-                    query_input.normalized_name, exact=False
-                )
+                return await self._search_by_name(normalized_name, exact=False)
         return None
 
     @code_is_used  # Called dynamically by FallbackStrategyExecutor
@@ -207,14 +243,13 @@ class FallbackStrategyMixin:
         Returns:
             Raw result data if found, None if no normalized name or no match
         """
-        if query_input.normalized_name:
+        normalized_name = self._normalized_name(query_input)
+        if normalized_name:
             if hasattr(self, "_search_by_similarity"):
-                return await self._search_by_similarity(query_input.normalized_name)
+                return await self._search_by_similarity(normalized_name)
             else:
                 # Fallback to fuzzy search if no similarity method
-                return await self._search_by_name(
-                    query_input.normalized_name, exact=False
-                )
+                return await self._search_by_name(normalized_name, exact=False)
         return None
 
     # Abstract methods that backends must implement

@@ -7,7 +7,12 @@ import pytest
 
 from aletheia_probe.backends.algerian_ministry import AlgerianMinistryBackend
 from aletheia_probe.enums import AssessmentType, EvidenceType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 class TestAlgerianMinistryBackend:
@@ -44,6 +49,16 @@ class TestAlgerianMinistryBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={"issn": "1234-5678"},
+            normalized_venue=NormalizedVenueInput(
+                original_text="Predatory Journal",
+                name="predatory journal",
+                acronym=None,
+                issn="1234-5678",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "1234-5678"},
+            ),
         )
 
         mock_journal = {
@@ -71,6 +86,16 @@ class TestAlgerianMinistryBackend:
             raw_input="Unknown Journal",
             normalized_name="unknown journal",
             identifiers={"issn": "9999-9999"},
+            normalized_venue=NormalizedVenueInput(
+                original_text="Unknown Journal",
+                name="unknown journal",
+                acronym=None,
+                issn="9999-9999",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "9999-9999"},
+            ),
         )
 
         with patch.object(backend.journal_cache, "search_journals", return_value=[]):
@@ -90,6 +115,16 @@ class TestAlgerianMinistryBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={},
+            normalized_venue=NormalizedVenueInput(
+                original_text="Predatory Journal",
+                name="predatory journal",
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
+            ),
         )
 
         mock_journal = {

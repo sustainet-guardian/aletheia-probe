@@ -17,7 +17,13 @@ from ..enums import AssessmentType, EvidenceType
 from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger, get_status_logger
-from ..models import BackendResult, BackendStatus, QueryInput
+from ..models import (
+    BackendResult,
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 from ..retry_utils import async_retry_with_backoff
 from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
@@ -150,18 +156,23 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             Confidence score between 0.0 and 1.0
         """
+        normalization = query_input.normalized_venue
+        issn = normalization.issn if normalization else None
+        normalized_name = normalization.name if normalization else None
+        aliases = normalization.aliases if normalization else []
+
         # 1. ISSN match
-        if query_input.identifiers.get("issn"):
+        if issn:
             doaj_issn = bibjson.get("pissn") or bibjson.get("eissn")
-            if doaj_issn == query_input.identifiers["issn"]:
+            if doaj_issn == issn:
                 return calculate_base_confidence(MatchQuality.EXACT_ISSN)
 
         # 2. Title matching
         doaj_title = bibjson.get("title", "").lower()
         confidence = 0.0
 
-        if query_input.normalized_name:
-            query_title = query_input.normalized_name.lower()
+        if normalized_name:
+            query_title = normalized_name.lower()
 
             if doaj_title == query_title:
                 confidence = calculate_base_confidence(MatchQuality.EXACT_NAME)
@@ -178,7 +189,7 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
 
         # 3. Alias matching (if confidence is low)
         if confidence < DOAJ_ALIAS_CONTAINS_MATCH_CONFIDENCE:
-            for alias in query_input.aliases:
+            for alias in aliases:
                 alias_lower = alias.lower()
                 if alias_lower == doaj_title:
                     confidence = max(
@@ -251,6 +262,16 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
             # Create a temporary QueryInput for confidence calculation
             temp_query = QueryInput(
                 raw_input=name, normalized_name=name, identifiers={}, aliases=[]
+            )
+            temp_query.normalized_venue = NormalizedVenueInput(
+                original_text=name,
+                name=name,
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
             )
 
             for result in results:
