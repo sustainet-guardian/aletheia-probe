@@ -206,6 +206,7 @@ def reset_database(db_path: Path, confirm: bool = False) -> bool:
             db_path.unlink()
 
         # Reinitialize with current schema
+        # Local import avoids initialization-order issues during cache bootstrap.
         from .schema import init_database
 
         init_database(db_path)

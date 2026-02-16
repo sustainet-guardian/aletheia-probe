@@ -340,6 +340,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             openalex_data: Raw data from OpenAlex API
             query_input: Query input containing venue type information
         """
+        # Local import defers dependency loading until this execution path is used.
         from ..cache import AcronymCache
         from ..normalizer import InputNormalizer
 

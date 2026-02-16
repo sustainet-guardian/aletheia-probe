@@ -110,6 +110,7 @@ class CacheBase:
                 results = cursor.fetchall()
             ```
         """
+        # Local import avoids initialization-order issues during cache bootstrap.
         from .connection_utils import get_configured_connection
 
         return get_configured_connection(self.db_path, timeout, enable_wal)
@@ -129,6 +130,7 @@ class CacheBase:
         Returns:
             Context manager yielding a configured SQLite connection with Row factory
         """
+        # Local import avoids initialization-order issues during cache bootstrap.
         from .connection_utils import get_connection_with_row_factory
 
         return get_connection_with_row_factory(self.db_path, timeout, enable_wal)

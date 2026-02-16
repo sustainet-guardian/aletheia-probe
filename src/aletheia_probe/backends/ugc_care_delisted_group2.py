@@ -31,6 +31,7 @@ class UgcCareDelistedGroup2Backend(CachedBackend):
 
     def get_data_source(self) -> "DataSource | None":
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.ugc_care import UgcCareDelistedGroup2Source
 
             self._data_source = UgcCareDelistedGroup2Source()

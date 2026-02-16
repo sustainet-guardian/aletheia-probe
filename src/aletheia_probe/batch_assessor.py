@@ -147,8 +147,10 @@ class BibtexBatchAssessor:
         Returns:
             Tuple of (bibtex_entries, skipped_count, preprint_count)
         """
+        # Local import limits runtime dependency to parsing execution paths.
         import io
 
+        # Local import keeps optional parser dependency lazy until needed.
         import pybtex.io  # type: ignore[import-untyped]
 
         status_logger.info(f"Parsing BibTeX file: {file_path}")

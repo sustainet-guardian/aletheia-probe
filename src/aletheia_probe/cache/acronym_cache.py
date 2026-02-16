@@ -368,6 +368,7 @@ class AcronymCache(CacheBase):
         Returns:
             Number of rows inserted or replaced.
         """
+        # Local import limits dependency loading to export/import execution paths.
         import json
 
         with open(json_path, encoding="utf-8") as f:

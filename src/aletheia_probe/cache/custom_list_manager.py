@@ -184,8 +184,10 @@ def auto_register_custom_lists() -> None:
     with the backend registry so they can be used by the sync manager
     and assessment dispatcher.
     """
+    # Local import limits filesystem dependency setup to CLI execution paths.
     from pathlib import Path
 
+    # Local imports avoid circular dependency with backend registry initialization.
     from ..backends.base import get_backend_registry
     from ..backends.custom_list import CustomListBackend
     from ..enums import AssessmentType

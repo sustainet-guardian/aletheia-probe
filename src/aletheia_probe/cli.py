@@ -1030,6 +1030,7 @@ def sync(
         backend_names: Optional tuple of backend names to sync.
     """
     # Auto-register custom lists before sync
+    # Local import avoids circular dependency with backend registry initialization.
     from .cache.custom_list_manager import auto_register_custom_lists
 
     auto_register_custom_lists()
@@ -1037,6 +1038,7 @@ def sync(
     if backend_names:
         backend_filter = list(backend_names)
     elif not include_large_datasets:
+        # Local import avoids circular dependency with backend registry initialization.
         from .backends.base import get_backend_registry
 
         backend_filter = [
@@ -1115,6 +1117,7 @@ def clear_cache(confirm: bool) -> None:
 def status() -> None:
     """Show cache synchronization status for all backends."""
     # Auto-register custom lists before showing status
+    # Local import avoids circular dependency with backend registry initialization.
     from .cache.custom_list_manager import auto_register_custom_lists
 
     auto_register_custom_lists()
@@ -1421,6 +1424,7 @@ def db() -> None:
 @handle_cli_errors
 def db_version() -> None:
     """Show the current database schema version."""
+    # Local imports defer schema/config tooling until maintenance command execution.
     from .cache.schema import SCHEMA_VERSION, get_schema_version
     from .config import get_config_manager
 
@@ -1473,6 +1477,7 @@ def db_migrate(target_version: int | None) -> None:
     Args:
         target_version: Target version to migrate to (default: latest).
     """
+    # Local imports defer migration/schema/config tooling to maintenance commands.
     from .cache.migrations import migrate_database
     from .cache.schema import SCHEMA_VERSION
     from .config import get_config_manager
@@ -1512,6 +1517,7 @@ def db_reset(confirm: bool) -> None:
     Args:
         confirm: Whether to skip the confirmation prompt.
     """
+    # Local imports defer migration/config tooling to maintenance commands.
     from .cache.migrations import reset_database
     from .config import get_config_manager
 
@@ -1604,6 +1610,7 @@ def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
         list_type: Type of journals in the list (predatory, legitimate, etc.).
         list_name: Name for the custom list source.
     """
+    # Local import avoids circular dependency with backend registry initialization.
     from .cache.custom_list_manager import CustomListManager
 
     status_logger = get_status_logger()
@@ -1631,6 +1638,7 @@ def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
 @handle_cli_errors
 def list_custom_lists() -> None:
     """List all registered custom journal lists."""
+    # Local import avoids circular dependency with backend registry initialization.
     from .cache.custom_list_manager import CustomListManager
 
     status_logger = get_status_logger()
@@ -1681,6 +1689,7 @@ def remove_custom_list(list_name: str, confirm: bool) -> None:
         list_name: Name of the custom list to remove.
         confirm: Whether to skip the confirmation prompt.
     """
+    # Local import avoids circular dependency with backend registry initialization.
     from .cache.custom_list_manager import CustomListManager
 
     status_logger = get_status_logger()

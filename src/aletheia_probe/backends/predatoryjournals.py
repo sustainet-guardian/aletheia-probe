@@ -54,6 +54,7 @@ class PredatoryJournalsBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the PredatoryJournalsSource instance for data synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.predatoryjournals import PredatoryJournalsSource
 
             self._data_source = PredatoryJournalsSource()

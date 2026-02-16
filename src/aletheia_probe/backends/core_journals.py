@@ -31,6 +31,7 @@ class CoreJournalsBackend(CachedBackend):
 
     def get_data_source(self) -> "DataSource | None":
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.core import CoreJournalSource
 
             self._data_source = CoreJournalSource()

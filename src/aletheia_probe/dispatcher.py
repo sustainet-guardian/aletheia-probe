@@ -716,6 +716,7 @@ class QueryDispatcher:
     def _get_enabled_backends(self) -> list[Backend]:
         """Get list of enabled and configured backends."""
         # Auto-register custom lists before getting backends
+        # Local import avoids circular dependency with backend registry initialization.
         from .cache.custom_list_manager import auto_register_custom_lists
 
         auto_register_custom_lists()

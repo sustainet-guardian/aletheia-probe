@@ -68,6 +68,7 @@ def normalize_venue_name_local(full_name: str) -> str:
     Returns:
         Normalized venue name
     """
+    # Local import avoids circular dependency during module initialization.
     from .normalizer import input_normalizer
 
     # Extract conference series (removes years, ordinals, "Proceedings of" prefix)
@@ -101,6 +102,7 @@ def extract_acronyms_local(
     Returns:
         FileProcessingResult with extracted mappings and in-file conflicts
     """
+    # Local import avoids circular dependency during module initialization.
     from .normalizer import are_conference_names_equivalent, input_normalizer
 
     result = FileProcessingResult(
@@ -153,6 +155,7 @@ def extract_acronyms_local(
     # Detect in-file conflicts and build result lists
     # Note: We don't check against database here - that happens in merge phase
     # Simplified for main's schema - uses basic equivalence checking only
+    # Local import avoids circular dependency during module initialization.
     from .normalizer import are_conference_names_equivalent
 
     for (acronym, entity_type), venue_list in mappings.items():
@@ -208,8 +211,10 @@ def process_single_file(file_path: Path) -> FileProcessingResult:
     Returns:
         FileProcessingResult with extracted mappings
     """
+    # Local import keeps optional parser dependency lazy until needed.
     import pybtex.io  # type: ignore[import-untyped]
 
+    # Local import avoids circular dependency during batch processing setup.
     from .bibtex_parser import BibtexParser
 
     try:
@@ -362,6 +367,7 @@ def merge_file_results(
     Returns:
         MergedAcronymResult with categorized acronyms
     """
+    # Local import avoids circular dependency during module initialization.
     from .normalizer import are_conference_names_equivalent
 
     merged = MergedAcronymResult()

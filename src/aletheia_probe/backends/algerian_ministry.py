@@ -46,6 +46,7 @@ class AlgerianMinistryBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the AlgerianMinistrySource instance for data synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.algerian import AlgerianMinistrySource
 
             self._data_source = AlgerianMinistrySource()

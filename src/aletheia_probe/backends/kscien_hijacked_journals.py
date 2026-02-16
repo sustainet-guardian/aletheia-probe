@@ -38,6 +38,7 @@ class KscienHijackedJournalsBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the KscienHijackedJournalsSource instance for data synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.kscien_hijacked_journals import (
                 KscienHijackedJournalsSource,
             )

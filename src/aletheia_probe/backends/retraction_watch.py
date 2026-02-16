@@ -89,6 +89,7 @@ class RetractionWatchBackend(
     def get_data_source(self) -> "DataSource | None":
         """Get the RetractionWatchSource instance for data synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.retraction_watch import RetractionWatchSource
 
             self._data_source = RetractionWatchSource()

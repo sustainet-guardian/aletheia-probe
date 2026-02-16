@@ -81,6 +81,7 @@ class CustomListBackend(CachedBackend):
             CustomListSource instance or None if file doesn't exist
         """
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.custom import CustomListSource
 
             if not self.file_path.exists():
