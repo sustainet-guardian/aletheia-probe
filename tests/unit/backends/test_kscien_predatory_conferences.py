@@ -111,7 +111,7 @@ def test_kscien_predatory_conferences_backend_get_data_source():
 
     # Mock the KscienGenericSource class
     with patch(
-        "aletheia_probe.updater.sources.kscien_generic.KscienGenericSource"
+        "aletheia_probe.backends.kscien_predatory_conferences.KscienGenericSource"
     ) as MockSource:
         # First call should create the source
         from aletheia_probe.updater.sources.kscien_helpers import PublicationType

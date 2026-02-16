@@ -2,16 +2,12 @@
 """Backend for user-provided custom journal lists from CSV/JSON files."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.custom import CustomListSource
 from ..utils.dead_code import code_is_used
 from .base import CachedBackend
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.custom import CustomListSource
 
 
 class CustomListBackend(CachedBackend):
@@ -81,9 +77,6 @@ class CustomListBackend(CachedBackend):
             CustomListSource instance or None if file doesn't exist
         """
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.custom import CustomListSource
-
             if not self.file_path.exists():
                 return None
 

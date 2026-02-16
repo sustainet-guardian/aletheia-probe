@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Beall's List backend for predatory journal assessment."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.bealls import BeallsListSource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.bealls import BeallsListSource
 
 
 class BeallsListBackend(CachedBackend):
@@ -46,9 +41,6 @@ class BeallsListBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the BeallsListSource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.bealls import BeallsListSource
-
             self._data_source = BeallsListSource()
         return self._data_source
 

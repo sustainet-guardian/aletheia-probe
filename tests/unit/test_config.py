@@ -231,7 +231,9 @@ class TestConfigManager:
 
     def test_get_default_config_with_all_backends(self, temp_config_file) -> None:
         """Test getting default configuration with all available backends."""
-        with patch("aletheia_probe.config.get_backend_registry") as mock_get_registry:
+        with patch(
+            "aletheia_probe.backends.base.get_backend_registry"
+        ) as mock_get_registry:
             mock_registry = Mock()
             mock_registry.get_backend_names.return_value = [
                 "backend1",

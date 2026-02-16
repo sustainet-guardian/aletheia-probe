@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Kscien hijacked journals backend for predatory journal assessment."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.kscien_hijacked_journals import KscienHijackedJournalsSource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.kscien_hijacked_journals import KscienHijackedJournalsSource
 
 
 class KscienHijackedJournalsBackend(CachedBackend):
@@ -38,11 +33,6 @@ class KscienHijackedJournalsBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the KscienHijackedJournalsSource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.kscien_hijacked_journals import (
-                KscienHijackedJournalsSource,
-            )
-
             self._data_source = KscienHijackedJournalsSource()
         return self._data_source
 

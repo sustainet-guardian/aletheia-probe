@@ -1,17 +1,12 @@
 # SPDX-License-Identifier: MIT
 """Kscien standalone journals backend for predatory journal assessment."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.kscien_standalone_journals import (
+    KscienStandaloneJournalsSource,
+)
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.kscien_standalone_journals import (
-        KscienStandaloneJournalsSource,
-    )
 
 
 class KscienStandaloneJournalsBackend(CachedBackend):
@@ -44,11 +39,6 @@ class KscienStandaloneJournalsBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the KscienStandaloneJournalsSource instance for data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.kscien_standalone_journals import (
-                KscienStandaloneJournalsSource,
-            )
-
             self._data_source = KscienStandaloneJournalsSource()
         return self._data_source
 

@@ -1,15 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Kscien Predatory Conferences backend for conference assessment."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.kscien_generic import KscienGenericSource
+from ..updater.sources.kscien_helpers import PublicationType
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.kscien_generic import KscienGenericSource
 
 
 class KscienPredatoryConferencesBackend(CachedBackend):
@@ -42,10 +38,6 @@ class KscienPredatoryConferencesBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the KscienGenericSource instance for predatory conferences data synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.kscien_generic import KscienGenericSource
-            from ..updater.sources.kscien_helpers import PublicationType
-
             self._data_source = KscienGenericSource(
                 publication_type=PublicationType.PREDATORY_CONFERENCES
             )

@@ -49,7 +49,7 @@ def test_core_conferences_backend_get_data_source():
     backend = CoreConferencesBackend()
 
     with patch(
-        "aletheia_probe.updater.sources.core.CoreConferenceSource"
+        "aletheia_probe.backends.core_conferences.CoreConferenceSource"
     ) as mock_source:
         data_source = backend.get_data_source()
         assert data_source == mock_source.return_value
@@ -64,7 +64,9 @@ def test_core_journals_backend_get_data_source():
     """Test journal source creation and caching behavior."""
     backend = CoreJournalsBackend()
 
-    with patch("aletheia_probe.updater.sources.core.CoreJournalSource") as mock_source:
+    with patch(
+        "aletheia_probe.backends.core_journals.CoreJournalSource"
+    ) as mock_source:
         data_source = backend.get_data_source()
         assert data_source == mock_source.return_value
         mock_source.assert_called_once_with()

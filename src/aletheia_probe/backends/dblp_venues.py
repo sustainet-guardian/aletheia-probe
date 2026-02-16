@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: MIT
 """DBLP conference backend for legitimate conference verification."""
 
-from typing import TYPE_CHECKING
-
 from ..enums import AssessmentType, EvidenceType
+from ..updater.core import DataSource
+from ..updater.sources.dblp import DblpVenueSource
 from .base import CachedBackend, get_backend_registry
-
-
-if TYPE_CHECKING:
-    from ..updater.core import DataSource
-    from ..updater.sources.dblp import DblpVenueSource
 
 
 _CACHE_TTL_HOURS = 24 * 30  # Monthly cache for large DBLP dump refreshes
@@ -38,9 +33,6 @@ class DblpVenuesBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get DBLP venue source for cache synchronization."""
         if self._data_source is None:
-            # Local import avoids circular dependency between backends and updater sources.
-            from ..updater.sources.dblp import DblpVenueSource
-
             self._data_source = DblpVenueSource()
         return self._data_source
 

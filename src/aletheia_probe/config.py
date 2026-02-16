@@ -9,7 +9,6 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
-from .backends.base import get_backend_registry
 from .constants import (
     DEFAULT_BACKEND_AGREEMENT_BONUS,
     DEFAULT_BACKEND_TIMEOUT,
@@ -363,6 +362,9 @@ class ConfigManager:
 
     def get_default_config_with_all_backends(self) -> dict[str, Any]:
         """Get default configuration with all available backends enabled."""
+        # Late import prevents config module import from pulling backend/cache graph.
+        from .backends.base import get_backend_registry
+
         # Get all available backend names
         backend_registry = get_backend_registry()
         backend_names = backend_registry.get_backend_names()

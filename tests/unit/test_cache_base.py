@@ -28,7 +28,7 @@ class TestCacheBaseErrorHandling:
     def test_init_with_invalid_config_structure(self):
         """Test that AttributeError from invalid config is properly handled."""
         # Mock config manager that returns invalid config structure
-        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+        with patch("aletheia_probe.cache.base.get_config_manager") as mock_config:
             # Create mock that raises AttributeError when accessing cache.db_path
             mock_config.return_value.load_config.return_value = MagicMock(spec=[])
             del mock_config.return_value.load_config.return_value.cache
@@ -41,7 +41,7 @@ class TestCacheBaseErrorHandling:
 
     def test_init_with_directory_creation_failure(self):
         """Test that OSError from directory creation failure is properly handled."""
-        with patch("aletheia_probe.config.get_config_manager") as mock_config:
+        with patch("aletheia_probe.cache.base.get_config_manager") as mock_config:
             # Mock config that returns valid path
             mock_config.return_value.load_config.return_value.cache.db_path = (
                 "/invalid/path/cache.db"
@@ -57,7 +57,7 @@ class TestCacheBaseErrorHandling:
     def test_init_with_database_init_failure(self):
         """Test that sqlite3.Error from database init is properly handled."""
         with (
-            patch("aletheia_probe.config.get_config_manager") as mock_config,
+            patch("aletheia_probe.cache.base.get_config_manager") as mock_config,
             tempfile.TemporaryDirectory() as tmpdir,
         ):
             db_path = Path(tmpdir) / "test.db"
@@ -67,7 +67,7 @@ class TestCacheBaseErrorHandling:
 
             # Mock init_database to raise sqlite3.Error
             with patch(
-                "aletheia_probe.cache.schema.init_database",
+                "aletheia_probe.cache.base.init_database",
                 side_effect=sqlite3.Error("Database locked"),
             ):
                 with pytest.raises(
@@ -78,7 +78,7 @@ class TestCacheBaseErrorHandling:
     def test_init_from_config_success(self):
         """Test successful initialization from config."""
         with (
-            patch("aletheia_probe.config.get_config_manager") as mock_config,
+            patch("aletheia_probe.cache.base.get_config_manager") as mock_config,
             tempfile.TemporaryDirectory() as tmpdir,
         ):
             db_path = Path(tmpdir) / "test.db"
@@ -87,6 +87,6 @@ class TestCacheBaseErrorHandling:
             )
 
             # Mock init_database to do nothing (we're testing error handling, not schema)
-            with patch("aletheia_probe.cache.schema.init_database"):
+            with patch("aletheia_probe.cache.base.init_database"):
                 cache_base = CacheBase()
                 assert cache_base.db_path == db_path
