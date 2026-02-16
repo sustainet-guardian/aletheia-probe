@@ -538,11 +538,12 @@ class ApiBackendWithCache(Backend):
         normalization = query_input.normalized_venue
         normalized_name = normalization.name if normalization else ""
         issn = normalization.issn if normalization else ""
+        input_identifiers = normalization.input_identifiers if normalization else {}
         key_parts = [
             self.get_name(),
             normalized_name or "",
             issn or "",
-            query_input.identifiers.get("doi", ""),
+            input_identifiers.get("doi", ""),
         ]
         key_string = "|".join(key_parts)
         return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()  # nosec B324 - MD5 used for cache key, not security

@@ -34,8 +34,6 @@ class TestDOAJBackend:
         """Create sample query input."""
         return QueryInput(
             raw_input="Journal of Testing",
-            normalized_name="journal of testing",
-            identifiers={"issn": "1234-5678"},
             aliases=[],
             normalized_venue=NormalizedVenueInput(
                 original_text="Journal of Testing",
@@ -83,8 +81,6 @@ class TestDOAJBackend:
         """Test successful query by exact title."""
         query_input = QueryInput(
             raw_input="Journal of Testing",
-            normalized_name="journal of testing",
-            identifiers={},
             aliases=[],
             normalized_venue=NormalizedVenueInput(
                 original_text="Journal of Testing",
@@ -179,8 +175,6 @@ class TestDOAJBackend:
         """Test confidence scoring with similarity match."""
         query_input = QueryInput(
             raw_input="Journal of Computations",
-            normalized_name="journal of computations",
-            identifiers={},
             aliases=[],
             normalized_venue=NormalizedVenueInput(
                 original_text="Journal of Computations",

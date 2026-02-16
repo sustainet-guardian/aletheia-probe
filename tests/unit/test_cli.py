@@ -18,9 +18,36 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
+
+
+def _make_query_input(
+    raw_text: str,
+    *,
+    venue_type: VenueType = VenueType.UNKNOWN,
+    identifiers: dict[str, str] | None = None,
+    aliases: list[str] | None = None,
+) -> QueryInput:
+    """Build QueryInput using the normalized_venue contract."""
+    input_identifiers = identifiers or {}
+    normalized_name = raw_text.lower()
+    return QueryInput(
+        raw_input=raw_text,
+        venue_type=venue_type,
+        extracted_acronym_mappings={},
+        normalized_venue=NormalizedVenueInput(
+            original_text=raw_text,
+            venue_type=venue_type,
+            name=normalized_name,
+            aliases=aliases or [],
+            issn=input_identifiers.get("issn"),
+            eissn=input_identifiers.get("eissn"),
+            input_identifiers=input_identifiers,
+        ),
+    )
 
 
 @pytest.fixture
@@ -943,11 +970,9 @@ class TestAsyncMain:
             patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
-            mock_normalizer.normalize.return_value = Mock(
-                raw_input="Test Journal",
-                normalized_name="test journal",
+            mock_normalizer.normalize.return_value = _make_query_input(
+                "Test Journal",
                 identifiers={"issn": "1234-5679"},
-                extracted_acronym_mappings={},
             )
             mock_dispatcher.assess_journal = AsyncMock(
                 return_value=mock_assessment_result
@@ -976,12 +1001,7 @@ class TestAsyncMain:
             patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
-            mock_normalizer.normalize.return_value = Mock(
-                raw_input="Test Journal",
-                normalized_name="test journal",
-                identifiers={},
-                extracted_acronym_mappings={},
-            )
+            mock_normalizer.normalize.return_value = _make_query_input("Test Journal")
             mock_dispatcher.assess_journal = AsyncMock(
                 return_value=mock_assessment_result
             )
@@ -1009,11 +1029,9 @@ class TestAsyncMain:
             patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
-            mock_query_input = Mock(
-                raw_input="Test Journal",
-                normalized_name="test journal",
+            mock_query_input = _make_query_input(
+                "Test Journal",
                 identifiers={"issn": "1234-5679"},
-                extracted_acronym_mappings={},
             )
             mock_normalizer.normalize.return_value = mock_query_input
             mock_dispatcher.assess_journal = AsyncMock(
@@ -1097,13 +1115,7 @@ class TestAsyncMain:
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch("builtins.print"),
         ):
-            mock_query_input = Mock(
-                raw_input="AGENTS",
-                normalized_name="agents",
-                identifiers={},
-                extracted_acronym_mappings={},
-                venue_type=VenueType.UNKNOWN,
-            )
+            mock_query_input = _make_query_input("AGENTS")
             mock_normalizer.normalize.return_value = mock_query_input
             mock_dispatcher.assess_journal = AsyncMock(
                 return_value=mock_assessment_result
@@ -1142,14 +1154,7 @@ class TestAsyncMain:
             def normalize_side_effect(
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers={},
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.return_value = False
@@ -1226,14 +1231,7 @@ class TestAsyncMain:
             def normalize_side_effect(
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers={},
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.return_value = False
@@ -1294,14 +1292,7 @@ class TestAsyncMain:
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
                 identifiers = {"issn": "1550-445X"} if raw_text == "1550-445X" else {}
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers=identifiers,
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text, identifiers=identifiers)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.return_value = False
@@ -1362,14 +1353,7 @@ class TestAsyncMain:
             def normalize_side_effect(
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers={},
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.side_effect = lambda text: (
@@ -1445,14 +1429,7 @@ class TestAsyncMain:
             def normalize_side_effect(
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers={},
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.side_effect = lambda text: (
@@ -1550,14 +1527,7 @@ class TestAsyncMain:
             def normalize_side_effect(
                 raw_text: str, acronym_lookup: object = None
             ) -> QueryInput:
-                return QueryInput(
-                    raw_input=raw_text,
-                    normalized_name=raw_text.lower(),
-                    identifiers={},
-                    aliases=[],
-                    extracted_acronym_mappings={},
-                    venue_type=VenueType.UNKNOWN,
-                )
+                return _make_query_input(raw_text)
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
             mock_normalizer._is_standalone_acronym.side_effect = lambda text: (

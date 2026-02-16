@@ -322,7 +322,11 @@ class RetractionWatchSource(DataSource):
         # Normalize journal name
         try:
             normalized_input = input_normalizer.normalize(journal)
-            normalized_journal = normalized_input.normalized_name
+            normalized_journal = (
+                normalized_input.normalized_venue.name
+                if normalized_input.normalized_venue
+                else ""
+            )
             if not normalized_journal:
                 detail_logger.debug(
                     f"Failed to normalize journal '{journal}': normalized name is empty"

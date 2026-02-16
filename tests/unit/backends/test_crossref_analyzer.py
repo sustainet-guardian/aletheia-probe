@@ -32,7 +32,6 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
     """Test that the backend uses eissn if issn is not found."""
     query_input = QueryInput(
         raw_input="Test Journal",
-        identifiers={"issn": "1234-5679", "eissn": "8765-4321"},
         normalized_venue=NormalizedVenueInput(
             original_text="Test Journal",
             name="test journal",
@@ -88,7 +87,6 @@ async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) ->
     """Test that the backend handles exceptions during API query."""
     query_input = QueryInput(
         raw_input="Test Journal",
-        identifiers={"issn": "1234-5679"},
         normalized_venue=NormalizedVenueInput(
             original_text="Test Journal",
             name="test journal",

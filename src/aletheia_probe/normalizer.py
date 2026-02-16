@@ -6,7 +6,7 @@ import re
 from collections.abc import Callable
 
 from .logging_config import get_detail_logger
-from .models import QueryInput
+from .models import NormalizedVenueInput, QueryInput, VenueType
 
 
 # Normalization and Validation constants
@@ -287,11 +287,18 @@ class InputNormalizer:
 
         return QueryInput(
             raw_input=raw_input.strip(),
-            normalized_name=normalized,
-            identifiers=identifiers,
-            aliases=aliases,
             acronym_expanded_from=acronym_expanded_from,
             extracted_acronym_mappings=acronym_mappings,
+            normalized_venue=NormalizedVenueInput(
+                original_text=raw_input.strip(),
+                name=normalized,
+                acronym=acronym_expanded_from,
+                issn=identifiers.get("issn"),
+                eissn=identifiers.get("eissn"),
+                venue_type=VenueType.UNKNOWN,
+                aliases=aliases,
+                input_identifiers=identifiers,
+            ),
         )
 
     def _extract_identifiers(self, text: str) -> dict[str, str]:

@@ -247,15 +247,16 @@ class BibtexBatchAssessor:
         # Normalize the journal name for assessment
         query_input = input_normalizer.normalize(entry.journal_name)
         query_input.venue_type = entry.venue_type
+        normalized_name = (
+            query_input.normalized_venue.name if query_input.normalized_venue else None
+        )
         detail_logger.debug(
-            f"Normalized journal name: {query_input.normalized_name}, venue type: {entry.venue_type.value}"
+            f"Normalized journal name: {normalized_name}, venue type: {entry.venue_type.value}"
         )
 
         # Create a cache key using lowercase normalized name for case-insensitive matching
         cache_key = (
-            query_input.normalized_name.lower()
-            if query_input.normalized_name
-            else entry.journal_name.lower()
+            normalized_name.lower() if normalized_name else entry.journal_name.lower()
         )
 
         # Check if we've already assessed this venue (case-insensitive)

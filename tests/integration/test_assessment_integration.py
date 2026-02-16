@@ -129,8 +129,8 @@ class TestAssessmentIntegration:
                 f"Normalizer should return QueryInput for: {input_text}"
             )
             assert query.raw_input == input_text
-            assert query.normalized_name is not None
-            assert isinstance(query.identifiers, dict)
+            assert query.normalized_venue.name is not None
+            assert isinstance(query.normalized_venue.input_identifiers, dict)
 
     @pytest.mark.integration
     @pytest.mark.slow

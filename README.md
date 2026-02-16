@@ -172,6 +172,10 @@ Journal Query → [Curated Databases + Pattern Analyzers] → Combined Assessmen
 - Not found in any curated database → rely on pattern analysis
 - Found in contradictory sources → cross-validation resolves conflicts
 
+**Normalization gate**:
+- Input is normalized into one backend contract (`normalized_venue`) before backend queries.
+- If provided name and ISSN/eISSN disagree after lookup validation, the tool returns `INSUFFICIENT_DATA` (no forced union of mismatched inputs).
+
 #### **2. Assessment Logic**
 
 **Curated Database Results (Authoritative)**:

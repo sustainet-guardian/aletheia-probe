@@ -109,7 +109,9 @@ class UgcCareListSource(DataSource):
 
         return {
             "journal_name": clean_title,
-            "normalized_name": normalized.normalized_name,
+            "normalized_name": (
+                normalized.normalized_venue.name if normalized.normalized_venue else ""
+            ),
             "issn": self._normalize_issn(issn),
             "eissn": self._normalize_issn(eissn),
             "publisher": self._clean_text(publisher) if publisher else None,

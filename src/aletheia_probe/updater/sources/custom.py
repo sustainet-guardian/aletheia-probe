@@ -105,7 +105,11 @@ class CustomListSource(DataSource):
                     journals.append(
                         {
                             "journal_name": journal_name,
-                            "normalized_name": normalized_input.normalized_name,
+                            "normalized_name": (
+                                normalized_input.normalized_venue.name
+                                if normalized_input.normalized_venue
+                                else ""
+                            ),
                             "issn": item.get("issn"),
                             "eissn": item.get("eissn"),
                             "publisher": item.get("publisher"),
@@ -148,7 +152,11 @@ class CustomListSource(DataSource):
                             journals.append(
                                 {
                                     "journal_name": journal_name,
-                                    "normalized_name": normalized_input.normalized_name,
+                                    "normalized_name": (
+                                        normalized_input.normalized_venue.name
+                                        if normalized_input.normalized_venue
+                                        else ""
+                                    ),
                                     "issn": row.get("issn"),
                                     "eissn": row.get("eissn"),
                                     "publisher": row.get("publisher"),

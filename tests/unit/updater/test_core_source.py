@@ -2,12 +2,18 @@
 """Tests for CORE conference and journal data sources."""
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.updater.sources.core import CoreConferenceSource, CoreJournalSource
+
+
+def _normalized_name_result(name: str) -> Mock:
+    """Build mock normalizer result with normalized_venue contract."""
+    return Mock(normalized_venue=SimpleNamespace(name=name))
 
 
 @pytest.fixture
@@ -88,7 +94,7 @@ def test_parse_conference_entries_filters_unranked(mocked_config):
     with patch(
         "aletheia_probe.updater.sources.core.input_normalizer.normalize"
     ) as norm:
-        norm.return_value = Mock(normalized_name="conference on testing systems")
+        norm.return_value = _normalized_name_result("conference on testing systems")
         entries = source._parse_entries(html)
 
     assert len(entries) == 1
@@ -119,7 +125,7 @@ def test_parse_journal_entries_filters_not_ranked(mocked_config):
     with patch(
         "aletheia_probe.updater.sources.core.input_normalizer.normalize"
     ) as norm:
-        norm.return_value = Mock(normalized_name="journal of software metrics")
+        norm.return_value = _normalized_name_result("journal of software metrics")
         entries = source._parse_entries(html)
 
     assert len(entries) == 1
@@ -162,9 +168,9 @@ async def test_fetch_data_paginates_and_deduplicates(mocked_config):
         patch("aletheia_probe.updater.sources.core.input_normalizer.normalize") as norm,
     ):
         norm.side_effect = [
-            Mock(normalized_name="conference alpha"),
-            Mock(normalized_name="conference alpha"),
-            Mock(normalized_name="conference beta"),
+            _normalized_name_result("conference alpha"),
+            _normalized_name_result("conference alpha"),
+            _normalized_name_result("conference beta"),
         ]
         entries = await source.fetch_data()
 

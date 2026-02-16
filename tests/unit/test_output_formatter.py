@@ -449,7 +449,7 @@ class TestOutputFormatter:
 
         output = formatter.format_text_output(result, "conference", verbose=False)
 
-        assert "Expanded acronym 'TC' using cached mapping" in output
+        assert "Expanded input 'TC' using cached mapping" in output
 
     def test_backend_results_formatting(self, formatter, predatory_result_with_details):
         """Test that backend results are properly formatted."""
