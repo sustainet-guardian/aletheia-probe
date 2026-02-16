@@ -306,7 +306,9 @@ class TestLookupCommand:
             ],
         )
 
-        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+        with patch(
+            "aletheia_probe.cli_logic.lookup.VenueLookupService"
+        ) as mock_service_class:
             mock_service = Mock()
             mock_service.lookup.return_value = lookup_result
             mock_service_class.return_value = mock_service
@@ -346,7 +348,9 @@ class TestLookupCommand:
             ],
         )
 
-        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+        with patch(
+            "aletheia_probe.cli_logic.lookup.VenueLookupService"
+        ) as mock_service_class:
             mock_service = Mock()
             mock_service.lookup.return_value = lookup_result
             mock_service_class.return_value = mock_service
@@ -362,7 +366,7 @@ class TestLookupCommand:
 
     def test_lookup_online_openalex_type_mismatch_is_conflict(self):
         """Journal lookup should flag OpenAlex conference source as conflict."""
-        from aletheia_probe.cli import _apply_openalex_source
+        from aletheia_probe.cli_logic.lookup import _apply_openalex_source
 
         result = LookupResult(
             raw_input="2327-0985",
@@ -404,7 +408,7 @@ class TestLookupCommand:
 
     def test_lookup_online_openalex_generic_title_is_unverified(self):
         """Generic OpenAlex titles like 'Proceedings' should not be treated as matches."""
-        from aletheia_probe.cli import _apply_openalex_source
+        from aletheia_probe.cli_logic.lookup import _apply_openalex_source
 
         result = LookupResult(
             raw_input="1550-445X",
@@ -448,7 +452,7 @@ class TestLookupCommand:
 
     def test_compare_resolved_name_single_token_is_not_auto_agree(self):
         """Single-token known names should not agree with longer titles by token inclusion."""
-        from aletheia_probe.cli import _compare_resolved_name
+        from aletheia_probe.cli_logic.lookup import _compare_resolved_name
 
         status, similarity, matched_name = _compare_resolved_name(
             "capitalism nature socialism",
@@ -462,7 +466,7 @@ class TestLookupCommand:
 
     def test_compare_resolved_name_exact_single_token_can_agree(self):
         """Exact single-token name matches should still agree."""
-        from aletheia_probe.cli import _compare_resolved_name
+        from aletheia_probe.cli_logic.lookup import _compare_resolved_name
 
         status, similarity, matched_name = _compare_resolved_name(
             "nature",
@@ -476,7 +480,7 @@ class TestLookupCommand:
 
     def test_openalex_name_lookup_requires_exact_title(self):
         """OpenAlex name lookup must not enrich when title differs from queried title."""
-        from aletheia_probe.cli import _apply_openalex_source
+        from aletheia_probe.cli_logic.lookup import _apply_openalex_source
 
         result = LookupResult(
             raw_input="Nature",
@@ -541,7 +545,9 @@ class TestLookupCommand:
             ],
         )
 
-        with patch("aletheia_probe.cli.VenueLookupService") as mock_service_class:
+        with patch(
+            "aletheia_probe.cli_logic.lookup.VenueLookupService"
+        ) as mock_service_class:
             mock_service = Mock()
             mock_service.lookup.return_value = lookup_result
             mock_service_class.return_value = mock_service
@@ -556,7 +562,7 @@ class TestLookupCommand:
 
     def test_openalex_name_lookup_with_identifiers_does_not_merge_ids(self):
         """When input has identifiers, name lookup should validate only, not merge."""
-        from aletheia_probe.cli import _apply_openalex_source
+        from aletheia_probe.cli_logic.lookup import _apply_openalex_source
 
         result = LookupResult(
             raw_input="Nature 1550-445X",
@@ -966,8 +972,12 @@ class TestAsyncMain:
     async def test_async_main_text_output(self, mock_assessment_result):
         """Test async assess publication with text output format."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
             mock_normalizer.normalize.return_value = _make_query_input(
@@ -978,7 +988,7 @@ class TestAsyncMain:
                 return_value=mock_assessment_result
             )
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "Test Journal", "journal", verbose=False, output_format="text"
@@ -997,8 +1007,12 @@ class TestAsyncMain:
     async def test_async_main_json_output(self, mock_assessment_result):
         """Test async assess publication with JSON output format."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
             mock_normalizer.normalize.return_value = _make_query_input("Test Journal")
@@ -1006,7 +1020,7 @@ class TestAsyncMain:
                 return_value=mock_assessment_result
             )
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "Test Journal", "journal", verbose=False, output_format="json"
@@ -1025,8 +1039,12 @@ class TestAsyncMain:
     async def test_async_main_verbose_output(self, mock_assessment_result):
         """Test async assess publication with verbose flag."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
             patch("builtins.print") as mock_print,
         ):
             mock_query_input = _make_query_input(
@@ -1038,7 +1056,7 @@ class TestAsyncMain:
                 return_value=mock_assessment_result
             )
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "Test Journal", "journal", verbose=True, output_format="text"
@@ -1055,12 +1073,14 @@ class TestAsyncMain:
     async def test_async_main_value_error(self):
         """Test async assess publication with value error."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
             patch("sys.exit") as mock_exit,
         ):
             mock_normalizer.normalize.side_effect = ValueError("Invalid input")
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "", "journal", verbose=False, output_format="text"
@@ -1072,13 +1092,15 @@ class TestAsyncMain:
     async def test_async_main_unexpected_error_verbose(self):
         """Test async assess publication with unexpected error in verbose mode."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
             patch("traceback.print_exc") as mock_traceback,
             patch("sys.exit") as mock_exit,
         ):
             mock_normalizer.normalize.side_effect = RuntimeError("Unexpected error")
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "Test", "journal", verbose=True, output_format="text"
@@ -1091,12 +1113,14 @@ class TestAsyncMain:
     async def test_async_main_unexpected_error_non_verbose(self):
         """Test async assess publication with unexpected error in non-verbose mode."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
             patch("sys.exit") as mock_exit,
         ):
             mock_normalizer.normalize.side_effect = RuntimeError("Unexpected error")
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "Test", "journal", verbose=False, output_format="text"
@@ -1110,9 +1134,15 @@ class TestAsyncMain:
     ):
         """Conference command should normalize with conference-scoped acronym lookup."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
             patch("builtins.print"),
         ):
             mock_query_input = _make_query_input("AGENTS")
@@ -1127,7 +1157,7 @@ class TestAsyncMain:
             )
             mock_acronym_cache.return_value = mock_cache
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "AGENTS", "conference", verbose=False, output_format="text"
@@ -1145,9 +1175,15 @@ class TestAsyncMain:
     async def test_async_main_selects_best_acronym_candidate(self):
         """Choose strongest result among acronym workflow candidates."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
             patch("builtins.print") as mock_print,
         ):
 
@@ -1199,7 +1235,7 @@ class TestAsyncMain:
 
             mock_dispatcher.assess_journal = AsyncMock(side_effect=assess_side_effect)
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "proceedings of the international conference on autonomous agents",
@@ -1218,11 +1254,17 @@ class TestAsyncMain:
     async def test_async_main_skips_issn_candidate_on_title_mismatch(self):
         """Skip ISSN candidate when resolved title does not match expected venue."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch(
-                "aletheia_probe.cli._resolve_issn_title",
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment._resolve_issn_title",
                 new=AsyncMock(return_value="Lecture Notes in Computer Science"),
             ),
             patch("builtins.print"),
@@ -1261,7 +1303,7 @@ class TestAsyncMain:
             )
             mock_dispatcher.assess_journal = AsyncMock(return_value=unknown_result)
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "AIED",
@@ -1278,11 +1320,17 @@ class TestAsyncMain:
     async def test_async_main_skips_issn_to_acronym_when_crossref_unavailable(self):
         """Skip ISSN->acronym/full candidates when ISSN title cannot be resolved."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch(
-                "aletheia_probe.cli._resolve_issn_title",
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment._resolve_issn_title",
                 new=AsyncMock(return_value=None),
             ),
             patch("builtins.print") as mock_print,
@@ -1322,7 +1370,7 @@ class TestAsyncMain:
             )
             mock_dispatcher.assess_journal = AsyncMock(return_value=unknown_result)
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "1550-445X",
@@ -1344,9 +1392,15 @@ class TestAsyncMain:
     async def test_async_main_prefers_non_acronym_when_conflicting_without_ids(self):
         """When acronym and full-name conflict without shared identifiers, pick full."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
             patch("builtins.print") as mock_print,
         ):
 
@@ -1401,7 +1455,7 @@ class TestAsyncMain:
             mock_lookup_service.lookup.return_value = mock_lookup_result
             mock_dispatcher.lookup_service = mock_lookup_service
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "AJER",
@@ -1420,9 +1474,15 @@ class TestAsyncMain:
     async def test_async_main_prioritizes_list_over_heuristic_conflict(self):
         """Prefer list-backed candidate over conflicting heuristic-only candidate."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
             patch("builtins.print") as mock_print,
         ):
 
@@ -1498,7 +1558,7 @@ class TestAsyncMain:
             mock_lookup_service.lookup.return_value = MagicMock(issns=[], eissns=[])
             mock_dispatcher.lookup_service = mock_lookup_service
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "CVPR",
@@ -1518,9 +1578,15 @@ class TestAsyncMain:
     ):
         """Return insufficient_data for unresolved decisive conflicts without IDs."""
         with (
-            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
-            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
-            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli_logic.assessment.input_normalizer"
+            ) as mock_normalizer,
+            patch(
+                "aletheia_probe.cli_logic.assessment.query_dispatcher"
+            ) as mock_dispatcher,
+            patch(
+                "aletheia_probe.cli_logic.assessment.AcronymCache"
+            ) as mock_acronym_cache,
             patch("builtins.print") as mock_print,
         ):
 
@@ -1594,7 +1660,7 @@ class TestAsyncMain:
             mock_lookup_service.lookup.return_value = MagicMock(issns=[], eissns=[])
             mock_dispatcher.lookup_service = mock_lookup_service
 
-            from aletheia_probe.cli import _async_assess_publication
+            from aletheia_probe.cli_logic.assessment import _async_assess_publication
 
             await _async_assess_publication(
                 "AJER",
@@ -1608,8 +1674,6 @@ class TestAsyncMain:
             assert "Assessment: INSUFFICIENT_DATA" in output_text
             assert "no reliable assessment possible" in output_text
 
-
-class TestConferenceAcronymCommands:
     """Tests for acronym command group."""
 
     def test_acronym_status_empty(self, runner):

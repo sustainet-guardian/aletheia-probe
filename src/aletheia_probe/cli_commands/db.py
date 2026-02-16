@@ -54,7 +54,9 @@ def register_db_commands(
 
         if current_version is None:
             status_logger.warning("⚠️  Legacy database detected (no version tracking)")
-            status_logger.info(f"Current code requires: schema version {SCHEMA_VERSION}")
+            status_logger.info(
+                f"Current code requires: schema version {SCHEMA_VERSION}"
+            )
             status_logger.info("\nDelete the database and run sync again:")
             status_logger.info(f"  rm {db_path}")
             status_logger.info("  aletheia-probe sync")
@@ -66,7 +68,9 @@ def register_db_commands(
             status_logger.info("  aletheia-probe sync")
         elif current_version > SCHEMA_VERSION:
             status_logger.error(f"❌ Database schema version: {current_version}")
-            status_logger.error(f"Current code supports up to: version {SCHEMA_VERSION}")
+            status_logger.error(
+                f"Current code supports up to: version {SCHEMA_VERSION}"
+            )
             status_logger.info("\nPlease upgrade aletheia-probe:")
             status_logger.info("  pip install --upgrade aletheia-probe")
         else:
