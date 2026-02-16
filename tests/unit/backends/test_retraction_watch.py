@@ -13,7 +13,7 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -39,7 +39,7 @@ class TestRetractionWatchBackend:
             normalized_name="nature",
             identifiers={"issn": "0028-0836"},
             aliases=["Nature Magazine"],
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Nature",
                 name="nature",
                 acronym=None,

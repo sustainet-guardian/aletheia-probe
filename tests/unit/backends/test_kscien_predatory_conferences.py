@@ -11,7 +11,7 @@ from aletheia_probe.backends.kscien_predatory_conferences import (
 from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -49,7 +49,7 @@ async def test_kscien_predatory_conferences_backend_query_found():
         raw_input="Predatory Conference",
         normalized_name="predatory conference",
         identifiers={"issn": "1234-5678"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Predatory Conference",
             name="predatory conference",
             acronym=None,
@@ -87,7 +87,7 @@ async def test_kscien_predatory_conferences_backend_query_not_found():
         raw_input="Unknown Conference",
         normalized_name="unknown conference",
         identifiers={"issn": "9999-9999"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Unknown Conference",
             name="unknown conference",
             acronym=None,

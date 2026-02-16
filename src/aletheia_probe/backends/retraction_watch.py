@@ -125,7 +125,7 @@ class RetractionWatchBackend(
         Returns:
             List of matching journal records from the database
         """
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         issn = normalization.issn if normalization else None
         normalized_name = normalization.name if normalization else None
         aliases = normalization.aliases if normalization else []
@@ -259,7 +259,7 @@ class RetractionWatchBackend(
 
         # Fetch OpenAlex publication data on-demand
         openalex_data = None
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         normalized_name = normalization.name if normalization else None
         issn = normalization.issn if normalization else None
         if normalized_name:
@@ -451,9 +451,7 @@ class RetractionWatchBackend(
             Journal record if found, None if no match
         """
         aliases = (
-            query_input.normalization_result.aliases
-            if query_input.normalization_result
-            else []
+            query_input.normalized_venue.aliases if query_input.normalized_venue else []
         )
         for alias in aliases:
             result = await self._search_by_name(alias, exact=True)
@@ -526,7 +524,7 @@ class RetractionWatchBackend(
         self, query_input: QueryInput, match: dict[str, Any]
     ) -> float:
         """Calculate confidence based on match quality - exact matches only."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         issn = normalization.issn if normalization else None
         normalized_name = normalization.name if normalization else None
 

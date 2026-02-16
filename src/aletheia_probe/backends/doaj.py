@@ -20,7 +20,7 @@ from ..logging_config import get_detail_logger, get_status_logger
 from ..models import (
     BackendResult,
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -156,7 +156,7 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             Confidence score between 0.0 and 1.0
         """
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         issn = normalization.issn if normalization else None
         normalized_name = normalization.name if normalization else None
         aliases = normalization.aliases if normalization else []
@@ -263,7 +263,7 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
             temp_query = QueryInput(
                 raw_input=name, normalized_name=name, identifiers={}, aliases=[]
             )
-            temp_query.normalization_result = NormalizationResult(
+            temp_query.normalized_venue = NormalizedVenueInput(
                 original_text=name,
                 name=name,
                 acronym=None,

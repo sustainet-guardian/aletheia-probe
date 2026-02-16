@@ -172,7 +172,7 @@ class CachedBackend(Backend, FallbackStrategyMixin):
         self, query_input: QueryInput, match: dict[str, Any]
     ) -> float:
         """Calculate confidence based on match quality - exact matches only."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         normalized_name = normalization.name if normalization else None
         issn = normalization.issn if normalization else None
 
@@ -535,7 +535,7 @@ class ApiBackendWithCache(Backend):
             MD5 hash string used as cache key
         """
         # Use normalized name and identifiers to create a consistent key
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         normalized_name = normalization.name if normalization else ""
         issn = normalization.issn if normalization else ""
         key_parts = [

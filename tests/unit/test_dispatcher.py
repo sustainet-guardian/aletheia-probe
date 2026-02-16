@@ -14,7 +14,7 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -107,7 +107,7 @@ class TestQueryDispatcher:
                 "_normalize_for_dispatch",
                 AsyncMock(
                     return_value=(
-                        NormalizationResult(
+                        NormalizedVenueInput(
                             original_text=sample_query_input.raw_input,
                             venue_type=VenueType.JOURNAL,
                             name="journal of advanced computer science",
@@ -133,7 +133,7 @@ class TestQueryDispatcher:
         self, dispatcher, sample_query_input, mock_backend
     ):
         """Do not query backends when normalization status is conflict."""
-        conflict_result = NormalizationResult(
+        conflict_result = NormalizedVenueInput(
             original_text=sample_query_input.raw_input,
             venue_type=VenueType.JOURNAL,
             name="journal of advanced computer science",

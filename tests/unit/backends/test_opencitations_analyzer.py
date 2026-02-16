@@ -10,7 +10,7 @@ from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.backends.opencitations_analyzer import OpenCitationsAnalyzerBackend
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -46,7 +46,7 @@ async def test_query_success_by_issn(backend: OpenCitationsAnalyzerBackend) -> N
         raw_input="Nature",
         normalized_name="nature",
         identifiers={"issn": "0028-0836"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Nature",
             name="nature",
             acronym=None,
@@ -89,7 +89,7 @@ async def test_query_not_found_without_issn(
         raw_input="Unknown Venue",
         normalized_name="unknown venue",
         identifiers={},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Unknown Venue",
             name="unknown venue",
             acronym=None,

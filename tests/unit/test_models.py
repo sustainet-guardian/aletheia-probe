@@ -16,7 +16,7 @@ from aletheia_probe.models import (
     BibtexEntry,
     ConfigBackend,
     JournalMetadata,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -46,9 +46,9 @@ class TestQueryInput:
         assert query.identifiers["issn"] == "1234-5679"
         assert "Test Science Journal" in query.aliases
 
-    def test_query_input_with_normalization_result(self):
+    def test_query_input_with_normalized_venue(self):
         """Test attaching normalization payload to QueryInput."""
-        normalization_result = NormalizationResult(
+        normalized_venue = NormalizedVenueInput(
             original_text="Nature 0028-0836",
             venue_type=VenueType.JOURNAL,
             name="nature",
@@ -59,18 +59,18 @@ class TestQueryInput:
             raw_input="Nature 0028-0836",
             normalized_name="nature",
             identifiers={"issn": "0028-0836"},
-            normalization_result=normalization_result,
+            normalized_venue=normalized_venue,
         )
-        assert query.normalization_result is not None
-        assert query.normalization_result.name == "nature"
+        assert query.normalized_venue is not None
+        assert query.normalized_venue.name == "nature"
 
 
-class TestNormalizationResult:
+class TestNormalizedVenueInput:
     """Tests for normalization contract models."""
 
-    def test_create_normalization_result(self):
+    def test_create_normalized_venue(self):
         """Create minimal normalization payload for backend consumption."""
-        result = NormalizationResult(
+        result = NormalizedVenueInput(
             original_text="Nature",
             venue_type=VenueType.JOURNAL,
             name="nature",
@@ -84,9 +84,9 @@ class TestNormalizationResult:
         assert result.issn == "0028-0836"
         assert result.eissn == "1476-4687"
 
-    def test_create_partial_normalization_result(self):
+    def test_create_partial_normalized_venue(self):
         """Missing fields should be represented as None in minimal payload."""
-        result = NormalizationResult(
+        result = NormalizedVenueInput(
             original_text="Unknown Venue",
             venue_type=VenueType.JOURNAL,
             name=None,

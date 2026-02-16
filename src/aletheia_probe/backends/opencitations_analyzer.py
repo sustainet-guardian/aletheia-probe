@@ -260,7 +260,7 @@ class OpenCitationsAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         response_time: float,
     ) -> BackendResult:
         """Build not-found result when OpenCitations has no usable venue metrics."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         searched_for = (
             normalization.name if normalization and normalization.name else None
         )

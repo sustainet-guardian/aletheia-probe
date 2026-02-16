@@ -126,7 +126,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """
         # OpenAlex doesn't have special acronym handling in the client,
         # but we can try searching with the raw input if it looks like an acronym
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         acronym = normalization.acronym if normalization else None
         if acronym and len(acronym) <= 10 and acronym.isupper():
             # Looks like an acronym
@@ -158,9 +158,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             OpenAlex data if found using aliases, None otherwise
         """
         aliases = (
-            query_input.normalization_result.aliases
-            if query_input.normalization_result
-            else []
+            query_input.normalized_venue.aliases if query_input.normalized_venue else []
         )
         if not aliases:
             return None
@@ -200,7 +198,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             BackendResult with NOT_FOUND status
         """
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         journal_name = normalization.name if normalization else None
         if not journal_name:
             journal_name = (

@@ -30,35 +30,35 @@ class FallbackStrategyMixin:
 
     def _normalized_name(self, query_input: QueryInput) -> str | None:
         """Return normalized name from normalization payload."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         if normalization and normalization.name:
             return normalization.name
         return None
 
     def _issn(self, query_input: QueryInput) -> str | None:
         """Return ISSN from normalization payload."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         if normalization and normalization.issn:
             return normalization.issn
         return None
 
     def _eissn(self, query_input: QueryInput) -> str | None:
         """Return eISSN from normalization payload."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         if normalization and normalization.eissn:
             return normalization.eissn
         return None
 
     def _original_text(self, query_input: QueryInput) -> str:
         """Return original input text from normalization payload."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         if normalization and normalization.original_text:
             return normalization.original_text
         return query_input.raw_input
 
     def _aliases(self, query_input: QueryInput) -> list[str]:
         """Return aliases from normalization payload."""
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         if normalization:
             return normalization.aliases
         return []

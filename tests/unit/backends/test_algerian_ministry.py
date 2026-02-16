@@ -9,7 +9,7 @@ from aletheia_probe.backends.algerian_ministry import AlgerianMinistryBackend
 from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -49,7 +49,7 @@ class TestAlgerianMinistryBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={"issn": "1234-5678"},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",
                 acronym=None,
@@ -86,7 +86,7 @@ class TestAlgerianMinistryBackend:
             raw_input="Unknown Journal",
             normalized_name="unknown journal",
             identifiers={"issn": "9999-9999"},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Unknown Journal",
                 name="unknown journal",
                 acronym=None,
@@ -115,7 +115,7 @@ class TestAlgerianMinistryBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",
                 acronym=None,

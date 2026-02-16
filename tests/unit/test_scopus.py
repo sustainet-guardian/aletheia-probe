@@ -14,7 +14,7 @@ from aletheia_probe.backends.scopus import ScopusBackend
 from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -314,7 +314,7 @@ class TestScopusBackend:
             raw_input="Test Journal",
             normalized_name="test journal",
             identifiers={"issn": "1234-5679"},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Test Journal",
                 name="test journal",
                 acronym=None,
@@ -359,7 +359,7 @@ class TestScopusBackend:
         query_input = QueryInput(
             raw_input="Unknown Journal",
             normalized_name="unknown journal",
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Unknown Journal",
                 name="unknown journal",
                 acronym=None,
@@ -391,7 +391,7 @@ class TestScopusBackend:
             raw_input="Flagged Journal",
             normalized_name="flagged journal",
             identifiers={"issn": "8888-8888"},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Flagged Journal",
                 name="flagged journal",
                 acronym=None,

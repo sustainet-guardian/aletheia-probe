@@ -49,7 +49,7 @@ class BackendStatus(str, Enum):
     TIMEOUT = "timeout"
 
 
-class NormalizationResult(BaseModel):
+class NormalizedVenueInput(BaseModel):
     """Minimal normalization payload passed to backends."""
 
     original_text: str = Field(..., description="Original query input string")
@@ -85,7 +85,7 @@ class QueryInput(BaseModel):
         default_factory=dict,
         description="Acronym to full name mappings extracted during normalization",
     )
-    normalization_result: NormalizationResult | None = Field(
+    normalized_venue: NormalizedVenueInput | None = Field(
         None,
         description="Structured normalization payload passed to backends",
     )

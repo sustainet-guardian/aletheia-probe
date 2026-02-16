@@ -11,7 +11,7 @@ from aletheia_probe.backends.kscien_hijacked_journals import (
 from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -49,7 +49,7 @@ async def test_kscien_hijacked_journals_backend_query_found():
         raw_input="Hijacked Journal",
         normalized_name="hijacked journal",
         identifiers={"issn": "1234-5678"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Hijacked Journal",
             name="hijacked journal",
             acronym=None,
@@ -87,7 +87,7 @@ async def test_kscien_hijacked_journals_backend_query_not_found():
         raw_input="Unknown Journal",
         normalized_name="unknown journal",
         identifiers={"issn": "9999-9999"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Unknown Journal",
             name="unknown journal",
             acronym=None,

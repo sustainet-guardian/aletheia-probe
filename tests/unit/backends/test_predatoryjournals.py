@@ -9,7 +9,7 @@ from aletheia_probe.backends.predatoryjournals import PredatoryJournalsBackend
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -38,7 +38,7 @@ class TestPredatoryJournalsBackend:
             raw_input="Predatory Journal",
             normalized_name="predatory journal",
             identifiers={"issn": "1234-5678"},
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",
                 acronym=None,
@@ -84,7 +84,7 @@ class TestPredatoryJournalsBackend:
         query_input = QueryInput(
             raw_input="Good Journal",
             normalized_name="good journal",
-            normalization_result=NormalizationResult(
+            normalized_venue=NormalizedVenueInput(
                 original_text="Good Journal",
                 name="good journal",
                 acronym=None,

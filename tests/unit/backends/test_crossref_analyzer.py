@@ -10,7 +10,7 @@ from aletheia_probe.backends.crossref_analyzer import CrossrefAnalyzerBackend
 from aletheia_probe.enums import AssessmentType
 from aletheia_probe.models import (
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -33,7 +33,7 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
     query_input = QueryInput(
         raw_input="Test Journal",
         identifiers={"issn": "1234-5679", "eissn": "8765-4321"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Test Journal",
             name="test journal",
             acronym=None,
@@ -89,7 +89,7 @@ async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) ->
     query_input = QueryInput(
         raw_input="Test Journal",
         identifiers={"issn": "1234-5679"},
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Test Journal",
             name="test journal",
             acronym=None,

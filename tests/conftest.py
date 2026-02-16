@@ -14,7 +14,7 @@ from aletheia_probe.enums import AssessmentType, NameType
 from aletheia_probe.models import (
     BackendResult,
     BackendStatus,
-    NormalizationResult,
+    NormalizedVenueInput,
     QueryInput,
     VenueType,
 )
@@ -55,7 +55,7 @@ def sample_query_input():
         normalized_name="Journal of Advanced Computer Science",
         identifiers={"issn": "1234-5679"},
         aliases=["Advanced Computer Science"],
-        normalization_result=NormalizationResult(
+        normalized_venue=NormalizedVenueInput(
             original_text="Journal of Advanced Computer Science",
             name="Journal of Advanced Computer Science",
             acronym=None,

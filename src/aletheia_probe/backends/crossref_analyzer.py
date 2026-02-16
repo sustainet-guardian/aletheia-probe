@@ -271,7 +271,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         )
 
         # Determine which ISSN was used for the source URL
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         issn = normalization.issn if normalization else None
         eissn = normalization.eissn if normalization else None
 
@@ -315,7 +315,7 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         self.detail_logger.info(
             f"Crossref: Journal not found for {query_input.raw_input}"
         )
-        normalization = query_input.normalization_result
+        normalization = query_input.normalized_venue
         issn = normalization.issn if normalization else None
         eissn = normalization.eissn if normalization else None
         searched_for = (
