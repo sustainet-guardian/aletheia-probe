@@ -360,9 +360,6 @@ def merge_file_results(
     Returns:
         MergedAcronymResult with categorized acronyms
     """
-    # Local import avoids circular dependency during module initialization.
-    from .normalizer import are_conference_names_equivalent
-
     merged = MergedAcronymResult()
 
     # Track errors

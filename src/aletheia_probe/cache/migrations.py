@@ -11,6 +11,7 @@ from .connection_utils import get_configured_connection
 from .schema import (
     SCHEMA_VERSION,
     get_schema_version,
+    init_database,
     set_schema_version,
 )
 
@@ -206,9 +207,6 @@ def reset_database(db_path: Path, confirm: bool = False) -> bool:
             db_path.unlink()
 
         # Reinitialize with current schema
-        # Local import avoids initialization-order issues during cache bootstrap.
-        from .schema import init_database
-
         init_database(db_path)
 
         status_logger.info(f"✅ Database reset to version {SCHEMA_VERSION}")
