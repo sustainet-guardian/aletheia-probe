@@ -49,6 +49,23 @@ class BackendStatus(str, Enum):
     TIMEOUT = "timeout"
 
 
+class NormalizationResult(BaseModel):
+    """Minimal normalization payload passed to backends."""
+
+    original_text: str = Field(..., description="Original query input string")
+    name: str | None = Field(None, description="Normalized venue name")
+    acronym: str | None = Field(
+        None, description="Detected or expanded acronym, if available"
+    )
+    issn: str | None = Field(None, description="Resolved print ISSN")
+    eissn: str | None = Field(None, description="Resolved electronic ISSN")
+    venue_type: VenueType = Field(..., description="Requested/detected venue type")
+    aliases: list[str] = Field(default_factory=list, description="Known aliases")
+    input_identifiers: dict[str, str] = Field(
+        default_factory=dict, description="Identifiers extracted directly from input"
+    )
+
+
 class QueryInput(BaseModel):
     """Input query data for journal assessment."""
 
@@ -67,6 +84,10 @@ class QueryInput(BaseModel):
     extracted_acronym_mappings: dict[str, str] = Field(
         default_factory=dict,
         description="Acronym to full name mappings extracted during normalization",
+    )
+    normalization_result: NormalizationResult | None = Field(
+        None,
+        description="Structured normalization payload passed to backends",
     )
 
 

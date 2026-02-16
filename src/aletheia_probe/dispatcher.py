@@ -19,7 +19,15 @@ from .cross_validation import get_cross_validation_registry
 from .enums import AssessmentType, EvidenceType
 from .fallback_chain import QueryFallbackChain
 from .logging_config import get_detail_logger, get_status_logger
-from .models import AssessmentResult, BackendResult, BackendStatus, QueryInput
+from .lookup import VenueLookupService
+from .models import (
+    AssessmentResult,
+    BackendResult,
+    BackendStatus,
+    NormalizationResult,
+    QueryInput,
+    VenueType,
+)
 from .normalizer import InputNormalizer, input_normalizer
 from .openalex import OpenAlexClient
 from .quality_assessment import QualityAssessmentProcessor
@@ -84,6 +92,7 @@ class QueryDispatcher:
         self.cross_validation_registry = get_cross_validation_registry()
         self.quality_processor = QualityAssessmentProcessor()
         self.journal_cache = JournalCache()
+        self.lookup_service = VenueLookupService(journal_cache=self.journal_cache)
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -95,6 +104,18 @@ class QueryDispatcher:
             AssessmentResult with aggregated assessment from all backends
         """
         start_time = time.time()
+        (
+            normalization_result,
+            normalization_failure,
+        ) = await self._normalize_for_dispatch(query_input)
+        query_input = self._attach_normalization_to_query(
+            query_input, normalization_result
+        )
+        if normalization_failure:
+            return self._build_normalization_blocked_result(
+                query_input, normalization_failure, start_time
+            )
+
         query_input = await self._enrich_query_identifiers(query_input)
 
         # Get enabled backends from registry
@@ -136,6 +157,110 @@ class QueryDispatcher:
         # like an acronym with a cached expansion, retry with the expanded name
         return await self._try_acronym_fallback(
             assessment_result, query_input, enabled_backends, start_time
+        )
+
+    async def _normalize_for_dispatch(
+        self, query_input: QueryInput
+    ) -> tuple[NormalizationResult, str | None]:
+        """Build minimal normalization payload and evaluate gating failures."""
+        requested_venue_type = (
+            query_input.venue_type
+            if query_input.venue_type != VenueType.UNKNOWN
+            else VenueType.JOURNAL
+        )
+
+        lookup_result = self.lookup_service.lookup(
+            query_input.raw_input,
+            venue_type=requested_venue_type,
+            confidence_min=DEFAULT_ACRONYM_CONFIDENCE_MIN,
+        )
+        primary_name = (
+            lookup_result.normalized_name or query_input.normalized_name or ""
+        ).strip() or None
+        selected_issn = query_input.identifiers.get("issn") or (
+            lookup_result.issns[0] if lookup_result.issns else None
+        )
+        selected_eissn = query_input.identifiers.get("eissn") or (
+            lookup_result.eissns[0] if lookup_result.eissns else None
+        )
+
+        consistency_errors = list(lookup_result.consistency_errors)
+        failure_reason: str | None = None
+        if not primary_name and not (selected_issn or selected_eissn):
+            failure_reason = "Normalization did not resolve a name or identifier"
+
+        input_ids = {value for value in query_input.identifiers.values() if value}
+        if primary_name and input_ids:
+            resolved_ids: set[str] = set()
+            for candidate in lookup_result.candidates:
+                if candidate.normalized_name != primary_name:
+                    continue
+                if candidate.issn:
+                    resolved_ids.add(candidate.issn)
+                if candidate.eissn:
+                    resolved_ids.add(candidate.eissn)
+
+            if resolved_ids and input_ids.isdisjoint(resolved_ids):
+                consistency_errors.append(
+                    "Input mismatch: provided identifier(s) "
+                    f"{sorted(input_ids)} do not match '{primary_name}' "
+                    f"(resolved identifiers: {sorted(resolved_ids)})"
+                )
+
+        if consistency_errors:
+            failure_reason = "; ".join(sorted(set(consistency_errors)))
+
+        normalization_result = NormalizationResult(
+            original_text=lookup_result.raw_input,
+            venue_type=requested_venue_type,
+            name=primary_name,
+            acronym=query_input.acronym_expanded_from,
+            issn=selected_issn,
+            eissn=selected_eissn,
+            aliases=lookup_result.aliases,
+            input_identifiers=dict(query_input.identifiers),
+        )
+        return normalization_result, failure_reason
+
+    def _attach_normalization_to_query(
+        self, query_input: QueryInput, normalization_result: NormalizationResult
+    ) -> QueryInput:
+        """Attach normalization payload and selected fields to query input."""
+        normalized_name = normalization_result.name or query_input.normalized_name
+        merged_identifiers = dict(query_input.identifiers)
+        if normalization_result.issn:
+            merged_identifiers.setdefault("issn", normalization_result.issn)
+        if normalization_result.eissn:
+            merged_identifiers.setdefault("eissn", normalization_result.eissn)
+        return query_input.model_copy(
+            update={
+                "normalized_name": normalized_name,
+                "identifiers": merged_identifiers,
+                "normalization_result": normalization_result,
+            }
+        )
+
+    def _build_normalization_blocked_result(
+        self,
+        query_input: QueryInput,
+        failure_reason: str,
+        start_time: float,
+    ) -> AssessmentResult:
+        """Build a no-assessment result when normalization gate is not OK."""
+        reason = failure_reason or "Normalization failed; no assessment possible"
+        self.status_logger.warning(f"Normalization blocked assessment: {reason}")
+        return AssessmentResult(
+            input_query=query_input.raw_input,
+            assessment=AssessmentType.INSUFFICIENT_DATA,
+            confidence=0.0,
+            overall_score=0.0,
+            backend_results=[],
+            metadata=None,
+            reasoning=[reason],
+            processing_time=time.time() - start_time,
+            acronym_expanded_from=query_input.acronym_expanded_from,
+            acronym_expansion_used=bool(query_input.acronym_expanded_from),
+            venue_type=query_input.venue_type,
         )
 
     async def _enrich_query_identifiers(self, query_input: QueryInput) -> QueryInput:

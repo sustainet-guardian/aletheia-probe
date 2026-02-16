@@ -14,7 +14,9 @@ from aletheia_probe.models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
+    NormalizationResult,
     QueryInput,
+    VenueType,
 )
 
 
@@ -96,8 +98,26 @@ class TestQueryDispatcher:
         self, dispatcher, sample_query_input, mock_backend
     ):
         """Test basic journal assessment flow."""
-        with patch.object(
-            dispatcher, "_get_enabled_backends", return_value=[mock_backend]
+        with (
+            patch.object(
+                dispatcher, "_get_enabled_backends", return_value=[mock_backend]
+            ),
+            patch.object(
+                dispatcher,
+                "_normalize_for_dispatch",
+                AsyncMock(
+                    return_value=(
+                        NormalizationResult(
+                            original_text=sample_query_input.raw_input,
+                            venue_type=VenueType.JOURNAL,
+                            name="journal of advanced computer science",
+                            issn="1234-5679",
+                            input_identifiers={"issn": "1234-5679"},
+                        ),
+                        None,
+                    )
+                ),
+            ),
         ):
             result = await dispatcher.assess_journal(sample_query_input)
 
@@ -107,6 +127,36 @@ class TestQueryDispatcher:
             assert result.confidence == 0.8
             assert result.processing_time > 0
             assert len(result.backend_results) == 1
+
+    @pytest.mark.asyncio
+    async def test_assess_journal_blocks_on_normalization_conflict(
+        self, dispatcher, sample_query_input, mock_backend
+    ):
+        """Do not query backends when normalization status is conflict."""
+        conflict_result = NormalizationResult(
+            original_text=sample_query_input.raw_input,
+            venue_type=VenueType.JOURNAL,
+            name="journal of advanced computer science",
+            issn="1234-5679",
+            input_identifiers={"issn": "1234-5679"},
+        )
+
+        with (
+            patch.object(
+                dispatcher, "_get_enabled_backends", return_value=[mock_backend]
+            ),
+            patch.object(
+                dispatcher,
+                "_normalize_for_dispatch",
+                AsyncMock(return_value=(conflict_result, "identifier mismatch")),
+            ),
+        ):
+            result = await dispatcher.assess_journal(sample_query_input)
+
+        assert result.assessment == AssessmentType.INSUFFICIENT_DATA
+        assert result.backend_results == []
+        assert any("identifier mismatch" in reason for reason in result.reasoning)
+        mock_backend.query_with_timeout.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_assess_journal_no_backends(self, dispatcher, sample_query_input):

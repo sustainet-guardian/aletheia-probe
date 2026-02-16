@@ -16,6 +16,7 @@ from aletheia_probe.models import (
     BibtexEntry,
     ConfigBackend,
     JournalMetadata,
+    NormalizationResult,
     QueryInput,
     VenueType,
 )
@@ -44,6 +45,58 @@ class TestQueryInput:
         assert query.normalized_name == "Journal of Test Science"
         assert query.identifiers["issn"] == "1234-5679"
         assert "Test Science Journal" in query.aliases
+
+    def test_query_input_with_normalization_result(self):
+        """Test attaching normalization payload to QueryInput."""
+        normalization_result = NormalizationResult(
+            original_text="Nature 0028-0836",
+            venue_type=VenueType.JOURNAL,
+            name="nature",
+            issn="0028-0836",
+            input_identifiers={"issn": "0028-0836"},
+        )
+        query = QueryInput(
+            raw_input="Nature 0028-0836",
+            normalized_name="nature",
+            identifiers={"issn": "0028-0836"},
+            normalization_result=normalization_result,
+        )
+        assert query.normalization_result is not None
+        assert query.normalization_result.name == "nature"
+
+
+class TestNormalizationResult:
+    """Tests for normalization contract models."""
+
+    def test_create_normalization_result(self):
+        """Create minimal normalization payload for backend consumption."""
+        result = NormalizationResult(
+            original_text="Nature",
+            venue_type=VenueType.JOURNAL,
+            name="nature",
+            aliases=[],
+            acronym=None,
+            input_identifiers={},
+            issn="0028-0836",
+            eissn="1476-4687",
+        )
+        assert result.name == "nature"
+        assert result.issn == "0028-0836"
+        assert result.eissn == "1476-4687"
+
+    def test_create_partial_normalization_result(self):
+        """Missing fields should be represented as None in minimal payload."""
+        result = NormalizationResult(
+            original_text="Unknown Venue",
+            venue_type=VenueType.JOURNAL,
+            name=None,
+            acronym=None,
+            issn=None,
+            eissn=None,
+        )
+        assert result.name is None
+        assert result.issn is None
+        assert result.eissn is None
 
 
 class TestBackendResult:
