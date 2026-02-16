@@ -87,7 +87,11 @@ class BeallsHTMLParser:
                     journals.append(
                         {
                             "journal_name": clean_name,
-                            "normalized_name": normalized_input.normalized_name,
+                            "normalized_name": (
+                                normalized_input.normalized_venue.name
+                                if normalized_input.normalized_venue
+                                else ""
+                            ),
                             "publisher": publisher_code,
                             "metadata": {
                                 "source_url": source_url,

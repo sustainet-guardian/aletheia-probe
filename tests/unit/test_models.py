@@ -29,22 +29,27 @@ class TestQueryInput:
         """Test creating a basic QueryInput."""
         query = QueryInput(raw_input="Test Journal")
         assert query.raw_input == "Test Journal"
-        assert query.normalized_name is None
-        assert query.identifiers == {}
-        assert query.aliases == []
+        assert query.normalized_venue is None
 
     def test_create_full_query_input(self):
         """Test creating a QueryInput with all fields."""
+        normalized_venue = NormalizedVenueInput(
+            original_text="J. Test Sci.",
+            venue_type=VenueType.JOURNAL,
+            name="Journal of Test Science",
+            aliases=["Test Science Journal"],
+            input_identifiers={"issn": "1234-5679"},
+            issn="1234-5679",
+        )
         query = QueryInput(
             raw_input="J. Test Sci.",
-            normalized_name="Journal of Test Science",
-            identifiers={"issn": "1234-5679"},
-            aliases=["Test Science Journal"],
+            normalized_venue=normalized_venue,
         )
         assert query.raw_input == "J. Test Sci."
-        assert query.normalized_name == "Journal of Test Science"
-        assert query.identifiers["issn"] == "1234-5679"
-        assert "Test Science Journal" in query.aliases
+        assert query.normalized_venue is not None
+        assert query.normalized_venue.name == "Journal of Test Science"
+        assert query.normalized_venue.input_identifiers["issn"] == "1234-5679"
+        assert "Test Science Journal" in query.normalized_venue.aliases
 
     def test_query_input_with_normalized_venue(self):
         """Test attaching normalization payload to QueryInput."""
@@ -57,8 +62,6 @@ class TestQueryInput:
         )
         query = QueryInput(
             raw_input="Nature 0028-0836",
-            normalized_name="nature",
-            identifiers={"issn": "0028-0836"},
             normalized_venue=normalized_venue,
         )
         assert query.normalized_venue is not None

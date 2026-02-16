@@ -30,7 +30,7 @@ class OutputFormatter:
         # Acronym expansion note
         if result.acronym_expansion_used and result.acronym_expanded_from:
             lines.append(
-                f"Note: Expanded acronym '{result.acronym_expanded_from}' using cached mapping"
+                f"Note: Expanded input '{result.acronym_expanded_from}' using cached mapping"
             )
 
         # Assessment summary

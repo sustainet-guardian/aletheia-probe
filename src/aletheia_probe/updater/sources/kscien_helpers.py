@@ -400,7 +400,9 @@ def deduplicate_entries(publications: list[dict[str, Any]]) -> list[dict[str, An
     for pub in publications:
         # Normalize the publication name for deduplication
         normalized = input_normalizer.normalize(pub.get("journal_name", ""))
-        normalized_name = normalized.normalized_name
+        normalized_name = (
+            normalized.normalized_venue.name if normalized.normalized_venue else ""
+        )
         if normalized_name is None:
             continue
         normalized_key = normalized_name.lower()

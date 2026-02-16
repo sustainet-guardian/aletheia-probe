@@ -253,7 +253,11 @@ class CoreConferenceSource(_CorePortalSourceBase):
             entries.append(
                 {
                     "journal_name": title,
-                    "normalized_name": normalized.normalized_name,
+                    "normalized_name": (
+                        normalized.normalized_venue.name
+                        if normalized.normalized_venue
+                        else ""
+                    ),
                     "metadata": {
                         "source_url": self.portal_url,
                         "core_entity_type": "conference",
@@ -314,7 +318,11 @@ class CoreJournalSource(_CorePortalSourceBase):
             entries.append(
                 {
                     "journal_name": title,
-                    "normalized_name": normalized.normalized_name,
+                    "normalized_name": (
+                        normalized.normalized_venue.name
+                        if normalized.normalized_venue
+                        else ""
+                    ),
                     "metadata": {
                         "source_url": self.portal_url,
                         "core_entity_type": "journal",

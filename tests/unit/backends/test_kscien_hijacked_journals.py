@@ -47,8 +47,6 @@ async def test_kscien_hijacked_journals_backend_query_found():
     backend = KscienHijackedJournalsBackend()
     query_input = QueryInput(
         raw_input="Hijacked Journal",
-        normalized_name="hijacked journal",
-        identifiers={"issn": "1234-5678"},
         normalized_venue=NormalizedVenueInput(
             original_text="Hijacked Journal",
             name="hijacked journal",
@@ -85,8 +83,6 @@ async def test_kscien_hijacked_journals_backend_query_not_found():
     backend = KscienHijackedJournalsBackend()
     query_input = QueryInput(
         raw_input="Unknown Journal",
-        normalized_name="unknown journal",
-        identifiers={"issn": "9999-9999"},
         normalized_venue=NormalizedVenueInput(
             original_text="Unknown Journal",
             name="unknown journal",

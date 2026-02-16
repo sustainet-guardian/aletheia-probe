@@ -675,9 +675,13 @@ class TestQueryDispatcher:
         """Use cached ISSN/eISSN mapping when available."""
         query_input = QueryInput(
             raw_input="Nature",
-            normalized_name="nature",
-            identifiers={},
-            aliases=[],
+            normalized_venue=NormalizedVenueInput(
+                original_text="Nature",
+                venue_type=VenueType.JOURNAL,
+                name="nature",
+                aliases=[],
+                input_identifiers={},
+            ),
         )
         dispatcher.journal_cache.get_journal_identifiers_by_normalized_name.return_value = {
             "issn": "0028-0836",
@@ -686,17 +690,22 @@ class TestQueryDispatcher:
 
         enriched = await dispatcher._enrich_query_identifiers(query_input)
 
-        assert enriched.identifiers["issn"] == "0028-0836"
-        assert enriched.identifiers["eissn"] == "1476-4687"
+        assert enriched.normalized_venue is not None
+        assert enriched.normalized_venue.issn == "0028-0836"
+        assert enriched.normalized_venue.eissn == "1476-4687"
 
     @pytest.mark.asyncio
     async def test_enrich_query_identifiers_resolves_and_persists(self, dispatcher):
         """Resolve identifiers via OpenAlex when cache misses and persist them."""
         query_input = QueryInput(
             raw_input="Nature",
-            normalized_name="nature",
-            identifiers={},
-            aliases=[],
+            normalized_venue=NormalizedVenueInput(
+                original_text="Nature",
+                venue_type=VenueType.JOURNAL,
+                name="nature",
+                aliases=[],
+                input_identifiers={},
+            ),
         )
         dispatcher.journal_cache.get_journal_identifiers_by_normalized_name.return_value = None
         with patch.object(
@@ -713,8 +722,9 @@ class TestQueryDispatcher:
         ):
             enriched = await dispatcher._enrich_query_identifiers(query_input)
 
-        assert enriched.identifiers["issn"] == "0028-0836"
-        assert enriched.identifiers["eissn"] == "1476-4687"
+        assert enriched.normalized_venue is not None
+        assert enriched.normalized_venue.issn == "0028-0836"
+        assert enriched.normalized_venue.eissn == "1476-4687"
         dispatcher.journal_cache.upsert_journal_identifiers.assert_called_once()
 
     def test_select_exact_identifier_source_ambiguous(self, dispatcher):

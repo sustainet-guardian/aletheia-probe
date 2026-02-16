@@ -61,8 +61,12 @@ class QueryDispatcher:
         >>> async def assess():
         ...     query = QueryInput(
         ...         raw_input="Nature Communications",
-        ...         normalized_name="nature communications",
-        ...         issn="2041-1723"
+        ...         normalized_venue=NormalizedVenueInput(
+        ...             original_text="Nature Communications",
+        ...             name="nature communications",
+        ...             issn="2041-1723",
+        ...             venue_type=VenueType.JOURNAL,
+        ...         ),
         ...     )
         ...     result = await query_dispatcher.assess_journal(query)
         ...     print(f"Classification: {result.assessment}")
@@ -172,13 +176,16 @@ class QueryDispatcher:
             venue_type=requested_venue_type,
             confidence_min=DEFAULT_ACRONYM_CONFIDENCE_MIN,
         )
-        primary_name = (
-            lookup_result.normalized_name or query_input.normalized_name or ""
-        ).strip() or None
-        selected_issn = query_input.identifiers.get("issn") or (
+        query_identifiers = (
+            dict(query_input.normalized_venue.input_identifiers)
+            if query_input.normalized_venue
+            else {}
+        )
+        primary_name = (lookup_result.normalized_name or "").strip() or None
+        selected_issn = query_identifiers.get("issn") or (
             lookup_result.issns[0] if lookup_result.issns else None
         )
-        selected_eissn = query_input.identifiers.get("eissn") or (
+        selected_eissn = query_identifiers.get("eissn") or (
             lookup_result.eissns[0] if lookup_result.eissns else None
         )
 
@@ -187,7 +194,7 @@ class QueryDispatcher:
         if not primary_name and not (selected_issn or selected_eissn):
             failure_reason = "Normalization did not resolve a name or identifier"
 
-        input_ids = {value for value in query_input.identifiers.values() if value}
+        input_ids = {value for value in query_identifiers.values() if value}
         if primary_name and input_ids:
             resolved_ids: set[str] = set()
             for candidate in lookup_result.candidates:
@@ -216,27 +223,15 @@ class QueryDispatcher:
             issn=selected_issn,
             eissn=selected_eissn,
             aliases=lookup_result.aliases,
-            input_identifiers=dict(query_input.identifiers),
+            input_identifiers=query_identifiers,
         )
         return normalized_venue, failure_reason
 
     def _attach_normalization_to_query(
         self, query_input: QueryInput, normalized_venue: NormalizedVenueInput
     ) -> QueryInput:
-        """Attach normalization payload and selected fields to query input."""
-        normalized_name = normalized_venue.name or query_input.normalized_name
-        merged_identifiers = dict(query_input.identifiers)
-        if normalized_venue.issn:
-            merged_identifiers.setdefault("issn", normalized_venue.issn)
-        if normalized_venue.eissn:
-            merged_identifiers.setdefault("eissn", normalized_venue.eissn)
-        return query_input.model_copy(
-            update={
-                "normalized_name": normalized_name,
-                "identifiers": merged_identifiers,
-                "normalized_venue": normalized_venue,
-            }
-        )
+        """Attach normalization payload to query input."""
+        return query_input.model_copy(update={"normalized_venue": normalized_venue})
 
     def _build_normalization_blocked_result(
         self,
@@ -263,10 +258,14 @@ class QueryDispatcher:
 
     async def _enrich_query_identifiers(self, query_input: QueryInput) -> QueryInput:
         """Enrich query identifiers with reliable ISSN/eISSN from cache/API."""
-        if query_input.identifiers.get("issn") or query_input.identifiers.get("eissn"):
+        normalization = query_input.normalized_venue
+        if not normalization:
             return query_input
 
-        normalized_name = (query_input.normalized_name or "").strip().lower()
+        if normalization.issn or normalization.eissn:
+            return query_input
+
+        normalized_name = (normalization.name or "").strip().lower()
         if not normalized_name:
             return query_input
 
@@ -278,7 +277,14 @@ class QueryDispatcher:
                 f"Using cached identifiers for '{normalized_name}': {cache_ids}"
             )
             return query_input.model_copy(
-                update={"identifiers": {**query_input.identifiers, **cache_ids}}
+                update={
+                    "normalized_venue": normalization.model_copy(
+                        update={
+                            "issn": cache_ids.get("issn") or normalization.issn,
+                            "eissn": cache_ids.get("eissn") or normalization.eissn,
+                        }
+                    )
+                }
             )
 
         resolved = await self._resolve_identifiers_from_openalex(query_input)
@@ -306,10 +312,12 @@ class QueryDispatcher:
         )
         return query_input.model_copy(
             update={
-                "identifiers": {
-                    **query_input.identifiers,
-                    **identifiers_update,
-                }
+                "normalized_venue": normalization.model_copy(
+                    update={
+                        "issn": identifiers_update.get("issn") or normalization.issn,
+                        "eissn": identifiers_update.get("eissn") or normalization.eissn,
+                    }
+                )
             }
         )
 
@@ -317,7 +325,10 @@ class QueryDispatcher:
         self, query_input: QueryInput
     ) -> dict[str, str] | None:
         """Resolve ISSN/eISSN by venue name from OpenAlex."""
-        normalized_name = (query_input.normalized_name or "").strip().lower()
+        normalization = query_input.normalized_venue
+        normalized_name = (
+            ((normalization.name if normalization else "") or "").strip().lower()
+        )
         if not normalized_name:
             return None
 
@@ -370,8 +381,13 @@ class QueryDispatcher:
             if not display_name:
                 continue
 
+            normalized_query = input_normalizer.normalize(display_name)
             normalized_display = (
-                (input_normalizer.normalize(display_name).normalized_name or "")
+                (
+                    (normalized_query.normalized_venue.name or "")
+                    if normalized_query.normalized_venue
+                    else ""
+                )
                 .strip()
                 .lower()
             )
@@ -397,8 +413,13 @@ class QueryDispatcher:
         """Check if OpenAlex display name reliably matches the query name."""
         if not display_name:
             return False
+        normalized_query = input_normalizer.normalize(display_name)
         normalized_display = (
-            (input_normalizer.normalize(display_name).normalized_name or "")
+            (
+                (normalized_query.normalized_venue.name or "")
+                if normalized_query.normalized_venue
+                else ""
+            )
             .strip()
             .lower()
         )
@@ -630,7 +651,11 @@ class QueryDispatcher:
 
             # Path 3: ISSN present in query → JOIN against venue_acronym_issns
             if not expanded_name:
-                issn = query_input.identifiers.get("issn")
+                issn = (
+                    query_input.normalized_venue.issn
+                    if query_input.normalized_venue
+                    else None
+                )
                 if issn:
                     expanded_name = acronym_cache.get_canonical_for_issn(
                         issn,
@@ -656,6 +681,7 @@ class QueryDispatcher:
                     expanded_name,
                     acronym_lookup=acronym_lookup_for_type,
                 )
+                expanded_query.venue_type = query_input.venue_type
 
                 # Store any new acronym mappings discovered during expansion
                 for (

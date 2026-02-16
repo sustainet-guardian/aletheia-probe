@@ -47,8 +47,6 @@ class TestAlgerianMinistryBackend:
         backend = AlgerianMinistryBackend()
         query_input = QueryInput(
             raw_input="Predatory Journal",
-            normalized_name="predatory journal",
-            identifiers={"issn": "1234-5678"},
             normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",
@@ -84,8 +82,6 @@ class TestAlgerianMinistryBackend:
         backend = AlgerianMinistryBackend()
         query_input = QueryInput(
             raw_input="Unknown Journal",
-            normalized_name="unknown journal",
-            identifiers={"issn": "9999-9999"},
             normalized_venue=NormalizedVenueInput(
                 original_text="Unknown Journal",
                 name="unknown journal",
@@ -113,8 +109,6 @@ class TestAlgerianMinistryBackend:
         backend = AlgerianMinistryBackend()
         query_input = QueryInput(
             raw_input="Predatory Journal",
-            normalized_name="predatory journal",
-            identifiers={},
             normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",

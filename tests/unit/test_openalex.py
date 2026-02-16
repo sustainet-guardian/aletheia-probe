@@ -146,8 +146,13 @@ class TestOpenAlexClient:
                 "aletheia_probe.normalizer.input_normalizer.extract_conference_series",
                 return_value=series_name,
             ) as mock_extract_series:
-                async with OpenAlexClient() as client:
-                    result = await client.enrich_journal_data(full_conference_name)
+                with patch.object(
+                    OpenAlexClient,
+                    "get_works_count_by_year",
+                    new=AsyncMock(return_value={2021: 120, 2022: 140, 2023: 160}),
+                ):
+                    async with OpenAlexClient() as client:
+                        result = await client.enrich_journal_data(full_conference_name)
 
                 # Assertions
                 assert result is not None

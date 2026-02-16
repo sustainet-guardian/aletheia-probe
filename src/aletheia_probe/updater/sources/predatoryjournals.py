@@ -391,7 +391,11 @@ class PredatoryJournalsSource(DataSource):
             normalized_input = input_normalizer.normalize(name)
             entry = {
                 "journal_name": name,
-                "normalized_name": normalized_input.normalized_name,
+                "normalized_name": (
+                    normalized_input.normalized_venue.name
+                    if normalized_input.normalized_venue
+                    else ""
+                ),
                 "metadata": {
                     "source": "predatoryjournals.org",
                     "list_type": sheet_type,

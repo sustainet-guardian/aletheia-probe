@@ -205,7 +205,14 @@ class TestScopusSource:
             ) as mock_normalize:
                 # Mock the normalizer to return different normalized names
                 def normalize_side_effect(name):
-                    return Mock(normalized_name=name.lower())
+                    return QueryInput(
+                        raw_input=name,
+                        normalized_venue=NormalizedVenueInput(
+                            original_text=name,
+                            name=name.lower(),
+                            venue_type=VenueType.JOURNAL,
+                        ),
+                    )
 
                 mock_normalize.side_effect = normalize_side_effect
 
@@ -278,7 +285,14 @@ class TestScopusSource:
             with patch(
                 "aletheia_probe.normalizer.input_normalizer.normalize"
             ) as mock_normalize:
-                mock_normalize.return_value = Mock(normalized_name="test journal")
+                mock_normalize.return_value = QueryInput(
+                    raw_input="Test Journal",
+                    normalized_venue=NormalizedVenueInput(
+                        original_text="Test Journal",
+                        name="test journal",
+                        venue_type=VenueType.JOURNAL,
+                    ),
+                )
                 data = await source.fetch_data()
 
                 # Should process the journal but with None ISSN
@@ -312,8 +326,6 @@ class TestScopusBackend:
         backend = ScopusBackend()
         query_input = QueryInput(
             raw_input="Test Journal",
-            normalized_name="test journal",
-            identifiers={"issn": "1234-5679"},
             normalized_venue=NormalizedVenueInput(
                 original_text="Test Journal",
                 name="test journal",
@@ -358,7 +370,6 @@ class TestScopusBackend:
         backend = ScopusBackend()
         query_input = QueryInput(
             raw_input="Unknown Journal",
-            normalized_name="unknown journal",
             normalized_venue=NormalizedVenueInput(
                 original_text="Unknown Journal",
                 name="unknown journal",
@@ -389,8 +400,6 @@ class TestScopusBackend:
         backend = ScopusBackend()
         query_input = QueryInput(
             raw_input="Flagged Journal",
-            normalized_name="flagged journal",
-            identifiers={"issn": "8888-8888"},
             normalized_venue=NormalizedVenueInput(
                 original_text="Flagged Journal",
                 name="flagged journal",

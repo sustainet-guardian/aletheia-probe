@@ -552,7 +552,12 @@ class DblpVenueSource(DataSource):
     def _normalize_name(self, name: str) -> str | None:
         """Normalize conference name for cache insertion."""
         try:
-            normalized = input_normalizer.normalize(name).normalized_name
+            normalized_query = input_normalizer.normalize(name)
+            normalized = (
+                normalized_query.normalized_venue.name
+                if normalized_query.normalized_venue
+                else ""
+            )
         except Exception:
             detail_logger.debug(f"Failed to normalize DBLP conference name: {name}")
             return None

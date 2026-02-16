@@ -83,13 +83,18 @@ class VenueLookupService:
         base_query = input_normalizer.normalize(raw_input)
         base_query.venue_type = venue_type
         base_normalized_name = self._normalize_name_for_lookup(base_query.raw_input)
+        base_normalized_venue = base_query.normalized_venue
 
         result = LookupResult(
             raw_input=raw_input.strip(),
             venue_type=venue_type,
             normalized_name=base_normalized_name,
-            aliases=list(base_query.aliases),
-            identifiers=dict(base_query.identifiers),
+            aliases=list(
+                base_normalized_venue.aliases if base_normalized_venue else []
+            ),
+            identifiers=dict(
+                base_normalized_venue.input_identifiers if base_normalized_venue else {}
+            ),
         )
         candidate_keys: set[tuple[str, str, str | None, str | None]] = set()
         normalized_names: set[str] = set()
@@ -106,18 +111,18 @@ class VenueLookupService:
         if base_normalized_name:
             normalized_names.add(base_normalized_name)
 
-        for alias in base_query.aliases:
+        for alias in result.aliases:
             if alias:
                 normalized_alias = self._normalize_name_for_lookup(alias)
                 if normalized_alias:
                     normalized_names.add(normalized_alias)
 
-        input_issn = base_query.identifiers.get("issn")
+        input_issn = result.identifiers.get("issn")
         if input_issn:
             issns.add(input_issn)
             result.issn_valid = validate_issn(input_issn)
 
-        input_eissn = base_query.identifiers.get("eissn")
+        input_eissn = result.identifiers.get("eissn")
         if input_eissn:
             eissns.add(input_eissn)
         self._add_identifier_reverse_lookup_candidates(
@@ -130,7 +135,9 @@ class VenueLookupService:
         )
 
         self._add_journal_cache_candidates(
-            normalized_name=(base_query.normalized_name or ""),
+            normalized_name=(
+                (base_normalized_venue.name if base_normalized_venue else "") or ""
+            ),
             result=result,
             candidate_keys=candidate_keys,
             normalized_names=normalized_names,
@@ -175,7 +182,13 @@ class VenueLookupService:
     ) -> None:
         """Reverse-resolve venue names from input ISSN/eISSN identifiers."""
         query_identifiers = [
-            value for value in base_query.identifiers.values() if value
+            value
+            for value in (
+                base_query.normalized_venue.input_identifiers.values()
+                if base_query.normalized_venue
+                else []
+            )
+            if value
         ]
         for identifier in query_identifiers:
             rows = self.journal_cache.search_journals(issn=identifier)
@@ -273,9 +286,15 @@ class VenueLookupService:
                         acronym=raw_input,
                     )
         variant_inputs = [raw_input]
-        if base_query.normalized_name:
-            variant_inputs.append(base_query.normalized_name)
-        variant_inputs.extend(base_query.aliases[:10])
+        base_name = (
+            base_query.normalized_venue.name if base_query.normalized_venue else None
+        )
+        if base_name:
+            variant_inputs.append(base_name)
+        base_aliases = (
+            base_query.normalized_venue.aliases if base_query.normalized_venue else []
+        )
+        variant_inputs.extend(base_aliases[:10])
 
         for variant_input in variant_inputs:
             if not variant_input:
@@ -316,7 +335,11 @@ class VenueLookupService:
                     if acronym_issn:
                         issns.add(acronym_issn)
 
-        input_issn = base_query.identifiers.get("issn")
+        input_issn = (
+            base_query.normalized_venue.input_identifiers.get("issn")
+            if base_query.normalized_venue
+            else None
+        )
         if input_issn:
             issn_match = self.acronym_cache.get_issn_match(
                 input_issn, min_confidence=0.0
@@ -380,7 +403,12 @@ class VenueLookupService:
         """Normalize a name to lowercase canonical form for lookup output."""
         if not text:
             return ""
-        normalized = input_normalizer.normalize(text).normalized_name
+        normalized_query = input_normalizer.normalize(text)
+        normalized = (
+            normalized_query.normalized_venue.name
+            if normalized_query.normalized_venue
+            else None
+        )
         if not normalized:
             return ""
         return normalized.strip().lower()

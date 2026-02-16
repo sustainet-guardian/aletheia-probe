@@ -261,17 +261,17 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
 
             # Create a temporary QueryInput for confidence calculation
             temp_query = QueryInput(
-                raw_input=name, normalized_name=name, identifiers={}, aliases=[]
-            )
-            temp_query.normalized_venue = NormalizedVenueInput(
-                original_text=name,
-                name=name,
-                acronym=None,
-                issn=None,
-                eissn=None,
-                venue_type=VenueType.JOURNAL,
-                aliases=[],
-                input_identifiers={},
+                raw_input=name,
+                normalized_venue=NormalizedVenueInput(
+                    original_text=name,
+                    name=name,
+                    acronym=None,
+                    issn=None,
+                    eissn=None,
+                    venue_type=VenueType.JOURNAL,
+                    aliases=[],
+                    input_identifiers={},
+                ),
             )
 
             for result in results:

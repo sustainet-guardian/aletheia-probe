@@ -44,8 +44,6 @@ async def test_query_success_by_issn(backend: OpenCitationsAnalyzerBackend) -> N
     """Test successful ISSN-based OpenCitations query."""
     query_input = QueryInput(
         raw_input="Nature",
-        normalized_name="nature",
-        identifiers={"issn": "0028-0836"},
         normalized_venue=NormalizedVenueInput(
             original_text="Nature",
             name="nature",
@@ -87,8 +85,6 @@ async def test_query_not_found_without_issn(
     """Test not-found result when no ISSN/eISSN is available."""
     query_input = QueryInput(
         raw_input="Unknown Venue",
-        normalized_name="unknown venue",
-        identifiers={},
         normalized_venue=NormalizedVenueInput(
             original_text="Unknown Venue",
             name="unknown venue",

@@ -16,7 +16,13 @@ from aletheia_probe.backends.base import (
 )
 from aletheia_probe.enums import AssessmentType, EvidenceType
 from aletheia_probe.fallback_chain import QueryFallbackChain
-from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendResult,
+    BackendStatus,
+    NormalizedVenueInput,
+    QueryInput,
+    VenueType,
+)
 
 
 class MockBackend(Backend):
@@ -66,7 +72,12 @@ class TestBackendBase:
         """Test successful query with timeout."""
         backend = MockBackend()
         query_input = QueryInput(
-            raw_input="Test Journal", normalized_name="test journal"
+            raw_input="Test Journal",
+            normalized_venue=NormalizedVenueInput(
+                original_text="Test Journal",
+                name="test journal",
+                venue_type=VenueType.JOURNAL,
+            ),
         )
 
         result = await backend.query_with_timeout(query_input, timeout=5)
@@ -86,7 +97,12 @@ class TestBackendBase:
 
         backend = SlowBackend()
         query_input = QueryInput(
-            raw_input="Test Journal", normalized_name="test journal"
+            raw_input="Test Journal",
+            normalized_venue=NormalizedVenueInput(
+                original_text="Test Journal",
+                name="test journal",
+                venue_type=VenueType.JOURNAL,
+            ),
         )
 
         result = await backend.query_with_timeout(query_input, timeout=1)
@@ -106,7 +122,12 @@ class TestBackendBase:
 
         backend = ErrorBackend()
         query_input = QueryInput(
-            raw_input="Test Journal", normalized_name="test journal"
+            raw_input="Test Journal",
+            normalized_venue=NormalizedVenueInput(
+                original_text="Test Journal",
+                name="test journal",
+                venue_type=VenueType.JOURNAL,
+            ),
         )
 
         result = await backend.query_with_timeout(query_input, timeout=5)

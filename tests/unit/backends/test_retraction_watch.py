@@ -36,8 +36,6 @@ class TestRetractionWatchBackend:
         """Sample QueryInput for retraction watch testing."""
         return QueryInput(
             raw_input="Nature",
-            normalized_name="nature",
-            identifiers={"issn": "0028-0836"},
             aliases=["Nature Magazine"],
             normalized_venue=NormalizedVenueInput(
                 original_text="Nature",

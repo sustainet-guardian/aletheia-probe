@@ -70,11 +70,6 @@ class QueryInput(BaseModel):
     """Input query data for journal assessment."""
 
     raw_input: str = Field(..., description="Original user input")
-    normalized_name: str | None = Field(None, description="Normalized journal name")
-    identifiers: dict[str, str] = Field(
-        default_factory=dict, description="ISSN, DOI, etc."
-    )
-    aliases: list[str] = Field(default_factory=list, description="Alternative names")
     acronym_expanded_from: str | None = Field(
         None, description="Original acronym if expansion was applied"
     )

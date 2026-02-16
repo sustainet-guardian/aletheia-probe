@@ -47,8 +47,6 @@ async def test_kscien_predatory_conferences_backend_query_found():
     backend = KscienPredatoryConferencesBackend()
     query_input = QueryInput(
         raw_input="Predatory Conference",
-        normalized_name="predatory conference",
-        identifiers={"issn": "1234-5678"},
         normalized_venue=NormalizedVenueInput(
             original_text="Predatory Conference",
             name="predatory conference",
@@ -85,8 +83,6 @@ async def test_kscien_predatory_conferences_backend_query_not_found():
     backend = KscienPredatoryConferencesBackend()
     query_input = QueryInput(
         raw_input="Unknown Conference",
-        normalized_name="unknown conference",
-        identifiers={"issn": "9999-9999"},
         normalized_venue=NormalizedVenueInput(
             original_text="Unknown Conference",
             name="unknown conference",

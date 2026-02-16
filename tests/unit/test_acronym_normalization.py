@@ -18,7 +18,7 @@ def normalizer():
 def test_normalize_html_unescape(normalizer):
     """Test normalize with HTML entities."""
     text = "International Journal of Scientific Research &#038; Management Studies"
-    cleaned = normalizer.normalize(text).normalized_name
+    cleaned = normalizer.normalize(text).normalized_venue.name
     assert (
         cleaned == "International Journal of Scientific Research & Management Studies"
     )
@@ -26,7 +26,7 @@ def test_normalize_html_unescape(normalizer):
     text_accent = (
         "revista iberoamericana para la investigaci&oacute;n y el desarrollo educativo"
     )
-    cleaned_accent = normalizer.normalize(text_accent).normalized_name
+    cleaned_accent = normalizer.normalize(text_accent).normalized_venue.name
     assert (
         cleaned_accent
         == "Revista Iberoamericana Para La Investigación Y El Desarrollo Educativo"

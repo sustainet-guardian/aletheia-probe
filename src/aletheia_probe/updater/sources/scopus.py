@@ -221,7 +221,11 @@ class ScopusSource(DataSource):
 
             return {
                 "journal_name": title,
-                "normalized_name": normalized_input.normalized_name,
+                "normalized_name": (
+                    normalized_input.normalized_venue.name
+                    if normalized_input.normalized_venue
+                    else ""
+                ),
                 "issn": issn,
                 "eissn": eissn,
                 "publisher": str(publisher).strip() if publisher else None,

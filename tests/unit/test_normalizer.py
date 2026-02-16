@@ -24,22 +24,22 @@ class TestInputNormalizer:
         result = normalizer.normalize("Journal of Computer Science")
 
         assert result.raw_input == "Journal of Computer Science"
-        assert result.normalized_name == "Journal of Computer Science"
-        assert "Computer Science" in result.aliases
+        assert result.normalized_venue.name == "Journal of Computer Science"
+        assert "Computer Science" in result.normalized_venue.aliases
 
     def test_issn_extraction(self, normalizer):
         """Test ISSN extraction from input."""
         result = normalizer.normalize("Journal of Testing (ISSN: 1234-5679)")
 
-        assert result.identifiers.get("issn") == "1234-5679"
-        assert result.normalized_name == "Journal of Testing"
-        assert "1234-5679" not in result.normalized_name
+        assert result.normalized_venue.input_identifiers.get("issn") == "1234-5679"
+        assert result.normalized_venue.name == "Journal of Testing"
+        assert "1234-5679" not in result.normalized_venue.name
 
     def test_whitespace_normalization(self, normalizer):
         """Test whitespace normalization."""
         result = normalizer.normalize("  Journal    of     Testing   ")
 
-        assert result.normalized_name == "Journal of Testing"
+        assert result.normalized_venue.name == "Journal of Testing"
 
     def test_empty_input_validation(self, normalizer):
         """Test validation of empty input."""
@@ -62,8 +62,8 @@ class TestInputNormalizer:
         result = normalizer.normalize("Journal@#$%of^&*()Testing")
 
         # Should keep some characters like parentheses, remove others
-        assert result.normalized_name == "Journal of & Testing"
-        assert "@#$%^*" not in result.normalized_name
+        assert result.normalized_venue.name == "Journal of & Testing"
+        assert "@#$%^*" not in result.normalized_venue.name
 
     def test_conference_name_normalization(self, normalizer):
         """Test conference name normalization."""
@@ -72,14 +72,15 @@ class TestInputNormalizer:
         )
 
         assert (
-            result.normalized_name
+            result.normalized_venue.name
             == "2018 IEEE 11th International Conference on CLOUD Computing"
         )
         # Should have generated an alias without the year and ordinal
-        aliases_lower = [a.lower() for a in result.aliases]
+        aliases_lower = [a.lower() for a in result.normalized_venue.aliases]
         # Check that at least one alias has removed year/ordinal patterns
         assert any(
-            "2018" not in alias and "11th" not in alias for alias in result.aliases
+            "2018" not in alias and "11th" not in alias
+            for alias in result.normalized_venue.aliases
         )
 
     def test_proceedings_prefix_removal(self, normalizer):
@@ -89,11 +90,11 @@ class TestInputNormalizer:
         )
 
         assert (
-            result.normalized_name
+            result.normalized_venue.name
             == "Proceedings of Semantic Web Information Management"
         )
         # Should have an alias without the "Proceedings of" prefix
-        assert "Semantic Web Information Management" in result.aliases
+        assert "Semantic Web Information Management" in result.normalized_venue.aliases
 
     def test_conference_series_extraction(self, normalizer):
         """Test extraction of conference series name."""
@@ -103,14 +104,14 @@ class TestInputNormalizer:
             "2023 IEEE International Conference on Cloud Computing"
         )
         # Should have an alias with year removed
-        assert any("2023" not in alias for alias in result1.aliases)
+        assert any("2023" not in alias for alias in result1.normalized_venue.aliases)
 
         # Test with ordinal in conference name
         result2 = normalizer.normalize(
             "15th International Conference on Utility and Cloud Computing"
         )
         # Should have an alias with ordinal removed
-        assert any("15th" not in alias for alias in result2.aliases)
+        assert any("15th" not in alias for alias in result2.normalized_venue.aliases)
 
     def test_conference_with_both_year_and_ordinal(self, normalizer):
         """Test conference name with both year and ordinal."""
@@ -119,14 +120,14 @@ class TestInputNormalizer:
         )
 
         assert (
-            result.normalized_name
+            result.normalized_venue.name
             == "2022 IEEE ACM 15th International Conference on Utility and CLOUD Computing"
         )
         # Should generate aliases with year and ordinal removed
         clean_aliases = [
             a
-            for a in result.aliases
-            if "2022" not in a and "15th" not in a and a != result.normalized_name
+            for a in result.normalized_venue.aliases
+            if "2022" not in a and "15th" not in a and a != result.normalized_venue.name
         ]
         assert len(clean_aliases) > 0
 
@@ -138,7 +139,7 @@ class TestInputNormalizer:
             "Advances in Neural Information Processing Systems (NeurIPS)"
         )
         assert (
-            result.normalized_name
+            result.normalized_venue.name
             == "Advances in Neural Information Processing Systems"
         )
         assert (
@@ -150,38 +151,41 @@ class TestInputNormalizer:
         result2 = normalizer.normalize(
             "International Conference on Cloud Computing (CLOUD)"
         )
-        assert result2.normalized_name == "International Conference on CLOUD Computing"
+        assert (
+            result2.normalized_venue.name
+            == "International Conference on CLOUD Computing"
+        )
 
     def test_bracket_removal_square_brackets(self, normalizer):
         """Test removal of content within square brackets."""
 
         # Test with year annotation
         result = normalizer.normalize("Journal of Science [2023]")
-        assert result.normalized_name == "Journal of Science"
+        assert result.normalized_venue.name == "Journal of Science"
 
         # Test with online annotation
         result2 = normalizer.normalize("Digital Library [Online]")
-        assert result2.normalized_name == "Digital Library"
+        assert result2.normalized_venue.name == "Digital Library"
 
     def test_bracket_removal_curly_braces(self, normalizer):
         """Test removal of nested curly braces from BibTeX formatting."""
 
         # Test single level braces
         result = normalizer.normalize("{IEEE} Conference")
-        assert result.normalized_name == "IEEE Conference"
+        assert result.normalized_venue.name == "IEEE Conference"
 
         # Test nested braces (BibTeX style)
         result2 = normalizer.normalize(
             "{{IEEE}} {{International Conference}} on {{Cloud Computing}}"
         )
         assert (
-            result2.normalized_name
+            result2.normalized_venue.name
             == "IEEE International Conference on CLOUD Computing"
         )
 
         # Test triple nested braces
         result3 = normalizer.normalize("{{{CLOUD}}} Conference")
-        assert result3.normalized_name == "CLOUD Conference"
+        assert result3.normalized_venue.name == "CLOUD Conference"
 
     def test_bracket_removal_mixed_brackets(self, normalizer):
         """Test removal of mixed bracket types."""
@@ -191,14 +195,14 @@ class TestInputNormalizer:
             "2018 {{IEEE}} 11th {International Conference} on [Cloud] Computing (CLOUD)"
         )
         expected = "2018 IEEE 11th International Conference on Computing"  # IEEE preserved as acronym
-        assert result.normalized_name == expected
+        assert result.normalized_venue.name == expected
 
         # Test real BibTeX example
         result2 = normalizer.normalize(
             "2018 {{IEEE}} 11th {{International Conference}} on {{Cloud Computing}} ({{CLOUD}})"
         )
         expected2 = "2018 IEEE 11th International Conference on CLOUD Computing"  # IEEE and CLOUD preserved as acronyms
-        assert result2.normalized_name == expected2
+        assert result2.normalized_venue.name == expected2
 
     def test_bracket_removal_preserves_valid_parentheses(self, normalizer):
         """Test that meaningful parentheses in journal names are preserved."""
@@ -206,7 +210,7 @@ class TestInputNormalizer:
         # Note: With the current implementation, ALL parentheses are removed
         # This is intentional for better journal matching, but we document the behavior
         result = normalizer.normalize("Journal of Computer Science")
-        assert "Computer Science" in result.normalized_name
+        assert "Computer Science" in result.normalized_venue.name
 
         # If we had a case where we wanted to preserve certain parentheses,
         # we would need to implement more sophisticated logic
@@ -215,40 +219,40 @@ class TestInputNormalizer:
         """Test handling of empty or whitespace-only brackets."""
 
         result = normalizer.normalize("Journal of Testing ( ) with empty brackets")
-        assert result.normalized_name == "Journal of Testing with Empty Brackets"
+        assert result.normalized_venue.name == "Journal of Testing with Empty Brackets"
 
         result2 = normalizer.normalize("Conference [ ] with spaces")
-        assert result2.normalized_name == "Conference with Spaces"
+        assert result2.normalized_venue.name == "Conference with Spaces"
 
     def test_bracket_removal_nested_and_adjacent(self, normalizer):
         """Test handling of nested and adjacent brackets."""
 
         # Adjacent brackets
         result = normalizer.normalize("Journal (A)(B) of Science")
-        assert result.normalized_name == "Journal of Science"
+        assert result.normalized_venue.name == "Journal of Science"
 
         # Nested different types
         result2 = normalizer.normalize("Conference {[on]} Science")
-        assert result2.normalized_name == "Conference Science"
+        assert result2.normalized_venue.name == "Conference Science"
 
     def test_acronym_preservation(self, normalizer):
         """Test that known acronyms are preserved in uppercase."""
 
         # Test IEEE preservation
         result = normalizer.normalize("ieee computer society")
-        assert result.normalized_name == "IEEE Computer Society"
+        assert result.normalized_venue.name == "IEEE Computer Society"
 
         # Test ACM preservation
         result2 = normalizer.normalize("acm transactions on computer systems")
-        assert result2.normalized_name == "ACM Transactions on Computer Systems"
+        assert result2.normalized_venue.name == "ACM Transactions on Computer Systems"
 
         # Test multiple acronyms
         result3 = normalizer.normalize("ieee acm joint conference")
-        assert result3.normalized_name == "IEEE ACM Joint Conference"
+        assert result3.normalized_venue.name == "IEEE ACM Joint Conference"
 
         # Test mixed case input
         result4 = normalizer.normalize("IeEe CoNfErEnCe")
-        assert result4.normalized_name == "IEEE Conference"
+        assert result4.normalized_venue.name == "IEEE Conference"
 
     def test_case_insensitive_normalization_produces_same_lowercase_key(
         self, normalizer
@@ -265,8 +269,14 @@ class TestInputNormalizer:
         result3 = normalizer.normalize("INTERNATIONAL CONFERENCE ON MACHINE LEARNING")
 
         # After normalization, the lowercase versions should be identical
-        assert result1.normalized_name.lower() == result2.normalized_name.lower()
-        assert result1.normalized_name.lower() == result3.normalized_name.lower()
+        assert (
+            result1.normalized_venue.name.lower()
+            == result2.normalized_venue.name.lower()
+        )
+        assert (
+            result1.normalized_venue.name.lower()
+            == result3.normalized_venue.name.lower()
+        )
 
         # Test journal names with different cases
         result4 = normalizer.normalize(
@@ -280,8 +290,14 @@ class TestInputNormalizer:
         )
 
         # After normalization, the lowercase versions should be identical
-        assert result4.normalized_name.lower() == result5.normalized_name.lower()
-        assert result4.normalized_name.lower() == result6.normalized_name.lower()
+        assert (
+            result4.normalized_venue.name.lower()
+            == result5.normalized_venue.name.lower()
+        )
+        assert (
+            result4.normalized_venue.name.lower()
+            == result6.normalized_venue.name.lower()
+        )
 
         # Test with conference full names
         result7 = normalizer.normalize(
@@ -295,8 +311,14 @@ class TestInputNormalizer:
         )
 
         # After normalization, the lowercase versions should be identical
-        assert result7.normalized_name.lower() == result8.normalized_name.lower()
-        assert result7.normalized_name.lower() == result9.normalized_name.lower()
+        assert (
+            result7.normalized_venue.name.lower()
+            == result8.normalized_venue.name.lower()
+        )
+        assert (
+            result7.normalized_venue.name.lower()
+            == result9.normalized_venue.name.lower()
+        )
 
     def test_extract_conference_series_success(self, normalizer):
         """Test successful conference series extraction."""
@@ -376,8 +398,8 @@ class TestInputNormalizer:
         query = normalizer.normalize("Nature (ISSN: 0028-0836)")
 
         # Verify ISSN was extracted
-        assert "issn" in query.identifiers
-        assert query.identifiers["issn"] == "0028-0836"
+        assert "issn" in query.normalized_venue.input_identifiers
+        assert query.normalized_venue.input_identifiers["issn"] == "0028-0836"
 
     def test_edge_case_inputs(self, normalizer):
         """Test that normalization handles edge cases gracefully."""
@@ -386,19 +408,19 @@ class TestInputNormalizer:
         long_name = "A" * 500
         query = normalizer.normalize(long_name)
         assert query.raw_input == long_name
-        assert query.normalized_name == "A" + "a" * 499
+        assert query.normalized_venue.name == "A" + "a" * 499
 
         # Test with special characters
         special_chars = "Journal of Test™ & Research® (Ω Edition)"
         query = normalizer.normalize(special_chars)
         assert query.raw_input == special_chars
-        assert query.normalized_name == "Journal of Test & Research"
+        assert query.normalized_venue.name == "Journal of Test & Research"
 
         # Test with unicode
         unicode_name = "学术期刊 (Academic Journal)"
         query = normalizer.normalize(unicode_name)
         assert query.raw_input == unicode_name
-        assert query.normalized_name == "学术期刊"
+        assert query.normalized_venue.name == "学术期刊"
 
 
 class TestNormalizerUtilityFunctions:

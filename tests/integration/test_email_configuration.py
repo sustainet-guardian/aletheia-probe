@@ -24,7 +24,7 @@ import aletheia_probe.backends  # Import backends to register them
 from aletheia_probe.backends.base import get_backend_registry
 from aletheia_probe.config import ConfigManager
 from aletheia_probe.dispatcher import QueryDispatcher
-from aletheia_probe.models import QueryInput
+from aletheia_probe.models import NormalizedVenueInput, QueryInput, VenueType
 
 
 class TestEmailConfigurationIntegration:
@@ -134,8 +134,14 @@ backends:
             # Create test query
             query = QueryInput(
                 raw_input="Test Journal",
-                normalized_name="Test Journal",
-                identifiers={"issn": "1234-5679"},
+                normalized_venue=NormalizedVenueInput(
+                    original_text="Test Journal",
+                    venue_type=VenueType.JOURNAL,
+                    name="test journal",
+                    issn="1234-5679",
+                    aliases=[],
+                    input_identifiers={"issn": "1234-5679"},
+                ),
             )
 
             # Run assessment - this should create backends with email configuration

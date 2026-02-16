@@ -220,7 +220,12 @@ def _collect_candidate_identifiers(
 ) -> set[str]:
     """Collect ISSN/eISSN identifiers for candidate consistency checks."""
     identifiers: set[str] = set()
-    for value in query_input.identifiers.values():
+    input_identifiers = (
+        query_input.normalized_venue.input_identifiers
+        if query_input.normalized_venue
+        else {}
+    )
+    for value in input_identifiers.values():
         if isinstance(value, str) and validate_issn(value):
             identifiers.add(value)
 
@@ -910,7 +915,12 @@ def _normalize_lookup_name(name: str | None) -> str:
     """Normalize venue name for lookup comparisons."""
     if not name:
         return ""
-    normalized = input_normalizer.normalize(name).normalized_name
+    normalized_query = input_normalizer.normalize(name)
+    normalized = (
+        normalized_query.normalized_venue.name
+        if normalized_query.normalized_venue
+        else ""
+    )
     if not normalized:
         return ""
     return normalized.strip().lower()
@@ -1894,15 +1904,12 @@ async def _async_assess_publication(
         # Candidate 1: user-provided input exactly as entered
         base_query = input_normalizer.normalize(publication_name)
         base_query.venue_type = requested_venue_type
+        base_normalized_venue = base_query.normalized_venue
 
-        normalized_name = (
-            base_query.normalized_name
-            if isinstance(base_query.normalized_name, str)
-            else None
-        )
-        aliases = base_query.aliases if isinstance(base_query.aliases, list) else []
+        normalized_name = base_normalized_venue.name if base_normalized_venue else None
+        aliases = base_normalized_venue.aliases if base_normalized_venue else []
         identifiers = (
-            base_query.identifiers if isinstance(base_query.identifiers, dict) else {}
+            base_normalized_venue.input_identifiers if base_normalized_venue else {}
         )
 
         candidates: list[tuple[str, QueryInput]] = [("input", base_query)]

@@ -36,8 +36,6 @@ class TestPredatoryJournalsBackend:
         backend = PredatoryJournalsBackend()
         query_input = QueryInput(
             raw_input="Predatory Journal",
-            normalized_name="predatory journal",
-            identifiers={"issn": "1234-5678"},
             normalized_venue=NormalizedVenueInput(
                 original_text="Predatory Journal",
                 name="predatory journal",
@@ -83,7 +81,6 @@ class TestPredatoryJournalsBackend:
         backend = PredatoryJournalsBackend()
         query_input = QueryInput(
             raw_input="Good Journal",
-            normalized_name="good journal",
             normalized_venue=NormalizedVenueInput(
                 original_text="Good Journal",
                 name="good journal",

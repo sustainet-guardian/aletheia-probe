@@ -502,6 +502,29 @@ aletheia-probe conference "ICSE"
 # Output shows: acronym_expanded_from: "ICSE"
 ```
 
+### Normalization Gate And Conflict Handling
+
+The assessment pipeline now uses one normalized input object (`normalized_venue`) as the backend contract.
+
+Key behavior:
+
+1. **Strict name matching for lookup validation**
+   - Name checks use full normalized title comparison.
+   - Broad token-based heuristics are not used for final agreement decisions.
+
+2. **Name + identifier consistency gate**
+   - If input contains both a name and ISSN/eISSN, identifiers must resolve to the same venue.
+   - Mismatches are treated as hard conflicts.
+   - In hard conflict cases, result is `INSUFFICIENT_DATA` and no backend assessment is accepted.
+
+3. **Conservative candidate selection**
+   - When acronym and non-acronym candidates disagree, list-backed evidence is preferred over heuristic-only evidence.
+   - If decisive conflict remains and identifier consistency cannot be proven, the tool returns `INSUFFICIENT_DATA`.
+
+4. **ISSN enrichment and verification**
+   - Crossref/OpenAlex checks are always attempted during normalization/lookup enrichment.
+   - External API failures are non-fatal (execution continues), but unresolved ISSN mappings are not promoted to strong candidates.
+
 ### Automatic vs Manual Acronym Management
 
 **Automatic expansion** happens during assessment:
