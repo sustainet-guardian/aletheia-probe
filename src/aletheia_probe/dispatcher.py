@@ -24,10 +24,7 @@ from .models import (
     AssessmentResult,
     BackendResult,
     BackendStatus,
-    NormalizationCandidate,
     NormalizationResult,
-    NormalizationStatus,
-    NormalizationValidation,
     QueryInput,
     VenueType,
 )
@@ -107,13 +104,16 @@ class QueryDispatcher:
             AssessmentResult with aggregated assessment from all backends
         """
         start_time = time.time()
-        normalization_result = await self._normalize_for_dispatch(query_input)
+        (
+            normalization_result,
+            normalization_failure,
+        ) = await self._normalize_for_dispatch(query_input)
         query_input = self._attach_normalization_to_query(
             query_input, normalization_result
         )
-        if normalization_result.status != NormalizationStatus.OK:
+        if normalization_failure:
             return self._build_normalization_blocked_result(
-                query_input, normalization_result, start_time
+                query_input, normalization_failure, start_time
             )
 
         query_input = await self._enrich_query_identifiers(query_input)
@@ -161,8 +161,8 @@ class QueryDispatcher:
 
     async def _normalize_for_dispatch(
         self, query_input: QueryInput
-    ) -> NormalizationResult:
-        """Build normalization result used as a pre-backend gate."""
+    ) -> tuple[NormalizationResult, str | None]:
+        """Build minimal normalization payload and evaluate gating failures."""
         requested_venue_type = (
             query_input.venue_type
             if query_input.venue_type != VenueType.UNKNOWN
@@ -174,20 +174,19 @@ class QueryDispatcher:
             venue_type=requested_venue_type,
             confidence_min=DEFAULT_ACRONYM_CONFIDENCE_MIN,
         )
-        primary_name = (lookup_result.normalized_name or "").strip() or None
-
-        selected_identifiers: dict[str, str] = dict(query_input.identifiers)
-        if not selected_identifiers:
-            if lookup_result.issns:
-                selected_identifiers["issn"] = lookup_result.issns[0]
-            if lookup_result.eissns:
-                selected_identifiers["eissn"] = lookup_result.eissns[0]
+        primary_name = (
+            lookup_result.normalized_name or query_input.normalized_name or ""
+        ).strip() or None
+        selected_issn = query_input.identifiers.get("issn") or (
+            lookup_result.issns[0] if lookup_result.issns else None
+        )
+        selected_eissn = query_input.identifiers.get("eissn") or (
+            lookup_result.eissns[0] if lookup_result.eissns else None
+        )
 
         consistency_errors = list(lookup_result.consistency_errors)
         failure_reason: str | None = None
-        status = NormalizationStatus.OK
-        if not primary_name and not selected_identifiers:
-            status = NormalizationStatus.INSUFFICIENT
+        if not primary_name and not (selected_issn or selected_eissn):
             failure_reason = "Normalization did not resolve a name or identifier"
 
         input_ids = {value for value in query_input.identifiers.values() if value}
@@ -209,59 +208,30 @@ class QueryDispatcher:
                 )
 
         if consistency_errors:
-            status = NormalizationStatus.CONFLICT
             failure_reason = "; ".join(sorted(set(consistency_errors)))
 
-        return NormalizationResult(
-            raw_input=lookup_result.raw_input,
+        normalization_result = NormalizationResult(
+            original_text=lookup_result.raw_input,
             venue_type=requested_venue_type,
-            normalized_name=primary_name,
-            normalized_names=lookup_result.normalized_names,
+            name=primary_name,
+            acronym=query_input.acronym_expanded_from,
+            issn=selected_issn,
+            eissn=selected_eissn,
             aliases=lookup_result.aliases,
-            acronym_expanded_from=query_input.acronym_expanded_from,
             input_identifiers=dict(query_input.identifiers),
-            identifiers=selected_identifiers,
-            issns=lookup_result.issns,
-            eissns=lookup_result.eissns,
-            candidates=[
-                NormalizationCandidate(
-                    source=candidate.source,
-                    normalized_name=candidate.normalized_name,
-                    confidence=candidate.confidence,
-                    acronym=candidate.acronym,
-                    issn=candidate.issn,
-                    eissn=candidate.eissn,
-                )
-                for candidate in lookup_result.candidates
-            ],
-            validations=[
-                NormalizationValidation(
-                    source=validation.source,
-                    identifier=validation.identifier,
-                    status=validation.status,
-                    input_name=validation.input_name,
-                    resolved_name=validation.resolved_name,
-                    similarity=validation.similarity,
-                    details=validation.details,
-                )
-                for validation in lookup_result.validations
-            ],
-            consistency_errors=consistency_errors,
-            status=status,
-            failure_reason=failure_reason,
         )
+        return normalization_result, failure_reason
 
     def _attach_normalization_to_query(
         self, query_input: QueryInput, normalization_result: NormalizationResult
     ) -> QueryInput:
         """Attach normalization payload and selected fields to query input."""
-        normalized_name = (
-            normalization_result.normalized_name or query_input.normalized_name
-        )
-        merged_identifiers = {
-            **normalization_result.identifiers,
-            **query_input.identifiers,
-        }
+        normalized_name = normalization_result.name or query_input.normalized_name
+        merged_identifiers = dict(query_input.identifiers)
+        if normalization_result.issn:
+            merged_identifiers.setdefault("issn", normalization_result.issn)
+        if normalization_result.eissn:
+            merged_identifiers.setdefault("eissn", normalization_result.eissn)
         return query_input.model_copy(
             update={
                 "normalized_name": normalized_name,
@@ -273,14 +243,11 @@ class QueryDispatcher:
     def _build_normalization_blocked_result(
         self,
         query_input: QueryInput,
-        normalization_result: NormalizationResult,
+        failure_reason: str,
         start_time: float,
     ) -> AssessmentResult:
         """Build a no-assessment result when normalization gate is not OK."""
-        reason = (
-            normalization_result.failure_reason
-            or "Normalization status is not ok; no assessment possible"
-        )
+        reason = failure_reason or "Normalization failed; no assessment possible"
         self.status_logger.warning(f"Normalization blocked assessment: {reason}")
         return AssessmentResult(
             input_query=query_input.raw_input,

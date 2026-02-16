@@ -16,10 +16,7 @@ from aletheia_probe.models import (
     BibtexEntry,
     ConfigBackend,
     JournalMetadata,
-    NormalizationCandidate,
     NormalizationResult,
-    NormalizationStatus,
-    NormalizationValidation,
     QueryInput,
     VenueType,
 )
@@ -52,13 +49,11 @@ class TestQueryInput:
     def test_query_input_with_normalization_result(self):
         """Test attaching normalization payload to QueryInput."""
         normalization_result = NormalizationResult(
-            raw_input="Nature 0028-0836",
+            original_text="Nature 0028-0836",
             venue_type=VenueType.JOURNAL,
-            normalized_name="nature",
-            normalized_names=["nature"],
-            identifiers={"issn": "0028-0836"},
+            name="nature",
+            issn="0028-0836",
             input_identifiers={"issn": "0028-0836"},
-            status=NormalizationStatus.OK,
         )
         query = QueryInput(
             raw_input="Nature 0028-0836",
@@ -67,66 +62,41 @@ class TestQueryInput:
             normalization_result=normalization_result,
         )
         assert query.normalization_result is not None
-        assert query.normalization_result.status == NormalizationStatus.OK
+        assert query.normalization_result.name == "nature"
 
 
 class TestNormalizationResult:
     """Tests for normalization contract models."""
 
     def test_create_normalization_result(self):
-        """Create normalization result with candidate and validation evidence."""
+        """Create minimal normalization payload for backend consumption."""
         result = NormalizationResult(
-            raw_input="Nature",
+            original_text="Nature",
             venue_type=VenueType.JOURNAL,
-            normalized_name="nature",
-            normalized_names=["nature"],
+            name="nature",
             aliases=[],
-            acronym_expanded_from=None,
+            acronym=None,
             input_identifiers={},
-            identifiers={"issn": "0028-0836"},
-            issns=["0028-0836"],
-            eissns=["1476-4687"],
-            candidates=[
-                NormalizationCandidate(
-                    source="journal_cache_exact",
-                    normalized_name="nature",
-                    confidence=0.9,
-                    issn="0028-0836",
-                    eissn="1476-4687",
-                )
-            ],
-            validations=[
-                NormalizationValidation(
-                    source="openalex",
-                    identifier="0028-0836",
-                    status="agree",
-                    input_name="nature",
-                    resolved_name="nature",
-                    similarity=1.0,
-                )
-            ],
-            consistency_errors=[],
-            status=NormalizationStatus.OK,
+            issn="0028-0836",
+            eissn="1476-4687",
         )
-        assert result.is_ok() is True
-        assert result.normalized_name == "nature"
-        assert result.identifiers["issn"] == "0028-0836"
+        assert result.name == "nature"
+        assert result.issn == "0028-0836"
+        assert result.eissn == "1476-4687"
 
-    def test_create_conflicting_normalization_result(self):
-        """Conflict status marks normalization as not backend-safe."""
+    def test_create_partial_normalization_result(self):
+        """Missing fields should be represented as None in minimal payload."""
         result = NormalizationResult(
-            raw_input="Nature 1550-445X",
+            original_text="Unknown Venue",
             venue_type=VenueType.JOURNAL,
-            normalized_name="nature",
-            normalized_names=["nature"],
-            input_identifiers={"issn": "1550-445X"},
-            identifiers={"issn": "1550-445X"},
-            consistency_errors=["identifier mismatch"],
-            status=NormalizationStatus.CONFLICT,
-            failure_reason="identifier mismatch",
+            name=None,
+            acronym=None,
+            issn=None,
+            eissn=None,
         )
-        assert result.is_ok() is False
-        assert result.failure_reason == "identifier mismatch"
+        assert result.name is None
+        assert result.issn is None
+        assert result.eissn is None
 
 
 class TestBackendResult:

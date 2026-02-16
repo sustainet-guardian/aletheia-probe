@@ -15,7 +15,6 @@ from aletheia_probe.models import (
     BackendResult,
     BackendStatus,
     NormalizationResult,
-    NormalizationStatus,
     QueryInput,
     VenueType,
 )
@@ -107,14 +106,15 @@ class TestQueryDispatcher:
                 dispatcher,
                 "_normalize_for_dispatch",
                 AsyncMock(
-                    return_value=NormalizationResult(
-                        raw_input=sample_query_input.raw_input,
-                        venue_type=VenueType.JOURNAL,
-                        normalized_name="journal of advanced computer science",
-                        normalized_names=["journal of advanced computer science"],
-                        identifiers={"issn": "1234-5679"},
-                        input_identifiers={"issn": "1234-5679"},
-                        status=NormalizationStatus.OK,
+                    return_value=(
+                        NormalizationResult(
+                            original_text=sample_query_input.raw_input,
+                            venue_type=VenueType.JOURNAL,
+                            name="journal of advanced computer science",
+                            issn="1234-5679",
+                            input_identifiers={"issn": "1234-5679"},
+                        ),
+                        None,
                     )
                 ),
             ),
@@ -134,15 +134,11 @@ class TestQueryDispatcher:
     ):
         """Do not query backends when normalization status is conflict."""
         conflict_result = NormalizationResult(
-            raw_input=sample_query_input.raw_input,
+            original_text=sample_query_input.raw_input,
             venue_type=VenueType.JOURNAL,
-            normalized_name="journal of advanced computer science",
-            normalized_names=["journal of advanced computer science"],
-            identifiers={"issn": "1234-5679"},
+            name="journal of advanced computer science",
+            issn="1234-5679",
             input_identifiers={"issn": "1234-5679"},
-            consistency_errors=["identifier mismatch"],
-            status=NormalizationStatus.CONFLICT,
-            failure_reason="identifier mismatch",
         )
 
         with (
@@ -152,7 +148,7 @@ class TestQueryDispatcher:
             patch.object(
                 dispatcher,
                 "_normalize_for_dispatch",
-                AsyncMock(return_value=conflict_result),
+                AsyncMock(return_value=(conflict_result, "identifier mismatch")),
             ),
         ):
             result = await dispatcher.assess_journal(sample_query_input)
