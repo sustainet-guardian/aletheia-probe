@@ -11,6 +11,7 @@ Canonical names and variant lists are produced upstream by the LLM consensus
 pipeline; this module only stores and retrieves them.
 """
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -368,8 +369,6 @@ class AcronymCache(CacheBase):
         Returns:
             Number of rows inserted or replaced.
         """
-        import json
-
         with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         entries = data.get("acronyms", [])

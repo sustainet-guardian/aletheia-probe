@@ -46,6 +46,7 @@ class BeallsListBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get the BeallsListSource instance for data synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.bealls import BeallsListSource
 
             self._data_source = BeallsListSource()

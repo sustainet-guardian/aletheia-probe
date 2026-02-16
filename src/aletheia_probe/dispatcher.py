@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .backends.base import Backend, get_backend_registry
-from .cache import AcronymCache, JournalCache
+from .cache import AcronymCache, JournalCache, custom_list_manager
 from .config import get_config_manager
 from .constants import (
     AGREEMENT_BONUS_AMOUNT,
@@ -715,10 +715,7 @@ class QueryDispatcher:
 
     def _get_enabled_backends(self) -> list[Backend]:
         """Get list of enabled and configured backends."""
-        # Auto-register custom lists before getting backends
-        from .cache.custom_list_manager import auto_register_custom_lists
-
-        auto_register_custom_lists()
+        custom_list_manager.auto_register_custom_lists()
 
         enabled_backends: list[Backend] = []
         enabled_names = self.config_manager.get_enabled_backends()

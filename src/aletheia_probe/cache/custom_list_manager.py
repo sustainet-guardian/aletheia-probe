@@ -16,6 +16,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from ..backends import base as backend_base
+from ..backends import custom_list as custom_list_backend
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
 from .base import CacheBase
@@ -184,12 +186,6 @@ def auto_register_custom_lists() -> None:
     with the backend registry so they can be used by the sync manager
     and assessment dispatcher.
     """
-    from pathlib import Path
-
-    from ..backends.base import get_backend_registry
-    from ..backends.custom_list import CustomListBackend
-    from ..enums import AssessmentType
-
     detail_logger.debug("Auto-registering custom lists from database")
 
     try:
@@ -200,7 +196,7 @@ def auto_register_custom_lists() -> None:
             detail_logger.debug("No enabled custom lists found for auto-registration")
             return
 
-        backend_registry = get_backend_registry()
+        backend_registry = backend_base.get_backend_registry()
         registered_count = 0
 
         for custom_list in custom_lists:
@@ -230,7 +226,7 @@ def auto_register_custom_lists() -> None:
                 backend_registry.register_factory(
                     list_name,
                     lambda fp=file_path_obj, lt=list_type, ln=list_name: (
-                        CustomListBackend(fp, lt, ln)
+                        custom_list_backend.CustomListBackend(fp, lt, ln)
                     ),
                     default_config={"enabled": True},
                 )

@@ -638,6 +638,7 @@ class CacheSyncManager:
                 f"Fetching data for backend {backend_name} source {source_name} (force={force})"
             )
 
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sync_utils import update_source_data
 
             result = await update_source_data(

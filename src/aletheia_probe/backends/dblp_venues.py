@@ -38,6 +38,7 @@ class DblpVenuesBackend(CachedBackend):
     def get_data_source(self) -> "DataSource | None":
         """Get DBLP venue source for cache synchronization."""
         if self._data_source is None:
+            # Local import avoids circular dependency between backends and updater sources.
             from ..updater.sources.dblp import DblpVenueSource
 
             self._data_source = DblpVenueSource()

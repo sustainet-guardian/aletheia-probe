@@ -4,12 +4,14 @@
 from datetime import datetime
 from typing import Any
 
+from ..cache import AcronymCache
 from ..constants import CONFIDENCE_THRESHOLD_LOW
 from ..enums import AssessmentType, EvidenceType
 from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
+from ..normalizer import InputNormalizer
 from ..openalex import OpenAlexClient
 from ..utils.dead_code import code_is_used
 from ..validation import validate_email
@@ -340,9 +342,6 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             openalex_data: Raw data from OpenAlex API
             query_input: Query input containing venue type information
         """
-        from ..cache import AcronymCache
-        from ..normalizer import InputNormalizer
-
         display_name = openalex_data.get("display_name")
         if not display_name:
             return

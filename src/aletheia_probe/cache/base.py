@@ -15,6 +15,10 @@ from typing import Any
 
 from ..logging_config import get_detail_logger, get_status_logger
 from ..utils.dead_code import code_is_used
+from .connection_utils import (
+    get_configured_connection,
+    get_connection_with_row_factory,
+)
 
 
 detail_logger = get_detail_logger()
@@ -110,8 +114,6 @@ class CacheBase:
                 results = cursor.fetchall()
             ```
         """
-        from .connection_utils import get_configured_connection
-
         return get_configured_connection(self.db_path, timeout, enable_wal)
 
     def get_connection_with_row_factory(
@@ -129,6 +131,4 @@ class CacheBase:
         Returns:
             Context manager yielding a configured SQLite connection with Row factory
         """
-        from .connection_utils import get_connection_with_row_factory
-
         return get_connection_with_row_factory(self.db_path, timeout, enable_wal)

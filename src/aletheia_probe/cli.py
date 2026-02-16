@@ -16,9 +16,17 @@ import aiohttp
 import click
 
 from . import __version__
+from .backends import base as backend_base
 from .batch_assessor import BibtexBatchAssessor
-from .cache import AcronymCache, AssessmentCache, OpenAlexCache, RetractionCache
-from .cache.schema import SchemaVersionError
+from .cache import (
+    AcronymCache,
+    AssessmentCache,
+    OpenAlexCache,
+    RetractionCache,
+    custom_list_manager,
+)
+from .cache.migrations import migrate_database, reset_database
+from .cache.schema import SCHEMA_VERSION, SchemaVersionError, get_schema_version
 from .config import get_config_manager
 from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .dispatcher import query_dispatcher
@@ -1029,19 +1037,14 @@ def sync(
         include_large_datasets: Whether to include large datasets in default sync.
         backend_names: Optional tuple of backend names to sync.
     """
-    # Auto-register custom lists before sync
-    from .cache.custom_list_manager import auto_register_custom_lists
-
-    auto_register_custom_lists()
+    custom_list_manager.auto_register_custom_lists()
     backend_filter: list[str] | None = None
     if backend_names:
         backend_filter = list(backend_names)
     elif not include_large_datasets:
-        from .backends.base import get_backend_registry
-
         backend_filter = [
             backend_name
-            for backend_name in get_backend_registry().get_backend_names()
+            for backend_name in backend_base.get_backend_registry().get_backend_names()
             if backend_name not in LARGE_SYNC_BACKENDS
         ]
 
@@ -1114,10 +1117,7 @@ def clear_cache(confirm: bool) -> None:
 @handle_cli_errors
 def status() -> None:
     """Show cache synchronization status for all backends."""
-    # Auto-register custom lists before showing status
-    from .cache.custom_list_manager import auto_register_custom_lists
-
-    auto_register_custom_lists()
+    custom_list_manager.auto_register_custom_lists()
 
     status_logger = get_status_logger()
 
@@ -1421,9 +1421,6 @@ def db() -> None:
 @handle_cli_errors
 def db_version() -> None:
     """Show the current database schema version."""
-    from .cache.schema import SCHEMA_VERSION, get_schema_version
-    from .config import get_config_manager
-
     status_logger = get_status_logger()
 
     # Get database path from config
@@ -1473,10 +1470,6 @@ def db_migrate(target_version: int | None) -> None:
     Args:
         target_version: Target version to migrate to (default: latest).
     """
-    from .cache.migrations import migrate_database
-    from .cache.schema import SCHEMA_VERSION
-    from .config import get_config_manager
-
     status_logger = get_status_logger()
 
     # Get database path from config
@@ -1512,9 +1505,6 @@ def db_reset(confirm: bool) -> None:
     Args:
         confirm: Whether to skip the confirmation prompt.
     """
-    from .cache.migrations import reset_database
-    from .config import get_config_manager
-
     status_logger = get_status_logger()
 
     # Get database path from config
@@ -1604,8 +1594,6 @@ def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
         list_type: Type of journals in the list (predatory, legitimate, etc.).
         list_name: Name for the custom list source.
     """
-    from .cache.custom_list_manager import CustomListManager
-
     status_logger = get_status_logger()
 
     status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
@@ -1616,8 +1604,8 @@ def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
 
     # Store custom list persistently in database
     try:
-        custom_list_manager = CustomListManager()
-        custom_list_manager.add_custom_list(list_name, file_path, assessment_type)
+        manager = custom_list_manager.CustomListManager()
+        manager.add_custom_list(list_name, file_path, assessment_type)
 
         status_logger.info(f"Successfully added custom list '{list_name}'")
         status_logger.info("Run 'aletheia-probe sync' to load the data into cache")
@@ -1631,13 +1619,11 @@ def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
 @handle_cli_errors
 def list_custom_lists() -> None:
     """List all registered custom journal lists."""
-    from .cache.custom_list_manager import CustomListManager
-
     status_logger = get_status_logger()
 
     try:
-        custom_list_manager = CustomListManager()
-        custom_lists = custom_list_manager.get_all_custom_lists()
+        manager = custom_list_manager.CustomListManager()
+        custom_lists = manager.get_all_custom_lists()
 
         if not custom_lists:
             status_logger.info("No custom lists found")
@@ -1681,15 +1667,13 @@ def remove_custom_list(list_name: str, confirm: bool) -> None:
         list_name: Name of the custom list to remove.
         confirm: Whether to skip the confirmation prompt.
     """
-    from .cache.custom_list_manager import CustomListManager
-
     status_logger = get_status_logger()
 
     try:
-        custom_list_manager = CustomListManager()
+        manager = custom_list_manager.CustomListManager()
 
         # Check if list exists
-        if not custom_list_manager.custom_list_exists(list_name):
+        if not manager.custom_list_exists(list_name):
             status_logger.error(f"Custom list '{list_name}' not found")
             raise click.ClickException(f"Custom list '{list_name}' does not exist")
 
@@ -1701,7 +1685,7 @@ def remove_custom_list(list_name: str, confirm: bool) -> None:
             )
 
         # Remove the list
-        success = custom_list_manager.remove_custom_list(list_name)
+        success = manager.remove_custom_list(list_name)
 
         if success:
             status_logger.info(f"Successfully removed custom list '{list_name}'")

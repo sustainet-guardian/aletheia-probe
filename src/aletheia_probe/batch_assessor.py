@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Batch assessment module for evaluating multiple journals from BibTeX files."""
 
+import io
 import logging
 import time
 from pathlib import Path
@@ -147,8 +148,7 @@ class BibtexBatchAssessor:
         Returns:
             Tuple of (bibtex_entries, skipped_count, preprint_count)
         """
-        import io
-
+        # Local import keeps optional parser dependency lazy until needed.
         import pybtex.io  # type: ignore[import-untyped]
 
         status_logger.info(f"Parsing BibTeX file: {file_path}")
