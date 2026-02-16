@@ -9,7 +9,12 @@ from aletheia_probe.backends.kscien_predatory_conferences import (
     KscienPredatoryConferencesBackend,
 )
 from aletheia_probe.enums import AssessmentType, EvidenceType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizationResult,
+    QueryInput,
+    VenueType,
+)
 
 
 def test_kscien_predatory_conferences_backend_initialization():
@@ -44,6 +49,16 @@ async def test_kscien_predatory_conferences_backend_query_found():
         raw_input="Predatory Conference",
         normalized_name="predatory conference",
         identifiers={"issn": "1234-5678"},
+        normalization_result=NormalizationResult(
+            original_text="Predatory Conference",
+            name="predatory conference",
+            acronym=None,
+            issn="1234-5678",
+            eissn=None,
+            venue_type=VenueType.CONFERENCE,
+            aliases=[],
+            input_identifiers={"issn": "1234-5678"},
+        ),
     )
 
     mock_journal = {
@@ -72,6 +87,16 @@ async def test_kscien_predatory_conferences_backend_query_not_found():
         raw_input="Unknown Conference",
         normalized_name="unknown conference",
         identifiers={"issn": "9999-9999"},
+        normalization_result=NormalizationResult(
+            original_text="Unknown Conference",
+            name="unknown conference",
+            acronym=None,
+            issn="9999-9999",
+            eissn=None,
+            venue_type=VenueType.CONFERENCE,
+            aliases=[],
+            input_identifiers={"issn": "9999-9999"},
+        ),
     )
 
     with patch.object(backend.journal_cache, "search_journals", return_value=[]):

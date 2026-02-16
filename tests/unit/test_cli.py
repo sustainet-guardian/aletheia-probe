@@ -1276,6 +1276,368 @@ class TestAsyncMain:
             # input + variant/full; variant/acronym is duplicate of input and ISSN is skipped
             assert mock_dispatcher.assess_journal.await_count == 2
 
+    @pytest.mark.asyncio
+    async def test_async_main_skips_issn_to_acronym_when_crossref_unavailable(self):
+        """Skip ISSN->acronym/full candidates when ISSN title cannot be resolved."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch(
+                "aletheia_probe.cli._resolve_issn_title",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                identifiers = {"issn": "1550-445X"} if raw_text == "1550-445X" else {}
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers=identifiers,
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.return_value = False
+
+            mock_cache = MagicMock()
+            mock_cache.get_variant_match.return_value = None
+            mock_cache.get_issns.return_value = []
+            mock_cache.get_full_name_for_acronym.return_value = None
+            mock_cache.get_issn_match.return_value = {
+                "canonical": (
+                    "ieee international conference on advanced information networking "
+                    "and applications"
+                ),
+                "acronym": "AINA",
+            }
+            mock_acronym_cache.return_value = mock_cache
+
+            unknown_result = AssessmentResult(
+                input_query="q",
+                assessment=AssessmentType.UNKNOWN,
+                confidence=0.2,
+                overall_score=0.0,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            mock_dispatcher.assess_journal = AsyncMock(return_value=unknown_result)
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "1550-445X",
+                "conference",
+                verbose=False,
+                output_format="text",
+                confidence_min=0.5,
+            )
+
+            # Only input candidate is assessed; issn->full and issn->acronym are skipped.
+            assert mock_dispatcher.assess_journal.await_count == 1
+            output_text = " ".join(call[0][0] for call in mock_print.call_args_list)
+            assert (
+                "ISSN validation: Skipped ISSN 1550-445X: unable to resolve title "
+                "from Crossref" in output_text
+            )
+
+    @pytest.mark.asyncio
+    async def test_async_main_prefers_non_acronym_when_conflicting_without_ids(self):
+        """When acronym and full-name conflict without shared identifiers, pick full."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch("builtins.print") as mock_print,
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers={},
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.side_effect = (
+                lambda text: text.strip().upper() == "AJER"
+            )
+
+            mock_cache = MagicMock()
+            mock_cache.get_full_name_for_acronym.return_value = (
+                "american journal of engineering research"
+            )
+            mock_cache.get_variant_match.return_value = None
+            mock_cache.get_issns.return_value = []
+            mock_cache.get_issn_match.return_value = None
+            mock_acronym_cache.return_value = mock_cache
+
+            acronym_legit = AssessmentResult(
+                input_query="AJER",
+                assessment=AssessmentType.LEGITIMATE,
+                confidence=0.80,
+                overall_score=0.80,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            full_predatory = AssessmentResult(
+                input_query="american journal of engineering research",
+                assessment=AssessmentType.PREDATORY,
+                confidence=0.63,
+                overall_score=0.63,
+                backend_results=[],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+
+            async def assess_side_effect(query_input: QueryInput) -> AssessmentResult:
+                if query_input.raw_input == "AJER":
+                    return acronym_legit
+                return full_predatory
+
+            mock_dispatcher.assess_journal = AsyncMock(side_effect=assess_side_effect)
+            mock_lookup_service = MagicMock()
+            mock_lookup_result = MagicMock(issns=[], eissns=[])
+            mock_lookup_service.lookup.return_value = mock_lookup_result
+            mock_dispatcher.lookup_service = mock_lookup_service
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "AJER",
+                "journal",
+                verbose=False,
+                output_format="text",
+                confidence_min=0.8,
+            )
+
+            output_text = " ".join(call[0][0] for call in mock_print.call_args_list)
+            assert "Assessment: INSUFFICIENT_DATA" in output_text
+            assert "selected 'american journal of engineering research'" in output_text
+            assert "Conservative candidate selection:" in output_text
+
+    @pytest.mark.asyncio
+    async def test_async_main_prioritizes_list_over_heuristic_conflict(self):
+        """Prefer list-backed candidate over conflicting heuristic-only candidate."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch("builtins.print") as mock_print,
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers={},
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.side_effect = (
+                lambda text: text.strip().upper() == "CVPR"
+            )
+
+            mock_cache = MagicMock()
+            mock_cache.get_full_name_for_acronym.return_value = (
+                "ieee/cvf conference on computer vision and pattern recognition"
+            )
+            mock_cache.get_variant_match.return_value = None
+            mock_cache.get_issns.return_value = []
+            mock_cache.get_issn_match.return_value = None
+            mock_acronym_cache.return_value = mock_cache
+
+            heuristic_only = AssessmentResult(
+                input_query="CVPR",
+                assessment=AssessmentType.SUSPICIOUS,
+                confidence=0.90,
+                overall_score=0.90,
+                backend_results=[
+                    BackendResult(
+                        fallback_chain=QueryFallbackChain([]),
+                        backend_name="openalex_analyzer",
+                        status=BackendStatus.FOUND,
+                        confidence=0.9,
+                        assessment=AssessmentType.SUSPICIOUS,
+                        evidence_type="heuristic",
+                        response_time=0.1,
+                    )
+                ],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            list_backed = AssessmentResult(
+                input_query=(
+                    "ieee/cvf conference on computer vision and pattern recognition"
+                ),
+                assessment=AssessmentType.LEGITIMATE,
+                confidence=0.60,
+                overall_score=0.60,
+                backend_results=[
+                    BackendResult(
+                        fallback_chain=QueryFallbackChain([]),
+                        backend_name="dblp_venues",
+                        status=BackendStatus.FOUND,
+                        confidence=0.95,
+                        assessment=AssessmentType.LEGITIMATE,
+                        evidence_type="legitimate_list",
+                        response_time=0.1,
+                    )
+                ],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+
+            async def assess_side_effect(query_input: QueryInput) -> AssessmentResult:
+                if query_input.raw_input == "CVPR":
+                    return heuristic_only
+                return list_backed
+
+            mock_dispatcher.assess_journal = AsyncMock(side_effect=assess_side_effect)
+            mock_lookup_service = MagicMock()
+            mock_lookup_service.lookup.return_value = MagicMock(issns=[], eissns=[])
+            mock_dispatcher.lookup_service = mock_lookup_service
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "CVPR",
+                "conference",
+                verbose=False,
+                output_format="text",
+                confidence_min=0.8,
+            )
+
+            output_text = " ".join(call[0][0] for call in mock_print.call_args_list)
+            assert "Assessment: LEGITIMATE" in output_text
+            assert "Prioritized curated list-backed evidence" in output_text
+
+    @pytest.mark.asyncio
+    async def test_async_main_conflict_without_identifier_validation_returns_insufficient(
+        self,
+    ):
+        """Return insufficient_data for unresolved decisive conflicts without IDs."""
+        with (
+            patch("aletheia_probe.cli.input_normalizer") as mock_normalizer,
+            patch("aletheia_probe.cli.query_dispatcher") as mock_dispatcher,
+            patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
+            patch("builtins.print") as mock_print,
+        ):
+
+            def normalize_side_effect(
+                raw_text: str, acronym_lookup: object = None
+            ) -> QueryInput:
+                return QueryInput(
+                    raw_input=raw_text,
+                    normalized_name=raw_text.lower(),
+                    identifiers={},
+                    aliases=[],
+                    extracted_acronym_mappings={},
+                    venue_type=VenueType.UNKNOWN,
+                )
+
+            mock_normalizer.normalize.side_effect = normalize_side_effect
+            mock_normalizer._is_standalone_acronym.side_effect = (
+                lambda text: text.strip().upper() == "AJER"
+            )
+
+            mock_cache = MagicMock()
+            mock_cache.get_full_name_for_acronym.return_value = (
+                "american journal of engineering research"
+            )
+            mock_cache.get_variant_match.return_value = None
+            mock_cache.get_issns.return_value = []
+            mock_cache.get_issn_match.return_value = None
+            mock_acronym_cache.return_value = mock_cache
+
+            legit_no_list = AssessmentResult(
+                input_query="AJER",
+                assessment=AssessmentType.LEGITIMATE,
+                confidence=0.80,
+                overall_score=0.80,
+                backend_results=[
+                    BackendResult(
+                        fallback_chain=QueryFallbackChain([]),
+                        backend_name="openalex_analyzer",
+                        status=BackendStatus.FOUND,
+                        confidence=0.8,
+                        assessment=AssessmentType.LEGITIMATE,
+                        evidence_type="heuristic",
+                        response_time=0.1,
+                    )
+                ],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+            predatory_no_list = AssessmentResult(
+                input_query="american journal of engineering research",
+                assessment=AssessmentType.PREDATORY,
+                confidence=0.78,
+                overall_score=0.78,
+                backend_results=[
+                    BackendResult(
+                        fallback_chain=QueryFallbackChain([]),
+                        backend_name="crossref_analyzer",
+                        status=BackendStatus.FOUND,
+                        confidence=0.78,
+                        assessment=AssessmentType.PREDATORY,
+                        evidence_type="heuristic",
+                        response_time=0.1,
+                    )
+                ],
+                metadata=None,
+                reasoning=[],
+                processing_time=0.1,
+            )
+
+            async def assess_side_effect(query_input: QueryInput) -> AssessmentResult:
+                if query_input.raw_input == "AJER":
+                    return legit_no_list
+                return predatory_no_list
+
+            mock_dispatcher.assess_journal = AsyncMock(side_effect=assess_side_effect)
+            mock_lookup_service = MagicMock()
+            mock_lookup_service.lookup.return_value = MagicMock(issns=[], eissns=[])
+            mock_dispatcher.lookup_service = mock_lookup_service
+
+            from aletheia_probe.cli import _async_assess_publication
+
+            await _async_assess_publication(
+                "AJER",
+                "journal",
+                verbose=False,
+                output_format="text",
+                confidence_min=0.8,
+            )
+
+            output_text = " ".join(call[0][0] for call in mock_print.call_args_list)
+            assert "Assessment: INSUFFICIENT_DATA" in output_text
+            assert "no reliable assessment possible" in output_text
+
 
 class TestConferenceAcronymCommands:
     """Tests for acronym command group."""

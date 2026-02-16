@@ -12,7 +12,12 @@ from openpyxl import Workbook
 
 from aletheia_probe.backends.scopus import ScopusBackend
 from aletheia_probe.enums import AssessmentType, EvidenceType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizationResult,
+    QueryInput,
+    VenueType,
+)
 from aletheia_probe.updater.sources import ScopusSource
 
 
@@ -309,6 +314,16 @@ class TestScopusBackend:
             raw_input="Test Journal",
             normalized_name="test journal",
             identifiers={"issn": "1234-5679"},
+            normalization_result=NormalizationResult(
+                original_text="Test Journal",
+                name="test journal",
+                acronym=None,
+                issn="1234-5679",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "1234-5679"},
+            ),
         )
 
         mock_results = [
@@ -342,7 +357,18 @@ class TestScopusBackend:
         """Test querying a journal that doesn't exist in Scopus cache."""
         backend = ScopusBackend()
         query_input = QueryInput(
-            raw_input="Unknown Journal", normalized_name="unknown journal"
+            raw_input="Unknown Journal",
+            normalized_name="unknown journal",
+            normalization_result=NormalizationResult(
+                original_text="Unknown Journal",
+                name="unknown journal",
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
+            ),
         )
 
         with (
@@ -365,6 +391,16 @@ class TestScopusBackend:
             raw_input="Flagged Journal",
             normalized_name="flagged journal",
             identifiers={"issn": "8888-8888"},
+            normalization_result=NormalizationResult(
+                original_text="Flagged Journal",
+                name="flagged journal",
+                acronym=None,
+                issn="8888-8888",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "8888-8888"},
+            ),
         )
 
         mock_results = [

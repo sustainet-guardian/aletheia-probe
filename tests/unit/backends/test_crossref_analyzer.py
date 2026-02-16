@@ -8,7 +8,12 @@ import pytest
 
 from aletheia_probe.backends.crossref_analyzer import CrossrefAnalyzerBackend
 from aletheia_probe.enums import AssessmentType
-from aletheia_probe.models import BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendStatus,
+    NormalizationResult,
+    QueryInput,
+    VenueType,
+)
 
 
 @pytest.fixture
@@ -28,6 +33,16 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
     query_input = QueryInput(
         raw_input="Test Journal",
         identifiers={"issn": "1234-5679", "eissn": "8765-4321"},
+        normalization_result=NormalizationResult(
+            original_text="Test Journal",
+            name="test journal",
+            acronym=None,
+            issn="1234-5679",
+            eissn="8765-4321",
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={"issn": "1234-5679", "eissn": "8765-4321"},
+        ),
     )
 
     with (
@@ -72,7 +87,18 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
 async def test_query_api_exception_handling(backend: CrossrefAnalyzerBackend) -> None:
     """Test that the backend handles exceptions during API query."""
     query_input = QueryInput(
-        raw_input="Test Journal", identifiers={"issn": "1234-5679"}
+        raw_input="Test Journal",
+        identifiers={"issn": "1234-5679"},
+        normalization_result=NormalizationResult(
+            original_text="Test Journal",
+            name="test journal",
+            acronym=None,
+            issn="1234-5679",
+            eissn=None,
+            venue_type=VenueType.JOURNAL,
+            aliases=[],
+            input_identifiers={"issn": "1234-5679"},
+        ),
     )
     with (
         patch.object(

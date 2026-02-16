@@ -260,15 +260,23 @@ class OpenCitationsAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         response_time: float,
     ) -> BackendResult:
         """Build not-found result when OpenCitations has no usable venue metrics."""
+        normalization = query_input.normalization_result
+        searched_for = (
+            normalization.name if normalization and normalization.name else None
+        )
+        if not searched_for:
+            searched_for = (
+                normalization.original_text if normalization else query_input.raw_input
+            )
         return BackendResult(
             backend_name=self.get_name(),
             status=BackendStatus.NOT_FOUND,
             confidence=0.0,
             assessment=None,
             data={
-                "searched_for": query_input.normalized_name or query_input.raw_input,
-                "issn": query_input.identifiers.get("issn"),
-                "eissn": query_input.identifiers.get("eissn"),
+                "searched_for": searched_for,
+                "issn": normalization.issn if normalization else None,
+                "eissn": normalization.eissn if normalization else None,
             },
             sources=["https://api.opencitations.net/index/v2"],
             error_message=None,

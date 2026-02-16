@@ -9,7 +9,13 @@ from aiohttp import ClientError
 
 from aletheia_probe.backend_exceptions import BackendError, RateLimitError
 from aletheia_probe.backends.doaj import DOAJBackend
-from aletheia_probe.models import BackendResult, BackendStatus, QueryInput
+from aletheia_probe.models import (
+    BackendResult,
+    BackendStatus,
+    NormalizationResult,
+    QueryInput,
+    VenueType,
+)
 
 
 class TestDOAJBackend:
@@ -31,6 +37,16 @@ class TestDOAJBackend:
             normalized_name="journal of testing",
             identifiers={"issn": "1234-5678"},
             aliases=[],
+            normalization_result=NormalizationResult(
+                original_text="Journal of Testing",
+                name="journal of testing",
+                acronym=None,
+                issn="1234-5678",
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={"issn": "1234-5678"},
+            ),
         )
 
     @pytest.mark.asyncio
@@ -70,6 +86,16 @@ class TestDOAJBackend:
             normalized_name="journal of testing",
             identifiers={},
             aliases=[],
+            normalization_result=NormalizationResult(
+                original_text="Journal of Testing",
+                name="journal of testing",
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
+            ),
         )
         mock_response_data = {
             "results": [
@@ -156,6 +182,16 @@ class TestDOAJBackend:
             normalized_name="journal of computations",
             identifiers={},
             aliases=[],
+            normalization_result=NormalizationResult(
+                original_text="Journal of Computations",
+                name="journal of computations",
+                acronym=None,
+                issn=None,
+                eissn=None,
+                venue_type=VenueType.JOURNAL,
+                aliases=[],
+                input_identifiers={},
+            ),
         )
 
         # Similar but not exact title

@@ -126,11 +126,12 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """
         # OpenAlex doesn't have special acronym handling in the client,
         # but we can try searching with the raw input if it looks like an acronym
-        raw_input = query_input.raw_input
-        if raw_input and len(raw_input) <= 10 and raw_input.isupper():
+        normalization = query_input.normalization_result
+        acronym = normalization.acronym if normalization else None
+        if acronym and len(acronym) <= 10 and acronym.isupper():
             # Looks like an acronym
-            self.detail_logger.debug(f"OpenAlex: Searching for acronym '{raw_input}'")
-            return await self._search_by_name(raw_input, exact=True)
+            self.detail_logger.debug(f"OpenAlex: Searching for acronym '{acronym}'")
+            return await self._search_by_name(acronym, exact=True)
         return None
 
     @code_is_used  # Called by decorated methods
@@ -156,14 +157,19 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             OpenAlex data if found using aliases, None otherwise
         """
-        if not query_input.aliases:
+        aliases = (
+            query_input.normalization_result.aliases
+            if query_input.normalization_result
+            else []
+        )
+        if not aliases:
             return None
 
         self.detail_logger.info(
-            f"OpenAlex: Normalized name '{journal_name}' not found, trying {len(query_input.aliases)} alias(es)"
+            f"OpenAlex: Normalized name '{journal_name}' not found, trying {len(aliases)} alias(es)"
         )
 
-        for alias in query_input.aliases:
+        for alias in aliases:
             openalex_data = await client.enrich_journal_data(
                 journal_name=alias, issn=issn, eissn=eissn
             )
@@ -194,9 +200,15 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         Returns:
             BackendResult with NOT_FOUND status
         """
-        journal_name = query_input.normalized_name or query_input.raw_input
-        issn = query_input.identifiers.get("issn")
-        eissn = query_input.identifiers.get("eissn")
+        normalization = query_input.normalization_result
+        journal_name = normalization.name if normalization else None
+        if not journal_name:
+            journal_name = (
+                normalization.original_text if normalization else query_input.raw_input
+            )
+        issn = normalization.issn if normalization else None
+        eissn = normalization.eissn if normalization else None
+        aliases = normalization.aliases if normalization else []
 
         return BackendResult(
             backend_name=self.get_name(),
@@ -207,7 +219,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
                 "searched_for": journal_name,
                 "issn": issn,
                 "eissn": eissn,
-                "aliases_tried": query_input.aliases,
+                "aliases_tried": aliases,
             },
             sources=["https://api.openalex.org"],
             error_message=None,

@@ -23,7 +23,7 @@ from .cache.schema import SchemaVersionError
 from .config import get_config_manager
 from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .dispatcher import query_dispatcher
-from .enums import AssessmentType
+from .enums import AssessmentType, EvidenceType
 from .logging_config import get_status_logger, setup_logging
 from .lookup import (
     LookupCandidate,
@@ -31,7 +31,13 @@ from .lookup import (
     LookupValidation,
     VenueLookupService,
 )
-from .models import AssessmentResult, CandidateAssessment, QueryInput, VenueType
+from .models import (
+    AssessmentResult,
+    BackendStatus,
+    CandidateAssessment,
+    QueryInput,
+    VenueType,
+)
 from .normalizer import are_conference_names_equivalent, input_normalizer
 from .openalex import OpenAlexClient
 from .output_formatter import output_formatter
@@ -153,6 +159,87 @@ def _issn_title_matches_expected(
         if are_conference_names_equivalent(resolved_title, expected_name):
             return True
     return _token_overlap(resolved_title, expected_name) >= ISSN_MIN_TOKEN_OVERLAP
+
+
+def _is_acronym_like_candidate(label: str, query_text: str) -> bool:
+    """Return True when candidate represents an acronym-based query form."""
+    if label.endswith("->full"):
+        return False
+    if "acronym" in label:
+        return True
+    return bool(input_normalizer._is_standalone_acronym(query_text.strip()))
+
+
+def _is_decisive_assessment(assessment: AssessmentType) -> bool:
+    """Return True when assessment is actionable (not unknown/insufficient)."""
+    return assessment not in {
+        AssessmentType.UNKNOWN,
+        AssessmentType.INSUFFICIENT_DATA,
+    }
+
+
+def _candidate_has_list_evidence(candidate_result: AssessmentResult) -> bool:
+    """Return True if candidate has curated list-based positive evidence."""
+    return any(
+        backend.status == BackendStatus.FOUND
+        and backend.evidence_type
+        in {
+            EvidenceType.PREDATORY_LIST.value,
+            EvidenceType.LEGITIMATE_LIST.value,
+        }
+        for backend in candidate_result.backend_results
+    )
+
+
+def _candidate_is_heuristic_only(candidate_result: AssessmentResult) -> bool:
+    """Return True if candidate evidence is heuristic-only (no curated list hit)."""
+    if not candidate_result.backend_results:
+        return False
+    has_heuristic_found = any(
+        backend.status == BackendStatus.FOUND
+        and backend.evidence_type == EvidenceType.HEURISTIC.value
+        for backend in candidate_result.backend_results
+    )
+    return has_heuristic_found and not _candidate_has_list_evidence(candidate_result)
+
+
+def _identifiers_contradict(left_ids: set[str], right_ids: set[str]) -> bool:
+    """Return True when both sides have IDs and they are disjoint."""
+    return bool(left_ids and right_ids and left_ids.isdisjoint(right_ids))
+
+
+def _identifiers_overlap(left_ids: set[str], right_ids: set[str]) -> bool:
+    """Return True when both sides have IDs and share at least one."""
+    return bool(left_ids and right_ids and not left_ids.isdisjoint(right_ids))
+
+
+def _collect_candidate_identifiers(
+    query_input: QueryInput,
+    requested_venue_type: VenueType,
+    confidence_min: float,
+) -> set[str]:
+    """Collect ISSN/eISSN identifiers for candidate consistency checks."""
+    identifiers: set[str] = set()
+    for value in query_input.identifiers.values():
+        if isinstance(value, str) and validate_issn(value):
+            identifiers.add(value)
+
+    lookup_service = getattr(query_dispatcher, "lookup_service", None)
+    if not lookup_service or not hasattr(lookup_service, "lookup"):
+        return identifiers
+
+    try:
+        lookup_result = lookup_service.lookup(
+            query_input.raw_input,
+            venue_type=requested_venue_type,
+            confidence_min=confidence_min,
+        )
+        identifiers.update(i for i in lookup_result.issns if i and validate_issn(i))
+        identifiers.update(i for i in lookup_result.eissns if i and validate_issn(i))
+    except Exception:
+        return identifiers
+
+    return identifiers
 
 
 @code_is_used  # This is called in error scenarios
@@ -1927,24 +2014,40 @@ async def _async_assess_publication(
                 if issn_match:
                     canonical = str(issn_match["canonical"])
                     acronym = str(issn_match["acronym"])
-
-                    if canonical.lower() not in candidate_names_seen:
-                        canonical_query = input_normalizer.normalize(
-                            canonical, acronym_lookup=acronym_lookup_for_type
+                    resolved_title = await _resolve_issn_title(issn)
+                    if not resolved_title:
+                        issn_validation_notes.append(
+                            f"Skipped ISSN {issn}: unable to resolve title from Crossref"
                         )
-                        canonical_query.venue_type = requested_venue_type
-                        canonical_query.acronym_expanded_from = raw_input
-                        candidates.append(("issn->full", canonical_query))
-                        candidate_names_seen.add(canonical.lower())
-
-                    if acronym.lower() not in candidate_names_seen:
-                        acronym_query = input_normalizer.normalize(
-                            acronym, acronym_lookup=acronym_lookup_for_type
+                    elif not _issn_title_matches_expected(
+                        resolved_title, canonical, requested_venue_type
+                    ):
+                        issn_validation_notes.append(
+                            f"Skipped ISSN {issn}: resolves to '{resolved_title}', "
+                            f"does not match '{canonical}'"
                         )
-                        acronym_query.venue_type = requested_venue_type
-                        acronym_query.acronym_expanded_from = raw_input
-                        candidates.append(("issn->acronym", acronym_query))
-                        candidate_names_seen.add(acronym.lower())
+                    else:
+                        issn_validation_notes.append(
+                            f"Accepted ISSN {issn}: resolves to '{resolved_title}'"
+                        )
+
+                        if canonical.lower() not in candidate_names_seen:
+                            canonical_query = input_normalizer.normalize(
+                                canonical, acronym_lookup=acronym_lookup_for_type
+                            )
+                            canonical_query.venue_type = requested_venue_type
+                            canonical_query.acronym_expanded_from = raw_input
+                            candidates.append(("issn->full", canonical_query))
+                            candidate_names_seen.add(canonical.lower())
+
+                        if acronym.lower() not in candidate_names_seen:
+                            acronym_query = input_normalizer.normalize(
+                                acronym, acronym_lookup=acronym_lookup_for_type
+                            )
+                            acronym_query.venue_type = requested_venue_type
+                            acronym_query.acronym_expanded_from = raw_input
+                            candidates.append(("issn->acronym", acronym_query))
+                            candidate_names_seen.add(acronym.lower())
 
         # Persist learned mappings from all candidate queries
         for _, query_input in candidates:
@@ -1971,26 +2074,202 @@ async def _async_assess_publication(
                 status_logger.info(f"  - {label}: {candidate.raw_input}")
 
         # Assess all candidates and keep the strongest outcome
-        assessed_candidates: list[tuple[str, AssessmentResult, str]] = []
+        assessed_candidates: list[tuple[str, AssessmentResult, QueryInput]] = []
         for label, query_input in candidates:
             candidate_result = await query_dispatcher.assess_journal(query_input)
-            assessed_candidates.append((label, candidate_result, query_input.raw_input))
+            assessed_candidates.append((label, candidate_result, query_input))
 
         # Choose best by confidence (tie-breaker: higher overall score)
-        best_label, result, best_query_text = max(
+        best_label, result, best_query_input = max(
             assessed_candidates,
             key=lambda item: (item[1].confidence, item[1].overall_score),
         )
+        best_query_text = best_query_input.raw_input
+        candidate_ids = {
+            (label, candidate_query.raw_input): _collect_candidate_identifiers(
+                candidate_query,
+                requested_venue_type,
+                confidence_min,
+            )
+            for label, _, candidate_query in assessed_candidates
+        }
+
+        conservative_selection_note: str | None = None
+        list_priority_note: str | None = None
+        unresolved_conflict_note: str | None = None
+
+        decisive_candidates = [
+            item
+            for item in assessed_candidates
+            if _is_decisive_assessment(item[1].assessment)
+        ]
+
+        # Prefer list-backed evidence over conflicting heuristic-only candidates,
+        # unless available identifiers explicitly contradict.
+        list_preferred_candidates: list[tuple[str, AssessmentResult, QueryInput]] = []
+        for left in decisive_candidates:
+            for right in decisive_candidates:
+                if left is right or left[1].assessment == right[1].assessment:
+                    continue
+                left_result = left[1]
+                right_result = right[1]
+                if not (
+                    _candidate_has_list_evidence(left_result)
+                    and _candidate_is_heuristic_only(right_result)
+                ):
+                    continue
+                left_key = (left[0], left[2].raw_input)
+                right_key = (right[0], right[2].raw_input)
+                if _identifiers_contradict(
+                    candidate_ids[left_key], candidate_ids[right_key]
+                ):
+                    continue
+                list_preferred_candidates.append(left)
+
+        if list_preferred_candidates:
+            preferred_label, preferred_result, preferred_query = max(
+                list_preferred_candidates,
+                key=lambda item: (item[1].confidence, item[1].overall_score),
+            )
+            if (preferred_label, preferred_query.raw_input) != (
+                best_label,
+                best_query_text,
+            ):
+                best_label, result, best_query_input = (
+                    preferred_label,
+                    preferred_result,
+                    preferred_query,
+                )
+                best_query_text = best_query_input.raw_input
+                list_priority_note = (
+                    "Prioritized curated list-backed evidence over a conflicting "
+                    "heuristic-only candidate."
+                )
+
+        if _is_acronym_like_candidate(best_label, best_query_text):
+            conflicting_non_acronym = [
+                (label, candidate_result, candidate_query)
+                for label, candidate_result, candidate_query in assessed_candidates
+                if not _is_acronym_like_candidate(label, candidate_query.raw_input)
+                and _is_decisive_assessment(candidate_result.assessment)
+                and candidate_result.assessment != result.assessment
+            ]
+            if conflicting_non_acronym:
+                best_ids = candidate_ids[(best_label, best_query_text)]
+                consistency_confirmed = False
+                for other_label, _, candidate_query in conflicting_non_acronym:
+                    other_ids = candidate_ids[(other_label, candidate_query.raw_input)]
+                    if _identifiers_overlap(best_ids, other_ids):
+                        consistency_confirmed = True
+                        break
+
+                if not consistency_confirmed:
+                    fallback_candidates = [
+                        item
+                        for item in assessed_candidates
+                        if (
+                            not _is_acronym_like_candidate(item[0], item[2].raw_input)
+                            and _is_decisive_assessment(item[1].assessment)
+                        )
+                    ]
+                    if fallback_candidates:
+                        best_label, result, best_query_input = max(
+                            fallback_candidates,
+                            key=lambda item: (
+                                item[1].confidence,
+                                item[1].overall_score,
+                            ),
+                        )
+                        best_query_text = best_query_input.raw_input
+                        conservative_selection_note = (
+                            "Conservative candidate selection: acronym candidate "
+                            "conflicted with a non-acronym result and identifier "
+                            "consistency could not be confirmed; selected "
+                            "non-acronym candidate."
+                        )
+
+        # If decisive candidates still conflict and conflict is not resolved by
+        # list-priority semantics, require identifier-backed consistency.
+        decisive_candidates = [
+            item
+            for item in assessed_candidates
+            if _is_decisive_assessment(item[1].assessment)
+        ]
+        conflict_pairs: list[
+            tuple[
+                tuple[str, AssessmentResult, QueryInput],
+                tuple[str, AssessmentResult, QueryInput],
+            ]
+        ] = []
+        for i, left in enumerate(decisive_candidates):
+            for right in decisive_candidates[i + 1 :]:
+                if left[1].assessment != right[1].assessment:
+                    conflict_pairs.append((left, right))
+
+        if conflict_pairs:
+            best_has_list = _candidate_has_list_evidence(result)
+            resolved_by_list_priority = False
+            if best_has_list:
+                best_key = (best_label, best_query_text)
+                best_ids = candidate_ids[best_key]
+                conflicting_with_best = [
+                    pair
+                    for pair in conflict_pairs
+                    if (
+                        pair[0][0] == best_label
+                        and pair[0][2].raw_input == best_query_text
+                    )
+                    or (
+                        pair[1][0] == best_label
+                        and pair[1][2].raw_input == best_query_text
+                    )
+                ]
+                if conflicting_with_best:
+                    resolved_by_list_priority = True
+                    for left, right in conflicting_with_best:
+                        other = right
+                        if (
+                            right[0] == best_label
+                            and right[2].raw_input == best_query_text
+                        ):
+                            other = left
+                        other_result = other[1]
+                        other_key = (other[0], other[2].raw_input)
+                        other_ids = candidate_ids[other_key]
+                        if not _candidate_is_heuristic_only(other_result) or (
+                            _identifiers_contradict(best_ids, other_ids)
+                        ):
+                            resolved_by_list_priority = False
+                            break
+
+            any_identifier_validated = any(
+                _identifiers_overlap(
+                    candidate_ids[(left[0], left[2].raw_input)],
+                    candidate_ids[(right[0], right[2].raw_input)],
+                )
+                for left, right in conflict_pairs
+            )
+            if not resolved_by_list_priority and not any_identifier_validated:
+                result.assessment = AssessmentType.INSUFFICIENT_DATA
+                result.confidence = 0.0
+                result.overall_score = 0.0
+                unresolved_conflict_note = (
+                    "Candidate outcomes conflict and could not be "
+                    "identifier-validated; no reliable assessment possible."
+                )
+
         result.candidate_assessments = [
             CandidateAssessment(
                 label=label,
-                query=query_text,
+                query=candidate_query.raw_input,
                 assessment=candidate_result.assessment,
                 confidence=candidate_result.confidence,
                 overall_score=candidate_result.overall_score,
-                selected=(label == best_label and query_text == best_query_text),
+                selected=(
+                    label == best_label and candidate_query.raw_input == best_query_text
+                ),
             )
-            for label, candidate_result, query_text in assessed_candidates
+            for label, candidate_result, candidate_query in assessed_candidates
         ]
         # Always display the original user query in output header
         result.input_query = publication_name.strip()
@@ -2001,6 +2280,12 @@ async def _async_assess_publication(
                 f"Acronym workflow: tried {len(assessed_candidates)} candidate forms; "
                 f"selected '{best_query_text}' ({best_label})",
             )
+        if list_priority_note:
+            result.reasoning.insert(1, list_priority_note)
+        if conservative_selection_note:
+            result.reasoning.insert(1, conservative_selection_note)
+        if unresolved_conflict_note:
+            result.reasoning.insert(1, unresolved_conflict_note)
         if issn_validation_notes:
             result.reasoning.extend(
                 [f"ISSN validation: {n}" for n in issn_validation_notes]
