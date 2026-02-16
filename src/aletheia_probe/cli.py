@@ -25,12 +25,12 @@ from .cache import (
     RetractionCache,
     custom_list_manager,
 )
-from .cache.migrations import migrate_database, reset_database
-from .cache.schema import SCHEMA_VERSION, SchemaVersionError, get_schema_version
+from .cache.schema import SchemaVersionError
+from .cli_commands.custom_list import register_custom_list_commands
+from .cli_commands.db import register_db_commands
 from .config import get_config_manager
 from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .dispatcher import query_dispatcher
-from .enums import AssessmentType
 from .logging_config import get_status_logger, setup_logging
 from .lookup import (
     LookupCandidate,
@@ -1411,125 +1411,6 @@ def clear(confirm: bool) -> None:
         status_logger.info(f"Cleared {count:,} acronym mapping(s).")
 
 
-@main.group(name="db")
-def db() -> None:
-    """Manage database schema and versioning."""
-    pass
-
-
-@db.command(name="version")
-@handle_cli_errors
-def db_version() -> None:
-    """Show the current database schema version."""
-    status_logger = get_status_logger()
-
-    # Get database path from config
-    db_path = Path(get_config_manager().load_config().cache.db_path)
-
-    if not db_path.exists():
-        status_logger.info("Database does not exist yet (will be created on first use)")
-        status_logger.info(f"Expected schema version: {SCHEMA_VERSION}")
-        return
-
-    current_version = get_schema_version(db_path)
-
-    if current_version is None:
-        status_logger.warning("⚠️  Legacy database detected (no version tracking)")
-        status_logger.info(f"Current code requires: schema version {SCHEMA_VERSION}")
-        status_logger.info("\nDelete the database and run sync again:")
-        status_logger.info(f"  rm {db_path}")
-        status_logger.info("  aletheia-probe sync")
-    elif current_version < SCHEMA_VERSION:
-        status_logger.warning(f"⚠️  Database schema version: {current_version}")
-        status_logger.info(f"Current code requires: version {SCHEMA_VERSION}")
-        status_logger.info("\nDelete the database and run sync again:")
-        status_logger.info(f"  rm {db_path}")
-        status_logger.info("  aletheia-probe sync")
-    elif current_version > SCHEMA_VERSION:
-        status_logger.error(f"❌ Database schema version: {current_version}")
-        status_logger.error(f"Current code supports up to: version {SCHEMA_VERSION}")
-        status_logger.info("\nPlease upgrade aletheia-probe:")
-        status_logger.info("  pip install --upgrade aletheia-probe")
-    else:
-        status_logger.info(f"✅ Database schema version: {current_version}")
-        status_logger.info("Schema is up to date")
-
-
-@db.command(name="migrate")
-@click.option(
-    "--target-version",
-    type=int,
-    help="Target version to migrate to (default: latest)",
-)
-@handle_cli_errors
-def db_migrate(target_version: int | None) -> None:
-    """Migrate database to a newer schema version.
-
-    Creates a backup before migration.
-
-    Args:
-        target_version: Target version to migrate to (default: latest).
-    """
-    status_logger = get_status_logger()
-
-    # Get database path from config
-    db_path = Path(get_config_manager().load_config().cache.db_path)
-
-    if not db_path.exists():
-        status_logger.error("Database does not exist yet")
-        status_logger.info("Run any command to create a new database automatically")
-        sys.exit(1)
-
-    if target_version is None:
-        target_version = SCHEMA_VERSION
-
-    try:
-        success = migrate_database(db_path, target_version)
-        if success:
-            sys.exit(0)
-        else:
-            sys.exit(1)
-    except Exception as e:
-        status_logger.error(f"Migration failed: {e}")
-        sys.exit(1)
-
-
-@db.command(name="reset")
-@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
-@handle_cli_errors
-def db_reset(confirm: bool) -> None:
-    """Reset database to current schema version.
-
-    WARNING: This deletes all data! Creates a backup first.
-
-    Args:
-        confirm: Whether to skip the confirmation prompt.
-    """
-    status_logger = get_status_logger()
-
-    # Get database path from config
-    db_path = Path(get_config_manager().load_config().cache.db_path)
-
-    if not db_path.exists():
-        status_logger.info("Database does not exist yet (nothing to reset)")
-        return
-
-    if not confirm:
-        status_logger.warning("⚠️  WARNING: This will DELETE ALL DATA in the database!")
-        status_logger.info("A backup will be created before deletion.")
-        click.confirm("\nAre you sure you want to reset the database?", abort=True)
-
-    try:
-        success = reset_database(db_path, confirm=True)
-        if success:
-            sys.exit(0)
-        else:
-            sys.exit(1)
-    except Exception as e:
-        status_logger.error(f"Reset failed: {e}")
-        sys.exit(1)
-
-
 @main.group(name="retraction-cache")
 def retraction_cache() -> None:
     """Manage the article retraction cache."""
@@ -1563,141 +1444,8 @@ def clear_retraction_cache(confirm: bool) -> None:
         status_logger.info(f"Cleared {count:,} retraction cache entry/entries.")
 
 
-@main.group(name="custom-list")
-def custom_list() -> None:
-    """Manage custom journal lists."""
-    pass
-
-
-@custom_list.command(name="add")
-@click.argument("file_path", type=click.Path(exists=True))
-@click.option(
-    "--list-type",
-    type=click.Choice(
-        [
-            AssessmentType.PREDATORY,
-            AssessmentType.LEGITIMATE,
-            AssessmentType.SUSPICIOUS,
-            AssessmentType.UNKNOWN,
-        ]
-    ),
-    default=AssessmentType.PREDATORY,
-    help="Type of journals in the list",
-)
-@click.option("--list-name", required=True, help="Name for the custom list source")
-@handle_cli_errors
-def add_custom_list(file_path: str, list_type: str, list_name: str) -> None:
-    """Add a custom journal list from a file.
-
-    Args:
-        file_path: Path to CSV or JSON file containing journal names.
-        list_type: Type of journals in the list (predatory, legitimate, etc.).
-        list_name: Name for the custom list source.
-    """
-    status_logger = get_status_logger()
-
-    status_logger.info(f"Adding custom list '{list_name}' from {file_path}")
-    status_logger.info(f"List type: {list_type}")
-
-    # Convert string to AssessmentType enum
-    assessment_type = AssessmentType(list_type)
-
-    # Store custom list persistently in database
-    try:
-        manager = custom_list_manager.CustomListManager()
-        manager.add_custom_list(list_name, file_path, assessment_type)
-
-        status_logger.info(f"Successfully added custom list '{list_name}'")
-        status_logger.info("Run 'aletheia-probe sync' to load the data into cache")
-
-    except ValueError as e:
-        status_logger.error(f"Failed to add custom list: {e}")
-        raise click.ClickException(str(e)) from e
-
-
-@custom_list.command(name="list")
-@handle_cli_errors
-def list_custom_lists() -> None:
-    """List all registered custom journal lists."""
-    status_logger = get_status_logger()
-
-    try:
-        manager = custom_list_manager.CustomListManager()
-        custom_lists = manager.get_all_custom_lists()
-
-        if not custom_lists:
-            status_logger.info("No custom lists found")
-            return
-
-        status_logger.info(f"Found {len(custom_lists)} custom list(s):")
-        status_logger.info("")
-
-        for custom_list in custom_lists:
-            list_name = custom_list["list_name"]
-            file_path = custom_list["file_path"]
-            list_type = custom_list["list_type"]
-            enabled = custom_list["enabled"]
-            created_at = custom_list["created_at"]
-
-            # Check if file still exists
-            file_exists = Path(file_path).exists()
-            file_status = "✓" if file_exists else "✗ (missing)"
-
-            status_text = f"  {list_name}:"
-            status_logger.info(status_text)
-            status_logger.info(f"    Type: {list_type}")
-            status_logger.info(f"    File: {file_path} {file_status}")
-            status_logger.info(f"    Status: {'Enabled' if enabled else 'Disabled'}")
-            status_logger.info(f"    Created: {created_at}")
-            status_logger.info("")
-
-    except Exception as e:
-        status_logger.error(f"Failed to list custom lists: {e}")
-        raise click.ClickException(str(e)) from e
-
-
-@custom_list.command(name="remove")
-@click.argument("list_name")
-@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
-@handle_cli_errors
-def remove_custom_list(list_name: str, confirm: bool) -> None:
-    """Remove a custom journal list.
-
-    Args:
-        list_name: Name of the custom list to remove.
-        confirm: Whether to skip the confirmation prompt.
-    """
-    status_logger = get_status_logger()
-
-    try:
-        manager = custom_list_manager.CustomListManager()
-
-        # Check if list exists
-        if not manager.custom_list_exists(list_name):
-            status_logger.error(f"Custom list '{list_name}' not found")
-            raise click.ClickException(f"Custom list '{list_name}' does not exist")
-
-        # Confirmation prompt
-        if not confirm:
-            click.confirm(
-                f"Are you sure you want to remove custom list '{list_name}'?",
-                abort=True,
-            )
-
-        # Remove the list
-        success = manager.remove_custom_list(list_name)
-
-        if success:
-            status_logger.info(f"Successfully removed custom list '{list_name}'")
-        else:
-            status_logger.error(f"Failed to remove custom list '{list_name}'")
-            raise click.ClickException("Removal failed")
-
-    except click.ClickException:
-        raise
-    except Exception as e:
-        status_logger.error(f"Failed to remove custom list: {e}")
-        raise click.ClickException(str(e)) from e
+register_custom_list_commands(main, handle_cli_errors)
+register_db_commands(main, handle_cli_errors)
 
 
 async def _async_bibtex_main(
