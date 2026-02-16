@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .normalizer import are_conference_names_equivalent, input_normalizer
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -68,9 +70,6 @@ def normalize_venue_name_local(full_name: str) -> str:
     Returns:
         Normalized venue name
     """
-    # Local import avoids circular dependency during module initialization.
-    from .normalizer import input_normalizer
-
     # Extract conference series (removes years, ordinals, "Proceedings of" prefix)
     series_name = input_normalizer.extract_conference_series(full_name.lower())
 
@@ -102,9 +101,6 @@ def extract_acronyms_local(
     Returns:
         FileProcessingResult with extracted mappings and in-file conflicts
     """
-    # Local import avoids circular dependency during module initialization.
-    from .normalizer import are_conference_names_equivalent, input_normalizer
-
     result = FileProcessingResult(
         file_path=file_path or Path("unknown"),
         entry_count=len(entries),
@@ -155,9 +151,6 @@ def extract_acronyms_local(
     # Detect in-file conflicts and build result lists
     # Note: We don't check against database here - that happens in merge phase
     # Simplified for main's schema - uses basic equivalence checking only
-    # Local import avoids circular dependency during module initialization.
-    from .normalizer import are_conference_names_equivalent
-
     for (acronym, entity_type), venue_list in mappings.items():
         if len(venue_list) == 1:
             # Single mapping - no in-file conflict

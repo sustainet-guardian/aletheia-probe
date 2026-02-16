@@ -1424,9 +1424,8 @@ def db() -> None:
 @handle_cli_errors
 def db_version() -> None:
     """Show the current database schema version."""
-    # Local imports defer schema/config tooling until maintenance command execution.
+    # Local import defers schema tooling imports to maintenance commands.
     from .cache.schema import SCHEMA_VERSION, get_schema_version
-    from .config import get_config_manager
 
     status_logger = get_status_logger()
 
@@ -1477,10 +1476,9 @@ def db_migrate(target_version: int | None) -> None:
     Args:
         target_version: Target version to migrate to (default: latest).
     """
-    # Local imports defer migration/schema/config tooling to maintenance commands.
+    # Local imports defer migration/schema tooling to maintenance commands.
     from .cache.migrations import migrate_database
     from .cache.schema import SCHEMA_VERSION
-    from .config import get_config_manager
 
     status_logger = get_status_logger()
 
@@ -1517,9 +1515,8 @@ def db_reset(confirm: bool) -> None:
     Args:
         confirm: Whether to skip the confirmation prompt.
     """
-    # Local imports defer migration/config tooling to maintenance commands.
+    # Local import defers migration tooling to maintenance commands.
     from .cache.migrations import reset_database
-    from .config import get_config_manager
 
     status_logger = get_status_logger()
 
