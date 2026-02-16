@@ -1372,8 +1372,8 @@ class TestAsyncMain:
                 )
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
-            mock_normalizer._is_standalone_acronym.side_effect = (
-                lambda text: text.strip().upper() == "AJER"
+            mock_normalizer._is_standalone_acronym.side_effect = lambda text: (
+                text.strip().upper() == "AJER"
             )
 
             mock_cache = MagicMock()
@@ -1455,8 +1455,8 @@ class TestAsyncMain:
                 )
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
-            mock_normalizer._is_standalone_acronym.side_effect = (
-                lambda text: text.strip().upper() == "CVPR"
+            mock_normalizer._is_standalone_acronym.side_effect = lambda text: (
+                text.strip().upper() == "CVPR"
             )
 
             mock_cache = MagicMock()
@@ -1560,8 +1560,8 @@ class TestAsyncMain:
                 )
 
             mock_normalizer.normalize.side_effect = normalize_side_effect
-            mock_normalizer._is_standalone_acronym.side_effect = (
-                lambda text: text.strip().upper() == "AJER"
+            mock_normalizer._is_standalone_acronym.side_effect = lambda text: (
+                text.strip().upper() == "AJER"
             )
 
             mock_cache = MagicMock()
