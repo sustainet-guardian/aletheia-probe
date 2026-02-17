@@ -96,7 +96,8 @@ class OpenCitationsAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
     async def _fetch_count_from_url(self, url: str) -> int | None:
         """Fetch a count value from a specific OpenCitations endpoint URL."""
         async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT_SECONDS)
+            timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT_SECONDS),
+            trust_env=True,
         ) as session:
             async with session.get(url) as response:
                 self._check_rate_limit_response(response)

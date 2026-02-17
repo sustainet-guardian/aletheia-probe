@@ -65,7 +65,9 @@ class OpenAlexClient:
     async def __aenter__(self) -> "OpenAlexClient":
         """Async context manager entry."""
         self.session = aiohttp.ClientSession(
-            headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+            headers=self.headers,
+            timeout=aiohttp.ClientTimeout(total=30),
+            trust_env=True,
         )
         return self
 
@@ -94,7 +96,9 @@ class OpenAlexClient:
 
             if not self.session:
                 self.session = aiohttp.ClientSession(
-                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                    headers=self.headers,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                    trust_env=True,
                 )
 
             async with self.session.get(url) as response:
@@ -222,7 +226,9 @@ class OpenAlexClient:
 
             if not self.session:
                 self.session = aiohttp.ClientSession(
-                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                    headers=self.headers,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                    trust_env=True,
                 )
 
             async with self.session.get(url) as response:
@@ -267,7 +273,9 @@ class OpenAlexClient:
 
             if not self.session:
                 self.session = aiohttp.ClientSession(
-                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                    headers=self.headers,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                    trust_env=True,
                 )
 
             async with self.session.get(url) as response:
@@ -358,7 +366,9 @@ class OpenAlexClient:
 
             if not self.session:
                 self.session = aiohttp.ClientSession(
-                    headers=self.headers, timeout=aiohttp.ClientTimeout(total=30)
+                    headers=self.headers,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                    trust_env=True,
                 )
 
             async with self.session.get(url) as response:

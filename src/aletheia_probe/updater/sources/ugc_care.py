@@ -60,7 +60,7 @@ class UgcCareListSource(DataSource):
         """Fetch and parse list entries from the configured UGC-CARE page."""
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
         try:
-            async with ClientSession(timeout=self.timeout) as session:
+            async with ClientSession(timeout=self.timeout, trust_env=True) as session:
                 async with session.get(self.source_url) as response:
                     if response.status != 200:
                         status_logger.warning(

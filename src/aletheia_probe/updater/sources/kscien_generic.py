@@ -104,7 +104,7 @@ class KscienGenericSource(DataSource):
 
         try:
             all_publications = []
-            async with ClientSession(timeout=self.timeout) as session:
+            async with ClientSession(timeout=self.timeout, trust_env=True) as session:
                 publications = await fetch_kscien_data(
                     session,
                     self.publication_type,

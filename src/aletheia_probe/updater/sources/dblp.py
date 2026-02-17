@@ -189,7 +189,7 @@ class DblpVenueSource(DataSource):
         next_log_at = log_interval_bytes
 
         try:
-            async with ClientSession(timeout=self.timeout) as session:
+            async with ClientSession(timeout=self.timeout, trust_env=True) as session:
                 async with session.get(self.dump_url) as response:
                     response.raise_for_status()
 
