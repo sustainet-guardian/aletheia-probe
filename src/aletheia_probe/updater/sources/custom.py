@@ -28,9 +28,11 @@ class CustomListSource(DataSource):
         self.source_name = source_name
 
     def get_name(self) -> str:
+        """Return the configured name for this custom source."""
         return self.source_name
 
     def get_list_type(self) -> AssessmentType:
+        """Return assessment classification for entries in this file."""
         return self.list_type
 
     def should_update(self) -> bool:

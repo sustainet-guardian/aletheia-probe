@@ -46,9 +46,11 @@ class AlgerianMinistrySource(DataSource):
         self.pdf_parser = PDFTextExtractor()
 
     def get_name(self) -> str:
+        """Return the source identifier used for cache sync."""
         return "algerian_ministry"
 
     def get_list_type(self) -> AssessmentType:
+        """Return assessment classification provided by this source."""
         return AssessmentType.PREDATORY
 
     def should_update(self) -> bool:

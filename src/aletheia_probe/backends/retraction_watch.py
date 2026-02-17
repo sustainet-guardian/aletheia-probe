@@ -71,6 +71,7 @@ class RetractionWatchBackend(
         self._data_source: RetractionWatchSource | None = None
 
     def get_name(self) -> str:
+        """Return the backend identifier."""
         return "retraction_watch"
 
     def get_evidence_type(self) -> EvidenceType:

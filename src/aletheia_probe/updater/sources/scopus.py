@@ -42,9 +42,11 @@ class ScopusSource(DataSource):
         self.column_mappings = config.data_source_processing.scopus_column_mappings
 
     def get_name(self) -> str:
+        """Return the source identifier used for cache sync."""
         return "scopus"
 
     def get_list_type(self) -> AssessmentType:
+        """Return assessment classification provided by Scopus data."""
         return AssessmentType.LEGITIMATE
 
     def should_update(self) -> bool:
