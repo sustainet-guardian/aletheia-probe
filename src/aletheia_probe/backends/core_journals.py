@@ -2,32 +2,21 @@
 """CORE journal rankings backend for legitimate journal verification."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.core import CoreJournalSource
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
-class CoreJournalsBackend(CachedBackend):
+class CoreJournalsBackend(ConfiguredCachedBackend):
     """Backend that checks journals against CORE ranked journals."""
 
     def __init__(self) -> None:
         super().__init__(
-            source_name="core_journals",
+            backend_name="core_journals",
             list_type=AssessmentType.LEGITIMATE,
+            evidence_type=EvidenceType.LEGITIMATE_LIST,
             cache_ttl_hours=24 * 30,
+            data_source_factory=lambda: CoreJournalSource(),
         )
-        self._data_source: CoreJournalSource | None = None
-
-    def get_name(self) -> str:
-        return "core_journals"
-
-    def get_evidence_type(self) -> EvidenceType:
-        return EvidenceType.LEGITIMATE_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        if self._data_source is None:
-            self._data_source = CoreJournalSource()
-        return self._data_source
 
 
 get_backend_registry().register_factory(

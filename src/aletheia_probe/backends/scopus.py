@@ -2,12 +2,11 @@
 """Scopus backend for legitimate journal verification."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.scopus import ScopusSource
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
-class ScopusBackend(CachedBackend):
+class ScopusBackend(ConfiguredCachedBackend):
     """Backend that checks against Scopus journal list for legitimate journals.
 
     This backend is optional and only active if the user has downloaded
@@ -21,33 +20,12 @@ class ScopusBackend(CachedBackend):
         Requires user to manually download and place Scopus journal list.
         """
         super().__init__(
-            source_name="scopus",
+            backend_name="scopus",
             list_type=AssessmentType.LEGITIMATE,
+            evidence_type=EvidenceType.LEGITIMATE_LIST,
             cache_ttl_hours=24 * 30,  # Monthly cache for static file
+            data_source_factory=lambda: ScopusSource(),
         )
-        self._data_source: ScopusSource | None = None
-
-    def get_name(self) -> str:
-        """Return the backend identifier.
-
-        Returns:
-            Backend name string
-        """
-        return "scopus"
-
-    def get_evidence_type(self) -> EvidenceType:
-        """Return the evidence type for Scopus.
-
-        Returns:
-            EvidenceType.LEGITIMATE_LIST
-        """
-        return EvidenceType.LEGITIMATE_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        """Get the ScopusSource instance for data synchronization."""
-        if self._data_source is None:
-            self._data_source = ScopusSource()
-        return self._data_source
 
 
 # Register the backend factory

@@ -344,6 +344,49 @@ class CachedBackend(Backend, FallbackStrategyMixin):
         return True
 
 
+class ConfiguredCachedBackend(CachedBackend):
+    """Cached backend with declarative metadata and source wiring.
+
+    This helper removes repeated boilerplate for cached list backends where:
+    - backend name is static
+    - evidence type is static
+    - data source is lazily created via a no-arg factory
+    """
+
+    def __init__(
+        self,
+        backend_name: str,
+        list_type: AssessmentType,
+        evidence_type: EvidenceType,
+        cache_ttl_hours: int = 24,
+        data_source_factory: Callable[[], Any] | None = None,
+    ) -> None:
+        """Initialize backend with declarative wiring."""
+        super().__init__(
+            source_name=backend_name,
+            list_type=list_type,
+            cache_ttl_hours=cache_ttl_hours,
+        )
+        self._backend_name = backend_name
+        self._evidence_type = evidence_type
+        self._data_source_factory = data_source_factory
+        self._data_source: Any | None = None
+
+    def get_name(self) -> str:
+        """Return the backend identifier."""
+        return self._backend_name
+
+    def get_evidence_type(self) -> EvidenceType:
+        """Return evidence type for this backend."""
+        return self._evidence_type
+
+    def get_data_source(self) -> Any | None:
+        """Get lazily-created data source instance for synchronization."""
+        if self._data_source is None and self._data_source_factory is not None:
+            self._data_source = self._data_source_factory()
+        return self._data_source
+
+
 class ApiBackendWithCache(Backend):
     """Base class for backends that check cache first, then fallback to live API queries.
 

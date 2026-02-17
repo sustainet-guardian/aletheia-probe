@@ -12,6 +12,7 @@ from aletheia_probe.backends.base import (
     ApiBackendWithCache,
     Backend,
     CachedBackend,
+    ConfiguredCachedBackend,
     get_backend_registry,
 )
 from aletheia_probe.enums import AssessmentType, EvidenceType
@@ -209,6 +210,45 @@ class TestCachedBackend:
                 assessment=mock_cached_backend.list_type,
             )
             assert results == mock_results
+
+
+class TestConfiguredCachedBackend:
+    """Test cases for ConfiguredCachedBackend."""
+
+    def test_configured_backend_metadata(self) -> None:
+        """Configured backend should expose declarative metadata."""
+        backend = ConfiguredCachedBackend(
+            backend_name="configured_backend",
+            list_type=AssessmentType.LEGITIMATE,
+            evidence_type=EvidenceType.LEGITIMATE_LIST,
+            cache_ttl_hours=72,
+        )
+
+        assert backend.get_name() == "configured_backend"
+        assert backend.source_name == "configured_backend"
+        assert backend.list_type == AssessmentType.LEGITIMATE
+        assert backend.get_evidence_type() == EvidenceType.LEGITIMATE_LIST
+        assert backend.cache_ttl_hours == 72
+
+    def test_configured_backend_lazy_data_source(self) -> None:
+        """Configured backend should lazily create and cache data source."""
+        factory = Mock()
+        expected = object()
+        factory.return_value = expected
+
+        backend = ConfiguredCachedBackend(
+            backend_name="configured_backend",
+            list_type=AssessmentType.PREDATORY,
+            evidence_type=EvidenceType.PREDATORY_LIST,
+            data_source_factory=factory,
+        )
+
+        first = backend.get_data_source()
+        second = backend.get_data_source()
+
+        assert first is expected
+        assert second is expected
+        factory.assert_called_once_with()
 
 
 class TestApiBackendWithCache:
