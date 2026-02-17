@@ -257,7 +257,7 @@ def _parse_kscien_page(
                 detail_logger.warning(
                     f"Error parsing individual {publication_type} on page {page_num}: {e}"
                 )
-                status_logger.debug(
+                detail_logger.debug(
                     f"    kscien_{publication_type}: Parse error on page {page_num} - {e}"
                 )
                 continue
@@ -326,7 +326,7 @@ def _parse_kscien_page(
                     detail_logger.warning(
                         f"Error parsing simple {publication_type} on page {page_num}: {e}"
                     )
-                    status_logger.debug(
+                    detail_logger.debug(
                         f"    kscien_{publication_type}: Simple parse error on page {page_num} - {e}"
                     )
                     continue
