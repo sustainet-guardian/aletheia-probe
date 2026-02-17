@@ -29,6 +29,18 @@ Each file in this directory documents:
   - **Reason**: Fundamental mismatch (institutions ≠ journals), catastrophically low coverage (<10%), extremely weak signal, massive complexity (2,437 LOC, 7 tables)
   - **Related**: PR #1034 fully implemented and tested ROR integration before rejection
 
+- **[openreview.md](openreview.md)** - OpenReview (peer review transparency platform) integration assessment
+  - **Status**: Experimental / Low Priority
+  - **Reason**: Unique acceptance-rate and peer review quality signals (unavailable elsewhere), but only covers ML/AI conferences; zero predatory detection capability; predatory venues never use transparent review platforms; requires maintained venue lookup table
+  - **Unique value**: First tool to use peer review process data as a quality signal; strong whitelist for NeurIPS/ICLR/ICML/AAAI/CVx queries
+  - **Implement when**: ML/AI community user demand confirmed; after NLM Catalog and predatory list improvements; maintenance volunteer available for venue table
+
+- **[wikidata.md](wikidata.md)** - Wikidata (Wikimedia Foundation knowledge graph) integration assessment
+  - **Status**: Deferred / Low Priority
+  - **Reason**: No direct predatory signal (Wikidata is a notability graph, not a quality filter), presence ≠ legitimate, low unique-information yield (11-17% of queries), SPARQL infrastructure complexity from May 2025 graph split
+  - **Unique value**: Publisher name disambiguation and historical anchoring — best realized as a lightweight utility improving existing backends rather than a full backend
+  - **Reconsider if**: Publisher name mismatches confirmed as significant source of false negatives, or scope expands to knowledge-graph-enriched scholarly intelligence
+
 ## Adding New Assessments
 
 When evaluating a new potential integration:
