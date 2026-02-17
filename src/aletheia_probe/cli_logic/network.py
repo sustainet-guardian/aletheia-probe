@@ -49,7 +49,7 @@ async def _fetch_https_text(
     _validate_https_url(url, allowed_hosts)
 
     timeout = aiohttp.ClientTimeout(total=timeout_seconds)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
         async with session.get(url, allow_redirects=True) as response:
             response.raise_for_status()
             final_host = (response.url.host or "").lower()

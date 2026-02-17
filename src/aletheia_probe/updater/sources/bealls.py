@@ -79,7 +79,7 @@ class BeallsListSource(DataSource):
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
         all_journals = []
 
-        async with ClientSession(timeout=self.timeout) as session:
+        async with ClientSession(timeout=self.timeout, trust_env=True) as session:
             # Try each source
             for source_name, url in self.sources.items():
                 try:

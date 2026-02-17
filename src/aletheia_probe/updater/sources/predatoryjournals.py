@@ -101,7 +101,7 @@ class PredatoryJournalsSource(DataSource):
         all_entries = []
         status_logger.info(f"    {self.get_name()}: Starting data fetch")
 
-        async with ClientSession(timeout=self.timeout) as session:
+        async with ClientSession(timeout=self.timeout, trust_env=True) as session:
             # Fetch journals list
             try:
                 journals_url = str(self.sources["journals"]["fallback_url"])

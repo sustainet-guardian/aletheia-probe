@@ -213,6 +213,7 @@ class ArticleRetractionChecker:
         async with aiohttp.ClientSession(
             headers=self.headers,
             timeout=aiohttp.ClientTimeout(total=self.api_timeout_seconds),
+            trust_env=True,
         ) as session:
             try:
                 async with session.get(url) as response:

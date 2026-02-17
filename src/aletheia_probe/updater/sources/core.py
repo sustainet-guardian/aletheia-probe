@@ -2,9 +2,10 @@
 """CORE/ICORE conference and journal ranking data sources."""
 
 import asyncio
-import http.client
 import math
 import re
+import ssl
+import urllib.request
 from datetime import datetime
 from html import unescape
 from typing import Any
@@ -157,23 +158,14 @@ class _CorePortalSourceBase(DataSource):
         if base_host is None or parsed_url.hostname.lower() != base_host.lower():
             raise URLError("CORE source URL host does not match configured portal")
 
-        request_path = parsed_url.path or "/"
-        if parsed_url.query:
-            request_path = f"{request_path}?{parsed_url.query}"
-
-        connection = http.client.HTTPSConnection(
-            host=parsed_url.hostname,
-            port=parsed_url.port,
-            timeout=DEFAULT_TIMEOUT_SECONDS,
-        )
-        try:
-            connection.request("GET", request_path)
-            response = connection.getresponse()
+        ssl_ctx = ssl.create_default_context()
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(
+            req, timeout=DEFAULT_TIMEOUT_SECONDS, context=ssl_ctx
+        ) as response:
             if response.status != 200:
                 raise URLError(f"HTTP {response.status}")
-            content = response.read()
-        finally:
-            connection.close()
+            content: bytes = response.read()
         return content.decode("utf-8", errors="ignore")
 
     @staticmethod

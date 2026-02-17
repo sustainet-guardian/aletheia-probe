@@ -124,7 +124,7 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
             aiohttp.ClientError: For network-related errors
             Exception: For other HTTP errors
         """
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             async with session.get(url, params=params, timeout=30) as response:
                 self._check_rate_limit_response(response)
 

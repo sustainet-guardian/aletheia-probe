@@ -223,7 +223,9 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         self.detail_logger.debug(f"Crossref API request: GET {url}")
 
         async with aiohttp.ClientSession(
-            headers=self.headers, timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT)
+            headers=self.headers,
+            timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT),
+            trust_env=True,
         ) as session:
             async with session.get(url) as response:
                 self.detail_logger.debug(f"Crossref API response: {response.status}")

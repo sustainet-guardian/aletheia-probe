@@ -166,7 +166,7 @@ class AlgerianMinistrySource(DataSource):
         Returns:
             Path to downloaded archive file, or None if failed
         """
-        async with ClientSession(timeout=self.timeout) as session:
+        async with ClientSession(timeout=self.timeout, trust_env=True) as session:
             result: str | None = await self.downloader.download_archive(
                 session, url, temp_dir
             )
