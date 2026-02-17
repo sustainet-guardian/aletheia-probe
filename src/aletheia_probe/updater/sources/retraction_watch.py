@@ -50,9 +50,11 @@ class RetractionWatchSource(DataSource):
         self.article_retractions: list[dict[str, Any]] = []
 
     def get_name(self) -> str:
+        """Return the source identifier used for synchronization."""
         return "retraction_watch"
 
     def get_list_type(self) -> AssessmentType:
+        """Return assessment type produced by retraction metrics."""
         return AssessmentType.QUALITY_INDICATOR
 
     def should_update(self) -> bool:
