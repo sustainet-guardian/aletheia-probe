@@ -122,5 +122,65 @@ def register_assessment_commands(
             )
         )
 
+    @main.command("mass-eval")
+    @click.argument("input_path", type=click.Path(exists=True))
+    @click.option(
+        "--mode",
+        type=click.Choice(["collect", "assess"]),
+        default="assess",
+        show_default=True,
+        help="Execution phase: collect (cache warm-up) or assess (write output)",
+    )
+    @click.option(
+        "--output-dir",
+        type=click.Path(file_okay=False, dir_okay=True),
+        default=None,
+        help="Directory for per-file JSONL output (required in assess mode)",
+    )
+    @click.option(
+        "--state-file",
+        type=click.Path(dir_okay=False),
+        default=".aletheia-probe/mass-eval-state.json",
+        show_default=True,
+        help="Checkpoint state file for resume support",
+    )
+    @click.option(
+        "--resume/--no-resume",
+        default=True,
+        show_default=True,
+        help="Resume from checkpoint state if available",
+    )
+    @click.option(
+        "--relax-bibtex",
+        is_flag=True,
+        help="Enable relaxed BibTeX parsing for malformed files",
+    )
+    @click.option(
+        "--retry-forever",
+        is_flag=True,
+        help="Retry indefinitely on transient backend failures (rate limits/timeouts)",
+    )
+    def mass_eval(
+        input_path: str,
+        mode: str,
+        output_dir: str | None,
+        state_file: str,
+        resume: bool,
+        relax_bibtex: bool,
+        retry_forever: bool,
+    ) -> None:
+        """Run massive multi-file BibTeX evaluation with checkpoint/resume."""
+        context.run_async(
+            context.async_mass_eval_main(
+                input_path=input_path,
+                mode=mode,
+                output_dir=output_dir,
+                state_file=state_file,
+                resume=resume,
+                relax_bibtex=relax_bibtex,
+                retry_forever=retry_forever,
+            )
+        )
+
 
 __all__ = ["register_assessment_commands", "VenueType"]

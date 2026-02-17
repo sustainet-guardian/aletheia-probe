@@ -44,6 +44,21 @@ class AsyncAssessPublication(Protocol):
     ) -> Coroutine[Any, Any, None]: ...
 
 
+class AsyncMassEvalMain(Protocol):
+    """Mass evaluation coroutine signature."""
+
+    def __call__(
+        self,
+        input_path: str,
+        mode: str,
+        output_dir: str | None,
+        state_file: str,
+        resume: bool,
+        relax_bibtex: bool,
+        retry_forever: bool,
+    ) -> Coroutine[Any, Any, None]: ...
+
+
 @dataclass(frozen=True)
 class CoreCommandContext:
     """Dependency container for core command module registration."""
@@ -65,6 +80,7 @@ class CoreCommandContext:
     async_assess_publication: AsyncAssessPublication
     run_lookup_cli: RunLookupCli
     async_bibtex_main: Callable[[str, bool, str, bool], Coroutine[Any, Any, None]]
+    async_mass_eval_main: AsyncMassEvalMain
     get_latest_acronym_dataset_url: Callable[[str], tuple[str, str]]
     fetch_https_json: Callable[
         [str, int, set[str]], Coroutine[Any, Any, dict[str, Any] | list[Any]]
