@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..bibtex_parser import BibtexParser
+from ..cache import AcronymCache
 from ..dispatcher import query_dispatcher
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
@@ -228,11 +229,12 @@ async def _assess_with_retry(
             return result
 
         transient_statuses = {BackendStatus.RATE_LIMITED, BackendStatus.TIMEOUT}
-        has_transient = any(
-            backend_result.status in transient_statuses
+        transient_backends = [
+            f"{backend_result.backend_name}:{backend_result.status.value}"
             for backend_result in result.backend_results
-        )
-        if not has_transient:
+            if backend_result.status in transient_statuses
+        ]
+        if not transient_backends:
             return result
 
         state.retry_count += 1
@@ -242,6 +244,7 @@ async def _assess_with_retry(
 
         status_logger.warning(
             f"Transient backend statuses encountered for '{venue_name}'. "
+            f"Backends={transient_backends}. "
             f"Retrying in {wait_seconds:.1f}s (attempt #{state.retry_count})."
         )
         detail_logger.debug(
@@ -251,6 +254,72 @@ async def _assess_with_retry(
         _checkpoint_state(state)
         await _sleep(wait_seconds)
         retry_delay = min(RETRY_MAX_SECONDS, retry_delay * 2)
+
+
+async def _collect_with_retry(
+    venue_name: str,
+    venue_type: Any,
+    retry_forever: bool,
+    state: MassEvalState,
+    detail_logger: Any,
+    status_logger: Any,
+) -> None:
+    """Warm normalization/identifier caches without running assessments."""
+    retry_delay = RETRY_INITIAL_SECONDS
+    acronym_cache = AcronymCache()
+
+    while True:
+        try:
+            query_input = input_normalizer.normalize(venue_name)
+            query_input.venue_type = venue_type
+
+            (
+                normalization,
+                failure_reason,
+            ) = await query_dispatcher._normalize_for_dispatch(query_input)
+            query_input = query_dispatcher._attach_normalization_to_query(
+                query_input, normalization
+            )
+            query_input = await query_dispatcher._enrich_query_identifiers(query_input)
+
+            # Persist acronym mappings discovered during normalization.
+            for acronym, full_name in query_input.extracted_acronym_mappings.items():
+                acronym_cache.store_acronym_mapping(
+                    acronym,
+                    full_name,
+                    query_input.venue_type.value,
+                    source="mass_eval_collect",
+                )
+
+            # Collect mode is best-effort cache warm-up; normalization misses are
+            # recorded as detail diagnostics but do not fail processing.
+            if failure_reason:
+                detail_logger.debug(
+                    f"Collect mode normalization note for '{venue_name}': {failure_reason}"
+                )
+            return
+
+        except Exception as e:
+            if not retry_forever:
+                raise
+
+            state.retry_count += 1
+            sleep_seconds = min(retry_delay, RETRY_MAX_SECONDS)
+            jitter = random.uniform(0.0, sleep_seconds * 0.2)
+            wait_seconds = sleep_seconds + jitter
+
+            status_logger.warning(
+                f"Collect mode transient failure for '{venue_name}': {e}. "
+                f"Retrying in {wait_seconds:.1f}s (attempt #{state.retry_count})."
+            )
+            detail_logger.debug(
+                f"Collect retry details: base_delay={retry_delay:.1f}, "
+                f"jitter={jitter:.1f}, wait={wait_seconds:.1f}"
+            )
+
+            _checkpoint_state(state)
+            await _sleep(wait_seconds)
+            retry_delay = min(RETRY_MAX_SECONDS, retry_delay * 2)
 
 
 async def _sleep(seconds: float) -> None:
@@ -340,19 +409,24 @@ async def _process_single_file(
         if entry_index < next_entry_index:
             continue
 
-        assessment = await _assess_with_retry(
-            venue_name=entry.journal_name,
-            venue_type=entry.venue_type,
-            retry_forever=retry_forever,
-            state=state,
-            detail_logger=detail_logger,
-            status_logger=status_logger,
-        )
-
-        state.processed_entries += 1
-        progress["next_entry_index"] = entry_index + 1
-
-        if mode == "assess":
+        if mode == "collect":
+            await _collect_with_retry(
+                venue_name=entry.journal_name,
+                venue_type=entry.venue_type,
+                retry_forever=retry_forever,
+                state=state,
+                detail_logger=detail_logger,
+                status_logger=status_logger,
+            )
+        else:
+            assessment = await _assess_with_retry(
+                venue_name=entry.journal_name,
+                venue_type=entry.venue_type,
+                retry_forever=retry_forever,
+                state=state,
+                detail_logger=detail_logger,
+                status_logger=status_logger,
+            )
             if output_file is None:
                 raise ValueError("Output file is not configured in assess mode")
             record = _build_assess_record(file_path, entry, assessment)
@@ -366,6 +440,8 @@ async def _process_single_file(
                     int(progress.get("written_records", 0)) + 1
                 )
 
+        state.processed_entries += 1
+        progress["next_entry_index"] = entry_index + 1
         progress["last_error"] = None
         _checkpoint_state(state)
 
