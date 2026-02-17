@@ -2,12 +2,11 @@
 """Kscien hijacked journals backend for predatory journal assessment."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.kscien_hijacked_journals import KscienHijackedJournalsSource
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
-class KscienHijackedJournalsBackend(CachedBackend):
+class KscienHijackedJournalsBackend(ConfiguredCachedBackend):
     """Backend that checks against Kscien's hijacked journals list."""
 
     def __init__(self) -> None:
@@ -16,25 +15,12 @@ class KscienHijackedJournalsBackend(CachedBackend):
         Sets up cache with 7-day TTL as Kscien list is updated weekly.
         """
         super().__init__(
-            source_name="kscien_hijacked_journals",
+            backend_name="kscien_hijacked_journals",
             list_type=AssessmentType.HIJACKED,
+            evidence_type=EvidenceType.PREDATORY_LIST,
             cache_ttl_hours=24 * 7,  # Weekly cache for curated lists
+            data_source_factory=lambda: KscienHijackedJournalsSource(),
         )
-        self._data_source: KscienHijackedJournalsSource | None = None
-
-    def get_name(self) -> str:
-        """Return the backend identifier."""
-        return "kscien_hijacked_journals"
-
-    def get_evidence_type(self) -> EvidenceType:
-        """Return the evidence type for this backend."""
-        return EvidenceType.PREDATORY_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        """Get the KscienHijackedJournalsSource instance for data synchronization."""
-        if self._data_source is None:
-            self._data_source = KscienHijackedJournalsSource()
-        return self._data_source
 
 
 # Register the backend factory

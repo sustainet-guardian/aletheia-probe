@@ -2,32 +2,21 @@
 """UGC-CARE included (Group II clone-page left side) backend."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.ugc_care import UgcCareIncludedFromCloneGroup2Source
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
-class UgcCareIncludedFromCloneGroup2Backend(CachedBackend):
+class UgcCareIncludedFromCloneGroup2Backend(ConfiguredCachedBackend):
     """Backend for included journals listed on Group-II clone correction page."""
 
     def __init__(self) -> None:
         super().__init__(
-            source_name="ugc_care_included_from_clone_group2",
+            backend_name="ugc_care_included_from_clone_group2",
             list_type=AssessmentType.LEGITIMATE,
+            evidence_type=EvidenceType.LEGITIMATE_LIST,
             cache_ttl_hours=24 * 30,
+            data_source_factory=lambda: UgcCareIncludedFromCloneGroup2Source(),
         )
-        self._data_source: UgcCareIncludedFromCloneGroup2Source | None = None
-
-    def get_name(self) -> str:
-        return "ugc_care_included_from_clone_group2"
-
-    def get_evidence_type(self) -> EvidenceType:
-        return EvidenceType.LEGITIMATE_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        if self._data_source is None:
-            self._data_source = UgcCareIncludedFromCloneGroup2Source()
-        return self._data_source
 
 
 get_backend_registry().register_factory(

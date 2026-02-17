@@ -2,16 +2,15 @@
 """Predatory Journals database backend for journal assessment."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.predatoryjournals import PredatoryJournalsSource
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
 # Monthly cache for community-maintained lists (30 days)
 _CACHE_TTL_HOURS = 24 * 30
 
 
-class PredatoryJournalsBackend(CachedBackend):
+class PredatoryJournalsBackend(ConfiguredCachedBackend):
     """Backend that checks against predatoryjournals.org lists.
 
     Queries both the predatory journals list and the predatory publishers list
@@ -24,33 +23,12 @@ class PredatoryJournalsBackend(CachedBackend):
         Sets up cache with 30-day TTL as the list is updated monthly.
         """
         super().__init__(
-            source_name="predatoryjournals",
+            backend_name="predatoryjournals",
             list_type=AssessmentType.PREDATORY,
+            evidence_type=EvidenceType.PREDATORY_LIST,
             cache_ttl_hours=_CACHE_TTL_HOURS,
+            data_source_factory=lambda: PredatoryJournalsSource(),
         )
-        self._data_source: PredatoryJournalsSource | None = None
-
-    def get_name(self) -> str:
-        """Return the backend identifier.
-
-        Returns:
-            Backend name string
-        """
-        return "predatoryjournals"
-
-    def get_evidence_type(self) -> EvidenceType:
-        """Return the type of evidence this backend provides.
-
-        Returns:
-            EvidenceType.PREDATORY_LIST as this is a predatory journal list.
-        """
-        return EvidenceType.PREDATORY_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        """Get the PredatoryJournalsSource instance for data synchronization."""
-        if self._data_source is None:
-            self._data_source = PredatoryJournalsSource()
-        return self._data_source
 
 
 # Register the backend factory

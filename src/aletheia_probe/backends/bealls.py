@@ -2,12 +2,11 @@
 """Beall's List backend for predatory journal assessment."""
 
 from ..enums import AssessmentType, EvidenceType
-from ..updater.core import DataSource
 from ..updater.sources.bealls import BeallsListSource
-from .base import CachedBackend, get_backend_registry
+from .base import ConfiguredCachedBackend, get_backend_registry
 
 
-class BeallsListBackend(CachedBackend):
+class BeallsListBackend(ConfiguredCachedBackend):
     """Backend that checks against Beall's list of predatory journals."""
 
     def __init__(self) -> None:
@@ -16,33 +15,12 @@ class BeallsListBackend(CachedBackend):
         Sets up cache with 7-day TTL (24 * 7 hours) as Beall's list is static/archived.
         """
         super().__init__(
-            source_name="bealls",
+            backend_name="bealls",
             list_type=AssessmentType.PREDATORY,
+            evidence_type=EvidenceType.PREDATORY_LIST,
             cache_ttl_hours=24 * 7,  # Weekly cache for static lists
+            data_source_factory=lambda: BeallsListSource(),
         )
-        self._data_source: BeallsListSource | None = None
-
-    def get_name(self) -> str:
-        """Return the backend identifier.
-
-        Returns:
-            Backend name string
-        """
-        return "bealls"
-
-    def get_evidence_type(self) -> EvidenceType:
-        """Return the type of evidence this backend provides.
-
-        Returns:
-            EvidenceType.PREDATORY_LIST as this is a predatory journal list.
-        """
-        return EvidenceType.PREDATORY_LIST
-
-    def get_data_source(self) -> "DataSource | None":
-        """Get the BeallsListSource instance for data synchronization."""
-        if self._data_source is None:
-            self._data_source = BeallsListSource()
-        return self._data_source
 
 
 # Register the backend factory
