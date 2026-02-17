@@ -160,7 +160,7 @@ class _CorePortalSourceBase(DataSource):
 
         ssl_ctx = ssl.create_default_context()
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # nosec B310 - scheme validated as https above
             req, timeout=DEFAULT_TIMEOUT_SECONDS, context=ssl_ctx
         ) as response:
             if response.status != 200:
