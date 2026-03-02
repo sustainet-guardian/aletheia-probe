@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from aletheia_probe.openalex import OpenAlexClient, create_openalex_client, get_publication_stats
+from aletheia_probe.openalex import (
+    OpenAlexClient,
+    create_openalex_client,
+    get_publication_stats,
+)
 
 
 class TestOpenAlexClient:
