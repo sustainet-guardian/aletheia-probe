@@ -525,7 +525,7 @@ def create_openalex_client(
     mode = os.environ.get("OPENALEX_MODE", "remote")
     if mode == "local":
         try:
-            from aletheia_openalex_adapter import LocalOpenAlexAdapter  # type: ignore[import-not-found]  # noqa: PLC0415
+            from aletheia_openalex_adapter import LocalOpenAlexAdapter  # noqa: PLC0415
 
             return LocalOpenAlexAdapter()  # type: ignore[no-any-return]
         except ImportError as exc:
