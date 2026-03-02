@@ -127,6 +127,14 @@ class DataSourceUrlConfig(BaseModel):
         "CORE2020",
         description="Default source filter for CORE journal rankings",
     )
+    pubmed_nlm_medline_url: str = Field(
+        "https://ftp.ncbi.nlm.nih.gov/pubmed/J_Medline.txt",
+        description="URL for NCBI MEDLINE journal list flat file",
+    )
+    pubmed_nlm_catalog_url: str = Field(
+        "https://ftp.ncbi.nlm.nih.gov/pubmed/J_Entrez.txt",
+        description="URL for NCBI NLM Catalog (Entrez) journal list flat file",
+    )
 
 
 class DataSourceProcessingConfig(BaseModel):

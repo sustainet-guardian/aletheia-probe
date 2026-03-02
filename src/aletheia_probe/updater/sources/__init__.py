@@ -11,6 +11,7 @@ from .kscien_hijacked_journals import KscienHijackedJournalsSource
 from .kscien_publishers import KscienPublishersSource
 from .kscien_standalone_journals import KscienStandaloneJournalsSource
 from .predatoryjournals import PredatoryJournalsSource
+from .pubmed import PubMedNLMSource
 from .retraction_watch import RetractionWatchSource
 from .scopus import ScopusSource
 from .ugc_care import (
@@ -34,6 +35,7 @@ __all__ = [
     "KscienPublishersSource",
     "KscienStandaloneJournalsSource",
     "PredatoryJournalsSource",
+    "PubMedNLMSource",
     "RetractionWatchSource",
     "ScopusSource",
     "UgcCareClonedGroup2Source",
