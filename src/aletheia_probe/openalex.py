@@ -501,7 +501,9 @@ class OpenAlexClient:
         }
 
 
-def create_openalex_client(email: str = "noreply@aletheia-probe.org", **kwargs: Any) -> "OpenAlexClient":
+def create_openalex_client(
+    email: str = "noreply@aletheia-probe.org", **kwargs: Any
+) -> "OpenAlexClient":
     """Factory that returns an OpenAlexClient or a LocalOpenAlexAdapter.
 
     When the environment variable ``OPENALEX_MODE=local`` is set, the adapter
