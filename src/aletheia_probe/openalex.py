@@ -501,7 +501,7 @@ class OpenAlexClient:
         }
 
 
-def create_openalex_client(email: str = "noreply@aletheia-probe.org", **kwargs):
+def create_openalex_client(email: str = "noreply@aletheia-probe.org", **kwargs: Any) -> "OpenAlexClient":
     """Factory that returns an OpenAlexClient or a LocalOpenAlexAdapter.
 
     When the environment variable ``OPENALEX_MODE=local`` is set, the adapter
@@ -523,8 +523,9 @@ def create_openalex_client(email: str = "noreply@aletheia-probe.org", **kwargs):
     mode = os.environ.get("OPENALEX_MODE", "remote")
     if mode == "local":
         try:
-            from aletheia_openalex_adapter import LocalOpenAlexAdapter  # noqa: PLC0415
-            return LocalOpenAlexAdapter()
+            from aletheia_openalex_adapter import LocalOpenAlexAdapter  # type: ignore[import-not-found]  # noqa: PLC0415
+
+            return LocalOpenAlexAdapter()  # type: ignore[no-any-return]
         except ImportError as exc:
             raise ImportError(
                 "OPENALEX_MODE=local requires the aletheia-openalex-adapter package. "

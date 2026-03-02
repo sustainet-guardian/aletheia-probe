@@ -93,9 +93,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         self.detail_logger.debug(f"OpenAlex: Searching by ISSN {issn}")
         async with create_openalex_client(email=self.email) as client:
             # OpenAlex client requires journal_name, so use empty string for ISSN-only searches
-            return await client.enrich_journal_data(
-                journal_name="", issn=issn, eissn=None
-            )
+            return await client.enrich_journal_data(journal_name="", issn=issn, eissn=None)
 
     async def _search_by_name(
         self, name: str, exact: bool = True
@@ -111,9 +109,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """
         self.detail_logger.debug(f"OpenAlex: Searching by name '{name}'")
         async with create_openalex_client(email=self.email) as client:
-            return await client.enrich_journal_data(
-                journal_name=name, issn=None, eissn=None
-            )
+            return await client.enrich_journal_data(journal_name=name, issn=None, eissn=None)
 
     async def handle_acronyms_strategy(self, query_input: QueryInput) -> Any | None:
         """OpenAlex-specific acronyms strategy implementation.
