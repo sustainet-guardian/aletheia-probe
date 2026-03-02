@@ -12,7 +12,7 @@ from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
 from ..normalizer import InputNormalizer
-from ..openalex import OpenAlexClient
+from ..openalex import OpenAlexClient, create_openalex_client
 from ..utils.dead_code import code_is_used
 from ..validation import validate_email
 from .base import ApiBackendWithCache, get_backend_registry
@@ -91,7 +91,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             OpenAlex data if found, None if no match
         """
         self.detail_logger.debug(f"OpenAlex: Searching by ISSN {issn}")
-        async with OpenAlexClient(email=self.email) as client:
+        async with create_openalex_client(email=self.email) as client:
             # OpenAlex client requires journal_name, so use empty string for ISSN-only searches
             return await client.enrich_journal_data(
                 journal_name="", issn=issn, eissn=None
@@ -110,7 +110,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             OpenAlex data if found, None if no match
         """
         self.detail_logger.debug(f"OpenAlex: Searching by name '{name}'")
-        async with OpenAlexClient(email=self.email) as client:
+        async with create_openalex_client(email=self.email) as client:
             return await client.enrich_journal_data(
                 journal_name=name, issn=None, eissn=None
             )

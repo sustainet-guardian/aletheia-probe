@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from aletheia_probe.openalex import OpenAlexClient, get_publication_stats
+from aletheia_probe.openalex import OpenAlexClient, create_openalex_client, get_publication_stats
 
 
 class TestOpenAlexClient:
@@ -268,3 +268,45 @@ class TestOpenAlexClient:
             result = await get_publication_stats("Test Journal")
 
             assert result is None
+
+
+class TestCreateOpenAlexClientFactory:
+    """Tests for the create_openalex_client() factory function."""
+
+    def test_remote_mode_returns_openalex_client(self, monkeypatch):
+        """Default (remote) mode returns an OpenAlexClient instance."""
+        monkeypatch.delenv("OPENALEX_MODE", raising=False)
+        client = create_openalex_client(email="test@example.com")
+        assert isinstance(client, OpenAlexClient)
+        assert client.email == "test@example.com"
+
+    def test_explicit_remote_mode_returns_openalex_client(self, monkeypatch):
+        """OPENALEX_MODE=remote explicitly returns an OpenAlexClient."""
+        monkeypatch.setenv("OPENALEX_MODE", "remote")
+        client = create_openalex_client()
+        assert isinstance(client, OpenAlexClient)
+
+    def test_local_mode_returns_adapter(self, monkeypatch):
+        """OPENALEX_MODE=local returns the LocalOpenAlexAdapter."""
+        monkeypatch.setenv("OPENALEX_MODE", "local")
+        fake_adapter = object()
+        fake_module = Mock()
+        fake_module.LocalOpenAlexAdapter = Mock(return_value=fake_adapter)
+        with patch.dict("sys.modules", {"aletheia_openalex_adapter": fake_module}):
+            result = create_openalex_client()
+        assert result is fake_adapter
+        fake_module.LocalOpenAlexAdapter.assert_called_once_with()
+
+    def test_local_mode_missing_package_raises_import_error(self, monkeypatch):
+        """OPENALEX_MODE=local with adapter not installed raises a clear ImportError."""
+        monkeypatch.setenv("OPENALEX_MODE", "local")
+        with patch.dict("sys.modules", {"aletheia_openalex_adapter": None}):
+            with pytest.raises(ImportError, match="aletheia-openalex-adapter"):
+                create_openalex_client()
+
+    def test_kwargs_forwarded_to_openalex_client(self, monkeypatch):
+        """Extra kwargs are forwarded to OpenAlexClient in remote mode."""
+        monkeypatch.delenv("OPENALEX_MODE", raising=False)
+        client = create_openalex_client(email="x@y.com", max_concurrent=5)
+        assert isinstance(client, OpenAlexClient)
+        assert client.email == "x@y.com"
