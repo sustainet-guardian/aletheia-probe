@@ -2,6 +2,7 @@
 """OpenAlex API client for fetching publication volume data."""
 
 import asyncio
+import os
 from datetime import datetime
 from typing import Any
 
@@ -498,6 +499,43 @@ class OpenAlexClient:
             "is_in_doaj": source.get("is_in_doaj", False),
             "fetched_at": datetime.now().isoformat(),
         }
+
+
+def create_openalex_client(
+    email: str = "noreply@aletheia-probe.org", **kwargs: Any
+) -> "OpenAlexClient":
+    """Factory that returns an OpenAlexClient or a LocalOpenAlexAdapter.
+
+    When the environment variable ``OPENALEX_MODE=local`` is set, the adapter
+    from the ``aletheia-openalex-adapter`` package (part of the platform repo)
+    is returned.  This avoids adding psycopg2 as a mandatory dependency of
+    aletheia-probe: the import happens lazily at runtime and only when needed.
+
+    Args:
+        email: Email for OpenAlex polite pool access (used only in remote mode).
+        **kwargs: Additional keyword arguments forwarded to ``OpenAlexClient``.
+
+    Returns:
+        An async context manager that implements the OpenAlexClient duck-type.
+
+    Raises:
+        ImportError: When ``OPENALEX_MODE=local`` but the adapter package is
+            not installed.
+    """
+    mode = os.environ.get("OPENALEX_MODE", "remote")
+    if mode == "local":
+        try:
+            from aletheia_openalex_adapter import LocalOpenAlexAdapter  # noqa: PLC0415
+
+            return LocalOpenAlexAdapter()  # type: ignore[no-any-return]
+        except ImportError as exc:
+            raise ImportError(
+                "OPENALEX_MODE=local requires the aletheia-openalex-adapter package. "
+                "Install it from the aletheia-probe-openalex-platform repo:\n"
+                "  pip install 'git+https://github.com/sustainet-guardian/"
+                "aletheia-probe-openalex-platform.git#subdirectory=adapter'"
+            ) from exc
+    return OpenAlexClient(email=email, **kwargs)
 
 
 # Convenience function for one-off enrichment
