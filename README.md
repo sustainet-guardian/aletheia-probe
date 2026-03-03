@@ -85,6 +85,7 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 - **OpenAlex** - Publication pattern analysis
 - **Crossref** - Metadata quality assessment
 - **Retraction Watch** - Journal retraction history analysis
+- **PubMed/NLM** - MEDLINE and NLM Catalog journal legitimacy signal for biomedical venues
 - **Scopus** - Optional premium journal database
 - **Institutional Lists** - Custom whitelist/blacklist configurations
 - **Cross-Validator** - Cross-source consistency validation system
