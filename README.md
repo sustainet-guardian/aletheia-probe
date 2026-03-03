@@ -85,6 +85,7 @@ This tool acts as a **data aggregator** - it doesn't provide data itself, but co
 - **OpenAlex** - Publication pattern analysis
 - **Crossref** - Metadata quality assessment
 - **Retraction Watch** - Journal retraction history analysis
+- **PubMed/NLM** - MEDLINE and NLM Catalog journal legitimacy signal for biomedical venues
 - **Scopus** - Optional premium journal database
 - **Institutional Lists** - Custom whitelist/blacklist configurations
 - **Cross-Validator** - Cross-source consistency validation system
@@ -287,6 +288,7 @@ To enhance coverage with Scopus data:
   - [Data Models](docs/api-reference/models.md) - Core data structures
   - [Extending Guide](docs/api-reference/extending-guide.md) - Extension patterns
 - [Backend Integration Docs](dev-notes/integration/README.md) - Source-specific backend documentation
+- [PubMed NLM Integration](dev-notes/integration/pubmed.md) - MEDLINE/NLM Catalog backend behavior, confidence model, and sync details
 - [Contributing Guide](.github/community/CONTRIBUTING.md) - Development setup and guidelines
 - [Coding Standards](dev-notes/CODING_STANDARDS.md) - Code quality requirements
 
