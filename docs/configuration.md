@@ -489,6 +489,14 @@ export JOURNAL_ASSESS_TIMEOUT="30"
 export JOURNAL_ASSESS_DOAJ_ENABLED="true"
 export JOURNAL_ASSESS_DOAJ_WEIGHT="1.0"
 export JOURNAL_ASSESS_BEALLS_ENABLED="false"
+
+# Optional local snapshot modes (no core dependency changes required)
+export OPENALEX_MODE="remote"          # or "local"
+export OPENCITATIONS_MODE="remote"     # or "local"
+
+# OpenCitations local adapter settings (only when OPENCITATIONS_MODE=local)
+export OPENCITATIONS_LOCAL_DB_DSN="host=localhost port=5432 dbname=opencitations user=opencitations password=..."
+export OPENCITATIONS_LOCAL_SNAPSHOT_DATE="2026-03-03"  # optional
 ```
 
 Environment variables use the format: `JOURNAL_ASSESS_[SECTION_][SUBSECTION_]KEY`
