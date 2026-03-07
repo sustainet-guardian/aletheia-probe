@@ -8,7 +8,10 @@ import types
 
 import pytest
 
-from aletheia_probe.opencitations import OpenCitationsClient, create_opencitations_client
+from aletheia_probe.opencitations import (
+    OpenCitationsClient,
+    create_opencitations_client,
+)
 
 
 def test_create_opencitations_client_defaults_to_remote(monkeypatch) -> None:
