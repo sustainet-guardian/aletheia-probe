@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import importlib
 import os
+from types import TracebackType
 from typing import Any
 
 import aiohttp
 
 from .backend_exceptions import BackendError, RateLimitError
+
 
 _DEFAULT_BASE_URL = "https://api.opencitations.net/index/v2"
 _DEFAULT_TIMEOUT_SECONDS = 20
@@ -19,20 +21,27 @@ class OpenCitationsClient:
     """Async remote client for OpenCitations API."""
 
     def __init__(
-        self, base_url: str = _DEFAULT_BASE_URL, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS
+        self,
+        base_url: str = _DEFAULT_BASE_URL,
+        timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
         self._session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> "OpenCitationsClient":
+    async def __aenter__(self) -> OpenCitationsClient:
         self._session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self._timeout_seconds),
             trust_env=True,
         )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -50,7 +59,8 @@ class OpenCitationsClient:
         async with session.get(url) as response:
             if response.status == 429:
                 raise RateLimitError(
-                    "OpenCitations API rate limit exceeded", backend_name="opencitations_analyzer"
+                    "OpenCitations API rate limit exceeded",
+                    backend_name="opencitations_analyzer",
                 )
             if response.status == 404:
                 return None
@@ -69,7 +79,9 @@ class OpenCitationsClient:
 
     def _require_session(self) -> aiohttp.ClientSession:
         if self._session is None:
-            raise RuntimeError("OpenCitationsClient must be used as an async context manager")
+            raise RuntimeError(
+                "OpenCitationsClient must be used as an async context manager"
+            )
         return self._session
 
 
