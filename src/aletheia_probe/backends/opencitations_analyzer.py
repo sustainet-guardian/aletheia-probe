@@ -12,6 +12,7 @@ from ..fallback_chain import FallbackStrategy, QueryFallbackChain
 from ..fallback_executor import automatic_fallback
 from ..logging_config import get_detail_logger
 from ..models import BackendResult, BackendStatus, QueryInput
+from ..opencitations import create_opencitations_client
 from ..retry_utils import async_retry_with_backoff
 from ..utils.dead_code import code_is_used
 from .base import ApiBackendWithCache, get_backend_registry
@@ -74,10 +75,13 @@ class OpenCitationsAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         citation_url = f"{self.base_url}/venue-citation-count/issn:{issn}"
         reference_url = f"{self.base_url}/venue-reference-count/issn:{issn}"
 
-        citation_count, reference_count = await asyncio.gather(
-            self._fetch_count_from_url(citation_url),
-            self._fetch_count_from_url(reference_url),
-        )
+        async with create_opencitations_client(
+            base_url=self.base_url, timeout_seconds=_API_TIMEOUT_SECONDS
+        ) as client:
+            citation_count, reference_count = await asyncio.gather(
+                client.get_venue_citation_count_by_issn(issn),
+                client.get_venue_reference_count_by_issn(issn),
+            )
 
         if citation_count is None and reference_count is None:
             return None
