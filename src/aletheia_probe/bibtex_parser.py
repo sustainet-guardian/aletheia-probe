@@ -1167,9 +1167,6 @@ class BibtexParser:
 
         for pattern in symposium_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected symposium pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.SYMPOSIUM
 
         # Workshop patterns (check before conference since workshops often contain "conference")
@@ -1184,9 +1181,6 @@ class BibtexParser:
 
         for pattern in workshop_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected workshop pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.WORKSHOP
 
         # Conference patterns (check after workshop/symposium)
@@ -1209,9 +1203,6 @@ class BibtexParser:
 
             for pattern in conference_patterns:
                 if re.search(pattern, venue_name_lower):
-                    detail_logger.debug(
-                        f"Detected conference pattern '{pattern}' in '{venue_name}'"
-                    )
                     return VenueType.CONFERENCE
 
             # If it's a conference-type entry but no conference patterns, might be proceedings
@@ -1242,9 +1233,6 @@ class BibtexParser:
         if entry_type_lower in ["article", "periodical", "suppperiodical"]:
             for pattern in journal_patterns:
                 if re.search(pattern, venue_name_lower):
-                    detail_logger.debug(
-                        f"Detected journal pattern '{pattern}' in '{venue_name}'"
-                    )
                     return VenueType.JOURNAL
 
             # Default to journal for article-type entries
@@ -1257,9 +1245,6 @@ class BibtexParser:
         # Check for other venue type patterns regardless of entry type
         for pattern in journal_patterns:
             if re.search(pattern, venue_name_lower):
-                detail_logger.debug(
-                    f"Detected journal pattern '{pattern}' in '{venue_name}'"
-                )
                 return VenueType.JOURNAL
 
         # If no patterns match, return UNKNOWN

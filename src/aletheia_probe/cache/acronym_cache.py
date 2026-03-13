@@ -45,7 +45,6 @@ class AcronymCache(CacheBase):
         Returns:
             Canonical normalized name, or None if not found.
         """
-        detail_logger.debug(f"Looking up acronym '{acronym}' ({entity_type})")
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -60,7 +59,6 @@ class AcronymCache(CacheBase):
                     f"Found canonical for '{acronym}' -> '{row['canonical']}'"
                 )
                 return str(row["canonical"])
-            detail_logger.debug(f"No entry found for '{acronym}' ({entity_type})")
             return None
 
     def get_variant_match(
@@ -78,7 +76,6 @@ class AcronymCache(CacheBase):
         Returns:
             Dict with keys ``canonical`` and ``acronym``, or None if no match.
         """
-        detail_logger.debug(f"Looking up variant '{variant}' ({entity_type})")
         with self.get_connection_with_row_factory() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -106,9 +103,6 @@ class AcronymCache(CacheBase):
                     "acronym": acronym,
                     "confidence_score": float(row["confidence_score"]),
                 }
-            detail_logger.debug(
-                f"No variant match found for '{variant}' ({entity_type})"
-            )
             return None
 
     def get_canonical_for_variant(
@@ -201,7 +195,6 @@ class AcronymCache(CacheBase):
                     "acronym": acronym,
                     "confidence_score": float(row["confidence_score"]),
                 }
-            detail_logger.debug(f"No entry found for ISSN '{issn}'")
             return None
 
     def get_canonical_for_issn(
