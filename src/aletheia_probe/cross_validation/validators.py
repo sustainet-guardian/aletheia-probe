@@ -37,6 +37,13 @@ def _format_assessment_label(assessment: Any | None) -> str:
     return str(assessment)
 
 
+def _normalize_optional_text(value: Any) -> str:
+    """Normalize potentially-null textual values for safe string comparison."""
+    if not isinstance(value, str):
+        return ""
+    return value.strip().lower()
+
+
 class OpenAlexCrossRefValidator:
     """Validator for OpenAlex and CrossRef backend pair.
 
@@ -200,8 +207,8 @@ class OpenAlexCrossRefValidator:
         checks = []
 
         # Check publisher name consistency
-        openalex_publisher = openalex_data.get("publisher", "").strip().lower()
-        crossref_publisher = crossref_data.get("publisher", "").strip().lower()
+        openalex_publisher = _normalize_optional_text(openalex_data.get("publisher"))
+        crossref_publisher = _normalize_optional_text(crossref_data.get("publisher"))
 
         if openalex_publisher and crossref_publisher:
             # Simple similarity check (contains one in the other)

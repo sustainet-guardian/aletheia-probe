@@ -521,3 +521,14 @@ class TestCrossRefOpenCitationsValidator:
             or "volume discrepancy" in check.lower()
             for check in checks
         )
+
+    def test_consistency_checks_handles_none_publishers(self):
+        """Handle null publisher fields from analyzers without crashing."""
+        validator = OpenAlexCrossRefValidator()
+
+        openalex_data = {"publisher": None, "total_publications": 100}
+        crossref_data = {"publisher": None, "counts": {"total-dois": 50}}
+
+        checks = validator._perform_consistency_checks(openalex_data, crossref_data)
+
+        assert isinstance(checks, list)
