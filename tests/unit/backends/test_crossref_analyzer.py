@@ -159,7 +159,11 @@ def test_orcid_red_flag_applies_to_50_99_doi_journals(
         "title": ["Test Journal"],
         "publisher": "Test Publisher",
         "counts": {"total-dois": 75, "current-dois": 75, "backfile-dois": 0},
-        "coverage": {"orcids": 0.02, "funders": 0.01, "licenses": 0.03},  # Very low scores
+        "coverage": {
+            "orcids": 0.02,
+            "funders": 0.01,
+            "licenses": 0.03,
+        },  # Very low scores
         "coverage-type": {"current": {}},
         "breakdowns": {"dois-by-issued-year": [[2023, 75]]},
     }
