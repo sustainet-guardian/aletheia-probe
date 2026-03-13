@@ -15,11 +15,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from ..logging_config import get_detail_logger
-
-
-detail_logger = get_detail_logger()
-
 
 def configure_sqlite_connection(
     conn: sqlite3.Connection,
@@ -37,20 +32,12 @@ def configure_sqlite_connection(
         conn: SQLite database connection to configure
         enable_wal: Whether to enable WAL mode (default: True)
     """
-    detail_logger.debug("Configuring SQLite PRAGMA settings")
-
     if enable_wal:
         conn.execute("PRAGMA journal_mode = WAL")
-        detail_logger.debug("Set PRAGMA journal_mode = WAL")
 
     conn.execute("PRAGMA synchronous = NORMAL")
-    detail_logger.debug("Set PRAGMA synchronous = NORMAL")
-
     conn.execute("PRAGMA cache_size = 10000")
-    detail_logger.debug("Set PRAGMA cache_size = 10000")
-
     conn.execute("PRAGMA temp_store = MEMORY")
-    detail_logger.debug("Set PRAGMA temp_store = MEMORY")
 
 
 @contextmanager
@@ -84,10 +71,6 @@ def get_configured_connection(
             results = cursor.fetchall()
         ```
     """
-    detail_logger.debug(
-        f"Opening SQLite connection to {db_path} with {timeout}s timeout"
-    )
-
     # Convert Path to string for sqlite3.connect()
     db_path_str = str(db_path)
 
@@ -106,7 +89,6 @@ def get_configured_connection(
         raise
     finally:
         conn.close()
-        detail_logger.debug(f"Closed SQLite connection to {db_path}")
 
 
 @contextmanager
