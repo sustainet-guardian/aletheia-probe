@@ -727,6 +727,49 @@ class TestQueryDispatcher:
         assert enriched.normalized_venue.eissn == "1476-4687"
         dispatcher.journal_cache.upsert_journal_identifiers.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_resolve_identifiers_with_client_missing_bulk_name_search(
+        self, dispatcher
+    ):
+        """Support local adapters that expose get_source_by_name but not get_sources_by_name."""
+
+        class _AdapterOnlySingleSearch:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get_source_by_name(self, name: str):
+                assert name == "nature"
+                return {
+                    "display_name": "Nature",
+                    "issn_l": "0028-0836",
+                    "issn": ["0028-0836", "1476-4687"],
+                    "host_organization_name": "Springer Nature",
+                }
+
+        query_input = QueryInput(
+            raw_input="Nature",
+            normalized_venue=NormalizedVenueInput(
+                original_text="Nature",
+                venue_type=VenueType.JOURNAL,
+                name="nature",
+                aliases=[],
+                input_identifiers={},
+            ),
+        )
+
+        with patch(
+            "aletheia_probe.dispatcher.create_openalex_client",
+            return_value=_AdapterOnlySingleSearch(),
+        ):
+            resolved = await dispatcher._resolve_identifiers_from_openalex(query_input)
+
+        assert resolved is not None
+        assert resolved["issn"] == "0028-0836"
+        assert resolved["eissn"] == "1476-4687"
+
     def test_select_exact_identifier_source_ambiguous(self, dispatcher):
         """Return None when exact name has conflicting ISSN footprints."""
         candidates = [

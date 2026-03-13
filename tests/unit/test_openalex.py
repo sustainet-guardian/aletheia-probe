@@ -245,7 +245,7 @@ class TestOpenAlexClient:
     @pytest.mark.asyncio
     async def test_get_publication_stats_standalone(self):
         """Test standalone get_publication_stats function."""
-        with patch("aletheia_probe.openalex.OpenAlexClient") as mock_client_class:
+        with patch("aletheia_probe.openalex.create_openalex_client") as mock_factory:
             mock_client = AsyncMock()
             mock_client.__aenter__.return_value = mock_client
             mock_client.enrich_journal_data = AsyncMock(
@@ -255,7 +255,7 @@ class TestOpenAlexClient:
                     "publication_years": [2020, 2021, 2022, 2023],
                 }
             )
-            mock_client_class.return_value = mock_client
+            mock_factory.return_value = mock_client
 
             result = await get_publication_stats("Test Journal", issn="1234-5679")
 
@@ -266,8 +266,8 @@ class TestOpenAlexClient:
     @pytest.mark.asyncio
     async def test_get_publication_stats_client_error(self):
         """Test get_publication_stats with client error."""
-        with patch("aletheia_probe.openalex.OpenAlexClient") as mock_client_class:
-            mock_client_class.side_effect = ValueError("Client error")
+        with patch("aletheia_probe.openalex.create_openalex_client") as mock_factory:
+            mock_factory.side_effect = ValueError("Client error")
 
             result = await get_publication_stats("Test Journal")
 

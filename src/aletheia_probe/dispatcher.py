@@ -29,7 +29,7 @@ from .models import (
     VenueType,
 )
 from .normalizer import InputNormalizer, input_normalizer
-from .openalex import OpenAlexClient
+from .openalex import create_openalex_client
 from .quality_assessment import QualityAssessmentProcessor
 from .validation import validate_issn
 
@@ -333,11 +333,17 @@ class QueryDispatcher:
             return None
 
         try:
-            async with OpenAlexClient() as client:
-                candidates = await client.get_sources_by_name(normalized_name)
-                source = self._select_exact_identifier_source(
-                    normalized_name, candidates
-                )
+            async with create_openalex_client() as client:
+                candidates: list[dict[str, Any]] = []
+                get_sources_by_name = getattr(client, "get_sources_by_name", None)
+                if callable(get_sources_by_name):
+                    candidates = await get_sources_by_name(normalized_name)
+
+                source = None
+                if candidates:
+                    source = self._select_exact_identifier_source(
+                        normalized_name, candidates
+                    )
                 if not source:
                     source = await client.get_source_by_name(normalized_name)
         except Exception as e:
