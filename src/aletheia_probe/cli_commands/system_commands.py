@@ -1,12 +1,19 @@
 # SPDX-License-Identifier: MIT
 """System and cache lifecycle CLI commands."""
 
+import os
 import sys
 
 import click
 
 from ..logging_config import get_status_logger
 from .context import CoreCommandContext
+
+
+RUNTIME_MODE_ENV_BY_BACKEND: dict[str, str] = {
+    "openalex_analyzer": "OPENALEX_MODE",
+    "opencitations_analyzer": "OPENCITATIONS_MODE",
+}
 
 
 def register_system_commands(main: click.Group, context: CoreCommandContext) -> None:
@@ -136,6 +143,10 @@ def register_system_commands(main: click.Group, context: CoreCommandContext) -> 
                 f"{status_icon} {backend_name} "
                 f"({'enabled' if enabled else 'disabled'}, {backend_type})"
             )
+            mode_env = RUNTIME_MODE_ENV_BY_BACKEND.get(backend_name)
+            if mode_env:
+                mode = os.environ.get(mode_env, "remote").strip().lower() or "remote"
+                status_text = status_text[:-1] + f", mode={mode})"
 
             if backend_type in ("cached", "api_cached") and (has_data or entry_count):
                 status_text += f" {data_icon} {'has data' if has_data else 'no data'}"
