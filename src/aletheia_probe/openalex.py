@@ -553,7 +553,7 @@ async def get_publication_stats(
         Dictionary with publication statistics or None
     """
     try:
-        async with OpenAlexClient() as client:
+        async with create_openalex_client() as client:
             return await client.enrich_journal_data(journal_name, issn, eissn)
     except (aiohttp.ClientError, ValueError, KeyError, AttributeError) as e:
         detail_logger.error(f"Error getting publication stats: {e}")

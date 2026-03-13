@@ -10,7 +10,7 @@ import click
 from ..lookup import LookupCandidate, LookupResult, LookupValidation, VenueLookupService
 from ..models import VenueType
 from ..normalizer import input_normalizer
-from ..openalex import OpenAlexClient
+from ..openalex import create_openalex_client
 from ..validation import validate_issn
 from .network import _resolve_issn_title
 
@@ -75,7 +75,7 @@ async def _enrich_from_openalex(
 ) -> None:
     """Enrich result with OpenAlex name/ISSN lookups."""
     try:
-        async with OpenAlexClient() as client:
+        async with create_openalex_client() as client:
             for name in sorted(names)[:5]:
                 source = await client.get_source_by_name(name)
                 _check_name_identifier_consistency_from_openalex(
