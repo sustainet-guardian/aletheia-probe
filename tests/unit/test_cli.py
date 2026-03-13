@@ -782,6 +782,38 @@ class TestStatusCommand:
         assert "enabled" in result.output
         assert "disabled" in result.output
 
+    def test_status_command_shows_runtime_mode_for_local_backends(
+        self, runner, mock_cache_sync_manager, monkeypatch
+    ):
+        """Show local/remote mode for OpenAlex and OpenCitations analyzers."""
+        mock_status = {
+            "sync_in_progress": False,
+            "backends": {
+                "openalex_analyzer": {
+                    "enabled": True,
+                    "has_data": False,
+                    "type": "api_cached",
+                },
+                "opencitations_analyzer": {
+                    "enabled": True,
+                    "has_data": False,
+                    "type": "api_cached",
+                },
+            },
+        }
+        mock_cache_sync_manager.get_sync_status.return_value = mock_status
+
+        monkeypatch.setenv("OPENALEX_MODE", "local")
+        monkeypatch.setenv("OPENCITATIONS_MODE", "remote")
+
+        result = runner.invoke(main, ["status"])
+
+        assert result.exit_code == 0
+        assert "openalex_analyzer (enabled, api_cached, mode=local)" in result.output
+        assert (
+            "opencitations_analyzer (enabled, api_cached, mode=remote)" in result.output
+        )
+
     def test_status_command_sync_in_progress(self, runner, mock_cache_sync_manager):
         """Test status command when sync is in progress."""
         mock_status = {"sync_in_progress": True, "backends": {}}
