@@ -10,6 +10,7 @@ from .acronym_commands import register_acronym_commands
 from .assessment_commands import register_assessment_commands
 from .context import (
     AsyncAssessPublication,
+    AsyncMassEvalMain,
     CliErrorDecorator,
     CoreCommandContext,
     RunLookupCli,
@@ -38,6 +39,7 @@ def register_core_commands(
     async_assess_publication: AsyncAssessPublication,
     run_lookup_cli: RunLookupCli,
     async_bibtex_main: Callable[[str, bool, str, bool], Coroutine[Any, Any, None]],
+    async_mass_eval_main: AsyncMassEvalMain,
     get_latest_acronym_dataset_url: Callable[[str], tuple[str, str]],
     fetch_https_json: Callable[
         [str, int, set[str]], Coroutine[Any, Any, dict[str, Any] | list[Any]]
@@ -62,6 +64,7 @@ def register_core_commands(
         async_assess_publication=async_assess_publication,
         run_lookup_cli=run_lookup_cli,
         async_bibtex_main=async_bibtex_main,
+        async_mass_eval_main=async_mass_eval_main,
         get_latest_acronym_dataset_url=get_latest_acronym_dataset_url,
         fetch_https_json=fetch_https_json,
     )

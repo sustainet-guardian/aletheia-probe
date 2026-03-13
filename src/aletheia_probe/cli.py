@@ -23,6 +23,7 @@ from .cli_commands.db import register_db_commands
 from .cli_logic.assessment import _async_assess_publication, _async_bibtex_main
 from .cli_logic.error_handling import handle_cli_errors
 from .cli_logic.lookup import _run_lookup_cli
+from .cli_logic.mass_eval import _async_mass_eval_main
 from .cli_logic.network import (
     GITHUB_ALLOWED_HOSTS,
     GITHUB_HTTP_TIMEOUT_SECONDS,
@@ -109,6 +110,7 @@ register_core_commands(
     ),
     run_lookup_cli=lambda *args, **kwargs: _run_lookup_cli(*args, **kwargs),
     async_bibtex_main=lambda *args, **kwargs: _async_bibtex_main(*args, **kwargs),
+    async_mass_eval_main=lambda *args, **kwargs: _async_mass_eval_main(*args, **kwargs),
     get_latest_acronym_dataset_url=lambda repo: _get_latest_acronym_dataset_url(repo),
     fetch_https_json=lambda *args, **kwargs: _fetch_https_json(*args, **kwargs),
 )
