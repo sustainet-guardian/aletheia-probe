@@ -159,7 +159,11 @@ def test_orcid_red_flag_applies_to_50_99_doi_journals(
         "title": ["Test Journal"],
         "publisher": "Test Publisher",
         "counts": {"total-dois": 75, "current-dois": 75, "backfile-dois": 0},
-        "coverage": {"orcids": 2.0, "funders": 1.0, "licenses": 3.0},  # Very low scores
+        "coverage": {
+            "orcids": 0.02,
+            "funders": 0.01,
+            "licenses": 0.03,
+        },  # Very low scores
         "coverage-type": {"current": {}},
         "breakdowns": {"dois-by-issued-year": [[2023, 75]]},
     }
@@ -247,12 +251,12 @@ def test_analyze_metadata_predatory_journal(backend: CrossrefAnalyzerBackend) ->
     # Small-to-medium size journal with very poor metadata
     journal_data = create_journal_data(
         total_dois=200,  # _DOI_SMALL <= 200 < _DOI_LARGE
-        orcids=2.0,  # Very low
+        orcids=0.02,  # Very low
         funders=0.0,  # None
         licenses=0.0,  # None
-        references=10.0,
-        abstracts=5.0,
-        affiliations=5.0,
+        references=0.10,
+        abstracts=0.05,
+        affiliations=0.05,
     )
 
     analysis = backend._analyze_metadata_quality(journal_data)
@@ -364,11 +368,11 @@ def test_analyze_metadata_moderate_quality(backend: CrossrefAnalyzerBackend) -> 
 
     journal_data = create_journal_data(
         total_dois=500,
-        orcids=35.0,
-        funders=15.0,
-        licenses=35.0,
-        abstracts=35.0,
-        affiliations=35.0,
+        orcids=0.35,
+        funders=0.15,
+        licenses=0.35,
+        abstracts=0.35,
+        affiliations=0.35,
     )
 
     analysis = backend._analyze_metadata_quality(journal_data)

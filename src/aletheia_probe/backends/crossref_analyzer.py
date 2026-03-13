@@ -497,7 +497,10 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         quality_scores = {}
         for field, _description in quality_indicators:
             # Use current coverage if available, fallback to overall coverage
-            score = coverage_current.get(field, coverage.get(field, 0))
+            # CrossRef API returns fractions (0-1); convert to 0-100 scale to
+            # match the percentage thresholds defined at the top of this module.
+            raw = coverage_current.get(field, coverage.get(field, 0))
+            score = float(raw) * 100.0
             quality_scores[field] = score
             metrics[f"{field}_coverage"] = score
 
