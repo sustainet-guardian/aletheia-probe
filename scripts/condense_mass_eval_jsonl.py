@@ -44,6 +44,13 @@ def _collect_backend_names(input_path: Path) -> list[str]:
     return sorted(backend_names)
 
 
+def _fmt_float(value: Any) -> Any:
+    """Round float to 4 decimal places to avoid IEEE 754 noise and LibreOffice misreads."""
+    if isinstance(value, float):
+        return f"{round(value, 4):.4f}"
+    return value
+
+
 def _build_base_row(record: dict[str, Any]) -> dict[str, Any]:
     """Build CSV row with condensed top-level fields."""
     predatory_list_hits = record.get("predatory_list_hits", [])
@@ -80,8 +87,8 @@ def _build_base_row(record: dict[str, Any]) -> dict[str, Any]:
         "issn": record.get("issn"),
         "eissn": record.get("eissn"),
         "final_assessment": record.get("final_assessment"),
-        "confidence": record.get("confidence"),
-        "overall_score": record.get("overall_score"),
+        "confidence": _fmt_float(record.get("confidence")),
+        "overall_score": _fmt_float(record.get("overall_score")),
         "is_suspicious": record.get("is_suspicious"),
         "has_conflict": record.get("has_conflict"),
         "predatory_votes": record.get("predatory_votes"),
@@ -182,7 +189,7 @@ def condense_jsonl_to_csv(
                 if backend_columns == 2:
                     confidence_value = backend_result.get("confidence")
                     row[confidence_key] = (
-                        "" if confidence_value is None else confidence_value
+                        "" if confidence_value is None else _fmt_float(confidence_value)
                     )
 
             writer.writerow(row)
