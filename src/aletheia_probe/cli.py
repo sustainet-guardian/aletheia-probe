@@ -21,9 +21,9 @@ from .cli_commands.core_commands import register_core_commands
 from .cli_commands.custom_list import register_custom_list_commands
 from .cli_commands.db import register_db_commands
 from .cli_logic.assessment import _async_assess_publication, _async_bibtex_main
-from .cli_logic.mass_eval import _async_mass_eval_main
 from .cli_logic.error_handling import handle_cli_errors
 from .cli_logic.lookup import _run_lookup_cli
+from .cli_logic.mass_eval import _async_mass_eval_main
 from .cli_logic.network import (
     GITHUB_ALLOWED_HOSTS,
     GITHUB_HTTP_TIMEOUT_SECONDS,
