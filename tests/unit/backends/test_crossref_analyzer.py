@@ -62,7 +62,7 @@ async def test_query_api_with_eissn_fallback(backend: CrossrefAnalyzerBackend) -
                     "title": ["Test Journal"],
                     "publisher": "Test Publisher",
                     "counts": {"total-dois": 1000},
-                    "coverage": {"orcids": 0.50, "funders": 0.30, "licenses": 0.70},
+                    "coverage": {"orcids": 50, "funders": 30, "licenses": 70},
                     "coverage-type": {"current": {}},
                     "breakdowns": {
                         "dois-by-issued-year": [[2020, 100], [2021, 200], [2022, 300]]
@@ -219,12 +219,12 @@ def test_analyze_metadata_legitimate_journal(backend: CrossrefAnalyzerBackend) -
     """Test analysis of a high-quality legitimate journal."""
     journal_data = create_journal_data(
         total_dois=5000,
-        orcids=0.80,  # High (> 70%)
-        funders=0.60,  # Good (> 40%)
-        licenses=0.90,  # Excellent (> 80%)
-        references=0.70,  # Good (> 60%)
-        abstracts=0.90,
-        affiliations=0.90,
+        orcids=80.0,  # High (> 70)
+        funders=60.0,  # Good (> 40)
+        licenses=90.0,  # Excellent (> 80)
+        references=70.0,  # Good (> 60)
+        abstracts=90.0,
+        affiliations=90.0,
     )
 
     analysis = backend._analyze_metadata_quality(journal_data)
@@ -284,7 +284,7 @@ def test_analyze_metadata_recent_explosion(backend: CrossrefAnalyzerBackend) -> 
     ]
 
     journal_data = create_journal_data(
-        total_dois=750, orcids=0.20, dois_by_year=dois_by_year
+        total_dois=750, orcids=20.0, dois_by_year=dois_by_year
     )
 
     analysis = backend._analyze_metadata_quality(journal_data)
@@ -297,11 +297,11 @@ def test_analyze_metadata_recent_explosion(backend: CrossrefAnalyzerBackend) -> 
 def test_analyze_metadata_volume_adjustment(backend: CrossrefAnalyzerBackend) -> None:
     """Test that confidence is adjusted based on publication volume."""
     # 1. High volume boost
-    high_vol_data = create_journal_data(total_dois=2000, orcids=0.80, funders=0.50)
+    high_vol_data = create_journal_data(total_dois=2000, orcids=80.0, funders=50.0)
     analysis_high = backend._analyze_metadata_quality(high_vol_data)
 
     # 2. Very small volume reduction
-    low_vol_data = create_journal_data(total_dois=10, orcids=0.80, funders=0.50)
+    low_vol_data = create_journal_data(total_dois=10, orcids=80.0, funders=50.0)
     analysis_low = backend._analyze_metadata_quality(low_vol_data)
 
     # Both have same quality scores, but different volumes
@@ -318,7 +318,7 @@ def test_analyze_metadata_mixed_indicators(backend: CrossrefAnalyzerBackend) -> 
     # Good ORCID (Green) but No Funding/Licenses (Red for small journal)
     journal_data = create_journal_data(
         total_dois=100,
-        orcids=0.80,  # Green flag
+        orcids=80.0,  # Green flag
         funders=0.0,  # Red flag (for small/med journal)
         licenses=0.0,  # Red flag (for small/med journal)
     )
