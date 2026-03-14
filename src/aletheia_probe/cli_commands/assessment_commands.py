@@ -181,6 +181,13 @@ def register_assessment_commands(
         show_default=True,
         help="Assessment cache TTL in hours (default: 720 = 30 days)",
     )
+    @click.option(
+        "--max-parallel-files",
+        type=click.IntRange(min=1),
+        default=8,
+        show_default=True,
+        help="Maximum number of .bib files processed concurrently",
+    )
     def mass_eval(
         input_path: str,
         mode: str,
@@ -192,6 +199,7 @@ def register_assessment_commands(
         max_concurrency: int,
         collect_cache_file: str,
         cache_ttl_hours: int,
+        max_parallel_files: int,
     ) -> None:
         """Run massive multi-file BibTeX evaluation with checkpoint/resume."""
         context.run_async(
@@ -206,6 +214,7 @@ def register_assessment_commands(
                 max_concurrency=max_concurrency,
                 collect_cache_file=collect_cache_file,
                 cache_ttl_hours=cache_ttl_hours,
+                max_parallel_files=max_parallel_files,
             )
         )
 

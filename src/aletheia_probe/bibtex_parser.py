@@ -181,6 +181,62 @@ OTHER_PREPRINT_PATTERNS: list[str] = [
     r"authorea\.com",  # Authorea preprints platform
 ]
 
+# Pre-compiled single regex combining all preprint patterns for fast matching.
+# Using one alternation is far cheaper than iterating and calling re.search per pattern.
+_ALL_PREPRINT_RE: re.Pattern[str] = re.compile(
+    "|".join(ARXIV_PREPRINT_PATTERNS + OTHER_PREPRINT_PATTERNS),
+    re.IGNORECASE,
+)
+
+# Pre-compiled venue-type patterns for _detect_venue_type (rebuilt per-call otherwise).
+_SYMPOSIUM_RE: re.Pattern[str] = re.compile(
+    r"\bsymposium\b"
+    r"|\bsymposia\b"
+    r"|\d+(?:st|nd|rd|th)\s+.*\s+symposium\b"
+    r"|symposium\s+on\b"
+    r"|international\s+symposium\b"
+    r"|annual\s+symposium\b",
+    re.IGNORECASE,
+)
+_WORKSHOP_RE: re.Pattern[str] = re.compile(
+    r"\bworkshop\b"
+    r"|\bworkshops\b"
+    r"|\d+(?:st|nd|rd|th)\s+.*\s+workshop\b"
+    r"|workshop\s+on\b"
+    r"|\bws\b"
+    r"|international\s+workshop\b",
+    re.IGNORECASE,
+)
+_CONFERENCE_RE: re.Pattern[str] = re.compile(
+    r"\bconference\b"
+    r"|\bconf\b"
+    r"|proceedings\s+of\b"
+    r"|international\s+conference\b"
+    r"|annual\s+conference\b"
+    r"|\bacm\s+.+\s+conference\b"
+    r"|\bieee\s+.+\s+conference\b"
+    r"|\b(?:sigchi|sigcomm|sigmod|sigkdd|icml|nips|iclr|aaai|ijcai)\b"
+    r"|\b(?:cvpr|iccv|eccv|neurips|icassp|interspeech)\b",
+    re.IGNORECASE,
+)
+_JOURNAL_RE: re.Pattern[str] = re.compile(
+    r"\bjournal\b"
+    r"|\btransactions\b"
+    r"|\bletters\b"
+    r"|\breview\b"
+    r"|\bannals\b"
+    r"|\barchives\b"
+    r"|\bbulletin\b"
+    r"|\bmagazine\b"
+    r"|ieee\s+transactions\b"
+    r"|acm\s+transactions\b"
+    r"|journal\s+of\b"
+    r"|international\s+journal\b"
+    r"|european\s+journal\b"
+    r"|american\s+journal\b",
+    re.IGNORECASE,
+)
+
 
 class BibtexParser:
     """Parser for BibTeX files to extract journal information."""
@@ -1270,15 +1326,11 @@ class BibtexParser:
         Returns:
             True if the entry is identified as a legitimate preprint, False otherwise.
         """
-        return (
-            BibtexParser._is_arxiv_entry(entry)
-            or BibtexParser._is_biorxiv_entry(entry)
-            or BibtexParser._is_ssrn_entry(entry)
-            or BibtexParser._is_medrxiv_entry(entry)
-            or BibtexParser._is_zenodo_entry(entry)
-            or BibtexParser._is_other_rxiv_preprint_entry(entry)
-            or BibtexParser._is_other_preprint_repository_entry(entry)
-        )
+        checked_content = BibtexParser._get_preprint_check_content(entry)
+        if _ALL_PREPRINT_RE.search(checked_content):
+            detail_logger.debug(f"Detected preprint pattern in entry: {entry.key}")
+            return True
+        return False
 
     @staticmethod
     def _detect_venue_type(entry: Entry, venue_name: str) -> VenueType:
@@ -1304,91 +1356,29 @@ class BibtexParser:
         venue_name_lower = venue_name.lower()
         entry_type_lower = entry.type.lower()
 
-        # Check for preprints first (highest priority)
-        # This includes arXiv, bioRxiv, SSRN, medRxiv, Zenodo, and other legitimate repositories
-        if BibtexParser._is_preprint_entry(entry):
-            return VenueType.PREPRINT
-
         # Symposium patterns (check first since they should have highest priority)
-        symposium_patterns = [
-            r"\bsymposium\b",
-            r"\bsymposia\b",
-            r"\d+(st|nd|rd|th)\s+.*\s+symposium\b",  # "30th USENIX Security Symposium"
-            r"symposium\s+on\b",  # "Symposium on Security"
-            r"international\s+symposium\b",
-            r"annual\s+symposium\b",
-        ]
-
-        for pattern in symposium_patterns:
-            if re.search(pattern, venue_name_lower):
-                return VenueType.SYMPOSIUM
+        if _SYMPOSIUM_RE.search(venue_name_lower):
+            return VenueType.SYMPOSIUM
 
         # Workshop patterns (check before conference since workshops often contain "conference")
-        workshop_patterns = [
-            r"\bworkshop\b",
-            r"\bworkshops\b",
-            r"\d+(st|nd|rd|th)\s+.*\s+workshop\b",  # "4th Deep Learning Workshop"
-            r"workshop\s+on\b",  # "Workshop on Security"
-            r"\bws\b",  # Workshop abbreviation
-            r"international\s+workshop\b",
-        ]
-
-        for pattern in workshop_patterns:
-            if re.search(pattern, venue_name_lower):
-                return VenueType.WORKSHOP
+        if _WORKSHOP_RE.search(venue_name_lower):
+            return VenueType.WORKSHOP
 
         # Conference patterns (check after workshop/symposium)
         if entry_type_lower in ["inproceedings", "conference", "proceedings"]:
-            conference_patterns = [
-                r"\bconference\b",
-                r"\bconf\b",
-                r"proceedings\s+of\b",
-                r"international\s+conference\b",
-                r"annual\s+conference\b",
-                r"\bacm\s+.+\s+conference\b",
-                r"\bieee\s+.+\s+conference\b",
-                # Common conference series patterns
-                r"\b(sigchi|sigcomm|sigmod|sigkdd|icml|nips|iclr|aaai|ijcai)\b",
-                r"\b(cvpr|iccv|eccv|neurips|icassp|interspeech)\b",
-            ]
-
-            # Default to conference for conference-type entries
-            venue_type = VenueType.CONFERENCE
-
-            for pattern in conference_patterns:
-                if re.search(pattern, venue_name_lower):
-                    return VenueType.CONFERENCE
+            if _CONFERENCE_RE.search(venue_name_lower):
+                return VenueType.CONFERENCE
 
             # If it's a conference-type entry but no conference patterns, might be proceedings
             if "proceedings" in venue_name_lower:
                 return VenueType.PROCEEDINGS
 
-            return venue_type
-
-        # Journal patterns
-        journal_patterns = [
-            r"\bjournal\b",
-            r"\btransactions\b",
-            r"\bletters\b",
-            r"\breview\b",
-            r"\bannals\b",
-            r"\barchives\b",
-            r"\bbulletin\b",
-            r"\bmagazine\b",
-            r"ieee\s+transactions\b",
-            r"acm\s+transactions\b",
-            r"journal\s+of\b",
-            r"international\s+journal\b",
-            r"european\s+journal\b",
-            r"american\s+journal\b",
-        ]
+            return VenueType.CONFERENCE
 
         # Check for journal entry types
         if entry_type_lower in ["article", "periodical", "suppperiodical"]:
-            for pattern in journal_patterns:
-                if re.search(pattern, venue_name_lower):
-                    return VenueType.JOURNAL
-
+            if _JOURNAL_RE.search(venue_name_lower):
+                return VenueType.JOURNAL
             # Default to journal for article-type entries
             return VenueType.JOURNAL
 
@@ -1397,9 +1387,8 @@ class BibtexParser:
             return VenueType.BOOK
 
         # Check for other venue type patterns regardless of entry type
-        for pattern in journal_patterns:
-            if re.search(pattern, venue_name_lower):
-                return VenueType.JOURNAL
+        if _JOURNAL_RE.search(venue_name_lower):
+            return VenueType.JOURNAL
 
         # If no patterns match, return UNKNOWN
         detail_logger.debug(

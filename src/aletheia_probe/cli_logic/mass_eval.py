@@ -6,10 +6,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import multiprocessing
 import random
 import sys
 import time
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,7 +21,7 @@ from ..cache import AcronymCache
 from ..dispatcher import query_dispatcher
 from ..enums import AssessmentType
 from ..logging_config import get_detail_logger, get_status_logger
-from ..models import AssessmentResult, BackendStatus, QueryInput
+from ..models import AssessmentResult, BackendStatus, BibtexEntry, QueryInput
 from ..normalizer import input_normalizer
 from .error_handling import handle_cli_exception
 
@@ -33,6 +35,7 @@ COLLECT_CACHE_FLUSH_BATCH_SIZE = 2000
 COLLECT_CACHE_FLUSH_INTERVAL_SECONDS = 30
 # 30 days: prevents cache expiry during multi-day mass-eval runs
 MASS_EVAL_DEFAULT_CACHE_TTL_HOURS = 720
+DEFAULT_MAX_PARALLEL_FILES = 8
 
 
 class AssessDedupeCache:
@@ -385,6 +388,16 @@ def _load_or_init_state(
     return state
 
 
+class _null_context:
+    """No-op async context manager used when no files_lock is provided."""
+
+    async def __aenter__(self) -> None:
+        return None
+
+    async def __aexit__(self, *_: object) -> None:
+        pass
+
+
 def _discover_bib_files(input_path: Path) -> list[Path]:
     """Discover BibTeX files from a single file or recursively from a directory."""
     if input_path.is_file():
@@ -399,6 +412,19 @@ def _discover_bib_files(input_path: Path) -> list[Path]:
     if not files:
         raise ValueError(f"No .bib files found under {input_path}")
     return files
+
+
+def _parse_bibtex_for_executor(
+    file_path: Path, relax_bibtex: bool
+) -> list[BibtexEntry]:
+    """Top-level wrapper for ProcessPoolExecutor: parse BibTeX and strip raw_entry.
+
+    Must be a module-level function (not a closure) so ProcessPoolExecutor can
+    pickle it by name.  The raw_entry field holds a pybtex Entry object which
+    is not guaranteed to be picklable; it is not used downstream in mass-eval.
+    """
+    entries = BibtexParser.parse_bibtex_file_all(file_path, relax_parsing=relax_bibtex)
+    return [e.model_copy(update={"raw_entry": None}) for e in entries]
 
 
 def _build_minimal_record(
@@ -685,17 +711,25 @@ async def _process_single_file(
     status_logger: Any,
     collect_dedupe_cache: CollectDedupeCache | None = None,
     assess_dedupe_cache: AssessDedupeCache | None = None,
+    files_lock: asyncio.Lock | None = None,
+    executor: ProcessPoolExecutor | None = None,
 ) -> None:
     """Process one .bib file with entry-level checkpointing and resume."""
     processed_before = state.processed_entries
     written_before = state.written_records
     collect_hits_before = state.collect_cache_hits
 
+    loop = asyncio.get_running_loop()
+
+    async def _parse(relax: bool) -> list[BibtexEntry]:
+        if executor is not None:
+            return await loop.run_in_executor(
+                executor, _parse_bibtex_for_executor, file_path, relax
+            )
+        return BibtexParser.parse_bibtex_file_all(file_path, relax_parsing=relax)
+
     try:
-        entries = BibtexParser.parse_bibtex_file_all(
-            file_path,
-            relax_parsing=relax_bibtex,
-        )
+        entries = await _parse(relax_bibtex)
     except ValueError as parse_error:
         if relax_bibtex:
             raise
@@ -708,10 +742,7 @@ async def _process_single_file(
             f"Strict parse error for {file_path}: {parse_error}. "
             "Retrying with relax_parsing=True."
         )
-        entries = BibtexParser.parse_bibtex_file_all(
-            file_path,
-            relax_parsing=True,
-        )
+        entries = await _parse(True)
 
     async def _log_file_completion(summary_status: str) -> None:
         """Emit one status-log line with file and cache statistics."""
@@ -783,12 +814,13 @@ async def _process_single_file(
         status_logger.info(
             f"File already complete by checkpoint: {file_path} (entries={len(entries)})"
         )
-        if file_key not in state.completed_files:
-            state.completed_files.append(file_key)
-        state.failed_files.pop(file_key, None)
-        progress["completed_entry_indices"] = []
-        progress["last_error"] = None
-        _checkpoint_state(state, force=True)
+        async with (files_lock if files_lock else _null_context()):
+            if file_key not in state.completed_files:
+                state.completed_files.append(file_key)
+            state.failed_files.pop(file_key, None)
+            progress["completed_entry_indices"] = []
+            progress["last_error"] = None
+            _checkpoint_state(state, force=True)
         await _log_file_completion("already_complete")
         return
 
@@ -799,11 +831,12 @@ async def _process_single_file(
     ]
     if not pending_indices:
         _advance_file_progress(progress, completed_entry_indices, len(entries))
-        if file_key not in state.completed_files:
-            state.completed_files.append(file_key)
-        state.failed_files.pop(file_key, None)
-        progress["last_error"] = None
-        _checkpoint_state(state, force=True)
+        async with (files_lock if files_lock else _null_context()):
+            if file_key not in state.completed_files:
+                state.completed_files.append(file_key)
+            state.failed_files.pop(file_key, None)
+            progress["last_error"] = None
+            _checkpoint_state(state, force=True)
         await _log_file_completion("already_complete_sparse")
         return
 
@@ -1021,12 +1054,13 @@ async def _process_single_file(
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
 
-    if file_key not in state.completed_files:
-        state.completed_files.append(file_key)
-    state.failed_files.pop(file_key, None)
-    progress["completed_entry_indices"] = []
-    progress["last_error"] = None
-    _checkpoint_state(state, force=True)
+    async with (files_lock if files_lock else _null_context()):
+        if file_key not in state.completed_files:
+            state.completed_files.append(file_key)
+        state.failed_files.pop(file_key, None)
+        progress["completed_entry_indices"] = []
+        progress["last_error"] = None
+        _checkpoint_state(state, force=True)
     await _log_file_completion("processed")
 
 
@@ -1042,6 +1076,7 @@ async def _async_mass_eval_main(
     checkpoint_interval_seconds: int = CHECKPOINT_INTERVAL_SECONDS,
     collect_cache_file: str | None = ".aletheia-probe/mass-eval-collect-cache.keys",
     cache_ttl_hours: int = MASS_EVAL_DEFAULT_CACHE_TTL_HOURS,
+    max_parallel_files: int = DEFAULT_MAX_PARALLEL_FILES,
 ) -> None:
     """Run massive two-phase BibTeX evaluation workflow with checkpointing.
 
@@ -1056,6 +1091,7 @@ async def _async_mass_eval_main(
         max_concurrency: Number of concurrent entry workers per file
         checkpoint_interval_seconds: Maximum interval between forced checkpoints
         cache_ttl_hours: Assessment cache TTL in hours (default: 30 days)
+        max_parallel_files: Maximum number of .bib files processed concurrently
     """
     status_logger = get_status_logger()
     detail_logger = get_detail_logger()
@@ -1067,6 +1103,10 @@ async def _async_mass_eval_main(
         if max_concurrency < 1:
             raise ValueError(
                 f"Invalid max_concurrency={max_concurrency}; expected value >= 1."
+            )
+        if max_parallel_files < 1:
+            raise ValueError(
+                f"Invalid max_parallel_files={max_parallel_files}; expected value >= 1."
             )
 
         query_dispatcher.set_cache_ttl_hours_override(cache_ttl_hours)
@@ -1114,47 +1154,80 @@ async def _async_mass_eval_main(
 
         status_logger.info(
             f"mass-eval mode={normalized_mode}, files_total={len(bib_files)}, "
-            f"files_pending={len(pending_files)}, max_concurrency={max_concurrency}"
+            f"files_pending={len(pending_files)}, max_concurrency={max_concurrency}, "
+            f"max_parallel_files={max_parallel_files}"
         )
 
-        last_checkpoint_at = time.time()
+        files_lock = asyncio.Lock()
+        semaphore = asyncio.Semaphore(max_parallel_files)
+        # Pre-assign display indices so log messages are ordered by start position
+        file_indices = {str(f): i for i, f in enumerate(pending_files, start=1)}
+        total_pending = len(pending_files)
 
-        for index, bib_file in enumerate(pending_files, start=1):
-            state.current_file = str(bib_file)
-            status_logger.info(f"[{index}/{len(pending_files)}] Processing {bib_file}")
+        async def _checkpoint_loop() -> None:
+            while True:
+                await asyncio.sleep(checkpoint_interval_seconds)
+                async with files_lock:
+                    _checkpoint_state(state, force=True)
+                    if collect_dedupe_cache is not None:
+                        await collect_dedupe_cache.flush()
 
-            try:
-                await _process_single_file(
-                    file_path=bib_file,
-                    input_root=input_root,
-                    mode=normalized_mode,
-                    retry_forever=retry_forever,
-                    relax_bibtex=relax_bibtex,
-                    output_dir=output_root,
-                    max_concurrency=max_concurrency,
-                    state=state,
-                    detail_logger=detail_logger,
-                    status_logger=status_logger,
-                    collect_dedupe_cache=collect_dedupe_cache,
-                    assess_dedupe_cache=assess_dedupe_cache,
+        checkpoint_task = asyncio.create_task(_checkpoint_loop())
+
+        async def _file_task(bib_file: Path) -> None:
+            index = file_indices[str(bib_file)]
+            async with semaphore:
+                async with files_lock:
+                    state.current_file = str(bib_file)
+                status_logger.info(
+                    f"[{index}/{total_pending}] Processing {bib_file}"
                 )
-            except Exception as e:
-                file_key = str(bib_file)
-                state.failed_files[str(bib_file)] = str(e)
-                file_progress = state.file_progress.setdefault(
-                    file_key,
-                    {"next_entry_index": 0, "written_records": 0, "last_error": None},
-                )
-                file_progress["last_error"] = str(e)
-                status_logger.error(f"Failed processing {bib_file}: {e}")
-                detail_logger.exception(f"mass-eval file failure: {bib_file}: {e}")
+                try:
+                    await _process_single_file(
+                        file_path=bib_file,
+                        input_root=input_root,
+                        mode=normalized_mode,
+                        retry_forever=retry_forever,
+                        relax_bibtex=relax_bibtex,
+                        output_dir=output_root,
+                        max_concurrency=max_concurrency,
+                        state=state,
+                        detail_logger=detail_logger,
+                        status_logger=status_logger,
+                        collect_dedupe_cache=collect_dedupe_cache,
+                        assess_dedupe_cache=assess_dedupe_cache,
+                        files_lock=files_lock,
+                        executor=executor,
+                    )
+                except Exception as e:
+                    file_key = str(bib_file)
+                    async with files_lock:
+                        state.failed_files[file_key] = str(e)
+                        file_progress = state.file_progress.setdefault(
+                            file_key,
+                            {
+                                "next_entry_index": 0,
+                                "written_records": 0,
+                                "last_error": None,
+                            },
+                        )
+                        file_progress["last_error"] = str(e)
+                    status_logger.error(f"Failed processing {bib_file}: {e}")
+                    detail_logger.exception(
+                        f"mass-eval file failure: {bib_file}: {e}"
+                    )
 
-            now = time.time()
-            if now - last_checkpoint_at >= checkpoint_interval_seconds:
-                _checkpoint_state(state, force=True)
-                if collect_dedupe_cache is not None:
-                    await collect_dedupe_cache.flush()
-                last_checkpoint_at = now
+        with ProcessPoolExecutor(
+            max_workers=max_parallel_files,
+            mp_context=multiprocessing.get_context("spawn"),
+        ) as executor:
+            await asyncio.gather(*[_file_task(f) for f in pending_files])
+
+        checkpoint_task.cancel()
+        try:
+            await checkpoint_task
+        except asyncio.CancelledError:
+            pass
 
         state.current_file = None
         _checkpoint_state(state, force=True)
