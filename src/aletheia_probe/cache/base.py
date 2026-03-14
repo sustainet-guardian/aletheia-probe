@@ -10,16 +10,14 @@ cache components in the system. It handles shared functionality including:
 """
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
 from ..config import get_config_manager
 from ..logging_config import get_detail_logger, get_status_logger
 from ..utils.dead_code import code_is_used
-from .connection_utils import (
-    get_configured_connection,
-    get_connection_with_row_factory,
-)
+from .connection_utils import configure_sqlite_connection
 from .schema import init_database
 
 
@@ -84,44 +82,69 @@ class CacheBase:
                 raise RuntimeError(error_msg) from e
 
         self.db_path = db_path
+        self._conn: sqlite3.Connection | None = None
 
-    def get_connection(self, timeout: float = 30.0, enable_wal: bool = True) -> Any:
-        """Get a configured SQLite connection to this cache's database.
+    def _open_conn(self) -> sqlite3.Connection:
+        """Open and configure the persistent connection (called once per instance)."""
+        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        configure_sqlite_connection(conn)
+        return conn
 
-        This method provides the standard way to access the database with
-        consistent configuration across all cache components. Uses the
-        centralized connection configuration with proper timeout and WAL mode.
+    def _get_or_open_conn(self) -> sqlite3.Connection:
+        """Return the persistent connection, creating it on first use."""
+        if self._conn is None:
+            self._conn = self._open_conn()
+        return self._conn
+
+    @contextmanager
+    def get_connection(
+        self, timeout: float = 30.0, enable_wal: bool = True
+    ) -> Iterator[sqlite3.Connection]:
+        """Get the persistent SQLite connection to this cache's database.
+
+        Reuses a single long-lived connection per instance. Commits on success
+        and rolls back on exception, but does not close the connection.
 
         Args:
-            timeout: Connection timeout in seconds (default: 30.0)
-            enable_wal: Whether to enable WAL mode (default: True)
+            timeout: Ignored (kept for API compatibility; set at construction)
+            enable_wal: Ignored (kept for API compatibility; set at construction)
 
-        Returns:
-            Context manager yielding a configured SQLite connection
-
-        Example:
-            ```python
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM table")
-                results = cursor.fetchall()
-            ```
+        Yields:
+            Configured SQLite connection
         """
-        return get_configured_connection(self.db_path, timeout, enable_wal)
+        del timeout, enable_wal  # set once at connection creation
+        conn = self._get_or_open_conn()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
+    @contextmanager
     def get_connection_with_row_factory(
         self, timeout: float = 30.0, enable_wal: bool = True
-    ) -> Any:
-        """Get a configured SQLite connection with Row factory for dict-like access.
+    ) -> Iterator[sqlite3.Connection]:
+        """Get the persistent connection with Row factory for dict-like access.
 
-        Same as get_connection() but with sqlite3.Row factory enabled
-        for dictionary-style access to query results.
+        Same as get_connection() but temporarily sets sqlite3.Row factory
+        for the duration of the block.
 
         Args:
-            timeout: Connection timeout in seconds (default: 30.0)
-            enable_wal: Whether to enable WAL mode (default: True)
+            timeout: Ignored (kept for API compatibility; set at construction)
+            enable_wal: Ignored (kept for API compatibility; set at construction)
 
-        Returns:
-            Context manager yielding a configured SQLite connection with Row factory
+        Yields:
+            Configured SQLite connection with Row factory
         """
-        return get_connection_with_row_factory(self.db_path, timeout, enable_wal)
+        del timeout, enable_wal  # set once at connection creation
+        conn = self._get_or_open_conn()
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.row_factory = None
