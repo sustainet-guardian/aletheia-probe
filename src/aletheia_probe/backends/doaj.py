@@ -2,7 +2,7 @@
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
 import os
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import aiohttp
@@ -395,15 +395,13 @@ class DOAJLocalBackend(ConfiguredCachedBackend):
         """Query local cache when DOAJ_MODE=local, otherwise use HTTP API."""
         mode = os.environ.get("DOAJ_MODE", "remote").strip().lower()
         if mode == "local":
-            return await super().query(query_input)
+            return cast(BackendResult, await super().query(query_input))
         return await self._get_remote_backend().query(query_input)
 
 
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "doaj",
-    lambda cache_ttl_hours=24: DOAJLocalBackend(
-        remote_cache_ttl_hours=cache_ttl_hours
-    ),
+    lambda cache_ttl_hours=24: DOAJLocalBackend(remote_cache_ttl_hours=cache_ttl_hours),
     default_config={"cache_ttl_hours": 24},
 )
