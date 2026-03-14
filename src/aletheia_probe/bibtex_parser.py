@@ -6,7 +6,6 @@ from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
 from pybtex import errors as pybtex_errors  # type: ignore
 from pybtex.database import (  # type: ignore
@@ -111,19 +110,18 @@ class BibtexParser:
     @staticmethod
     def _process_all_entries(
         bib_data: BibliographyData, max_workers: int
-    ) -> tuple[list[BibtexEntry], int, int]:
-        """Process all BibTeX entries in parallel and categorize results.
+    ) -> list[BibtexEntry]:
+        """Process all BibTeX entries in parallel and return all with state set.
 
         Args:
             bib_data: Parsed bibliography data
             max_workers: Maximum number of parallel workers
 
         Returns:
-            Tuple of (processed_entries, skipped_entries, preprint_entries)
+            List of BibtexEntry objects, one per input entry, with state set to
+            one of: assessed, preprint, no_venue, unsupported_type, parse_error
         """
-        entries = []
-        skipped_entries = 0
-        preprint_entries = 0
+        all_entries: list[BibtexEntry] = []
 
         # Process all entries in parallel for improved performance
         entries_list = list(bib_data.entries.items())
@@ -144,61 +142,61 @@ class BibtexParser:
             for future in as_completed(future_to_entry):
                 entry_key = future_to_entry[future]
                 try:
-                    result = future.result()
-                    if result["type"] == "preprint":
-                        preprint_entries += 1
-                        detail_logger.debug(f"Skipping preprint entry: {entry_key}")
-                    elif result["type"] == "processed":
-                        entries.append(result["entry"])
-                    elif result["type"] == "skipped":
-                        skipped_entries += 1
+                    bibtex_entry = future.result()
+                    all_entries.append(bibtex_entry)
+                    if bibtex_entry.state == "preprint":
+                        detail_logger.debug(f"Preprint entry: {entry_key}")
                 except Exception as e:
-                    status_logger.warning(
-                        f"Skipping entry '{entry_key}' due to processing error: {e}"
+                    status_logger.warning(f"Error processing entry '{entry_key}': {e}")
+                    all_entries.append(
+                        BibtexEntry(
+                            key=entry_key,
+                            entry_type="unknown",
+                            state="parse_error",
+                            state_reason=str(e),
+                        )
                     )
-                    skipped_entries += 1
 
-        return entries, skipped_entries, preprint_entries
+        return all_entries
 
     @staticmethod
     def _log_parsing_results(
         file_path: Path,
         encoding_description: str,
-        entries: list[BibtexEntry],
-        skipped_entries: int,
-        preprint_entries: int,
+        all_entries: list[BibtexEntry],
     ) -> None:
         """Log the results of BibTeX parsing.
 
         Args:
             file_path: Path to the parsed file
             encoding_description: Description of encoding used
-            entries: List of successfully processed entries
-            skipped_entries: Number of entries skipped due to processing errors
-            preprint_entries: Number of preprint entries detected and skipped
+            all_entries: All BibtexEntry objects (with state set)
         """
-        # Log parsing results with clear messaging
+        assessed = sum(1 for e in all_entries if e.state == "assessed")
+        preprint_count = sum(1 for e in all_entries if e.state == "preprint")
+        skipped_count = sum(
+            1 for e in all_entries if e.state not in ("assessed", "preprint")
+        )
+
         detail_logger.debug(
-            f"Successfully parsed {len(entries)} entries from {file_path.name} "
+            f"Successfully parsed {assessed} assessed entries from {file_path.name} "
             f"with {encoding_description}"
         )
 
-        # Log skipped preprints at debug level only
-        if preprint_entries > 0:
+        if preprint_count > 0:
             detail_logger.debug(
-                f"Skipped {preprint_entries} preprint(s) from legitimate repositories - not publication venues"
+                f"Skipped {preprint_count} preprint(s) from legitimate repositories - not publication venues"
             )
 
-        # Log other skipped entries
-        if skipped_entries > 0:
+        if skipped_count > 0:
             detail_logger.debug(
-                f"Skipped {skipped_entries} other entries due to processing errors"
+                f"Skipped {skipped_count} other entries (unsupported type, no venue, or parse error)"
             )
 
     @staticmethod
     def _parse_with_encoding_fallback(
         file_path: Path, max_workers: int
-    ) -> tuple[list[BibtexEntry], int, int]:
+    ) -> list[BibtexEntry]:
         """Parse a BibTeX file with encoding fallback strategies.
 
         Args:
@@ -206,7 +204,7 @@ class BibtexParser:
             max_workers: Maximum number of parallel workers
 
         Returns:
-            Tuple of (processed_entries, skipped_entries, preprint_entries)
+            List of all BibtexEntry objects (one per input entry, with state set)
 
         Raises:
             ValueError: If the file has invalid BibTeX syntax or parsing fails
@@ -233,16 +231,12 @@ class BibtexParser:
                 bib_data = parse_file(str(file_path), encoding=encoding)
 
                 # Process all entries in parallel
-                entries, skipped_entries, preprint_entries = (
-                    BibtexParser._process_all_entries(bib_data, max_workers)
-                )
+                all_entries = BibtexParser._process_all_entries(bib_data, max_workers)
 
                 # Log parsing results
-                BibtexParser._log_parsing_results(
-                    file_path, description, entries, skipped_entries, preprint_entries
-                )
+                BibtexParser._log_parsing_results(file_path, description, all_entries)
 
-                return entries, skipped_entries, preprint_entries
+                return all_entries
 
             except UnicodeDecodeError as e:
                 last_error = e
@@ -303,10 +297,42 @@ class BibtexParser:
             raise ValueError(f"Path is not a file: {file_path}")
 
     @staticmethod
+    def parse_bibtex_file_all(
+        file_path: Path, relax_parsing: bool = False, max_workers: int = 12
+    ) -> list[BibtexEntry]:
+        """Parse a BibTeX file and return ALL entries with state set.
+
+        Returns one BibtexEntry per input BibTeX entry. Each entry's ``state``
+        field indicates how it was classified:
+        - ``assessed``       — venue extracted; ready for backend assessment
+        - ``preprint``       — detected as arXiv/bioRxiv/similar preprint
+        - ``no_venue``       — supported type but no venue name found
+        - ``unsupported_type`` — entry type not supported (e.g. @book)
+        - ``parse_error``    — unexpected error during field extraction
+
+        Args:
+            file_path: Path to the BibTeX file
+            relax_parsing: If True, enable lenient parsing mode
+            max_workers: Maximum number of parallel workers (default: 12)
+
+        Returns:
+            List of BibtexEntry objects, one per input BibTeX entry
+
+        Raises:
+            FileNotFoundError: If the BibTeX file doesn't exist
+            ValueError: If the file has invalid BibTeX syntax
+            UnicodeDecodeError: If the file encoding is unsupported
+            PermissionError: If the file cannot be read
+        """
+        BibtexParser._validate_file_path(file_path)
+        with BibtexParser._configure_pybtex(relax_parsing):
+            return BibtexParser._parse_with_encoding_fallback(file_path, max_workers)
+
+    @staticmethod
     def parse_bibtex_file(
         file_path: Path, relax_parsing: bool = False, max_workers: int = 12
     ) -> tuple[list[BibtexEntry], int, int]:
-        """Parse a BibTeX file and extract journal entries with parallel processing.
+        """Parse a BibTeX file and extract assessed journal entries.
 
         This method tries multiple encoding strategies to maximize the number
         of successfully parsed entries, even in files with mixed encodings.
@@ -320,9 +346,9 @@ class BibtexParser:
 
         Returns:
             A tuple containing:
-            - List of BibtexEntry objects with extracted journal information
-            - Number of entries skipped (excluding arXiv)
-            - Number of arXiv entries detected and skipped
+            - List of assessed BibtexEntry objects (state == "assessed")
+            - Number of entries skipped (no_venue, unsupported_type, parse_error)
+            - Number of preprint entries detected and skipped
 
         Raises:
             FileNotFoundError: If the BibTeX file doesn't exist
@@ -330,56 +356,76 @@ class BibtexParser:
             UnicodeDecodeError: If the file encoding is unsupported
             PermissionError: If the file cannot be read
         """
-        BibtexParser._validate_file_path(file_path)
-
-        # Configure pybtex parsing mode based on relax_parsing parameter
-        with BibtexParser._configure_pybtex(relax_parsing):
-            return BibtexParser._parse_with_encoding_fallback(file_path, max_workers)
+        all_entries = BibtexParser.parse_bibtex_file_all(
+            file_path, relax_parsing, max_workers
+        )
+        assessed = [e for e in all_entries if e.state == "assessed"]
+        skipped = sum(1 for e in all_entries if e.state not in ("assessed", "preprint"))
+        preprints = sum(1 for e in all_entries if e.state == "preprint")
+        return assessed, skipped, preprints
 
     @staticmethod
-    def _process_single_entry(entry_key: str, entry: Entry) -> dict[str, Any]:
-        """Process a single BibTeX entry and return structured result.
+    def _process_single_entry(entry_key: str, entry: Entry) -> BibtexEntry:
+        """Process a single BibTeX entry and return a BibtexEntry with appropriate state.
 
         Args:
             entry_key: The BibTeX entry key
             entry: The BibTeX entry object
 
         Returns:
-            Dictionary containing processing result:
-            - {"type": "preprint", "key": entry_key} for preprint entries
-            - {"type": "processed", "entry": BibtexEntry} for successfully processed entries
-            - {"type": "skipped", "key": entry_key} for entries that couldn't be processed
+            BibtexEntry with state set to one of: assessed, preprint, no_venue,
+            unsupported_type, parse_error
 
         Raises:
             Exception: For any processing errors that need to be handled by caller
         """
-        # First, check for preprint entries to correctly categorize skipped entries
+        # First, check for preprint entries to correctly categorize them
         if BibtexParser._is_preprint_entry(entry):
-            return {"type": "preprint", "key": entry_key}
+            return BibtexEntry(
+                key=entry_key,
+                entry_type=entry.type,
+                title=BibtexParser._get_field_safely(entry, "title"),
+                state="preprint",
+                state_reason="Preprint from arXiv or similar repository",
+            )
 
-        # Extract each entry with individual error handling
-        processed_entry = BibtexParser._process_entry_safely(entry_key, entry)
-        if processed_entry:
-            return {"type": "processed", "entry": processed_entry}
-        else:
-            return {"type": "skipped", "key": entry_key}
+        return BibtexParser._process_entry_safely(entry_key, entry)
 
     @staticmethod
-    def _process_entry_safely(entry_key: str, entry: Entry) -> BibtexEntry | None:
+    def _process_entry_safely(entry_key: str, entry: Entry) -> BibtexEntry:
         """Process a single BibTeX entry with error handling for individual fields."""
         try:
-            # Extract venue name based on entry type
-            if entry.type.lower() in ["inproceedings", "conference", "proceedings"]:
+            _conference_types = {"inproceedings", "conference", "proceedings"}
+            _journal_types = {"article", "periodical", "suppperiodical"}
+            entry_type_lower = entry.type.lower()
+            no_venue_reason: str = "No venue name could be extracted"
+
+            if entry_type_lower in _conference_types:
                 venue_name = BibtexParser._extract_conference_name(entry)
-            else:
+                no_venue_reason = "No booktitle/title field found in conference entry"
+            elif entry_type_lower in _journal_types:
                 venue_name = BibtexParser._extract_journal_name(entry)
+                no_venue_reason = "No journal/journaltitle field found in journal entry"
+            else:
+                return BibtexEntry(
+                    key=entry_key,
+                    entry_type=entry.type,
+                    title=BibtexParser._get_field_safely(entry, "title"),
+                    state="unsupported_type",
+                    state_reason=f"Entry type '{entry.type}' is not supported for venue analysis",
+                )
 
             if not venue_name:
-                # This can happen if the entry is an arXiv preprint or if it's a non-journal/conference type
                 detail_logger.debug(
-                    f"Skipping entry '{entry_key}' because no venue name could be extracted."
+                    f"Entry '{entry_key}' has no venue name: {no_venue_reason}"
                 )
-                return None
+                return BibtexEntry(
+                    key=entry_key,
+                    entry_type=entry.type,
+                    title=BibtexParser._get_field_safely(entry, "title"),
+                    state="no_venue",
+                    state_reason=no_venue_reason,
+                )
 
             # Detect venue type
             venue_type = BibtexParser._detect_venue_type(entry, venue_name)
@@ -401,10 +447,16 @@ class BibtexParser:
                 series=BibtexParser._get_field_safely(entry, "series"),
                 organization=BibtexParser._get_field_safely(entry, "organization"),
                 raw_entry=entry,
+                state="assessed",
             )
         except (KeyError, AttributeError, ValueError, TypeError) as e:
             detail_logger.debug(f"Error processing entry {entry_key}: {e}")
-            return None
+            return BibtexEntry(
+                key=entry_key,
+                entry_type=getattr(entry, "type", "unknown"),
+                state="parse_error",
+                state_reason=str(e),
+            )
 
     @staticmethod
     def _extract_journal_name(entry: Entry) -> str | None:

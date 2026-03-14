@@ -59,8 +59,8 @@ async def test_process_single_file_respects_sparse_resume_state(
 
     monkeypatch.setattr(
         mass_eval.BibtexParser,
-        "parse_bibtex_file",
-        lambda _path, relax_parsing=False: (entries, 0, 0),
+        "parse_bibtex_file_all",
+        lambda _path, relax_parsing=False: entries,
     )
 
     existing_record_id = mass_eval._record_id_for_entry(bib_file, entries[2])
@@ -140,9 +140,9 @@ async def test_process_single_file_retries_parse_with_relaxed_mode(
         parse_calls.append(relax_parsing)
         if not relax_parsing:
             raise ValueError("duplicate doi field")
-        return ([entry], 0, 0)
+        return [entry]
 
-    monkeypatch.setattr(mass_eval.BibtexParser, "parse_bibtex_file", _fake_parse)
+    monkeypatch.setattr(mass_eval.BibtexParser, "parse_bibtex_file_all", _fake_parse)
 
     async def _fake_assess(*_args, **_kwargs) -> AssessmentResult:
         return AssessmentResult(
@@ -212,8 +212,8 @@ async def test_process_single_file_collect_dedupes_repeated_venues(
 
     monkeypatch.setattr(
         mass_eval.BibtexParser,
-        "parse_bibtex_file",
-        lambda _path, relax_parsing=False: (entries, 0, 0),
+        "parse_bibtex_file_all",
+        lambda _path, relax_parsing=False: entries,
     )
 
     collect_calls: list[str] = []
