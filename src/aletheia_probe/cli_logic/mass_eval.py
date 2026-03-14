@@ -35,6 +35,79 @@ COLLECT_CACHE_FLUSH_INTERVAL_SECONDS = 30
 MASS_EVAL_DEFAULT_CACHE_TTL_HOURS = 720
 
 
+class AssessDedupeCache:
+    """Process-level dedupe cache for mass-eval assess mode.
+
+    The first article for a given journal key performs the full assessment;
+    concurrent and subsequent articles for the same journal reuse the result.
+    """
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._results: dict[str, AssessmentResult] = {}
+        self._inflight: dict[str, asyncio.Future[AssessmentResult]] = {}
+        self.cache_hits: int = 0
+        self.cache_misses: int = 0
+
+    async def get_or_claim(
+        self, key: str
+    ) -> tuple[bool, asyncio.Future[AssessmentResult] | AssessmentResult]:
+        """Return (is_owner=True, owner_future) or (is_owner=False, result_or_future).
+
+        When is_owner is True the caller must call mark_done or mark_failure.
+        When is_owner is False the second element is either a cached AssessmentResult
+        or an in-flight Future to await.
+        """
+        async with self._lock:
+            if key in self._results:
+                self.cache_hits += 1
+                return False, self._results[key]
+            if key in self._inflight:
+                self.cache_hits += 1
+                return False, self._inflight[key]
+            owner_future: asyncio.Future[AssessmentResult] = (
+                asyncio.get_running_loop().create_future()
+            )
+            self._inflight[key] = owner_future
+            self.cache_misses += 1
+            return True, owner_future
+
+    async def mark_done(
+        self,
+        key: str,
+        result: AssessmentResult,
+        owner_future: asyncio.Future[AssessmentResult],
+    ) -> None:
+        """Store result and resolve the owner future."""
+        async with self._lock:
+            self._inflight.pop(key, None)
+            self._results[key] = result
+            if not owner_future.done():
+                owner_future.set_result(result)
+
+    async def mark_failure(
+        self,
+        key: str,
+        error: Exception,
+        owner_future: asyncio.Future[AssessmentResult],
+    ) -> None:
+        """Release in-flight key and propagate failure to waiters."""
+        async with self._lock:
+            self._inflight.pop(key, None)
+            if not owner_future.done():
+                owner_future.set_exception(error)
+
+    async def snapshot(self) -> dict[str, int]:
+        """Return cache statistics for status reporting."""
+        async with self._lock:
+            return {
+                "cached": len(self._results),
+                "inflight": len(self._inflight),
+                "hits": self.cache_hits,
+                "misses": self.cache_misses,
+            }
+
+
 class CollectDedupeCache:
     """Process-level dedupe cache for mass-eval collect mode."""
 
@@ -611,6 +684,7 @@ async def _process_single_file(
     detail_logger: Any,
     status_logger: Any,
     collect_dedupe_cache: CollectDedupeCache | None = None,
+    assess_dedupe_cache: AssessDedupeCache | None = None,
 ) -> None:
     """Process one .bib file with entry-level checkpointing and resume."""
     processed_before = state.processed_entries
@@ -650,6 +724,14 @@ async def _process_single_file(
             f"records_written={file_written_records}, "
             f"collect_cache_hits={file_collect_hits}"
         )
+        if assess_dedupe_cache is not None:
+            assess_stats = await assess_dedupe_cache.snapshot()
+            message += (
+                f", assess_cache_hits={assess_stats['hits']}"
+                f", assess_cache_misses={assess_stats['misses']}"
+                f", assess_cache_cached={assess_stats['cached']}"
+            )
+
         if collect_dedupe_cache is None:
             status_logger.info(message)
             return
@@ -850,15 +932,48 @@ async def _process_single_file(
                 progress["last_error"] = None
                 _checkpoint_state(state)
         else:
-            assessment = await _assess_with_retry(
-                venue_name=entry.journal_name,
-                venue_type=entry.venue_type,
-                retry_forever=retry_forever,
-                state=state,
-                detail_logger=detail_logger,
-                status_logger=status_logger,
-                on_retry=_reserve_retry_attempt,
-            )
+            if assess_dedupe_cache is not None:
+                assess_key = _build_collect_cache_key_raw(
+                    entry.journal_name, entry.venue_type
+                )
+                is_owner, future_or_result = await assess_dedupe_cache.get_or_claim(
+                    assess_key
+                )
+                if is_owner:
+                    owner_future = future_or_result
+                    assert isinstance(owner_future, asyncio.Future)
+                    try:
+                        assessment = await _assess_with_retry(
+                            venue_name=entry.journal_name,
+                            venue_type=entry.venue_type,
+                            retry_forever=retry_forever,
+                            state=state,
+                            detail_logger=detail_logger,
+                            status_logger=status_logger,
+                            on_retry=_reserve_retry_attempt,
+                        )
+                        await assess_dedupe_cache.mark_done(
+                            assess_key, assessment, owner_future
+                        )
+                    except Exception as exc:
+                        await assess_dedupe_cache.mark_failure(
+                            assess_key, exc, owner_future
+                        )
+                        raise
+                elif isinstance(future_or_result, asyncio.Future):
+                    assessment = await future_or_result
+                else:
+                    assessment = future_or_result
+            else:
+                assessment = await _assess_with_retry(
+                    venue_name=entry.journal_name,
+                    venue_type=entry.venue_type,
+                    retry_forever=retry_forever,
+                    state=state,
+                    detail_logger=detail_logger,
+                    status_logger=status_logger,
+                    on_retry=_reserve_retry_attempt,
+                )
             if output_file is None:
                 raise ValueError("Output file is not configured in assess mode")
             record = _build_assess_record(file_path, entry, assessment)
@@ -981,6 +1096,10 @@ async def _async_mass_eval_main(
                 detail_logger=detail_logger,
             )
 
+        assess_dedupe_cache: AssessDedupeCache | None = None
+        if normalized_mode == "assess":
+            assess_dedupe_cache = AssessDedupeCache()
+
         bib_files = _discover_bib_files(input_root)
         state = _load_or_init_state(
             state_path=state_path,
@@ -1017,6 +1136,7 @@ async def _async_mass_eval_main(
                     detail_logger=detail_logger,
                     status_logger=status_logger,
                     collect_dedupe_cache=collect_dedupe_cache,
+                    assess_dedupe_cache=assess_dedupe_cache,
                 )
             except Exception as e:
                 file_key = str(bib_file)
