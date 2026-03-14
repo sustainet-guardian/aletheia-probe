@@ -232,7 +232,7 @@ class BibtexEntry(BaseModel):
     """Represents a journal or conference entry extracted from a BibTeX file."""
 
     key: str = Field(..., description="BibTeX entry key")
-    journal_name: str = Field(..., description="Extracted journal or conference name")
+    journal_name: str = Field("", description="Extracted journal or conference name")
     entry_type: str = Field(
         ..., description="BibTeX entry type (article, inproceedings, etc.)"
     )
@@ -257,6 +257,13 @@ class BibtexEntry(BaseModel):
     is_retracted: bool = Field(False, description="Whether the article is retracted")
     retraction_info: dict[str, Any] | None = Field(
         None, description="Retraction details if article is retracted"
+    )
+    state: str = Field(
+        "assessed",
+        description="Processing state: assessed | no_venue | unsupported_type | preprint | parse_error",
+    )
+    state_reason: str | None = Field(
+        None, description="Human-readable reason for non-assessed state"
     )
 
 

@@ -316,6 +316,36 @@ def _discover_bib_files(input_path: Path) -> list[Path]:
     return files
 
 
+def _build_minimal_record(
+    file_path: Path,
+    entry: Any,
+) -> dict[str, Any]:
+    """Build minimal output record for a non-assessed entry (preprint, no_venue, etc.)."""
+    return {
+        "record_id": _record_id_for_entry(file_path, entry),
+        "timestamp": _utc_now(),
+        "file_path": str(file_path),
+        "entry_key": entry.key,
+        "venue_raw": entry.journal_name,
+        "venue_type": entry.venue_type.value,
+        "issn": entry.issn,
+        "eissn": getattr(entry, "eissn", None),
+        "doi": entry.doi,
+        "state": entry.state,
+        "state_reason": entry.state_reason,
+        "final_assessment": None,
+        "confidence": None,
+        "overall_score": None,
+        "is_suspicious": None,
+        "has_conflict": None,
+        "predatory_votes": None,
+        "legitimate_votes": None,
+        "predatory_list_hits": [],
+        "backend_results": [],
+        "reasoning": None,
+    }
+
+
 def _build_assess_record(
     file_path: Path,
     entry: Any,
@@ -356,6 +386,8 @@ def _build_assess_record(
         "issn": entry.issn,
         "eissn": getattr(entry, "eissn", None),
         "doi": entry.doi,
+        "state": "assessed",
+        "state_reason": None,
         "final_assessment": assessment.assessment.value,
         "confidence": assessment.confidence,
         "overall_score": assessment.overall_score,
@@ -574,7 +606,7 @@ async def _process_single_file(
     collect_hits_before = state.collect_cache_hits
 
     try:
-        entries, _skipped_count, _preprint_count = BibtexParser.parse_bibtex_file(
+        entries = BibtexParser.parse_bibtex_file_all(
             file_path,
             relax_parsing=relax_bibtex,
         )
@@ -590,7 +622,7 @@ async def _process_single_file(
             f"Strict parse error for {file_path}: {parse_error}. "
             "Retrying with relax_parsing=True."
         )
-        entries, _skipped_count, _preprint_count = BibtexParser.parse_bibtex_file(
+        entries = BibtexParser.parse_bibtex_file_all(
             file_path,
             relax_parsing=True,
         )
@@ -698,8 +730,42 @@ async def _process_single_file(
         entry = entries[entry_index]
         detail_logger.debug(
             f"Processing entry {entry_index + 1}/{len(entries)} in {file_path}: "
-            f"key={entry.key}, venue_type={entry.venue_type.value}"
+            f"key={entry.key}, venue_type={entry.venue_type.value}, state={entry.state}"
         )
+
+        if entry.state != "assessed":
+            # Non-assessed entry: skip backend calls, write minimal record in assess mode
+            if mode == "assess":
+                if output_file is None:
+                    raise ValueError("Output file is not configured in assess mode")
+                record = _build_minimal_record(file_path, entry)
+                record_id = str(record["record_id"])
+                async with state_lock:
+                    if record_id not in existing_record_ids:
+                        _append_jsonl_record(output_file, record)
+                        existing_record_ids.add(record_id)
+                        state.written_records += 1
+                        progress["written_records"] = (
+                            int(progress.get("written_records", 0)) + 1
+                        )
+                    state.processed_entries += 1
+                    completed_entry_indices.add(entry_index)
+                    _advance_file_progress(
+                        progress, completed_entry_indices, len(entries)
+                    )
+                    progress["last_error"] = None
+                    _checkpoint_state(state)
+            else:
+                # collect mode: nothing to cache for non-assessed entry
+                async with state_lock:
+                    state.processed_entries += 1
+                    completed_entry_indices.add(entry_index)
+                    _advance_file_progress(
+                        progress, completed_entry_indices, len(entries)
+                    )
+                    progress["last_error"] = None
+                    _checkpoint_state(state)
+            return
 
         if mode == "collect":
             collect_cache_key = _build_collect_cache_key_raw(
