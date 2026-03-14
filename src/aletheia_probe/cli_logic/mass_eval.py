@@ -568,9 +568,21 @@ async def _assess_with_retry(
             _checkpoint_state(state, force=True)
             attempt_number = state.retry_count
 
-        sleep_seconds = min(retry_delay, RETRY_MAX_SECONDS)
-        jitter = random.uniform(0.0, sleep_seconds * 0.2)
-        wait_seconds = sleep_seconds + jitter
+        # TIMEOUT means a local backend was too slow (system under load) — retry
+        # immediately with minimal jitter, no exponential backoff.
+        # RATE_LIMITED means an external API asked us to slow down — use backoff.
+        only_timeouts = all(
+            backend_result.status == BackendStatus.TIMEOUT
+            for backend_result in result.backend_results
+            if backend_result.status in transient_statuses
+        )
+        if only_timeouts:
+            wait_seconds = random.uniform(0.1, 1.0)
+        else:
+            sleep_seconds = min(retry_delay, RETRY_MAX_SECONDS)
+            jitter = random.uniform(0.0, sleep_seconds * 0.2)
+            wait_seconds = sleep_seconds + jitter
+            retry_delay = min(RETRY_MAX_SECONDS, retry_delay * 2)
 
         status_logger.warning(
             f"Transient backend statuses encountered for '{venue_name}'. "
@@ -578,11 +590,10 @@ async def _assess_with_retry(
             f"Retrying in {wait_seconds:.1f}s (attempt #{attempt_number})."
         )
         detail_logger.debug(
-            f"Retry details: base_delay={retry_delay:.1f}, jitter={jitter:.1f}, wait={wait_seconds:.1f}"
+            f"Retry details: only_timeouts={only_timeouts}, wait={wait_seconds:.1f}"
         )
 
         await _sleep(wait_seconds)
-        retry_delay = min(RETRY_MAX_SECONDS, retry_delay * 2)
 
 
 async def _collect_with_retry(

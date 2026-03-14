@@ -29,7 +29,7 @@ DEFAULT_CACHE_DB_PATH: str = ".aletheia-probe/cache.db"  # Relative to current d
 # Default configuration values
 # Default backend configuration
 DEFAULT_BACKEND_WEIGHT: float = 0.8
-DEFAULT_BACKEND_TIMEOUT: int = 10
+DEFAULT_BACKEND_TIMEOUT: int = 120
 
 # Default heuristic thresholds
 DEFAULT_CONFIDENCE_THRESHOLD: float = 0.6
