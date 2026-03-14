@@ -198,6 +198,8 @@ class MassEvalState:
         self.written_records: int = 0
         self.retry_count: int = 0
         self.collect_cache_hits: int = 0
+        # Runtime-only: not persisted to disk
+        self._last_checkpoint_time: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize state to dictionary."""
@@ -250,8 +252,15 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _checkpoint_state(state: MassEvalState) -> None:
-    """Persist checkpoint state atomically."""
+def _checkpoint_state(state: MassEvalState, *, force: bool = False) -> None:
+    """Persist checkpoint state atomically.
+
+    Throttled to CHECKPOINT_INTERVAL_SECONDS to avoid writing on every entry.
+    Use force=True at structural boundaries (file completion, retries, end-of-run).
+    """
+    now = time.monotonic()
+    if not force and (now - state._last_checkpoint_time) < CHECKPOINT_INTERVAL_SECONDS:
+        return
     state.updated_at = _utc_now()
     payload = state.to_dict()
     tmp_path = state.state_path.with_suffix(state.state_path.suffix + ".tmp")
@@ -259,6 +268,7 @@ def _checkpoint_state(state: MassEvalState) -> None:
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
     tmp_path.replace(state.state_path)
+    state._last_checkpoint_time = now
 
 
 def _load_or_init_state(
@@ -296,7 +306,7 @@ def _load_or_init_state(
         return state
 
     state = MassEvalState(state_path=state_path, mode=mode, input_path=input_path)
-    _checkpoint_state(state)
+    _checkpoint_state(state, force=True)
     return state
 
 
@@ -454,7 +464,7 @@ async def _assess_with_retry(
             attempt_number = await on_retry()
         else:
             state.retry_count += 1
-            _checkpoint_state(state)
+            _checkpoint_state(state, force=True)
             attempt_number = state.retry_count
 
         sleep_seconds = min(retry_delay, RETRY_MAX_SECONDS)
@@ -532,7 +542,7 @@ async def _collect_with_retry(
                 attempt_number = await on_retry()
             else:
                 state.retry_count += 1
-                _checkpoint_state(state)
+                _checkpoint_state(state, force=True)
                 attempt_number = state.retry_count
 
             sleep_seconds = min(retry_delay, RETRY_MAX_SECONDS)
@@ -694,7 +704,7 @@ async def _process_single_file(
         state.failed_files.pop(file_key, None)
         progress["completed_entry_indices"] = []
         progress["last_error"] = None
-        _checkpoint_state(state)
+        _checkpoint_state(state, force=True)
         await _log_file_completion("already_complete")
         return
 
@@ -709,7 +719,7 @@ async def _process_single_file(
             state.completed_files.append(file_key)
         state.failed_files.pop(file_key, None)
         progress["last_error"] = None
-        _checkpoint_state(state)
+        _checkpoint_state(state, force=True)
         await _log_file_completion("already_complete_sparse")
         return
 
@@ -723,7 +733,7 @@ async def _process_single_file(
     async def _reserve_retry_attempt() -> int:
         async with state_lock:
             state.retry_count += 1
-            _checkpoint_state(state)
+            _checkpoint_state(state, force=True)
             return state.retry_count
 
     async def _process_entry(entry_index: int) -> None:
@@ -899,7 +909,7 @@ async def _process_single_file(
     state.failed_files.pop(file_key, None)
     progress["completed_entry_indices"] = []
     progress["last_error"] = None
-    _checkpoint_state(state)
+    _checkpoint_state(state, force=True)
     await _log_file_completion("processed")
 
 
@@ -1014,13 +1024,13 @@ async def _async_mass_eval_main(
 
             now = time.time()
             if now - last_checkpoint_at >= checkpoint_interval_seconds:
-                _checkpoint_state(state)
+                _checkpoint_state(state, force=True)
                 if collect_dedupe_cache is not None:
                     await collect_dedupe_cache.flush()
                 last_checkpoint_at = now
 
         state.current_file = None
-        _checkpoint_state(state)
+        _checkpoint_state(state, force=True)
         if collect_dedupe_cache is not None:
             await collect_dedupe_cache.flush(force=True)
 
