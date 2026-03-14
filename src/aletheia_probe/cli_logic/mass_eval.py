@@ -31,6 +31,8 @@ RETRY_MAX_SECONDS = 600.0
 DEFAULT_MAX_CONCURRENCY = 1
 COLLECT_CACHE_FLUSH_BATCH_SIZE = 2000
 COLLECT_CACHE_FLUSH_INTERVAL_SECONDS = 30
+# 30 days: prevents cache expiry during multi-day mass-eval runs
+MASS_EVAL_DEFAULT_CACHE_TTL_HOURS = 720
 
 
 class CollectDedupeCache:
@@ -914,6 +916,7 @@ async def _async_mass_eval_main(
     max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
     checkpoint_interval_seconds: int = CHECKPOINT_INTERVAL_SECONDS,
     collect_cache_file: str | None = ".aletheia-probe/mass-eval-collect-cache.keys",
+    cache_ttl_hours: int = MASS_EVAL_DEFAULT_CACHE_TTL_HOURS,
 ) -> None:
     """Run massive two-phase BibTeX evaluation workflow with checkpointing.
 
@@ -927,6 +930,7 @@ async def _async_mass_eval_main(
         retry_forever: Retry indefinitely on transient backend failures
         max_concurrency: Number of concurrent entry workers per file
         checkpoint_interval_seconds: Maximum interval between forced checkpoints
+        cache_ttl_hours: Assessment cache TTL in hours (default: 30 days)
     """
     status_logger = get_status_logger()
     detail_logger = get_detail_logger()
@@ -939,6 +943,9 @@ async def _async_mass_eval_main(
             raise ValueError(
                 f"Invalid max_concurrency={max_concurrency}; expected value >= 1."
             )
+
+        query_dispatcher.set_cache_ttl_hours_override(cache_ttl_hours)
+        status_logger.info(f"Assessment cache TTL set to {cache_ttl_hours}h")
 
         input_root = Path(input_path).expanduser().resolve()
         state_path = Path(state_file).expanduser().resolve()

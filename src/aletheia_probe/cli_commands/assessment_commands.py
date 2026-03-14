@@ -174,6 +174,13 @@ def register_assessment_commands(
         show_default=True,
         help="Persistent dedupe key file used in collect mode",
     )
+    @click.option(
+        "--cache-ttl-hours",
+        type=click.IntRange(min=1),
+        default=720,
+        show_default=True,
+        help="Assessment cache TTL in hours (default: 720 = 30 days)",
+    )
     def mass_eval(
         input_path: str,
         mode: str,
@@ -184,6 +191,7 @@ def register_assessment_commands(
         retry_forever: bool,
         max_concurrency: int,
         collect_cache_file: str,
+        cache_ttl_hours: int,
     ) -> None:
         """Run massive multi-file BibTeX evaluation with checkpoint/resume."""
         context.run_async(
@@ -197,6 +205,7 @@ def register_assessment_commands(
                 retry_forever=retry_forever,
                 max_concurrency=max_concurrency,
                 collect_cache_file=collect_cache_file,
+                cache_ttl_hours=cache_ttl_hours,
             )
         )
 
