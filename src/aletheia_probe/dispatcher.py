@@ -756,14 +756,8 @@ class QueryDispatcher:
                     backend = backend_registry.create_backend(
                         backend_name, **config_params
                     )
-                    self.detail_logger.debug(
-                        f"Loaded backend: {backend_name} with configuration: {config_params}"
-                    )
                 else:
                     backend = backend_registry.get_backend(backend_name)
-                    self.detail_logger.debug(
-                        f"Loaded backend: {backend_name} (default configuration)"
-                    )
 
                 enabled_backends.append(backend)
 
