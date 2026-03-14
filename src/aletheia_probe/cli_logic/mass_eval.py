@@ -442,10 +442,10 @@ async def _assess_with_retry(
 ) -> AssessmentResult:
     """Assess one venue with optional retry-forever mode on transient backend failures."""
     retry_delay = RETRY_INITIAL_SECONDS
+    query_input = input_normalizer.normalize(venue_name)
+    query_input.venue_type = venue_type
 
     while True:
-        query_input = input_normalizer.normalize(venue_name)
-        query_input.venue_type = venue_type
         result = await query_dispatcher.assess_journal(query_input)
 
         if not retry_forever:
