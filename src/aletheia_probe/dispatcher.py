@@ -97,6 +97,18 @@ class QueryDispatcher:
         self.quality_processor = QualityAssessmentProcessor()
         self.journal_cache = JournalCache()
         self.lookup_service = VenueLookupService(journal_cache=self.journal_cache)
+        self._cache_ttl_hours_override: int | None = None
+
+    def set_cache_ttl_hours_override(self, hours: int) -> None:
+        """Override cache TTL for all backends.
+
+        Intended for long-running batch jobs where the default 24h TTL would
+        expire mid-run, forcing redundant re-queries of the same journals.
+
+        Args:
+            hours: TTL in hours to apply to all backends that support it
+        """
+        self._cache_ttl_hours_override = hours
 
     async def assess_journal(self, query_input: QueryInput) -> AssessmentResult:
         """Assess a journal using all enabled backends.
@@ -740,7 +752,7 @@ class QueryDispatcher:
                 backend_config = self.config_manager.get_backend_config(backend_name)
 
                 # Build configuration parameters for backend creation
-                config_params = {}
+                config_params: dict[str, Any] = {}
                 if backend_config:
                     if backend_config.email:
                         config_params["email"] = backend_config.email
@@ -750,6 +762,10 @@ class QueryDispatcher:
                         config_params["cache_ttl_hours"] = backend_config.config[
                             "cache_ttl_hours"
                         ]
+
+                # Apply global TTL override (e.g. set by mass-eval for multi-day runs)
+                if self._cache_ttl_hours_override is not None:
+                    config_params["cache_ttl_hours"] = self._cache_ttl_hours_override
 
                 # Create backend with configuration (custom config vs defaults)
                 if config_params:

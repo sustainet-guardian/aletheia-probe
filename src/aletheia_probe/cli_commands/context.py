@@ -59,6 +59,7 @@ class AsyncMassEvalMain(Protocol):
         max_concurrency: int,
         checkpoint_interval_seconds: int = ...,
         collect_cache_file: str | None = ...,
+        cache_ttl_hours: int = ...,
     ) -> Coroutine[Any, Any, None]: ...
 
 
