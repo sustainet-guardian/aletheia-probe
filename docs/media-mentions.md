@@ -1,6 +1,6 @@
 # Aletheia-Probe Media Mentions
 
-Last updated: **February 15, 2026**
+Last updated: **March 8, 2026**
 
 This document summarizes known media and institutional mentions of Aletheia-Probe from early February 2026. All links below are directly clickable.
 
@@ -14,9 +14,13 @@ This document summarizes known media and institutional mentions of Aletheia-Prob
    Link: [https://pitt.libguides.com/academic-publishing/venue](https://pitt.libguides.com/academic-publishing/venue)  
    This institutional guide includes Aletheia-Probe in its "Checklists and Tools" section alongside Think. Check. Submit., Be iNFORMEd, and MIAR. It describes Aletheia-Probe as an open-source, multi-source assessment tool and points readers to the README for usage details. This is a clear university-library reference for practical venue-evaluation workflows.
 
-3. **Dementia Researcher / NIHR (2026-02-03, Nature Careers repost/adaptation)**  
-   Link: [https://www.dementiaresearcher.nihr.ac.uk/is-this-journal-legitimate-this-tool-can-help-you-decide](https://www.dementiaresearcher.nihr.ac.uk/is-this-journal-legitimate-this-tool-can-help-you-decide)  
+3. **Dementia Researcher / NIHR (2026-02-03, Nature Careers repost/adaptation)**
+   Link: [https://www.dementiaresearcher.nihr.ac.uk/is-this-journal-legitimate-this-tool-can-help-you-decide](https://www.dementiaresearcher.nihr.ac.uk/is-this-journal-legitimate-this-tool-can-help-you-decide)
    This page republishes/adapts the Nature Careers coverage for a research-community audience. It retains the main points on predatory-journal risk, multi-source evidence, and confidence-scored outputs, while repeating the usability caution around command-line workflows. This should be classified as secondary distribution rather than independent reporting.
+
+4. **University of New Hampshire Library (LibGuide: "Responsible Conduct of Research & Scholarly Activity")**
+   Link: [https://libraryguides.unh.edu/RCR](https://libraryguides.unh.edu/RCR)
+   This institutional research guide provides resources on responsible conduct of research and scholarly activity. Under its "In the News 2026" section, it references the Nature article "Is the journal legitimate? Aletheia-Probe can help you decide" (2/2/2026), indicating institutional awareness and potential integration into research integrity guidance workflows.
 
 ## Part 2 - News
 
@@ -40,6 +44,10 @@ This document summarizes known media and institutional mentions of Aletheia-Prob
    Link: [https://librarylearningspace.com/open-source-tool-to-help-assess-predatory-journals-and-conferences/](https://librarylearningspace.com/open-source-tool-to-help-assess-predatory-journals-and-conferences/)  
    This outlet lists Aletheia-Probe in its Research Support coverage and summarizes the same core narrative seen in early February reporting. It presents the tool as an open-source aid for evaluating predatory journals and conferences, with emphasis on practical researcher guidance. This should be classified as secondary distribution coverage rather than primary technical reporting.
 
-6. **WorldNews (WN) aggregator (posted 2026-02-03, source-attributed to Phys.org)**  
-   Link: [https://article.wn.com/view/2026/02/03/Openaccess_software_tool_helps_researchers_spot_fake_journal](https://article.wn.com/view/2026/02/03/Openaccess_software_tool_helps_researchers_spot_fake_journal)  
+6. **WorldNews (WN) aggregator (posted 2026-02-03, source-attributed to Phys.org)**
+   Link: [https://article.wn.com/view/2026/02/03/Openaccess_software_tool_helps_researchers_spot_fake_journal](https://article.wn.com/view/2026/02/03/Openaccess_software_tool_helps_researchers_spot_fake_journal)
    This is an aggregator-style snippet attributed to the Phys.org story. It repeats the main message on explainable scoring for legitimacy checks, with limited visible text and no additional technical reporting. This should be classified as syndicated distribution coverage.
+
+7. **Scribd / How to find fake papers (educational guide)**
+   Link: [https://www.scribd.com/document/1004701045/How-to-find-fake-papers](https://www.scribd.com/document/1004701045/How-to-find-fake-papers)
+   This educational guide discusses tools and techniques for identifying fraudulent research papers. The document references various integrity tools and detection methods, positioning them within a broader framework for spotting problematic papers, including paper mills, tortured phrases, and suspicious affiliations. The guide includes the Collection of Open Science Integrity Guides (COSIG) and mentions tools that science sleuths use for verification workflows.
