@@ -147,9 +147,7 @@ class BibtexParser:
                     if bibtex_entry.state == "preprint":
                         detail_logger.debug(f"Preprint entry: {entry_key}")
                 except Exception as e:
-                    status_logger.warning(
-                        f"Error processing entry '{entry_key}': {e}"
-                    )
+                    status_logger.warning(f"Error processing entry '{entry_key}': {e}")
                     all_entries.append(
                         BibtexEntry(
                             key=entry_key,
