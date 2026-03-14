@@ -11,7 +11,12 @@ from pybtex import errors as pybtex_errors  # type: ignore
 from pybtex.database import (  # type: ignore
     BibliographyData,
     Entry,
+    InvalidNameString,
+    Person,
     parse_file,
+    report_error,
+    scan_bibtex_string,
+    split_tex_string,
 )
 from pybtex.scanner import PybtexError, PybtexSyntaxError  # type: ignore
 
@@ -19,6 +24,103 @@ from .cache import AcronymCache
 from .constants import DEFAULT_ACRONYM_CONFIDENCE_MIN
 from .logging_config import get_detail_logger, get_status_logger
 from .models import BibtexEntry, VenueType
+
+
+# ---------------------------------------------------------------------------
+# Monkey-patch for pybtex bug: Person._parse_string contains a nested
+# function `find_pos` that returns `i + 1` after a for-loop.  When the
+# input list is empty the loop variable `i` is never assigned, causing an
+# UnboundLocalError on Python 3.12+.  The correct return value when no
+# predicate match is found is len(lst).
+#
+# Upstream report: https://codeberg.org/pybtex/pybtex/issues/25
+# Fixed in pybtex: not yet released as of 0.25.1
+# ---------------------------------------------------------------------------
+def _patched_parse_string(self: Person, name: str) -> None:
+    """Replacement for Person._parse_string with find_pos bug fixed."""
+
+    def process_first_middle(parts: list[str]) -> None:
+        try:
+            self.first_names.append(parts[0])
+            self.middle_names.extend(parts[1:])
+        except IndexError:
+            pass
+
+    def process_von_last(parts: list[str]) -> None:
+        von_last = parts[:-1]
+        definitely_not_von = parts[-1:]
+        if von_last:
+            von, last = rsplit_at(von_last, is_von_name)
+            self.prelast_names.extend(von)
+            self.last_names.extend(last)
+        self.last_names.extend(definitely_not_von)
+
+    def find_pos(lst: list[str], pred: object) -> int:
+        # Fixed: original returns `i + 1` but `i` is unbound when lst is
+        # empty.  Return len(lst) to indicate "no match found".
+        for i, item in enumerate(lst):
+            if pred(item):  # type: ignore[operator]
+                return i
+        return len(lst)
+
+    def split_at(lst: list[str], pred: object) -> tuple[list[str], list[str]]:
+        pos = find_pos(lst, pred)
+        return lst[:pos], lst[pos:]
+
+    def rsplit_at(lst: list[str], pred: object) -> tuple[list[str], list[str]]:
+        rpos = find_pos(list(reversed(lst)), pred)
+        pos = len(lst) - rpos
+        return lst[:pos], lst[pos:]
+
+    def is_von_name(string: str) -> bool:
+        if string[0].isupper():
+            return False
+        if string[0].islower():
+            return True
+        for char, brace_level in scan_bibtex_string(string):
+            if brace_level == 0 and char.isalpha():
+                return bool(char.islower())
+            if brace_level == 1 and char.startswith("\\"):
+                return _special_char_islower(char)
+        return False
+
+    def _special_char_islower(special_char: str) -> bool:
+        control_sequence = True
+        for char in special_char[1:]:
+            if control_sequence:
+                if not char.isalpha():
+                    control_sequence = False
+            else:
+                if char.isalpha():
+                    return char.islower()
+        return False
+
+    parts = split_tex_string(name, ",")
+    if len(parts) > 3:
+        report_error(InvalidNameString(name))
+        last_parts = parts[2:]
+        parts = parts[:2] + [" ".join(last_parts)]
+
+    if len(parts) == 3:
+        process_von_last(split_tex_string(parts[0]))
+        self.lineage_names.extend(split_tex_string(parts[1]))
+        process_first_middle(split_tex_string(parts[2]))
+    elif len(parts) == 2:
+        process_von_last(split_tex_string(parts[0]))
+        process_first_middle(split_tex_string(parts[1]))
+    elif len(parts) == 1:
+        parts = split_tex_string(name)
+        first_middle, von_last = split_at(parts, is_von_name)
+        if not von_last and first_middle:
+            last = first_middle.pop()
+            von_last.append(last)
+        process_first_middle(first_middle)
+        process_von_last(von_last)
+    else:
+        raise ValueError(name)
+
+
+Person._parse_string = _patched_parse_string
 
 
 detail_logger = get_detail_logger()
