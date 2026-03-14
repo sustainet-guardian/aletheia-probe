@@ -388,7 +388,7 @@ def _load_or_init_state(
     return state
 
 
-class _null_context:
+class _NullContext:
     """No-op async context manager used when no files_lock is provided."""
 
     async def __aenter__(self) -> None:
@@ -814,7 +814,7 @@ async def _process_single_file(
         status_logger.info(
             f"File already complete by checkpoint: {file_path} (entries={len(entries)})"
         )
-        async with (files_lock if files_lock else _null_context()):
+        async with files_lock if files_lock else _NullContext():
             if file_key not in state.completed_files:
                 state.completed_files.append(file_key)
             state.failed_files.pop(file_key, None)
@@ -831,7 +831,7 @@ async def _process_single_file(
     ]
     if not pending_indices:
         _advance_file_progress(progress, completed_entry_indices, len(entries))
-        async with (files_lock if files_lock else _null_context()):
+        async with files_lock if files_lock else _NullContext():
             if file_key not in state.completed_files:
                 state.completed_files.append(file_key)
             state.failed_files.pop(file_key, None)
@@ -1054,7 +1054,7 @@ async def _process_single_file(
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
 
-    async with (files_lock if files_lock else _null_context()):
+    async with files_lock if files_lock else _NullContext():
         if file_key not in state.completed_files:
             state.completed_files.append(file_key)
         state.failed_files.pop(file_key, None)
@@ -1179,9 +1179,7 @@ async def _async_mass_eval_main(
             async with semaphore:
                 async with files_lock:
                     state.current_file = str(bib_file)
-                status_logger.info(
-                    f"[{index}/{total_pending}] Processing {bib_file}"
-                )
+                status_logger.info(f"[{index}/{total_pending}] Processing {bib_file}")
                 try:
                     await _process_single_file(
                         file_path=bib_file,
@@ -1213,9 +1211,7 @@ async def _async_mass_eval_main(
                         )
                         file_progress["last_error"] = str(e)
                     status_logger.error(f"Failed processing {bib_file}: {e}")
-                    detail_logger.exception(
-                        f"mass-eval file failure: {bib_file}: {e}"
-                    )
+                    detail_logger.exception(f"mass-eval file failure: {bib_file}: {e}")
 
         with ProcessPoolExecutor(
             max_workers=max_parallel_files,
