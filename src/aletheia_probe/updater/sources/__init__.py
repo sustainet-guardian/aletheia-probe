@@ -6,6 +6,7 @@ from .bealls import BeallsListSource
 from .core import CoreConferenceSource, CoreJournalSource
 from .custom import CustomListSource
 from .dblp import DblpVenueSource
+from .doaj import DOAJSource
 from .kscien_generic import KscienGenericSource
 from .kscien_hijacked_journals import KscienHijackedJournalsSource
 from .kscien_publishers import KscienPublishersSource
@@ -30,6 +31,7 @@ __all__ = [
     "CoreConferenceSource",
     "CoreJournalSource",
     "DblpVenueSource",
+    "DOAJSource",
     "KscienGenericSource",
     "KscienHijackedJournalsSource",
     "KscienPublishersSource",

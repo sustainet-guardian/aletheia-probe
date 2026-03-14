@@ -11,6 +11,7 @@ from .context import CoreCommandContext
 
 
 RUNTIME_MODE_ENV_BY_BACKEND: dict[str, str] = {
+    "doaj": "DOAJ_MODE",
     "openalex_analyzer": "OPENALEX_MODE",
     "opencitations_analyzer": "OPENCITATIONS_MODE",
 }
