@@ -1873,9 +1873,13 @@ class TestAsyncMain:
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch(
+                "aletheia_probe.cli_logic.network._fetch_https_json",
+                new=AsyncMock(return_value=release_payload),
+            ),
+            patch(
                 "aletheia_probe.cli._fetch_https_json",
-                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
-            ) as mock_fetch_json,
+                new=AsyncMock(return_value=dataset_payload),
+            ),
         ):
             mock_cache = MagicMock()
             mock_cache.import_acronyms.return_value = 1
@@ -1913,9 +1917,13 @@ class TestAsyncMain:
         with (
             patch("aletheia_probe.cli.AcronymCache") as mock_acronym_cache,
             patch(
+                "aletheia_probe.cli_logic.network._fetch_https_json",
+                new=AsyncMock(return_value=release_payload),
+            ),
+            patch(
                 "aletheia_probe.cli._fetch_https_json",
-                new=AsyncMock(side_effect=[release_payload, dataset_payload]),
-            ) as mock_fetch_json,
+                new=AsyncMock(return_value=dataset_payload),
+            ),
         ):
             mock_cache = MagicMock()
             mock_cache.import_acronyms.return_value = 1

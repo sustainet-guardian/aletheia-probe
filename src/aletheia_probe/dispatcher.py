@@ -98,6 +98,7 @@ class QueryDispatcher:
         self.journal_cache = JournalCache()
         self.lookup_service = VenueLookupService(journal_cache=self.journal_cache)
         self._cache_ttl_hours_override: int | None = None
+        self._backend_cache: dict[str, Backend] = {}
 
     def set_cache_ttl_hours_override(self, hours: int) -> None:
         """Override cache TTL for all backends.
@@ -768,10 +769,16 @@ class QueryDispatcher:
                     config_params["cache_ttl_hours"] = self._cache_ttl_hours_override
 
                 # Create backend with configuration (custom config vs defaults)
+                # Backends are cached to avoid recreating them on every call.
                 if config_params:
-                    backend = backend_registry.create_backend(
-                        backend_name, **config_params
-                    )
+                    cache_key = f"{backend_name}:{sorted(config_params.items())}"
+                    if cache_key not in self._backend_cache:
+                        self._backend_cache[cache_key] = (
+                            backend_registry.create_backend(
+                                backend_name, **config_params
+                            )
+                        )
+                    backend = self._backend_cache[cache_key]
                 else:
                     backend = backend_registry.get_backend(backend_name)
 

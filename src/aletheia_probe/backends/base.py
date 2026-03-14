@@ -598,6 +598,7 @@ class BackendRegistry:
     def __init__(self) -> None:
         self._factories: dict[str, Callable[..., Backend]] = {}
         self._default_configs: dict[str, dict[str, Any]] = {}
+        self._instances: dict[str, Backend] = {}
 
     def register_factory(
         self,
@@ -686,8 +687,10 @@ class BackendRegistry:
             return set()
 
     def get_backend(self, name: str) -> Backend:
-        """Get a backend by name with default configuration."""
-        return self.create_backend(name)
+        """Get a backend by name with default configuration, creating it once."""
+        if name not in self._instances:
+            self._instances[name] = self.create_backend(name)
+        return self._instances[name]
 
     def get_backend_names(self) -> list[str]:
         """Get names of all registered backends."""
