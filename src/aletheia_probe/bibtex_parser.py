@@ -6,7 +6,6 @@ from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
 from pybtex import errors as pybtex_errors  # type: ignore
 from pybtex.database import (  # type: ignore
