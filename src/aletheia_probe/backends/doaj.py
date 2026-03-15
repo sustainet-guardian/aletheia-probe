@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """DOAJ (Directory of Open Access Journals) backend for legitimate journal verification."""
 
-from typing import Any
+import os
+from typing import Any, cast
 from urllib.parse import quote
 
 import aiohttp
@@ -25,8 +26,9 @@ from ..models import (
     VenueType,
 )
 from ..retry_utils import async_retry_with_backoff
+from ..updater.sources.doaj import DOAJSource
 from ..utils.dead_code import code_is_used
-from .base import ApiBackendWithCache, get_backend_registry
+from .base import ApiBackendWithCache, ConfiguredCachedBackend, get_backend_registry
 from .fallback_mixin import FallbackStrategyMixin
 
 
@@ -358,9 +360,48 @@ class DOAJBackend(ApiBackendWithCache, FallbackStrategyMixin):
         )
 
 
+class DOAJLocalBackend(ConfiguredCachedBackend):
+    """DOAJ backend registered in the backend registry.
+
+    Always registered so that ``aletheia-probe sync doaj`` works regardless of
+    ``DOAJ_MODE``.  At query time the mode is checked:
+
+    - ``DOAJ_MODE=local``   → query the local SQLite cache (populated by sync)
+    - ``DOAJ_MODE=remote`` (default) → delegate to :class:`DOAJBackend` (HTTP API)
+
+    The CSV file for local mode must be placed in ``.aletheia-probe/doaj/`` in
+    the current working directory and imported via ``aletheia-probe sync doaj``.
+    """
+
+    def __init__(self, remote_cache_ttl_hours: int = 24) -> None:
+        super().__init__(
+            backend_name="doaj",
+            list_type=AssessmentType.LEGITIMATE,
+            evidence_type=EvidenceType.LEGITIMATE_LIST,
+            cache_ttl_hours=24 * 30,  # Monthly cache for static file
+            data_source_factory=lambda: DOAJSource(),
+        )
+        self._remote_cache_ttl_hours = remote_cache_ttl_hours
+        self._remote_backend: DOAJBackend | None = None
+
+    def _get_remote_backend(self) -> DOAJBackend:
+        if self._remote_backend is None:
+            self._remote_backend = DOAJBackend(
+                cache_ttl_hours=self._remote_cache_ttl_hours
+            )
+        return self._remote_backend
+
+    async def query(self, query_input: QueryInput) -> BackendResult:
+        """Query local cache when DOAJ_MODE=local, otherwise use HTTP API."""
+        mode = os.environ.get("DOAJ_MODE", "remote").strip().lower()
+        if mode == "local":
+            return cast(BackendResult, await super().query(query_input))
+        return await self._get_remote_backend().query(query_input)
+
+
 # Register the backend with factory for configuration support
 get_backend_registry().register_factory(
     "doaj",
-    lambda cache_ttl_hours=24: DOAJBackend(cache_ttl_hours=cache_ttl_hours),
+    lambda cache_ttl_hours=24: DOAJLocalBackend(remote_cache_ttl_hours=cache_ttl_hours),
     default_config={"cache_ttl_hours": 24},
 )
