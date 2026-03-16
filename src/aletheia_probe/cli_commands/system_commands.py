@@ -6,16 +6,9 @@ import sys
 
 import click
 
+from ..constants import RUNTIME_MODE_ENV_BY_BACKEND
 from ..logging_config import get_status_logger
 from .context import CoreCommandContext
-
-
-RUNTIME_MODE_ENV_BY_BACKEND: dict[str, str] = {
-    "crossref_analyzer": "CROSSREF_MODE",
-    "doaj": "DOAJ_MODE",
-    "openalex_analyzer": "OPENALEX_MODE",
-    "opencitations_analyzer": "OPENCITATIONS_MODE",
-}
 
 
 def register_system_commands(main: click.Group, context: CoreCommandContext) -> None:

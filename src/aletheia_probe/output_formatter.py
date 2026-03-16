@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Enhanced output formatting for journal assessment results."""
 
+import os
+
+from .constants import RUNTIME_MODE_ENV_BY_BACKEND
 from .enums import AssessmentType
 from .models import AssessmentResult, BackendResult, BackendStatus
 
@@ -254,12 +257,18 @@ class OutputFormatter:
                 else ("✗" if backend_result.status == BackendStatus.NOT_FOUND else "⚠")
             )
             cache_indicator = " [cached]" if backend_result.cached else ""
+            mode_env = RUNTIME_MODE_ENV_BY_BACKEND.get(backend_result.backend_name)
+            mode_indicator = (
+                f" [{os.environ.get(mode_env, 'remote').strip().lower() or 'remote'}]"
+                if mode_env and not backend_result.cached
+                else ""
+            )
             timing_info = ""
             if backend_result.execution_time_ms is not None:
                 timing_info = f" ({backend_result.execution_time_ms:.2f}ms)"
 
             lines.append(
-                f"  {status_emoji} {backend_result.backend_name}: {backend_result.status.value}{cache_indicator}{timing_info}"
+                f"  {status_emoji} {backend_result.backend_name}: {backend_result.status.value}{cache_indicator}{mode_indicator}{timing_info}"
             )
 
             if backend_result.assessment:
