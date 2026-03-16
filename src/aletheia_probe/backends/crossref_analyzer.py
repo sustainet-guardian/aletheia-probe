@@ -2,6 +2,7 @@
 """Crossref backend with metadata quality analysis for predatory journal detection."""
 
 import asyncio
+import os
 from typing import Any
 
 import aiohttp
@@ -79,6 +80,75 @@ _REDUCTION_FACTOR = 0.8
 _DOI_MEDIUM_RANGE_MULTIPLIER = 100
 _YEARS_THRESHOLD_RECENT = 3
 _YEARS_THRESHOLD_EXPLOSION = 2
+
+
+class _CrossrefHttpClient:
+    """Thin async wrapper around the live Crossref REST API."""
+
+    def __init__(self, email: str, base_url: str, headers: dict[str, str]) -> None:
+        self._email = email
+        self._base_url = base_url
+        self._headers = headers
+
+    async def __aenter__(self) -> "_CrossrefHttpClient":
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        pass
+
+    @async_retry_with_backoff(
+        max_retries=3,
+        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
+    )
+    async def get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:
+        """Get journal data by ISSN from the live Crossref API."""
+        url = f"{self._base_url}/journals/{issn}"
+        async with aiohttp.ClientSession(
+            headers=self._headers,
+            timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT),
+            trust_env=True,
+        ) as session:
+            async with session.get(url) as response:
+                _check_rate_limit_response(response)
+                if response.status == 200:
+                    data = await response.json()
+                    message = data.get("message", {})
+                    return message if isinstance(message, dict) else {}
+                elif response.status == 404:
+                    return None
+                else:
+                    error_text = await response.text()
+                    raise BackendError(
+                        f"Crossref API returned status {response.status}. Response: {error_text[:200]}",
+                        backend_name="crossref_analyzer",
+                    )
+
+
+def _check_rate_limit_response(response: aiohttp.ClientResponse) -> None:
+    """Raise RateLimitError if the response indicates rate limiting."""
+    if response.status == 429:
+        raise RateLimitError("Crossref API rate limit exceeded")
+
+
+def create_crossref_client(
+    email: str, base_url: str, headers: dict[str, str]
+) -> "_CrossrefHttpClient | Any":
+    """Return the appropriate Crossref client based on CROSSREF_MODE env var.
+
+    When ``CROSSREF_MODE=local`` the adapter backed by the local PostgreSQL DB
+    is returned; otherwise the live HTTP client is used.
+    """
+    mode = os.environ.get("CROSSREF_MODE", "remote")
+    if mode == "local":
+        try:
+            from aletheia_crossref_adapter import LocalCrossrefAdapter  # noqa: PLC0415
+
+            return LocalCrossrefAdapter()
+        except ImportError as exc:
+            raise ImportError(
+                "CROSSREF_MODE=local requires the aletheia-crossref-adapter package to be installed"
+            ) from exc
+    return _CrossrefHttpClient(email=email, base_url=base_url, headers=headers)
 
 
 class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
@@ -197,7 +267,11 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             Journal data if found, None if no match
         """
         self.detail_logger.debug(f"Crossref: Searching by ISSN {issn}")
-        return await self._get_journal_by_issn(issn)
+        async with create_crossref_client(
+            self.email, self.base_url, self.headers
+        ) as client:
+            result: dict[str, Any] | None = await client.get_journal_by_issn(issn)
+            return result
 
     @code_is_used  # Overrides FallbackStrategyMixin method
     async def _search_by_name(self, name: str, exact: bool = True) -> Any | None:
@@ -212,37 +286,6 @@ class CrossrefAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
         """
         # Crossref API only supports ISSN-based journal lookup, not name search
         return None
-
-    @async_retry_with_backoff(
-        max_retries=3,
-        exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
-    )
-    async def _get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:
-        """Get journal data by ISSN from Crossref API."""
-        url = f"{self.base_url}/journals/{issn}"
-        self.detail_logger.debug(f"Crossref API request: GET {url}")
-
-        async with aiohttp.ClientSession(
-            headers=self.headers,
-            timeout=aiohttp.ClientTimeout(total=_API_TIMEOUT),
-            trust_env=True,
-        ) as session:
-            async with session.get(url) as response:
-                self.detail_logger.debug(f"Crossref API response: {response.status}")
-                self._check_rate_limit_response(response)
-
-                if response.status == 200:
-                    data = await response.json()
-                    message = data.get("message", {})
-                    return message if isinstance(message, dict) else {}
-                elif response.status == 404:
-                    return None
-                else:
-                    error_text = await response.text()
-                    raise BackendError(
-                        f"Crossref API returned status {response.status}. Response: {error_text[:200]}",
-                        backend_name=self.get_name(),
-                    )
 
     # Result building methods for automatic fallback framework
     def _build_success_result_with_chain(
