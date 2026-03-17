@@ -79,7 +79,6 @@ def _build_base_row(record: dict[str, Any]) -> dict[str, Any]:
             rate_limited_count += 1
 
     return {
-        "record_id": record.get("record_id"),
         "entry_key": record.get("entry_key"),
         "venue_raw": record.get("venue_raw"),
         "venue_type": record.get("venue_type"),
@@ -126,7 +125,6 @@ def condense_jsonl_to_csv(
     backend_names = _collect_backend_names(input_path)
 
     base_fields = [
-        "record_id",
         "entry_key",
         "venue_raw",
         "venue_type",
