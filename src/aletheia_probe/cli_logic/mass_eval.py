@@ -457,6 +457,47 @@ def _build_minimal_record(
     }
 
 
+def _enrich_issn_from_backends(
+    entry_issn: str | None,
+    entry_eissn: str | None,
+    backend_results: list[Any],
+) -> tuple[str | None, str | None]:
+    """Return (issn, eissn) enriched from backend discoveries when input had none.
+
+    Priority: CrossRef (distinguishes print/electronic) → OpenAlex.
+    Input values are returned unchanged if already set.
+    """
+    issn = entry_issn
+    eissn = entry_eissn
+
+    for result in backend_results:
+        if result.status != BackendStatus.FOUND:
+            continue
+        data = result.data or {}
+
+        if result.backend_name == "crossref_analyzer":
+            issn_types = (data.get("crossref_data") or {}).get("issn-type", [])
+            for issn_entry in issn_types:
+                value = issn_entry.get("value")
+                if not value:
+                    continue
+                if issn_entry.get("type") == "print" and not issn:
+                    issn = value
+                elif issn_entry.get("type") == "electronic" and not eissn:
+                    eissn = value
+            if issn or eissn:
+                break
+
+        elif result.backend_name == "openalex_analyzer":
+            oa = data.get("openalex_data") or {}
+            issns = oa.get("issns") or []
+            if not issn and issns:
+                issn = issns[0]
+            # openalex doesn't distinguish print/electronic, skip eissn
+
+    return issn, eissn
+
+
 def _build_assess_record(
     file_path: Path,
     entry: Any,
@@ -479,6 +520,10 @@ def _build_assess_record(
 
     has_conflict = predatory_votes > 0 and legitimate_votes > 0
 
+    enriched_issn, enriched_eissn = _enrich_issn_from_backends(
+        entry.issn, getattr(entry, "eissn", None), backend_results
+    )
+
     predatory_list_hits = [
         result.backend_name
         for result in backend_results
@@ -494,8 +539,8 @@ def _build_assess_record(
         "entry_key": entry.key,
         "venue_raw": entry.journal_name,
         "venue_type": entry.venue_type.value,
-        "issn": entry.issn,
-        "eissn": getattr(entry, "eissn", None),
+        "issn": enriched_issn,
+        "eissn": enriched_eissn,
         "doi": entry.doi,
         "state": "assessed",
         "state_reason": None,
