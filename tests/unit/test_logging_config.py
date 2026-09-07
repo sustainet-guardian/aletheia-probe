@@ -2,6 +2,7 @@
 """Tests for the logging configuration module."""
 
 import logging
+import logging.handlers
 import re
 import sys
 from io import StringIO
@@ -16,6 +17,7 @@ from aletheia_probe.logging_config import (
     get_detail_logger,
     get_status_logger,
     setup_logging,
+    shutdown_logging,
 )
 
 
@@ -34,7 +36,9 @@ def reset_logging():
     Only clears the detail and status loggers, which are the only loggers
     the application should use.
     """
-    # Clear all existing handlers before test
+    # Retire a listener left over from a previous test, then clear handlers
+    shutdown_logging()
+
     detail_logger = logging.getLogger(DETAIL_LOGGER_NAME)
     for handler in detail_logger.handlers[:]:
         handler.close()
@@ -48,12 +52,28 @@ def reset_logging():
     yield
 
     # Cleanup after test
+    shutdown_logging()
     for handler in detail_logger.handlers[:]:
         handler.close()
     detail_logger.handlers.clear()
     for handler in status_logger.handlers[:]:
         handler.close()
     status_logger.handlers.clear()
+
+
+def _listener_file_handler() -> logging.FileHandler:
+    """Return the FileHandler owned by the active QueueListener.
+
+    setup_logging attaches a QueueHandler to the loggers; the FileHandler that
+    actually writes lives on the listener behind that queue.
+    """
+    from aletheia_probe import logging_config
+
+    listener = logging_config._listener
+    assert listener is not None, "setup_logging() started no QueueListener"
+    handlers = [h for h in listener.handlers if isinstance(h, logging.FileHandler)]
+    assert len(handlers) == 1
+    return handlers[0]
 
 
 class TestSetupLogging:
@@ -97,11 +117,14 @@ class TestSetupLogging:
         # Verify propagate is disabled
         assert detail_logger.propagate is False
 
-        # Verify handlers (should have 1 file handler)
+        # File writes go through a QueueHandler feeding a background
+        # QueueListener, so the logger itself carries no FileHandler.
         assert len(detail_logger.handlers) == 1
         handler = detail_logger.handlers[0]
-        assert isinstance(handler, logging.FileHandler)
-        assert handler.level == logging.DEBUG
+        assert isinstance(handler, logging.handlers.QueueHandler)
+
+        # The FileHandler behind the queue must still accept DEBUG.
+        assert _listener_file_handler().level == logging.DEBUG
 
     def test_status_logger_configuration(self, temp_log_dir) -> None:
         """Test that status logger is configured correctly."""
@@ -116,42 +139,43 @@ class TestSetupLogging:
         # Verify handlers (should have 2: console + file)
         assert len(status_logger.handlers) == 2
 
-        # Check handler types
+        # Check handler types: console directly, file via the queue
         handler_types = {type(h).__name__ for h in status_logger.handlers}
         assert "FlushingStreamHandler" in handler_types
-        assert "FileHandler" in handler_types
+        assert "QueueHandler" in handler_types
 
     def test_detail_logger_writes_to_file_only(self, temp_log_dir) -> None:
         """Test that detail logger writes to file but not to console."""
         detail_logger, _ = setup_logging(temp_log_dir)
 
-        # Detail logger should only have file handler
-        # FileHandler is a subclass of StreamHandler, so we need to check specifically
+        # Detail logger reaches the file through the queue only
         assert len(detail_logger.handlers) == 1
         handler = detail_logger.handlers[0]
-        assert isinstance(handler, logging.FileHandler)
-        # Ensure it's not writing to stderr/stdout
-        assert handler.stream.name != "<stderr>"
-        assert handler.stream.name != "<stdout>"
+        assert isinstance(handler, logging.handlers.QueueHandler)
+
+        # The listener behind it writes to the log file, not to a console stream
+        stream = _listener_file_handler().stream
+        assert stream.name != "<stderr>"
+        assert stream.name != "<stdout>"
+        assert stream.name == str(temp_log_dir / "aletheia-probe.log")
 
     def test_status_logger_writes_to_console_and_file(self, temp_log_dir) -> None:
         """Test that status logger writes to both console and file."""
         _, status_logger = setup_logging(temp_log_dir)
 
-        # Status logger should have both stream and file handlers
-        # Note: FileHandler is a subclass of StreamHandler, so we need to filter it out
+        # Status logger writes to the console directly, to the file via queue
         stream_handlers = [
+            h for h in status_logger.handlers if isinstance(h, logging.StreamHandler)
+        ]
+        queue_handlers = [
             h
             for h in status_logger.handlers
-            if isinstance(h, logging.StreamHandler)
-            and not isinstance(h, logging.FileHandler)
-        ]
-        file_handlers = [
-            h for h in status_logger.handlers if isinstance(h, logging.FileHandler)
+            if isinstance(h, logging.handlers.QueueHandler)
         ]
 
         assert len(stream_handlers) == 1  # FlushingStreamHandler (console output)
-        assert len(file_handlers) == 1
+        assert len(queue_handlers) == 1
+        assert isinstance(_listener_file_handler(), logging.FileHandler)
 
     def test_log_file_format(self, temp_log_dir) -> None:
         """Test that log file uses correct format."""
@@ -159,6 +183,9 @@ class TestSetupLogging:
 
         test_message = "Test message for format verification"
         detail_logger.info(test_message)
+
+        # The listener thread does the writing, so drain it before reading.
+        shutdown_logging()
 
         log_file = temp_log_dir / "aletheia-probe.log"
         log_content = log_file.read_text()
@@ -195,7 +222,9 @@ class TestSetupLogging:
         # First setup and write
         detail_logger1, _ = setup_logging(temp_log_dir)
         detail_logger1.info("First message")
+        shutdown_logging()
         first_content = log_file.read_text()
+        assert "First message" in first_content
 
         # Reset logging
         for handler in detail_logger1.handlers[:]:
@@ -205,6 +234,7 @@ class TestSetupLogging:
         # Second setup and write
         detail_logger2, _ = setup_logging(temp_log_dir)
         detail_logger2.info("Second message")
+        shutdown_logging()
         second_content = log_file.read_text()
 
         # First message should not be in second content (file was overwritten)
@@ -226,6 +256,7 @@ class TestSetupLogging:
     def test_setup_logging_writes_initialization_messages(self, temp_log_dir) -> None:
         """Test that setup_logging writes initialization messages to detail logger."""
         setup_logging(temp_log_dir)
+        shutdown_logging()
 
         log_file = temp_log_dir / "aletheia-probe.log"
         log_content = log_file.read_text()
@@ -241,6 +272,7 @@ class TestSetupLogging:
 
         debug_message = "Debug level message"
         detail_logger.debug(debug_message)
+        shutdown_logging()
 
         log_file = temp_log_dir / "aletheia-probe.log"
         log_content = log_file.read_text()
@@ -270,6 +302,8 @@ class TestSetupLogging:
             status_logger.info(info_message)
 
             console_output = mock_stderr.getvalue()
+
+            shutdown_logging()
             log_file = temp_log_dir / "aletheia-probe.log"
             file_content = log_file.read_text()
 
@@ -284,6 +318,7 @@ class TestSetupLogging:
         # Log message with non-ASCII characters
         unicode_message = "Test message with Unicode: 日本語 français €"
         detail_logger.info(unicode_message)
+        shutdown_logging()
 
         log_file = temp_log_dir / "aletheia-probe.log"
         log_content = log_file.read_text(encoding="utf-8")
@@ -410,6 +445,7 @@ class TestLoggerIntegration:
 
         detail_logger.info(detail_message)
         status_logger.info(status_message)
+        shutdown_logging()
 
         log_file = temp_log_dir / "aletheia-probe.log"
         log_content = log_file.read_text()

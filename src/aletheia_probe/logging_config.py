@@ -8,16 +8,51 @@ This module provides a dual-logger system:
 
 from __future__ import annotations
 
+import atexit
 import logging
 import logging.handlers
 import queue
 import sys
+import threading
 from pathlib import Path
 
 
 # Logger names
 DETAIL_LOGGER_NAME = "aletheia_probe.detail"
 STATUS_LOGGER_NAME = "aletheia_probe.status"
+
+# The QueueListener owning the file handler, plus the lock guarding it.
+# Kept at module level so it can be drained at exit and replaced on re-setup;
+# a listener that is merely started and forgotten loses every record still
+# queued when the process ends, because its monitor thread is a daemon.
+_listener: logging.handlers.QueueListener | None = None
+_listener_lock = threading.Lock()
+
+
+def shutdown_logging() -> None:
+    """Drain queued log records to the file and release the listener thread.
+
+    Registered via atexit, and called again by setup_logging() so repeated
+    setups do not leak a listener thread and an open file handle each time.
+    Safe to call when no listener is active.
+    """
+    global _listener
+
+    with _listener_lock:
+        listener, _listener = _listener, None
+
+    if listener is None:
+        return
+
+    # stop() drains the queue into the handlers, then joins the monitor thread.
+    listener.stop()
+    for handler in listener.handlers:
+        handler.close()
+
+
+# Runs before logging.shutdown() (atexit is LIFO and the logging module
+# registers its own handler at import time, i.e. earlier than this one).
+atexit.register(shutdown_logging)
 
 
 def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.Logger]:
@@ -45,11 +80,17 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     Returns:
         Tuple of (detail_logger, status_logger)
     """
+    global _listener
+
     if log_dir is None:
         log_dir = Path.cwd() / ".aletheia-probe"
 
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "aletheia-probe.log"
+
+    # Retire the listener from a previous setup_logging() call, flushing its
+    # pending records, so neither its thread nor its file handle leaks.
+    shutdown_logging()
 
     # Configure root logger to capture everything
     root_logger = logging.getLogger()
@@ -61,7 +102,7 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     # ── Real file handler (runs in the QueueListener thread, not the event loop) ──
     # Mode 'w' overwrites the file each time
     file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -80,10 +121,13 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
         respect_handler_level=True,
     )
     listener.start()
+    with _listener_lock:
+        _listener = listener
 
     # ===== Detail Logger Setup =====
+    # Verbose technical details, file only.
     detail_logger = logging.getLogger(DETAIL_LOGGER_NAME)
-    detail_logger.setLevel(logging.INFO)
+    detail_logger.setLevel(logging.DEBUG)
     for handler in detail_logger.handlers[:]:
         handler.close()
     detail_logger.handlers.clear()
