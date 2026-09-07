@@ -35,7 +35,11 @@ def test_normalize_html_unescape(normalizer):
 
 def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache, caplog):
     """
-    Test that store_acronym_mapping does not log a warning when overwriting with an equivalent name.
+    Test that store_acronym_mapping does not log a warning for an equivalent name.
+
+    On conflict the first mapping always wins (ON CONFLICT DO NOTHING), so a
+    later name never replaces the stored one: an equivalent spelling is
+    accepted silently, a genuinely different name is refused with a warning.
     """
     cache = AcronymCache(isolated_test_cache)
     acronym = "IJSRMS"
@@ -61,16 +65,13 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache, caplog
     # Check that no warning was logged
     assert len(caplog.records) == 0
 
-    # Verify that the mapping exists and is the second one (as it overwrites)
+    # The first mapping is kept. full_name2 is only an equivalent spelling of
+    # it, so the stored name matches either one after robust normalization.
     stored_name = cache.get_full_name_for_acronym(acronym, entity_type)
-    # The normalized name in the cache would be the one after _extract_conference_series and lower()
-    # Let's verify it matches the robustly normalized version of full_name2
-    norm_full_name2 = normalize_for_comparison(full_name2)
-    norm_stored_name = normalize_for_comparison(stored_name)
+    assert normalize_for_comparison(stored_name) == normalize_for_comparison(full_name1)
+    assert normalize_for_comparison(stored_name) == normalize_for_comparison(full_name2)
 
-    assert norm_stored_name == norm_full_name2
-
-    # Test with a different normalized name, should overwrite and possibly warn (if not equivalent)
+    # A genuinely different name conflicts and is refused with a warning
     full_name3 = "International Journal of Completely Different Research"
 
     caplog.clear()
@@ -83,7 +84,11 @@ def test_store_acronym_mapping_with_equivalent_names(isolated_test_cache, caplog
     assert len(caplog.records) > 0
     assert "already maps to" in caplog.text
 
+    # ... and the original mapping survives instead of being overwritten.
     stored_name_different = cache.get_full_name_for_acronym(acronym, entity_type)
     assert normalize_for_comparison(stored_name_different) == normalize_for_comparison(
+        full_name1
+    )
+    assert normalize_for_comparison(stored_name_different) != normalize_for_comparison(
         full_name3
     )
