@@ -87,6 +87,19 @@ jobs:
       run: |
         python scripts/check-logging.py
 
+    # The examples query CrossRef and OpenAlex for real. Without a contact
+    # address those APIs deny the polite pool and rate-limit us, which sends
+    # the backends into their retry paths and blows the example timeout.
+    - name: Configure polite-pool contact address
+      run: |
+        cat > config.yaml <<'YAML'
+        backends:
+          crossref_analyzer:
+            email: "ci@aletheia-probe.org"
+          openalex_analyzer:
+            email: "ci@aletheia-probe.org"
+        YAML
+
     - name: Check example execution
       run: |
         python scripts/check-examples.py
