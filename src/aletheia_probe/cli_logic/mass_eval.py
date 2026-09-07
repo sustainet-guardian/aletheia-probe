@@ -32,6 +32,9 @@ STATE_VERSION = 2
 CHECKPOINT_INTERVAL_SECONDS = 120
 RETRY_INITIAL_SECONDS = 15.0
 RETRY_MAX_SECONDS = 600.0
+# Consecutive TIMEOUTs from one backend after which its failures are treated
+# as systematic rather than transient, so an entry is not retried forever.
+MAX_CONSECUTIVE_BACKEND_TIMEOUTS = 5
 DEFAULT_MAX_CONCURRENCY = 1
 COLLECT_CACHE_FLUSH_BATCH_SIZE = 2000
 COLLECT_CACHE_FLUSH_INTERVAL_SECONDS = 30
@@ -632,10 +635,8 @@ async def _assess_with_retry(
     query_input = input_normalizer.normalize(venue_name)
     query_input.venue_type = venue_type
 
-    # Track consecutive TIMEOUT responses per backend to detect systematic (non-transient)
-    # failures.  After MAX_CONSECUTIVE_BACKEND_TIMEOUTS timeouts for the same backend we
-    # stop treating it as transient so the entry is not retried forever.
-    _MAX_CONSECUTIVE_BACKEND_TIMEOUTS = 5
+    # Track consecutive TIMEOUT responses per backend to detect systematic
+    # (non-transient) failures; see MAX_CONSECUTIVE_BACKEND_TIMEOUTS.
     _consecutive_timeouts: dict[str, int] = {}
 
     while True:
@@ -656,7 +657,8 @@ async def _assess_with_retry(
             f"{backend_result.backend_name}:{backend_result.status.value}"
             for backend_result in result.backend_results
             if backend_result.status in transient_statuses
-            and _consecutive_timeouts.get(backend_result.backend_name, 0) < _MAX_CONSECUTIVE_BACKEND_TIMEOUTS
+            and _consecutive_timeouts.get(backend_result.backend_name, 0)
+            < MAX_CONSECUTIVE_BACKEND_TIMEOUTS
         ]
         if not transient_backends:
             return result
