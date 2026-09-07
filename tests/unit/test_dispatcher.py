@@ -638,6 +638,43 @@ class TestQueryDispatcher:
         assert "AB agreement" in " ".join(reasoning)
         assert "AC agreement" in " ".join(reasoning)
 
+    def test_apply_cross_validation_describes_each_pair_once(self, dispatcher):
+        """Test that a pair is described once although both directions validate."""
+        backend_results = [
+            _make_backend_result("backend_a", confidence=0.5),
+            _make_backend_result("backend_b", confidence=0.6),
+        ]
+        reasoning: list[str] = []
+
+        with (
+            patch.object(
+                dispatcher.cross_validation_registry,
+                "get_registered_pairs",
+                return_value=[("backend_a", "backend_b")],
+            ),
+            patch.object(
+                dispatcher.cross_validation_registry,
+                "validate_pair",
+                return_value={
+                    "confidence_adjustment": 0.10,
+                    "reasoning": ["AB agreement"],
+                },
+            ),
+        ):
+            adjusted_results = dispatcher._apply_cross_validation(
+                backend_results, reasoning
+            )
+
+        # Both backends still receive their own confidence adjustment.
+        for name, expected in (("backend_a", 0.6), ("backend_b", 0.7)):
+            adjusted = next(r for r in adjusted_results if r.backend_name == name)
+            assert adjusted.confidence == pytest.approx(expected)
+
+        # ... but the shared reasoning describes the pair only once.
+        headers = [line for line in reasoning if line.startswith("Cross-validation (")]
+        assert headers == ["Cross-validation (backend_a ↔ backend_b):"]
+        assert reasoning.count("  AB agreement") == 1
+
     def test_apply_cross_validation_caps_total_adjustment(self, dispatcher):
         """Test that aggregated cross-validation adjustment is capped."""
         backend_results = [

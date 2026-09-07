@@ -518,6 +518,11 @@ class QueryDispatcher:
         adjusted_results = []
         max_total_adjustment = 0.25
 
+        # Each pair is validated once per participating backend (A↔B and B↔A) so
+        # that both backends receive their confidence adjustment. The reasoning
+        # list is shared across backends, so a pair must only be described once.
+        described_pairs: set[tuple[str, str]] = set()
+
         for result in backend_results:
             if result.status != BackendStatus.FOUND:
                 # Keep non-successful results unchanged
@@ -564,12 +569,20 @@ class QueryDispatcher:
                         f"adjustment={adjustment:+.3f}"
                     )
 
-                    # Add cross-validation reasoning
-                    if validation_result.get("reasoning"):
+                    # Add cross-validation reasoning, once per backend pair.
+                    # Validators normalize the argument order internally, so the
+                    # reasoning is identical for both directions of a pair.
+                    pair_key = (
+                        min(backend_name, other_result.backend_name),
+                        max(backend_name, other_result.backend_name),
+                    )
+                    if (
+                        validation_result.get("reasoning")
+                        and pair_key not in described_pairs
+                    ):
+                        described_pairs.add(pair_key)
                         reasoning.extend(
-                            [
-                                f"Cross-validation ({backend_name} ↔ {other_result.backend_name}):"
-                            ]
+                            [f"Cross-validation ({pair_key[0]} ↔ {pair_key[1]}):"]
                             + [
                                 f"  {reason}"
                                 for reason in validation_result["reasoning"][:3]
