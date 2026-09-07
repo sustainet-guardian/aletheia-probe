@@ -326,6 +326,7 @@ class OpenAlexAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
             Error BackendResult
         """
         import traceback as _traceback
+
         self.detail_logger.error(
             f"OpenAlex API error: {exception}\n"
             f"{''.join(_traceback.format_tb(exception.__traceback__))}"

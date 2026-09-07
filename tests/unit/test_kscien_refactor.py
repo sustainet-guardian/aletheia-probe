@@ -129,9 +129,7 @@ async def test_fetch_kscien_data_pagination(mock_session):
         }
     ]
 
-    def get_side_effect(
-        _url: str, *args: Any, **kwargs: Any
-    ) -> AsyncMock:
+    def get_side_effect(_url: str, *args: Any, **kwargs: Any) -> AsyncMock:
         page = kwargs["params"]["page"]
         if page == 2:
             return create_mock_response(page_2_items, total=3, total_pages=2)

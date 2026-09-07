@@ -69,9 +69,7 @@ async def fetch_kscien_data(
         A list of dictionaries, where each dictionary represents a fetched publication
         containing details such as journal name, source, and metadata.
     """
-    return await _fetch_kscien_rest_data(
-        session, publication_type, max_pages, get_name
-    )
+    return await _fetch_kscien_rest_data(session, publication_type, max_pages, get_name)
 
 
 async def _fetch_kscien_rest_data(
@@ -116,9 +114,7 @@ async def _fetch_kscien_rest_data(
                 publication
                 for item in page_items
                 if (
-                    publication := _parse_kscien_rest_item(
-                        item, page, publication_type
-                    )
+                    publication := _parse_kscien_rest_item(item, page, publication_type)
                 )
             ]
             publications.extend(page_publications)

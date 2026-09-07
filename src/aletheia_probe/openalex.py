@@ -88,9 +88,7 @@ class OpenAlexClient:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.session: aiohttp.ClientSession | None = None
 
-    def _with_auth_params(
-        self, params: dict[str, str | int]
-    ) -> dict[str, str | int]:
+    def _with_auth_params(self, params: dict[str, str | int]) -> dict[str, str | int]:
         """Return request params with OpenAlex authentication when configured."""
         if not self.api_key:
             return params

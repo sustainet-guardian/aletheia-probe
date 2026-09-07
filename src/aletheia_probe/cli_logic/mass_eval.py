@@ -648,7 +648,9 @@ async def _assess_with_retry(
         # Update per-backend consecutive timeout counters.
         for br in result.backend_results:
             if br.status == BackendStatus.TIMEOUT:
-                _consecutive_timeouts[br.backend_name] = _consecutive_timeouts.get(br.backend_name, 0) + 1
+                _consecutive_timeouts[br.backend_name] = (
+                    _consecutive_timeouts.get(br.backend_name, 0) + 1
+                )
             elif br.backend_name in _consecutive_timeouts:
                 del _consecutive_timeouts[br.backend_name]
 
@@ -981,7 +983,9 @@ async def _process_single_file(
                 await asyncio.to_thread(_append_jsonl_record, output_file, record)
                 existing_record_ids.add(record_id)
                 state.written_records += 1
-                progress["written_records"] = int(progress.get("written_records", 0)) + 1
+                progress["written_records"] = (
+                    int(progress.get("written_records", 0)) + 1
+                )
             state.processed_entries += 1
             completed_entry_indices.add(entry_index)
             _advance_file_progress(progress, completed_entry_indices, len(entries))
@@ -1004,7 +1008,9 @@ async def _process_single_file(
                 record_id = str(record["record_id"])
                 async with state_lock:
                     if record_id not in existing_record_ids:
-                        await asyncio.to_thread(_append_jsonl_record, output_file, record)
+                        await asyncio.to_thread(
+                            _append_jsonl_record, output_file, record
+                        )
                         existing_record_ids.add(record_id)
                         state.written_records += 1
                         progress["written_records"] = (
