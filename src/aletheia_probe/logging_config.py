@@ -113,10 +113,10 @@ def setup_logging(log_dir: Path | None = None) -> tuple[logging.Logger, logging.
     # Loggers attach QueueHandler; a background QueueListener thread does the
     # actual file write.  The event loop thread never blocks on file I/O.
     log_queue: queue.SimpleQueue[logging.LogRecord] = queue.SimpleQueue()
-    queue_handler = logging.handlers.QueueHandler(log_queue)  # type: ignore[arg-type]
+    queue_handler = logging.handlers.QueueHandler(log_queue)
 
     listener = logging.handlers.QueueListener(
-        log_queue,  # type: ignore[arg-type]
+        log_queue,
         file_handler,
         respect_handler_level=True,
     )
