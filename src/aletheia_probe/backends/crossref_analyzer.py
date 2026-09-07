@@ -98,6 +98,8 @@ class _CrossrefHttpClient:
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def get_journal_by_issn(self, issn: str) -> dict[str, Any] | None:

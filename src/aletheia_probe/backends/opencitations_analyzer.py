@@ -68,6 +68,8 @@ class OpenCitationsAnalyzerBackend(ApiBackendWithCache, FallbackStrategyMixin):
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def _fetch_venue_metrics_by_issn(self, issn: str) -> dict[str, Any] | None:

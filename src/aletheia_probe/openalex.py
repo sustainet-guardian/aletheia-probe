@@ -112,6 +112,8 @@ class OpenAlexClient:
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def get_source_by_issn(self, issn: str) -> dict[str, Any] | None:
@@ -236,6 +238,8 @@ class OpenAlexClient:
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def get_sources_by_name(
@@ -289,6 +293,8 @@ class OpenAlexClient:
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def get_source_by_name(
@@ -364,6 +370,8 @@ class OpenAlexClient:
 
     @async_retry_with_backoff(
         max_retries=3,
+        initial_delay=1.0,
+        max_delay=30.0,
         exceptions=(RateLimitError, aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def get_works_count_by_year(
