@@ -95,3 +95,62 @@ class TestDataSourceManager:
             assert result[-1] == "test_source"  # ds.name (last column)
             assert result[3] == UpdateStatus.SUCCESS.value  # status
             assert result[4] == 100  # records_added
+
+    def test_reregister_preserves_id_and_update_history(self, temp_cache):
+        """Test re-registering a source keeps its id and update history."""
+        first_id = temp_cache.register_data_source(
+            "doaj", "DOAJ", AssessmentType.LEGITIMATE.value
+        )
+        temp_cache.log_update(
+            "doaj",
+            UpdateType.FULL.value,
+            UpdateStatus.SUCCESS.value,
+            records_added=10,
+        )
+
+        second_id = temp_cache.register_data_source(
+            "doaj", "Directory of Open Access Journals", AssessmentType.LEGITIMATE.value
+        )
+
+        assert second_id == first_id
+        assert temp_cache.get_source_last_updated("doaj") is not None
+
+        with get_configured_connection(temp_cache.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM source_updates su
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM data_sources ds WHERE ds.id = su.source_id
+                )
+                """
+            )
+            assert cursor.fetchone()[0] == 0
+
+    def test_reregister_updates_metadata(self, temp_cache):
+        """Test re-registering a source refreshes metadata without new row."""
+        first_id = temp_cache.register_data_source(
+            "doaj", "DOAJ", AssessmentType.LEGITIMATE.value
+        )
+        second_id = temp_cache.register_data_source(
+            "doaj",
+            "Directory of Open Access Journals",
+            AssessmentType.LEGITIMATE.value,
+            base_url="https://doaj.org/",
+            description="Curated list",
+        )
+
+        assert second_id == first_id
+        with get_configured_connection(temp_cache.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT display_name, base_url, description FROM data_sources"
+                " WHERE name = ?",
+                ("doaj",),
+            )
+            row = cursor.fetchone()
+            assert row == (
+                "Directory of Open Access Journals",
+                "https://doaj.org/",
+                "Curated list",
+            )
