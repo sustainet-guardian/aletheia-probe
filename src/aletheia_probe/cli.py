@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from . import __version__
+from . import get_full_version
 from .backends import base as backend_base
 from .cache import (
     AcronymCache,
@@ -53,7 +53,7 @@ def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> No
     if value:
         setup_logging()
         status_logger = get_status_logger()
-        status_logger.info(f"Aletheia-Probe version {__version__}")
+        status_logger.info(f"Aletheia-Probe version {get_full_version()}")
         ctx.exit(0)
 
 

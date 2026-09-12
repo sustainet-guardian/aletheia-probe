@@ -11,6 +11,7 @@ Usage:
     python scripts/bump_version.py minor    # 0.1.0 -> 0.2.0
     python scripts/bump_version.py major    # 0.1.0 -> 1.0.0
     python scripts/bump_version.py 0.2.0    # Set specific version
+    python scripts/bump_version.py dev      # Post-release marker: 0.2.0 -> 0.2.1.dev0
 """
 
 import argparse
@@ -21,7 +22,11 @@ from pathlib import Path
 
 
 def get_current_version() -> str:
-    """Read current version from pyproject.toml."""
+    """Read current version from pyproject.toml.
+
+    Returns:
+        Current version string, including an optional `.devN` suffix.
+    """
     pyproject_path = Path("pyproject.toml")
     if not pyproject_path.exists():
         print(
@@ -30,7 +35,7 @@ def get_current_version() -> str:
         sys.exit(1)
 
     content = pyproject_path.read_text()
-    match = re.search(r'version = "(\d+\.\d+\.\d+)"', content)
+    match = re.search(r'version = "(\d+\.\d+\.\d+(?:\.dev\d+)?)"', content)
     if not match:
         print("ERROR: Could not find version in pyproject.toml")
         sys.exit(1)
@@ -39,8 +44,16 @@ def get_current_version() -> str:
 
 
 def parse_version(version: str) -> tuple[int, int, int]:
-    """Parse version string into components."""
-    parts = version.split(".")
+    """Parse version string into components.
+
+    Args:
+        version: Version string like `0.1.0` or `0.11.0.dev0`.
+
+    Returns:
+        Tuple of (major, minor, patch), ignoring any `.devN` suffix.
+    """
+    base_version = version.split(".dev")[0]
+    parts = base_version.split(".")
     if len(parts) != 3:
         print(f"ERROR: Invalid version format: {version}")
         sys.exit(1)
@@ -52,8 +65,47 @@ def parse_version(version: str) -> tuple[int, int, int]:
         sys.exit(1)
 
 
+def is_valid_version(version: str) -> bool:
+    """Check whether a version string is a valid release or dev version.
+
+    Args:
+        version: Candidate version string.
+
+    Returns:
+        True if the version matches `X.Y.Z` or `X.Y.Z.devN`.
+    """
+    return re.fullmatch(r"\d+\.\d+\.\d+(?:\.dev\d+)?", version) is not None
+
+
+def is_dev_version(version: str) -> bool:
+    """Check whether a version string carries a `.devN` suffix.
+
+    Args:
+        version: Candidate version string.
+
+    Returns:
+        True if the version matches `X.Y.Z.devN`.
+    """
+    return re.fullmatch(r"\d+\.\d+\.\d+\.dev\d+", version) is not None
+
+
 def bump_version(current: str, bump_type: str) -> str:
-    """Bump version based on type (major, minor, patch)."""
+    """Bump version based on type (major, minor, patch, dev).
+
+    The `dev` bump marks `main` as post-release without guessing the shape
+    of the next release: `X.Y.Z` becomes `X.Y.(Z+1).dev0`, the smallest
+    version newer than the tagged release. `patch` on a dev version
+    finalizes the marker (`X.Y.Z.dev0` becomes `X.Y.Z`); `minor` and
+    `major` behave as usual since they reset trailing components.
+
+    Args:
+        current: Current version string.
+        bump_type: One of `major`, `minor`, `patch`, `dev`, or a specific
+            version like `1.2.3` or `1.2.3.dev0`.
+
+    Returns:
+        New version string.
+    """
     major, minor, patch = parse_version(current)
 
     if bump_type == "major":
@@ -61,20 +113,34 @@ def bump_version(current: str, bump_type: str) -> str:
     elif bump_type == "minor":
         return f"{major}.{minor + 1}.0"
     elif bump_type == "patch":
+        if is_dev_version(current):
+            return f"{major}.{minor}.{patch}"
         return f"{major}.{minor}.{patch + 1}"
+    elif bump_type == "dev":
+        if is_dev_version(current):
+            return current
+        return f"{major}.{minor}.{patch + 1}.dev0"
     else:
         # Assume it's a specific version
-        parse_version(bump_type)  # Validate format
+        if not is_valid_version(bump_type):
+            print(f"ERROR: Invalid version format: {bump_type}")
+            sys.exit(1)
         return bump_type
 
 
 def update_pyproject(new_version: str) -> None:
-    """Update version in pyproject.toml."""
+    """Update version in pyproject.toml.
+
+    Args:
+        new_version: New version string, including an optional `.devN` suffix.
+    """
     pyproject_path = Path("pyproject.toml")
     content = pyproject_path.read_text()
 
     new_content = re.sub(
-        r'version = "\d+\.\d+\.\d+"', f'version = "{new_version}"', content
+        r'version = "\d+\.\d+\.\d+(?:\.dev\d+)?"',
+        f'version = "{new_version}"',
+        content,
     )
 
     if content == new_content:
@@ -135,13 +201,18 @@ Examples:
   %(prog)s minor           # Bump minor version (0.1.0 -> 0.2.0)
   %(prog)s major           # Bump major version (0.1.0 -> 1.0.0)
   %(prog)s 0.2.0           # Set specific version
+  %(prog)s dev             # Post-release marker (0.2.0 -> 0.2.1.dev0)
+  %(prog)s patch           # Finalize dev marker (0.2.1.dev0 -> 0.2.1)
   %(prog)s minor --tag     # Bump minor and create git tag
   %(prog)s 1.0.0 --no-git  # Only update file, don't commit
         """,
     )
     parser.add_argument(
         "bump_type",
-        help="Version bump type (major, minor, patch) or specific version (e.g., 1.2.3)",
+        help=(
+            "Version bump type (major, minor, patch, dev) "
+            "or specific version (e.g., 1.2.3)"
+        ),
     )
     parser.add_argument(
         "--tag",

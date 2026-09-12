@@ -34,6 +34,16 @@ jobs:
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
+    - name: Verify version matches git tag
+      run: |
+        TAG_VERSION="${{ steps.get-version.outputs.version }}"
+        TAG_VERSION="${TAG_VERSION#v}"
+        PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+        if [[ "${PYPROJECT_VERSION}" != "${TAG_VERSION}" ]]; then
+          echo "ERROR: Version mismatch: tag is v${TAG_VERSION} but pyproject.toml is ${PYPROJECT_VERSION}"
+          exit 1
+        fi
+
     - name: Get changelog
       id: get-changelog
       run: |
