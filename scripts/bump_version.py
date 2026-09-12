@@ -11,7 +11,7 @@ Usage:
     python scripts/bump_version.py minor    # 0.1.0 -> 0.2.0
     python scripts/bump_version.py major    # 0.1.0 -> 1.0.0
     python scripts/bump_version.py 0.2.0    # Set specific version
-    python scripts/bump_version.py 0.3.0.dev0  # Set post-release dev version
+    python scripts/bump_version.py dev      # Post-release marker: 0.2.0 -> 0.2.1.dev0
 """
 
 import argparse
@@ -77,13 +77,31 @@ def is_valid_version(version: str) -> bool:
     return re.fullmatch(r"\d+\.\d+\.\d+(?:\.dev\d+)?", version) is not None
 
 
+def is_dev_version(version: str) -> bool:
+    """Check whether a version string carries a `.devN` suffix.
+
+    Args:
+        version: Candidate version string.
+
+    Returns:
+        True if the version matches `X.Y.Z.devN`.
+    """
+    return re.fullmatch(r"\d+\.\d+\.\d+\.dev\d+", version) is not None
+
+
 def bump_version(current: str, bump_type: str) -> str:
-    """Bump version based on type (major, minor, patch).
+    """Bump version based on type (major, minor, patch, dev).
+
+    The `dev` bump marks `main` as post-release without guessing the shape
+    of the next release: `X.Y.Z` becomes `X.Y.(Z+1).dev0`, the smallest
+    version newer than the tagged release. `patch` on a dev version
+    finalizes the marker (`X.Y.Z.dev0` becomes `X.Y.Z`); `minor` and
+    `major` behave as usual since they reset trailing components.
 
     Args:
         current: Current version string.
-        bump_type: One of `major`, `minor`, `patch`, or a specific version
-            like `1.2.3` or `1.2.3.dev0`.
+        bump_type: One of `major`, `minor`, `patch`, `dev`, or a specific
+            version like `1.2.3` or `1.2.3.dev0`.
 
     Returns:
         New version string.
@@ -95,7 +113,13 @@ def bump_version(current: str, bump_type: str) -> str:
     elif bump_type == "minor":
         return f"{major}.{minor + 1}.0"
     elif bump_type == "patch":
+        if is_dev_version(current):
+            return f"{major}.{minor}.{patch}"
         return f"{major}.{minor}.{patch + 1}"
+    elif bump_type == "dev":
+        if is_dev_version(current):
+            return current
+        return f"{major}.{minor}.{patch + 1}.dev0"
     else:
         # Assume it's a specific version
         if not is_valid_version(bump_type):
@@ -177,14 +201,18 @@ Examples:
   %(prog)s minor           # Bump minor version (0.1.0 -> 0.2.0)
   %(prog)s major           # Bump major version (0.1.0 -> 1.0.0)
   %(prog)s 0.2.0           # Set specific version
-  %(prog)s 0.3.0.dev0      # Set post-release dev version
+  %(prog)s dev             # Post-release marker (0.2.0 -> 0.2.1.dev0)
+  %(prog)s patch           # Finalize dev marker (0.2.1.dev0 -> 0.2.1)
   %(prog)s minor --tag     # Bump minor and create git tag
   %(prog)s 1.0.0 --no-git  # Only update file, don't commit
         """,
     )
     parser.add_argument(
         "bump_type",
-        help="Version bump type (major, minor, patch) or specific version (e.g., 1.2.3)",
+        help=(
+            "Version bump type (major, minor, patch, dev) "
+            "or specific version (e.g., 1.2.3)"
+        ),
     )
     parser.add_argument(
         "--tag",

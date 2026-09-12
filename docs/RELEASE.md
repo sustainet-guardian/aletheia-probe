@@ -43,15 +43,17 @@ Immediately after tagging, mark `main` as post-release so source installs
 are unambiguous (issue 1108):
 
 ```bash
-# After `git push origin v$VERSION`, bump to the next dev version.
+# After `git push origin v$VERSION`, mark main as post-release.
+# This computes X.Y.(Z+1).dev0 from the tagged release, the smallest
+# version newer than it, without guessing the next release's shape.
 # CITATION.cff stays at the released version; only pyproject.toml moves.
-python scripts/bump_version.py 0.11.0.dev0  # use next minor/major + .dev0
+python scripts/bump_version.py dev
 git push origin main
 ```
 
-Any `pip install .` from `main` then reports e.g. `0.11.0.dev0`
+Any `pip install .` from `main` then reports e.g. `0.10.1.dev0`
 instead of the previous release, and `--version` appends git state
-(e.g. `0.11.0.dev0 (git v0.10.0-2-g0dbc628)`) when run from a checkout.
+(e.g. `0.10.1.dev0 (git v0.10.0-2-g0dbc628)`) when run from a checkout.
 
 ### 4. Verify (10 minutes)
 
@@ -111,7 +113,8 @@ python scripts/bump_version.py patch    # 0.1.0 -> 0.1.1
 python scripts/bump_version.py minor    # 0.1.0 -> 0.2.0
 python scripts/bump_version.py major    # 0.1.0 -> 1.0.0
 python scripts/bump_version.py 1.0.0    # Set specific version
-python scripts/bump_version.py 0.3.0.dev0  # Post-release dev version
+python scripts/bump_version.py dev      # Post-release marker (0.1.0 -> 0.1.1.dev0)
+python scripts/bump_version.py patch    # Finalize marker (0.1.1.dev0 -> 0.1.1)
 # With options
 python scripts/bump_version.py minor --tag     # Also create git tag
 python scripts/bump_version.py 1.0.0 --no-git  # Only update file
