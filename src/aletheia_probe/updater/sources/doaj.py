@@ -3,8 +3,7 @@
 
 import asyncio
 import csv
-import glob
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,11 +21,22 @@ status_logger = get_status_logger()
 
 # DOAJ has published the journal CSV under both word orderings over time:
 # the current export is named "doaj_journalcsv_<date>_<time>_utf8.csv", older
-# ones "journalcsv__doaj_<date>_<time>_utf8.csv". Accept either so a freshly
-# downloaded file works without being renamed.
-CSV_FILENAME_PATTERNS = (
+# ones "journalcsv__doaj_<date>_<time>_utf8.csv". These names are documented
+# for diagnostics only; detection is content-based (see _is_doaj_csv).
+_KNOWN_NAMING_SCHEMES = (
     "doaj_journalcsv_*.csv",
     "journalcsv__doaj_*.csv",
+)
+
+DOAJ_CSV_HEADERS = frozenset(
+    [
+        "Journal title",
+        "Journal URL",
+        "Journal ISSN (print version)",
+        "Journal EISSN (online version)",
+        "Publisher",
+        "Subjects",
+    ]
 )
 
 
@@ -34,8 +44,10 @@ class DOAJSource(DataSource):
     """Data source for DOAJ journal list (optional user-provided CSV file).
 
     The user can download the CSV from https://doaj.org/csv and place it in
-    .aletheia-probe/doaj/ in the current working directory. The file name
-    should match one of the patterns in :data:`CSV_FILENAME_PATTERNS`.
+    .aletheia-probe/doaj/ in the current working directory. Any CSV file
+    in that directory with a valid DOAJ header is detected by content,
+    regardless of filename. Known upstream naming schemes
+    (:data:`_KNOWN_NAMING_SCHEMES`) are logged for diagnostics only.
     """
 
     def __init__(self, data_dir: Path | None = None) -> None:
@@ -59,7 +71,7 @@ class DOAJSource(DataSource):
         return AssessmentType.LEGITIMATE
 
     def should_update(self) -> bool:
-        """Check if we should update (monthly for static file)."""
+        """Check if we should update (monthly or when file is modified)."""
         if not self._find_doaj_file():
             self.skip_reason = "file_not_found"
             return False
@@ -69,15 +81,46 @@ class DOAJSource(DataSource):
         if last_update is None:
             return True
 
-        # Update monthly
+        # If a newer local file was placed or modified after last sync, update immediately
+        assert self.file_path is not None
+        file_mtime = datetime.fromtimestamp(
+            self.file_path.stat().st_mtime, tz=timezone.utc
+        ).replace(tzinfo=None)
+        if file_mtime > last_update:
+            return True
+
+        # Otherwise update monthly
         if (datetime.now() - last_update).days < 30:
             self.skip_reason = "already_up_to_date"
             return False
 
         return True
 
+    def _is_doaj_csv(self, csv_path: Path) -> bool:
+        """Check whether a CSV file has a valid DOAJ header.
+
+        Args:
+            csv_path: Path to the candidate CSV file.
+
+        Returns:
+            True if the header row contains all required DOAJ column headers.
+        """
+        try:
+            with open(csv_path, newline="", encoding="utf-8-sig") as fh:
+                reader = csv.reader(fh)
+                first_row = next(reader, None)
+                if first_row:
+                    headers = {col.strip() for col in first_row}
+                    return DOAJ_CSV_HEADERS.issubset(headers)
+        except (OSError, csv.Error):
+            pass
+        return False
+
     def _find_doaj_file(self) -> bool:
         """Find the most recent DOAJ CSV file in the data directory.
+
+        Detection is content-based: any CSV file whose header validates
+        as a DOAJ export is accepted, regardless of filename.
 
         Returns:
             True if file found, False otherwise
@@ -85,29 +128,43 @@ class DOAJSource(DataSource):
         if not self.data_dir.exists():
             self.data_dir.mkdir(parents=True, exist_ok=True)
 
-        matching_files: list[str] = []
-        for pattern in CSV_FILENAME_PATTERNS:
-            matching_files.extend(glob.glob(str(self.data_dir / pattern)))
+        csv_files = sorted(p for p in self.data_dir.glob("*.csv") if p.is_file())
 
-        if not matching_files:
+        if not csv_files:
             status_logger.info(
                 f"    {self.get_name()}: No DOAJ journal list found in {self.data_dir}"
             )
             detail_logger.info(
                 f"No DOAJ journal list found in {self.data_dir}. "
                 "To use DOAJ data locally, download the CSV from "
-                '"https://doaj.org/csv" and place it in this directory. '
-                f"Accepted file names: {', '.join(CSV_FILENAME_PATTERNS)}."
+                '"https://doaj.org/csv" and place it in this directory.'
             )
             return False
 
-        # Use the most recent file
-        self.file_path = Path(
-            max(matching_files, key=lambda p: Path(p).stat().st_mtime)
-        )
-        status_logger.info(
-            f"    {self.get_name()}: Found journal list: {self.file_path.name}"
-        )
+        valid_files = [p for p in csv_files if self._is_doaj_csv(p)]
+
+        if not valid_files:
+            status_logger.info(
+                f"    {self.get_name()}: No valid DOAJ journal list found in {self.data_dir}"
+            )
+            names = ", ".join(p.name for p in csv_files)
+            detail_logger.info(
+                f"Found {len(csv_files)} CSV file(s) in {self.data_dir}, "
+                f"but none have valid DOAJ headers: {names}."
+            )
+            return False
+
+        if len(valid_files) > 1:
+            valid_files.sort(key=lambda p: p.stat().st_mtime)
+            names = ", ".join(p.name for p in valid_files)
+            detail_logger.info(
+                f"Multiple DOAJ CSVs found in {self.data_dir}: {names}. "
+                f"Using newest by modification time: {valid_files[-1].name}."
+            )
+
+        # Use the most recent file by mtime
+        self.file_path = max(valid_files, key=lambda p: p.stat().st_mtime)
+        detail_logger.info(f"DOAJSource found journal list: {self.file_path.name}")
         return True
 
     def _validate_and_normalize_issn(

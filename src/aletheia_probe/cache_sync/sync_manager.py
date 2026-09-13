@@ -531,8 +531,13 @@ class CacheSyncManager:
             )
             return await self._fetch_backend_data(backend, self.db_writer, force)
 
-        # Check if data is stale
-        if self._should_update_source(source_name) or force:
+        # Check if data is stale or if the source itself needs an update (e.g. modified local file)
+        data_source = backend.get_data_source()
+        source_wants_update = (
+            data_source.should_update() if data_source is not None else False
+        )
+
+        if self._should_update_source(source_name) or source_wants_update or force:
             self.detail_logger.info(f"Data for {backend_name} is stale, updating...")
             return await self._fetch_backend_data(backend, self.db_writer, force)
 
