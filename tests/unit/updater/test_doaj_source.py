@@ -34,9 +34,7 @@ def source(tmp_path: Path) -> DOAJSource:
     return DOAJSource(data_dir=tmp_path / "doaj")
 
 
-def _write_csv(
-    path: Path, content: str | None = None
-) -> Path:
+def _write_csv(path: Path, content: str | None = None) -> Path:
     if content is None:
         content = DOAJ_HEADER_LINE + DOAJ_SAMPLE_ROW
     path.parent.mkdir(parents=True, exist_ok=True)
