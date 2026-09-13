@@ -45,9 +45,15 @@ class DataSourceManager(CacheBase):
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO data_sources
+                INSERT INTO data_sources
                 (name, display_name, source_type, authority_level, base_url, description)
                 VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    source_type = excluded.source_type,
+                    authority_level = excluded.authority_level,
+                    base_url = excluded.base_url,
+                    description = excluded.description
             """,
                 (
                     name,
