@@ -99,26 +99,35 @@ async def test_multiple_csvs_uses_newest(source: DOAJSource) -> None:
     assert journals[0]["journal_name"] == "New Journal"
 
 
-def test_should_update_mtime_behavior(source: DOAJSource) -> None:
-    """should_update() returns True for newer files and False for older files."""
+def test_should_update_30_day_rule_and_newer_file_notice(source: DOAJSource) -> None:
+    """should_update() returns False within 30 days and logs notice if a newer file exists."""
     csv_path = _write_csv(source.data_dir / "doaj.csv")
     file_mtime = csv_path.stat().st_mtime
 
-    past_update = datetime.fromtimestamp(file_mtime - 100, tz=timezone.utc).replace(
-        tzinfo=None
-    )
-    recent_update = datetime.fromtimestamp(file_mtime + 100, tz=timezone.utc).replace(
-        tzinfo=None
-    )
+    # Last update was 5 days ago, but BEFORE file_mtime
+    recent_update_before_file = datetime.fromtimestamp(
+        file_mtime - 100, tz=timezone.utc
+    ).replace(tzinfo=None)
+
+    # Last update was 35 days ago (stale)
+    from datetime import timedelta
+
+    stale_update = datetime.now() - timedelta(days=35)
+
+    with patch("aletheia_probe.updater.sources.doaj.detail_logger") as mock_log:
+        with patch(
+            "aletheia_probe.updater.sources.doaj.DataSourceManager.get_source_last_updated",
+            return_value=recent_update_before_file,
+        ):
+            assert source.should_update() is False
+            assert source.skip_reason == "already_up_to_date"
+            assert any(
+                "Newer DOAJ CSV file found" in str(call)
+                for call in mock_log.info.call_args_list
+            )
 
     with patch(
         "aletheia_probe.updater.sources.doaj.DataSourceManager.get_source_last_updated",
-        return_value=past_update,
+        return_value=stale_update,
     ):
         assert source.should_update() is True
-
-    with patch(
-        "aletheia_probe.updater.sources.doaj.DataSourceManager.get_source_last_updated",
-        return_value=recent_update,
-    ):
-        assert source.should_update() is False

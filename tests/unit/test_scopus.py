@@ -4,7 +4,6 @@
 import os
 import tempfile
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -60,49 +59,6 @@ class TestScopusSource:
                 mock_cache_manager.get_source_last_updated.return_value = None
                 MockJournalCache.return_value = mock_cache_manager
                 assert source.should_update() is True
-
-    def test_should_update_returns_true_for_newer_file_mtime(self):
-        """Test should_update returns True when local Excel file mtime is newer than last_update."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            data_dir = Path(tmpdir)
-            test_file = data_dir / "scopus_export_2026.xlsx"
-            wb = Workbook()
-            wb.save(test_file)
-            wb.close()
-
-            source = ScopusSource(data_dir=data_dir)
-            file_mtime = test_file.stat().st_mtime
-            past_update = datetime.fromtimestamp(
-                file_mtime - 100, tz=timezone.utc
-            ).replace(tzinfo=None)
-
-            with patch(
-                "aletheia_probe.updater.sources.scopus.DataSourceManager.get_source_last_updated",
-                return_value=past_update,
-            ):
-                assert source.should_update() is True
-
-    def test_should_update_returns_false_for_older_file_mtime(self):
-        """Test should_update returns False when file is older than last_update."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            data_dir = Path(tmpdir)
-            test_file = data_dir / "scopus_export_2026.xlsx"
-            wb = Workbook()
-            wb.save(test_file)
-            wb.close()
-
-            source = ScopusSource(data_dir=data_dir)
-            file_mtime = test_file.stat().st_mtime
-            recent_update = datetime.fromtimestamp(
-                file_mtime + 100, tz=timezone.utc
-            ).replace(tzinfo=None)
-
-            with patch(
-                "aletheia_probe.updater.sources.scopus.DataSourceManager.get_source_last_updated",
-                return_value=recent_update,
-            ):
-                assert source.should_update() is False
-                assert source.skip_reason == "already_up_to_date"
 
     def test_find_scopus_file_not_found(self):
         """Test _find_scopus_file when directory doesn't exist."""

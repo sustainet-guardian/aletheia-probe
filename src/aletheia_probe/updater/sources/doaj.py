@@ -71,7 +71,7 @@ class DOAJSource(DataSource):
         return AssessmentType.LEGITIMATE
 
     def should_update(self) -> bool:
-        """Check if we should update (monthly or when file is modified)."""
+        """Check if we should update (monthly for static file)."""
         if not self._find_doaj_file():
             self.skip_reason = "file_not_found"
             return False
@@ -81,16 +81,17 @@ class DOAJSource(DataSource):
         if last_update is None:
             return True
 
-        # If a newer local file was placed or modified after last sync, update immediately
-        assert self.file_path is not None
-        file_mtime = datetime.fromtimestamp(
-            self.file_path.stat().st_mtime, tz=timezone.utc
-        ).replace(tzinfo=None)
-        if file_mtime > last_update:
-            return True
-
-        # Otherwise update monthly
+        # Update monthly
         if (datetime.now() - last_update).days < 30:
+            assert self.file_path is not None
+            file_mtime = datetime.fromtimestamp(
+                self.file_path.stat().st_mtime, tz=timezone.utc
+            ).replace(tzinfo=None)
+            if file_mtime > last_update:
+                detail_logger.info(
+                    f"Newer DOAJ CSV file found: {self.file_path.name}. "
+                    "Use 'aletheia-probe sync --force' to force update."
+                )
             self.skip_reason = "already_up_to_date"
             return False
 

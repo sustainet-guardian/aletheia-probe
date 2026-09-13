@@ -2,7 +2,8 @@
 """Scopus journal list data source (optional user-provided Excel file)."""
 
 import asyncio
-from datetime import datetime, timezone
+import glob
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,15 +20,6 @@ from ..core import DataSource
 
 detail_logger = get_detail_logger()
 status_logger = get_status_logger()
-
-
-# Scopus export files have been published under multiple naming schemes over time:
-# current and historical exports include "ext_list_*.xlsx", "*scopus*.xlsx", etc.
-SCOPUS_FILENAME_PATTERNS = (
-    "ext_list_*.xlsx",
-    "*scopus*.xlsx",
-    "scopus_*.xlsx",
-)
 
 
 class ScopusSource(DataSource):
@@ -58,7 +50,7 @@ class ScopusSource(DataSource):
         return AssessmentType.LEGITIMATE
 
     def should_update(self) -> bool:
-        """Check if we should update (monthly or when file is modified)."""
+        """Check if we should update (monthly for static file)."""
         # First check if file exists
         if not self._find_scopus_file():
             self.skip_reason = "file_not_found"
@@ -67,14 +59,6 @@ class ScopusSource(DataSource):
         data_source_manager = DataSourceManager()
         last_update = data_source_manager.get_source_last_updated(self.get_name())
         if last_update is None:
-            return True
-
-        # If a newer local file was placed or modified after last sync, update immediately
-        assert self.file_path is not None
-        file_mtime = datetime.fromtimestamp(
-            self.file_path.stat().st_mtime, tz=timezone.utc
-        ).replace(tzinfo=None)
-        if file_mtime > last_update:
             return True
 
         # Update monthly
@@ -93,11 +77,9 @@ class ScopusSource(DataSource):
         if not self.data_dir.exists():
             self.data_dir.mkdir(parents=True, exist_ok=True)
 
-        matching_files: list[Path] = []
-        for pattern in SCOPUS_FILENAME_PATTERNS:
-            matching_files.extend(self.data_dir.glob(pattern))
-
-        matching_files = sorted(set(matching_files))
+        # Look for ext_list_*.xlsx files
+        pattern = str(self.data_dir / "ext_list_*.xlsx")
+        matching_files = glob.glob(pattern)
 
         if not matching_files:
             status_logger.info(
@@ -111,17 +93,13 @@ class ScopusSource(DataSource):
             )
             return False
 
-        if len(matching_files) > 1:
-            matching_files.sort(key=lambda p: p.stat().st_mtime)
-            names = ", ".join(p.name for p in matching_files)
-            detail_logger.info(
-                f"Multiple Scopus Excel files found in {self.data_dir}: {names}. "
-                f"Using newest by modification time: {matching_files[-1].name}."
-            )
-
         # Use the most recent file
-        self.file_path = max(matching_files, key=lambda p: p.stat().st_mtime)
-        detail_logger.info(f"ScopusSource found journal list: {self.file_path.name}")
+        self.file_path = Path(
+            max(matching_files, key=lambda p: Path(p).stat().st_mtime)
+        )
+        status_logger.info(
+            f"    {self.get_name()}: Found journal list: {self.file_path.name}"
+        )
         return True
 
     def _find_column_indices(self, headers: list[Any]) -> dict[str, int]:
