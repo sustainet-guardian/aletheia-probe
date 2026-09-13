@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No unreleased changes yet.
 
+### Fixed
+
+- Fixed `register_data_source` orphaning a source's update history on re-sync: it used `INSERT OR REPLACE`, which deleted and recreated the row on a name conflict, handing it a new `AUTOINCREMENT` id and orphaning every `source_updates` row written under the old one — silently losing update history and defeating the freshness check (#1112).
+
+### Notes
+
+- Databases synced before the #1112 fix may retain a small number of orphaned `source_updates` (and possibly `source_assessments`) rows from sources that were re-synced under the old code. These rows are invisible to every query — all reads join through `data_sources.id` — so they're harmless, not incorrect; the update history they represented is unrecoverable and no action is needed.
+
 ## [0.10.0] - 2026-09-10
 
 ### Added
