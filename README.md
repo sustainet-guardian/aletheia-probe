@@ -319,7 +319,7 @@ To cite this work, please use the following BibTeX entry:
 ## Funding Acknowledgment
 
 This work was funded by the Federal Ministry of Research, Technology
-and Space (BMFTR) in Germany under the grant number 16KIS2251 of the
+and Space (BMFTR) in Germany under the grant number 16KIS2240 of the
 SUSTAINET-guardian project. The views expressed are those of the author.
 
 ## License
